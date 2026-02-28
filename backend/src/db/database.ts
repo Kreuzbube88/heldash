@@ -29,16 +29,37 @@ export function initDb(dataDir: string): Database.Database {
 
 function runMigrations(db: Database.Database) {
   // Add icon_url column to existing databases (safe to run multiple times)
-  try {
-    db.exec('ALTER TABLE services ADD COLUMN icon_url TEXT')
-  } catch {
-    // Column already exists – ignore
+  const migrations: string[] = [
+    'ALTER TABLE services ADD COLUMN icon_url TEXT',
+    'ALTER TABLE users ADD COLUMN email TEXT',
+    'ALTER TABLE users ADD COLUMN first_name TEXT',
+    'ALTER TABLE users ADD COLUMN last_name TEXT',
+    'ALTER TABLE users ADD COLUMN user_group_id TEXT REFERENCES user_groups(id) ON DELETE SET NULL',
+    'ALTER TABLE users ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1',
+    'ALTER TABLE users ADD COLUMN updated_at TEXT NOT NULL DEFAULT (datetime(\'now\'))',
+  ]
+  for (const sql of migrations) {
+    try {
+      db.exec(sql)
+    } catch {
+      // Column already exists – ignore
+    }
   }
+
+  // Ensure default system user groups exist
+  db.prepare(`
+    INSERT OR IGNORE INTO user_groups (id, name, description, is_system)
+    VALUES ('grp_admin', 'Admin', 'Full unrestricted access', 1)
+  `).run()
+  db.prepare(`
+    INSERT OR IGNORE INTO user_groups (id, name, description, is_system)
+    VALUES ('grp_guest', 'Guest', 'Read-only access', 1)
+  `).run()
 }
 
 function applySchema(db: Database.Database) {
   db.exec(`
-    -- Dashboard groups / categories
+    -- App groups / categories
     CREATE TABLE IF NOT EXISTS groups (
       id          TEXT PRIMARY KEY,
       name        TEXT NOT NULL,
@@ -77,16 +98,31 @@ function applySchema(db: Database.Database) {
       updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
-    -- Future: Users table (prepared but not active)
+    -- User groups for access control (separate from app groups)
+    CREATE TABLE IF NOT EXISTS user_groups (
+      id          TEXT PRIMARY KEY,
+      name        TEXT NOT NULL,
+      description TEXT,
+      is_system   INTEGER NOT NULL DEFAULT 0,
+      created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    -- Users table
     CREATE TABLE IF NOT EXISTS users (
       id            TEXT PRIMARY KEY,
       username      TEXT UNIQUE NOT NULL,
       password_hash TEXT,
       role          TEXT NOT NULL DEFAULT 'user',
+      email         TEXT,
+      first_name    TEXT,
+      last_name     TEXT,
+      user_group_id TEXT REFERENCES user_groups(id) ON DELETE SET NULL,
+      is_active     INTEGER NOT NULL DEFAULT 1,
       oidc_subject  TEXT,
       oidc_provider TEXT,
       last_login    TEXT,
-      created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+      created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
     -- Insert default settings if not exist
@@ -94,7 +130,7 @@ function applySchema(db: Database.Database) {
       ('theme_mode', '"dark"'),
       ('theme_accent', '"cyan"'),
       ('dashboard_title', '"HELDASH"'),
-      ('auth_enabled', 'false'),
-      ('auth_mode', '"none"');
+      ('auth_enabled', 'true'),
+      ('auth_mode', '"local"');
   `)
 }

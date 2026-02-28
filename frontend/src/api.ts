@@ -1,10 +1,11 @@
-import type { Service, Group, Settings } from './types'
+import type { Service, Group, Settings, AuthUser, UserRecord, UserGroup } from './types'
 
 const BASE = '/api'
 
 async function req<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     headers: { 'Content-Type': 'application/json', ...options?.headers },
+    credentials: 'include', // send cookies with every request
     ...options,
   })
   if (!res.ok) {
@@ -38,6 +39,29 @@ export const api = {
   settings: {
     get: () => req<Settings>('/settings'),
     update: (data: Partial<Settings>) => req<Settings>('/settings', { method: 'PATCH', body: JSON.stringify(data) }),
+  },
+
+  auth: {
+    status: () => req<{ needsSetup: boolean; user: AuthUser | null }>('/auth/status'),
+    setup: (data: { username: string; password: string; first_name: string; last_name: string; email?: string }) =>
+      req<AuthUser>('/auth/setup', { method: 'POST', body: JSON.stringify(data) }),
+    login: (username: string, password: string) =>
+      req<AuthUser>('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
+    logout: () => req<{ ok: boolean }>('/auth/logout', { method: 'POST', body: JSON.stringify({}) }),
+    me: () => req<AuthUser>('/auth/me'),
+  },
+
+  users: {
+    list: () => req<UserRecord[]>('/users'),
+    create: (data: Partial<UserRecord> & { password: string }) => req<UserRecord>('/users', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: Partial<UserRecord> & { password?: string }) => req<UserRecord>(`/users/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    delete: (id: string) => req<void>(`/users/${id}`, { method: 'DELETE' }),
+  },
+
+  userGroups: {
+    list: () => req<UserGroup[]>('/user-groups'),
+    create: (data: { name: string; description?: string }) => req<UserGroup>('/user-groups', { method: 'POST', body: JSON.stringify(data) }),
+    delete: (id: string) => req<void>(`/user-groups/${id}`, { method: 'DELETE' }),
   },
 
   health: () => req<{ status: string; version: string; uptime: number }>('/health'),

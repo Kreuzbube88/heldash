@@ -92,7 +92,7 @@ export async function servicesRoutes(app: FastifyInstance) {
   })
 
   // POST /api/services
-  app.post<{ Body: CreateServiceBody }>('/api/services', async (req, reply) => {
+  app.post<{ Body: CreateServiceBody }>('/api/services', { preHandler: [app.authenticate] }, async (req, reply) => {
     const { name, url, icon, description, group_id, tags, check_enabled, check_url, check_interval, position_x, position_y, width, height } = req.body
     if (!name || !url) return reply.status(400).send({ error: 'name and url are required' })
 
@@ -115,7 +115,7 @@ export async function servicesRoutes(app: FastifyInstance) {
   })
 
   // PATCH /api/services/:id
-  app.patch<{ Params: { id: string }; Body: PatchServiceBody }>('/api/services/:id', async (req, reply) => {
+  app.patch<{ Params: { id: string }; Body: PatchServiceBody }>('/api/services/:id', { preHandler: [app.authenticate] }, async (req, reply) => {
     const existing = db.prepare('SELECT * FROM services WHERE id = ?').get(req.params.id) as ServiceRow | undefined
     if (!existing) return reply.status(404).send({ error: 'Not found' })
 
@@ -143,7 +143,7 @@ export async function servicesRoutes(app: FastifyInstance) {
   })
 
   // DELETE /api/services/:id
-  app.delete<{ Params: { id: string } }>('/api/services/:id', async (req, reply) => {
+  app.delete<{ Params: { id: string } }>('/api/services/:id', { preHandler: [app.authenticate] }, async (req, reply) => {
     const existing = db.prepare('SELECT * FROM services WHERE id = ?').get(req.params.id) as ServiceRow | undefined
     if (!existing) return reply.status(404).send({ error: 'Not found' })
     // Delete icon file if present
@@ -190,6 +190,7 @@ export async function servicesRoutes(app: FastifyInstance) {
   // POST /api/services/:id/icon - upload icon image (base64 JSON)
   app.post<{ Params: { id: string }; Body: UploadIconBody }>(
     '/api/services/:id/icon',
+    { preHandler: [app.authenticate] },
     async (req, reply) => {
       const service = db.prepare('SELECT * FROM services WHERE id = ?').get(req.params.id) as ServiceRow | undefined
       if (!service) return reply.status(404).send({ error: 'Not found' })

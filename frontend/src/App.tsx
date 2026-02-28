@@ -5,18 +5,21 @@ import { Topbar } from './components/Topbar'
 import { Dashboard } from './pages/Dashboard'
 import { ServicesPage } from './pages/ServicesPage'
 import { SettingsPage } from './pages/Settings'
+import { SetupPage } from './pages/SetupPage'
 import { ServiceModal } from './components/ServiceModal'
+import { LoginModal } from './components/LoginModal'
 import type { Service } from './types'
 
 export default function App() {
-  const { loadAll, checkAllServices, settings } = useStore()
+  const { loadAll, checkAllServices, checkAuth, settings, authReady, needsSetup } = useStore()
   const [page, setPage] = useState('dashboard')
   const [showModal, setShowModal] = useState(false)
+  const [showLogin, setShowLogin] = useState(false)
   const [editService, setEditService] = useState<Service | null>(null)
   const [checking, setChecking] = useState(false)
 
   useEffect(() => {
-    loadAll()
+    checkAuth().then(() => loadAll())
   }, [])
 
   // Apply theme from settings
@@ -51,6 +54,20 @@ export default function App() {
     setEditService(null)
   }
 
+  // Loading state while auth is being checked
+  if (!authReady) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
+        <div className="spinner" style={{ width: 32, height: 32, borderWidth: 3 }} />
+      </div>
+    )
+  }
+
+  // First-time setup
+  if (needsSetup) {
+    return <SetupPage />
+  }
+
   return (
     <>
       {/* Ambient background orbs */}
@@ -68,6 +85,7 @@ export default function App() {
             onAddService={() => setShowModal(true)}
             onCheckAll={handleCheckAll}
             checking={checking}
+            onLogin={() => setShowLogin(true)}
           />
           <div className="content-area">
             <div className="content-inner">
@@ -95,6 +113,10 @@ export default function App() {
           service={editService}
           onClose={handleCloseModal}
         />
+      )}
+
+      {showLogin && (
+        <LoginModal onClose={() => setShowLogin(false)} />
       )}
     </>
   )

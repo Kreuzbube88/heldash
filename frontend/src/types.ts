@@ -40,3 +40,31 @@ export interface Settings {
   auth_mode: 'none' | 'local' | 'oidc'
   [key: string]: any
 }
+
+export interface AuthUser {
+  sub: string
+  username: string
+  role: 'admin' | 'user'
+  groupId: string | null
+}
+
+export interface UserRecord {
+  id: string
+  username: string
+  email: string | null
+  first_name: string | null
+  last_name: string | null
+  role: string
+  user_group_id: string | null
+  is_active: boolean
+  last_login: string | null
+  created_at: string
+}
+
+export interface UserGroup {
+  id: string
+  name: string
+  description: string | null
+  is_system: boolean
+  created_at: string
+}

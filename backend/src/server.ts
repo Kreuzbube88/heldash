@@ -1,18 +1,23 @@
-import Fastify from 'fastify'
+import Fastify, { FastifyRequest, FastifyReply } from 'fastify'
 import cors from '@fastify/cors'
 import helmet from '@fastify/helmet'
 import staticFiles from '@fastify/static'
+import fastifyCookie from '@fastify/cookie'
+import fastifyJwt from '@fastify/jwt'
 import path from 'path'
 import fs from 'fs'
 import { initDb } from './db/database'
 import { servicesRoutes } from './routes/services'
 import { groupsRoutes } from './routes/groups'
 import { settingsRoutes } from './routes/settings'
+import { authRoutes } from './routes/auth'
+import { usersRoutes } from './routes/users'
 
 const PORT = parseInt(process.env.PORT ?? '8282', 10)
 const DATA_DIR = process.env.DATA_DIR ?? '/data'
 const LOG_LEVEL = process.env.LOG_LEVEL ?? 'info'
 const NODE_ENV = process.env.NODE_ENV ?? 'development'
+const SECRET_KEY = process.env.SECRET_KEY ?? 'heldash-dev-secret-change-in-production'
 
 async function start() {
   // Init DB
@@ -27,6 +32,10 @@ async function start() {
     },
   })
 
+  if (SECRET_KEY === 'heldash-dev-secret-change-in-production') {
+    app.log.warn('SECRET_KEY is not set — using insecure default. Set SECRET_KEY env var in production!')
+  }
+
   // Security headers
   await app.register(helmet, {
     contentSecurityPolicy: false, // Managed by nginx-proxy-manager in production
@@ -35,6 +44,38 @@ async function start() {
   // CORS
   await app.register(cors, {
     origin: NODE_ENV === 'development' ? true : false,
+  })
+
+  // Cookies (must be registered before JWT)
+  await app.register(fastifyCookie)
+
+  // JWT
+  await app.register(fastifyJwt, {
+    secret: SECRET_KEY,
+    cookie: {
+      cookieName: 'auth_token',
+      signed: false,
+    },
+  })
+
+  // Auth decorators (available on all routes registered after this point)
+  app.decorate('authenticate', async (req: FastifyRequest, reply: FastifyReply) => {
+    try {
+      await req.jwtVerify()
+    } catch {
+      reply.status(401).send({ error: 'Unauthorized' })
+    }
+  })
+
+  app.decorate('requireAdmin', async (req: FastifyRequest, reply: FastifyReply) => {
+    try {
+      await req.jwtVerify()
+      if (req.user.role !== 'admin') {
+        reply.status(403).send({ error: 'Forbidden' })
+      }
+    } catch {
+      reply.status(401).send({ error: 'Unauthorized' })
+    }
   })
 
   // Override JSON parser to accept empty bodies (prevents FST_ERR_CTP_EMPTY_JSON_BODY)
@@ -82,6 +123,8 @@ async function start() {
   }))
 
   // API routes
+  await app.register(authRoutes)
+  await app.register(usersRoutes)
   await app.register(servicesRoutes)
   await app.register(groupsRoutes)
   await app.register(settingsRoutes)

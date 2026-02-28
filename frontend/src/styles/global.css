@@ -259,10 +259,10 @@ body {
 
 /* ─── Sidebar Nav ─────────────────────────────────────────────────────────── */
 
-/* Status counter block */
+/* Status counter block — side by side */
 .sidebar-status {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 6px;
   padding: 10px 12px;
   margin-bottom: 4px;
@@ -271,9 +271,17 @@ body {
 .sidebar-status-pill {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  gap: 6px;
   font-size: 12px;
   font-weight: 500;
+  flex: 1;
+  padding: 6px 10px;
+  border-radius: var(--radius-md);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .sidebar-status-pill.online { color: var(--status-online); }
@@ -293,7 +301,6 @@ body {
 
 @media (max-width: 768px) {
   .sidebar-status-pill span:last-child { display: none; }
-  .sidebar-status { align-items: center; }
 }
 
 .sidebar-logo {
@@ -776,4 +783,64 @@ select.form-input option {
   .services-grid {
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   }
+}
+
+/* ─── Setup Page ──────────────────────────────────────────────────────────── */
+
+.setup-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--bg-base);
+}
+
+.setup-card {
+  width: 100%;
+  max-width: 460px;
+  padding: 36px;
+  border-radius: var(--radius-xl);
+}
+
+.setup-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.setup-logo-icon {
+  font-size: 28px;
+  color: var(--accent);
+  line-height: 1;
+}
+
+.setup-logo-text {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--text-primary);
+}
+
+.setup-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+}
+
+.setup-subtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 24px;
+}
+
+.setup-error {
+  font-size: 13px;
+  color: var(--status-offline);
+  padding: 8px 12px;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: var(--radius-md);
 }

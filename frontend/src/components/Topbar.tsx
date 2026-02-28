@@ -1,4 +1,4 @@
-import { Sun, Moon, RefreshCw, Plus } from 'lucide-react'
+import { Sun, Moon, RefreshCw, Plus, LogIn, LogOut } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import type { ThemeAccent } from '../types'
 
@@ -6,6 +6,7 @@ interface Props {
   onAddService: () => void
   onCheckAll: () => void
   checking: boolean
+  onLogin: () => void
 }
 
 const ACCENTS: { value: ThemeAccent; label: string; color: string }[] = [
@@ -14,8 +15,8 @@ const ACCENTS: { value: ThemeAccent; label: string; color: string }[] = [
   { value: 'magenta', label: 'Magenta', color: '#e879f9' },
 ]
 
-export function Topbar({ onAddService, onCheckAll, checking }: Props) {
-  const { settings, setThemeMode, setThemeAccent } = useStore()
+export function Topbar({ onAddService, onCheckAll, checking, onLogin }: Props) {
+  const { settings, setThemeMode, setThemeAccent, isAuthenticated, isAdmin, authUser, logout } = useStore()
   const mode = settings?.theme_mode ?? 'dark'
   const accent = settings?.theme_accent ?? 'cyan'
 
@@ -68,10 +69,32 @@ export function Topbar({ onAddService, onCheckAll, checking }: Props) {
           }
         </button>
 
-        <button className="btn btn-primary" onClick={onAddService} style={{ gap: 6 }}>
-          <Plus size={16} />
-          Add App
-        </button>
+        {isAdmin && (
+          <button className="btn btn-primary" onClick={onAddService} style={{ gap: 6 }}>
+            <Plus size={16} />
+            Add App
+          </button>
+        )}
+
+        {isAuthenticated ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500 }}>
+              {authUser?.username}
+            </span>
+            <button
+              className="btn btn-ghost btn-icon"
+              data-tooltip="Logout"
+              onClick={logout}
+            >
+              <LogOut size={16} />
+            </button>
+          </div>
+        ) : (
+          <button className="btn btn-ghost" onClick={onLogin} style={{ gap: 6 }}>
+            <LogIn size={16} />
+            Login
+          </button>
+        )}
       </div>
     </header>
   )

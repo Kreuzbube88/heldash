@@ -25,8 +25,8 @@ interface Props {
 }
 
 // ── Sortable Service Card ────────────────────────────────────────────────────
-function SortableServiceCard({ service, onEdit }: { service: Service; onEdit: (s: Service) => void }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: service.id })
+function SortableServiceCard({ service, onEdit, isAdmin }: { service: Service; onEdit: (s: Service) => void; isAdmin: boolean }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: service.id, disabled: !isAdmin })
   const [showHandle, setShowHandle] = useState(false)
 
   return (
@@ -42,29 +42,30 @@ function SortableServiceCard({ service, onEdit }: { service: Service; onEdit: (s
       onMouseLeave={() => setShowHandle(false)}
     >
       <ServiceCard service={service} onEdit={onEdit} />
-      {/* Drag handle — positioned inside the wrapper, not clipped by ServiceCard's overflow:hidden */}
-      <div
-        {...attributes}
-        {...listeners}
-        style={{
-          position: 'absolute',
-          left: 6,
-          bottom: 6,
-          opacity: showHandle && !isDragging ? 0.5 : 0,
-          transition: 'opacity 150ms ease',
-          cursor: isDragging ? 'grabbing' : 'grab',
-          color: 'var(--text-muted)',
-          zIndex: 10,
-          width: 18,
-          height: 18,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          borderRadius: 4,
-        }}
-      >
-        <GripVertical size={11} />
-      </div>
+      {isAdmin && (
+        <div
+          {...attributes}
+          {...listeners}
+          style={{
+            position: 'absolute',
+            left: 6,
+            bottom: 6,
+            opacity: showHandle && !isDragging ? 0.5 : 0,
+            transition: 'opacity 150ms ease',
+            cursor: isDragging ? 'grabbing' : 'grab',
+            color: 'var(--text-muted)',
+            zIndex: 10,
+            width: 18,
+            height: 18,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: 4,
+          }}
+        >
+          <GripVertical size={11} />
+        </div>
+      )}
     </div>
   )
 }
@@ -75,13 +76,15 @@ function SortableGroupSection({
   services,
   onEdit,
   onReorder,
+  isAdmin,
 }: {
   group: Group
   services: Service[]
   onEdit: (s: Service) => void
   onReorder: (groupId: string | null, orderedIds: string[]) => void
+  isAdmin: boolean
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: group.id })
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: group.id, disabled: !isAdmin })
   const [showHandle, setShowHandle] = useState(false)
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
@@ -109,21 +112,23 @@ function SortableGroupSection({
       onMouseLeave={() => setShowHandle(false)}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-        <div
-          {...attributes}
-          {...listeners}
-          style={{
-            cursor: isDragging ? 'grabbing' : 'grab',
-            opacity: showHandle ? 0.5 : 0,
-            transition: 'opacity 150ms ease',
-            color: 'var(--text-muted)',
-            display: 'flex',
-            alignItems: 'center',
-            flexShrink: 0,
-          }}
-        >
-          <GripVertical size={14} />
-        </div>
+        {isAdmin && (
+          <div
+            {...attributes}
+            {...listeners}
+            style={{
+              cursor: isDragging ? 'grabbing' : 'grab',
+              opacity: showHandle ? 0.5 : 0,
+              transition: 'opacity 150ms ease',
+              color: 'var(--text-muted)',
+              display: 'flex',
+              alignItems: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <GripVertical size={14} />
+          </div>
+        )}
         {group.icon && <span>{group.icon}</span>}
         <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
           {group.name}
@@ -134,7 +139,7 @@ function SortableGroupSection({
         <SortableContext items={services.map(s => s.id)} strategy={rectSortingStrategy}>
           <div className="services-grid">
             {services.map(s => (
-              <SortableServiceCard key={s.id} service={s} onEdit={onEdit} />
+              <SortableServiceCard key={s.id} service={s} onEdit={onEdit} isAdmin={isAdmin} />
             ))}
           </div>
         </SortableContext>
@@ -145,7 +150,7 @@ function SortableGroupSection({
 
 // ── Dashboard ────────────────────────────────────────────────────────────────
 export function Dashboard({ onEdit }: Props) {
-  const { services, groups, reorderGroups, reorderServices } = useStore()
+  const { services, groups, reorderGroups, reorderServices, isAdmin } = useStore()
   const [filter, setFilter] = useState('')
 
   const filtered = services.filter(s =>
@@ -217,6 +222,7 @@ export function Dashboard({ onEdit }: Props) {
                 services={gs}
                 onEdit={onEdit}
                 onReorder={reorderServices}
+                isAdmin={isAdmin}
               />
             ))}
           </SortableContext>
@@ -238,7 +244,7 @@ export function Dashboard({ onEdit }: Props) {
             <SortableContext items={ungrouped.map(s => s.id)} strategy={rectSortingStrategy}>
               <div className="services-grid">
                 {ungrouped.map(s => (
-                  <SortableServiceCard key={s.id} service={s} onEdit={onEdit} />
+                  <SortableServiceCard key={s.id} service={s} onEdit={onEdit} isAdmin={isAdmin} />
                 ))}
               </div>
             </SortableContext>

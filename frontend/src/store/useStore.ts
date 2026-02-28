@@ -1,16 +1,27 @@
 import { create } from 'zustand'
-import type { Service, Group, Settings, ThemeMode, ThemeAccent } from '../types'
+import type { Service, Group, Settings, ThemeMode, ThemeAccent, AuthUser, UserRecord, UserGroup } from '../types'
 import { api } from '../api'
 
 interface AppState {
-  // Data
+  // App data
   services: Service[]
   groups: Group[]
   settings: Settings | null
   loading: boolean
   error: string | null
 
-  // Actions
+  // Auth state
+  authUser: AuthUser | null
+  isAuthenticated: boolean
+  isAdmin: boolean
+  needsSetup: boolean
+  authReady: boolean
+
+  // User management data
+  users: UserRecord[]
+  userGroups: UserGroup[]
+
+  // App data actions
   loadAll: () => Promise<void>
   loadServices: () => Promise<void>
   createService: (data: Partial<Service>) => Promise<string>
@@ -31,6 +42,20 @@ interface AppState {
   updateSettings: (data: Partial<Settings>) => Promise<void>
   setThemeMode: (mode: ThemeMode) => Promise<void>
   setThemeAccent: (accent: ThemeAccent) => Promise<void>
+
+  // Auth actions
+  checkAuth: () => Promise<void>
+  login: (username: string, password: string) => Promise<void>
+  logout: () => Promise<void>
+  setupAdmin: (data: { username: string; password: string; first_name: string; last_name: string; email?: string }) => Promise<void>
+
+  // User management actions (admin-only)
+  loadUsers: () => Promise<void>
+  createUser: (data: Partial<UserRecord> & { password: string }) => Promise<void>
+  deleteUser: (id: string) => Promise<void>
+  loadUserGroups: () => Promise<void>
+  createUserGroup: (data: { name: string; description?: string }) => Promise<void>
+  deleteUserGroup: (id: string) => Promise<void>
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -40,6 +65,17 @@ export const useStore = create<AppState>((set, get) => ({
   loading: false,
   error: null,
 
+  authUser: null,
+  isAuthenticated: false,
+  isAdmin: false,
+  needsSetup: false,
+  authReady: false,
+
+  users: [],
+  userGroups: [],
+
+  // ── App data ────────────────────────────────────────────────────────────────
+
   loadAll: async () => {
     set({ loading: true, error: null })
     try {
@@ -48,7 +84,6 @@ export const useStore = create<AppState>((set, get) => ({
         api.groups.list(),
         api.settings.get(),
       ])
-      // Parse tags JSON string from SQLite
       const parsedServices = services.map(s => ({
         ...s,
         tags: typeof s.tags === 'string' ? JSON.parse(s.tags) : s.tags,
@@ -69,7 +104,6 @@ export const useStore = create<AppState>((set, get) => ({
     const svc = await api.services.create(data)
     const parsed = { ...svc, tags: typeof svc.tags === 'string' ? JSON.parse(svc.tags) : svc.tags }
     set(state => ({ services: [...state.services, parsed] }))
-    // Trigger an immediate status check so the card shows online/offline right away
     if (svc.check_enabled) {
       get().checkService(parsed.id).catch(() => { /* ignore */ })
     }
@@ -181,6 +215,79 @@ export const useStore = create<AppState>((set, get) => ({
 
   setThemeAccent: async (accent) => {
     await get().updateSettings({ theme_accent: accent })
+  },
+
+  // ── Auth ────────────────────────────────────────────────────────────────────
+
+  checkAuth: async () => {
+    try {
+      const { needsSetup, user } = await api.auth.status()
+      set({
+        needsSetup,
+        authUser: user,
+        isAuthenticated: !!user,
+        isAdmin: user?.role === 'admin',
+        authReady: true,
+      })
+    } catch {
+      set({ authReady: true, needsSetup: false, isAuthenticated: false, isAdmin: false })
+    }
+  },
+
+  login: async (username, password) => {
+    const user = await api.auth.login(username, password)
+    set({
+      authUser: user as any,
+      isAuthenticated: true,
+      isAdmin: (user as any).role === 'admin',
+    })
+  },
+
+  logout: async () => {
+    await api.auth.logout()
+    set({ authUser: null, isAuthenticated: false, isAdmin: false })
+  },
+
+  setupAdmin: async (data) => {
+    const user = await api.auth.setup(data)
+    set({
+      authUser: user as any,
+      isAuthenticated: true,
+      isAdmin: true,
+      needsSetup: false,
+    })
+  },
+
+  // ── User management ─────────────────────────────────────────────────────────
+
+  loadUsers: async () => {
+    const users = await api.users.list()
+    set({ users })
+  },
+
+  createUser: async (data) => {
+    const user = await api.users.create(data)
+    set(state => ({ users: [...state.users, user] }))
+  },
+
+  deleteUser: async (id) => {
+    await api.users.delete(id)
+    set(state => ({ users: state.users.filter(u => u.id !== id) }))
+  },
+
+  loadUserGroups: async () => {
+    const userGroups = await api.userGroups.list()
+    set({ userGroups })
+  },
+
+  createUserGroup: async (data) => {
+    const group = await api.userGroups.create(data)
+    set(state => ({ userGroups: [...state.userGroups, group] }))
+  },
+
+  deleteUserGroup: async (id) => {
+    await api.userGroups.delete(id)
+    set(state => ({ userGroups: state.userGroups.filter(g => g.id !== id) }))
   },
 }))
 

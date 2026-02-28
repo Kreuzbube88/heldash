@@ -30,7 +30,7 @@ export async function groupsRoutes(app: FastifyInstance) {
     return db.prepare('SELECT * FROM groups ORDER BY position').all()
   })
 
-  app.post<{ Body: CreateGroupBody }>('/api/groups', async (req, reply) => {
+  app.post<{ Body: CreateGroupBody }>('/api/groups', { preHandler: [app.authenticate] }, async (req, reply) => {
     const { name, icon, position } = req.body
     if (!name) return reply.status(400).send({ error: 'name is required' })
     const id = nanoid()
@@ -38,7 +38,7 @@ export async function groupsRoutes(app: FastifyInstance) {
     return reply.status(201).send(db.prepare('SELECT * FROM groups WHERE id = ?').get(id))
   })
 
-  app.patch<{ Params: { id: string }; Body: PatchGroupBody }>('/api/groups/:id', async (req, reply) => {
+  app.patch<{ Params: { id: string }; Body: PatchGroupBody }>('/api/groups/:id', { preHandler: [app.authenticate] }, async (req, reply) => {
     const existing = db.prepare('SELECT * FROM groups WHERE id = ?').get(req.params.id) as GroupRow | undefined
     if (!existing) return reply.status(404).send({ error: 'Not found' })
     const { name, icon, position } = req.body
@@ -47,7 +47,7 @@ export async function groupsRoutes(app: FastifyInstance) {
     return db.prepare('SELECT * FROM groups WHERE id = ?').get(req.params.id)
   })
 
-  app.delete<{ Params: { id: string } }>('/api/groups/:id', async (req, reply) => {
+  app.delete<{ Params: { id: string } }>('/api/groups/:id', { preHandler: [app.authenticate] }, async (req, reply) => {
     db.prepare('DELETE FROM groups WHERE id = ?').run(req.params.id)
     return reply.status(204).send()
   })

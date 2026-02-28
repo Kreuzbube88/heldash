@@ -152,7 +152,7 @@ export async function usersRoutes(app: FastifyInstance) {
 
   // ── User-group endpoints (admin-only) ──────────────────────────────────────
 
-  // GET /api/user-groups — includes hidden_service_ids per group
+  // GET /api/user-groups — includes hidden_service_ids and hidden_arr_ids per group
   app.get('/api/user-groups', { preHandler: [app.requireAdmin] }, async () => {
     const groups = db.prepare('SELECT * FROM user_groups ORDER BY is_system DESC, name').all() as UserGroupRow[]
     return groups.map(g => ({
@@ -161,6 +161,9 @@ export async function usersRoutes(app: FastifyInstance) {
       hidden_service_ids: (db.prepare(
         'SELECT service_id FROM group_service_visibility WHERE group_id = ?'
       ).all(g.id) as { service_id: string }[]).map(r => r.service_id),
+      hidden_arr_ids: (db.prepare(
+        'SELECT instance_id FROM group_arr_visibility WHERE group_id = ?'
+      ).all(g.id) as { instance_id: string }[]).map(r => r.instance_id),
     }))
   })
 

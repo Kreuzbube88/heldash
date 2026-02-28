@@ -1,0 +1,401 @@
+import { useEffect, useState } from 'react'
+import { useStore } from '../store/useStore'
+import { useArrStore } from '../store/useArrStore'
+import { Plus, Pencil, Trash2, Check, X, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react'
+import type { ArrInstance, ArrStats, ArrStatus, ArrQueueItem, ArrCalendarItem, SonarrCalendarItem } from '../types/arr'
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function fmtBytes(bytes: number): string {
+  if (bytes === 0) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  const i = Math.floor(Math.log(bytes) / Math.log(1024))
+  return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`
+}
+
+function fmtPct(done: number, total: number): string {
+  if (total === 0) return '0%'
+  return `${Math.round(((total - done) / total) * 100)}%`
+}
+
+const TYPE_LABELS: Record<string, string> = { radarr: 'Radarr', sonarr: 'Sonarr', prowlarr: 'Prowlarr' }
+const TYPE_COLORS: Record<string, string> = { radarr: '#f59e0b', sonarr: '#3b82f6', prowlarr: '#8b5cf6' }
+
+// ── Queue list ────────────────────────────────────────────────────────────────
+function QueueList({ items }: { items: ArrQueueItem[] }) {
+  if (items.length === 0) return <p style={{ fontSize: 12, color: 'var(--text-muted)', padding: '8px 0' }}>Queue is empty.</p>
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {items.map(item => (
+        <div key={item.id} className="glass" style={{ padding: '8px 12px', borderRadius: 'var(--radius-md)', fontSize: 12 }}>
+          <div style={{ fontWeight: 500, marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</div>
+          <div style={{ display: 'flex', gap: 12, color: 'var(--text-muted)' }}>
+            <span>{fmtPct(item.sizeleft, item.size)} done</span>
+            <span>{fmtBytes(item.sizeleft)} left</span>
+            <span style={{ textTransform: 'capitalize' }}>{item.protocol}</span>
+            <span style={{ color: item.status === 'downloading' ? 'var(--status-online)' : 'var(--text-muted)', textTransform: 'capitalize' }}>{item.status}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ── Calendar list ─────────────────────────────────────────────────────────────
+function CalendarList({ items, type }: { items: ArrCalendarItem[]; type: string }) {
+  if (items.length === 0) return <p style={{ fontSize: 12, color: 'var(--text-muted)', padding: '8px 0' }}>Nothing upcoming this week.</p>
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {items.map(item => {
+        const isSonarr = type === 'sonarr'
+        const sonarrItem = item as SonarrCalendarItem
+        const title = isSonarr
+          ? `${sonarrItem.series.title} — S${String(sonarrItem.seasonNumber).padStart(2, '0')}E${String(sonarrItem.episodeNumber).padStart(2, '0')}`
+          : (item as any).title
+        const date = isSonarr ? sonarrItem.airDateUtc : ((item as any).inCinemas ?? (item as any).digitalRelease)
+        return (
+          <div key={item.id} className="glass" style={{ padding: '8px 12px', borderRadius: 'var(--radius-md)', fontSize: 12, display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</span>
+            <span style={{ color: 'var(--text-muted)', flexShrink: 0 }}>
+              {date ? new Date(date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' }) : '—'}
+            </span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ── Instance card ─────────────────────────────────────────────────────────────
+function InstanceCard({ instance }: { instance: ArrInstance }) {
+  const { stats, statuses, queues, calendars, indexers, loadQueue, loadCalendar, loadIndexers } = useArrStore()
+  const [expanded, setExpanded] = useState<'queue' | 'calendar' | 'indexers' | null>(null)
+  const [loadingExpand, setLoadingExpand] = useState(false)
+
+  const status: ArrStatus | undefined = statuses[instance.id]
+  const stat: ArrStats | undefined = stats[instance.id]
+  const online = status?.online ?? null
+
+  const handleExpand = async (section: 'queue' | 'calendar' | 'indexers') => {
+    if (expanded === section) { setExpanded(null); return }
+    setExpanded(section)
+    if (section === 'queue' && !queues[instance.id]) {
+      setLoadingExpand(true)
+      await loadQueue(instance.id).catch(() => {})
+      setLoadingExpand(false)
+    }
+    if (section === 'calendar' && !calendars[instance.id]) {
+      setLoadingExpand(true)
+      await loadCalendar(instance.id).catch(() => {})
+      setLoadingExpand(false)
+    }
+    if (section === 'indexers' && !indexers[instance.id]) {
+      setLoadingExpand(true)
+      await loadIndexers(instance.id).catch(() => {})
+      setLoadingExpand(false)
+    }
+  }
+
+  return (
+    <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{
+          fontSize: 10, fontWeight: 700, letterSpacing: 1, padding: '2px 8px',
+          borderRadius: 'var(--radius-sm)', background: `${TYPE_COLORS[instance.type]}22`,
+          color: TYPE_COLORS[instance.type], border: `1px solid ${TYPE_COLORS[instance.type]}44`,
+          textTransform: 'uppercase',
+        }}>
+          {TYPE_LABELS[instance.type]}
+        </span>
+        <span style={{ fontWeight: 600, fontSize: 15, flex: 1 }}>{instance.name}</span>
+        <span style={{
+          width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+          background: online === null ? 'var(--text-muted)' : online ? 'var(--status-online)' : 'var(--status-offline)',
+          boxShadow: online ? '0 0 6px var(--status-online)' : 'none',
+        }} />
+      </div>
+
+      {/* Version */}
+      {status?.online && status.version && (
+        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+          {status.instanceName ?? TYPE_LABELS[instance.type]} v{status.version}
+        </div>
+      )}
+
+      {/* Stats */}
+      {stat && (
+        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+          {stat.type === 'radarr' && (
+            <>
+              <Stat label="Movies" value={stat.movieCount} />
+              <Stat label="Monitored" value={stat.monitored} />
+              <Stat label="On Disk" value={stat.withFile} />
+              <Stat label="Size" value={fmtBytes(stat.sizeOnDisk)} />
+            </>
+          )}
+          {stat.type === 'sonarr' && (
+            <>
+              <Stat label="Series" value={stat.seriesCount} />
+              <Stat label="Monitored" value={stat.monitored} />
+              <Stat label="Episodes" value={stat.episodeCount} />
+              <Stat label="Size" value={fmtBytes(stat.sizeOnDisk)} />
+            </>
+          )}
+          {stat.type === 'prowlarr' && (
+            <>
+              <Stat label="Indexers" value={stat.indexerCount} />
+              <Stat label="Enabled" value={stat.enabledIndexers} />
+              <Stat label="Grabs 24h" value={stat.grabCount24h} />
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Expand buttons */}
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        {instance.type !== 'prowlarr' && (
+          <>
+            <ExpandBtn label="Queue" active={expanded === 'queue'} onClick={() => handleExpand('queue')} />
+            <ExpandBtn label="Calendar" active={expanded === 'calendar'} onClick={() => handleExpand('calendar')} />
+          </>
+        )}
+        {instance.type === 'prowlarr' && (
+          <ExpandBtn label="Indexers" active={expanded === 'indexers'} onClick={() => handleExpand('indexers')} />
+        )}
+      </div>
+
+      {/* Expanded content */}
+      {expanded && (
+        <div>
+          {loadingExpand
+            ? <div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
+            : expanded === 'queue' && queues[instance.id]
+              ? <QueueList items={queues[instance.id]!.records} />
+              : expanded === 'calendar' && calendars[instance.id]
+                ? <CalendarList items={calendars[instance.id]!} type={instance.type} />
+                : expanded === 'indexers' && indexers[instance.id]
+                  ? <IndexerList items={indexers[instance.id]!} />
+                  : null
+          }
+        </div>
+      )}
+    </div>
+  )
+}
+
+function Stat({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <span style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{label}</span>
+      <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)' }}>{value}</span>
+    </div>
+  )
+}
+
+function ExpandBtn({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      className="btn btn-ghost btn-sm"
+      onClick={onClick}
+      style={{ fontSize: 11, gap: 4, padding: '4px 8px', color: active ? 'var(--accent)' : 'var(--text-secondary)' }}
+    >
+      {label}
+      {active ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+    </button>
+  )
+}
+
+function IndexerList({ items }: { items: import('../types/arr').ProwlarrIndexer[] }) {
+  if (items.length === 0) return <p style={{ fontSize: 12, color: 'var(--text-muted)', padding: '8px 0' }}>No indexers.</p>
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      {items.map(idx => (
+        <div key={idx.id} className="glass" style={{ padding: '6px 12px', borderRadius: 'var(--radius-md)', fontSize: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: idx.enable ? 'var(--status-online)' : 'var(--status-offline)', flexShrink: 0 }} />
+          <span style={{ flex: 1 }}>{idx.name}</span>
+          <span style={{ color: 'var(--text-muted)', textTransform: 'capitalize', fontSize: 11 }}>{idx.protocol}</span>
+          <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>{idx.privacy}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ── Admin: instance edit form ─────────────────────────────────────────────────
+function InstanceForm({
+  initial,
+  onSave,
+  onCancel,
+}: {
+  initial?: Partial<ArrInstance> & { api_key?: string }
+  onSave: (data: { type: string; name: string; url: string; api_key: string }) => Promise<void>
+  onCancel: () => void
+}) {
+  const [type, setType] = useState(initial?.type ?? 'radarr')
+  const [name, setName] = useState(initial?.name ?? '')
+  const [url, setUrl] = useState(initial?.url ?? '')
+  const [apiKey, setApiKey] = useState('')
+  const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const handleSave = async () => {
+    setError('')
+    if (!name.trim()) return setError('Name required')
+    if (!url.trim()) return setError('URL required')
+    if (!apiKey.trim() && !initial?.id) return setError('API Key required')
+    setSaving(true)
+    try {
+      await onSave({ type, name: name.trim(), url: url.trim(), api_key: apiKey.trim() })
+    } catch (e: any) {
+      setError(e.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="glass" style={{ padding: 16, borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <select className="form-input" value={type} onChange={e => setType(e.target.value)} style={{ fontSize: 13, padding: '5px 8px', flexShrink: 0 }} disabled={!!initial?.id}>
+          <option value="radarr">Radarr</option>
+          <option value="sonarr">Sonarr</option>
+          <option value="prowlarr">Prowlarr</option>
+        </select>
+        <input className="form-input" placeholder="Name *" value={name} onChange={e => setName(e.target.value)} style={{ flex: 1, minWidth: 100 }} />
+      </div>
+      <input className="form-input" placeholder="URL (e.g. http://192.168.1.100:7878) *" value={url} onChange={e => setUrl(e.target.value)} />
+      <input className="form-input" type="password" placeholder={initial?.id ? 'API Key (leave empty to keep)' : 'API Key *'} value={apiKey} onChange={e => setApiKey(e.target.value)} />
+      {error && <div style={{ fontSize: 12, color: 'var(--status-offline)' }}>{error}</div>}
+      <div style={{ display: 'flex', gap: 6 }}>
+        <button className="btn btn-primary btn-sm" onClick={handleSave} disabled={saving} style={{ fontSize: 12, gap: 4 }}>
+          <Check size={12} /> {saving ? 'Saving…' : 'Save'}
+        </button>
+        <button className="btn btn-ghost btn-sm" onClick={onCancel} style={{ fontSize: 12, gap: 4 }}>
+          <X size={12} /> Cancel
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ── Main page ─────────────────────────────────────────────────────────────────
+export function MediaPage() {
+  const { isAdmin } = useStore()
+  const { instances, loadInstances, loadAllStats, createInstance, updateInstance, deleteInstance } = useArrStore()
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
+
+  useEffect(() => {
+    loadInstances().then(() => loadAllStats()).catch(() => {})
+  }, [])
+
+  const handleRefresh = async () => {
+    setRefreshing(true)
+    await loadAllStats().catch(() => {})
+    setRefreshing(false)
+  }
+
+  const handleCreate = async (data: { type: string; name: string; url: string; api_key: string }) => {
+    await createInstance(data)
+    setShowAddForm(false)
+    await loadAllStats()
+  }
+
+  const handleUpdate = async (id: string, data: { type: string; name: string; url: string; api_key: string }) => {
+    await updateInstance(id, { name: data.name, url: data.url, ...(data.api_key ? { api_key: data.api_key } : {}) })
+    setEditingId(null)
+  }
+
+  // Group instances by type
+  const byType: Record<string, ArrInstance[]> = {}
+  for (const inst of instances) {
+    if (!byType[inst.type]) byType[inst.type] = []
+    byType[inst.type].push(inst)
+  }
+  const typeOrder: ('radarr' | 'sonarr' | 'prowlarr')[] = ['radarr', 'sonarr', 'prowlarr']
+
+  if (instances.length === 0 && !isAdmin) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
+        <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No media instances configured.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <h2 style={{ fontSize: 18, fontWeight: 600, flex: 1 }}>Media</h2>
+        <button className="btn btn-ghost btn-icon" data-tooltip="Refresh stats" onClick={handleRefresh} disabled={refreshing}>
+          {refreshing
+            ? <div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
+            : <RefreshCw size={16} />
+          }
+        </button>
+      </div>
+
+      {/* Instance cards grouped by type */}
+      {typeOrder.map(type => {
+        const group = byType[type]
+        if (!group?.length) return null
+        return (
+          <section key={type}>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: TYPE_COLORS[type], marginBottom: 12 }}>
+              {TYPE_LABELS[type]}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
+              {group.map(inst => (
+                <div key={inst.id}>
+                  {editingId === inst.id
+                    ? <InstanceForm
+                        initial={inst}
+                        onSave={(data) => handleUpdate(inst.id, data)}
+                        onCancel={() => setEditingId(null)}
+                      />
+                    : (
+                      <div style={{ position: 'relative' }}>
+                        <InstanceCard instance={inst} />
+                        {isAdmin && (
+                          <div style={{ position: 'absolute', top: 14, right: 14, display: 'flex', gap: 4 }}>
+                            <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setEditingId(inst.id)} style={{ width: 26, height: 26, padding: 4 }}>
+                              <Pencil size={11} />
+                            </button>
+                            <button
+                              className="btn btn-danger btn-icon btn-sm"
+                              onClick={() => { if (confirm(`Delete "${inst.name}"?`)) deleteInstance(inst.id) }}
+                              style={{ width: 26, height: 26, padding: 4 }}
+                            >
+                              <Trash2 size={11} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  }
+                </div>
+              ))}
+            </div>
+          </section>
+        )
+      })}
+
+      {/* Admin: add instance */}
+      {isAdmin && (
+        <section className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 24 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Add Instance</div>
+          {showAddForm
+            ? <InstanceForm onSave={handleCreate} onCancel={() => setShowAddForm(false)} />
+            : (
+              <button className="btn btn-primary" onClick={() => setShowAddForm(true)} style={{ gap: 6 }}>
+                <Plus size={14} /> Add Instance
+              </button>
+            )
+          }
+        </section>
+      )}
+    </div>
+  )
+}

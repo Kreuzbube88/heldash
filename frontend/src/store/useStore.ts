@@ -58,6 +58,7 @@ interface AppState {
   createUserGroup: (data: { name: string; description?: string }) => Promise<void>
   deleteUserGroup: (id: string) => Promise<void>
   updateGroupVisibility: (groupId: string, hiddenServiceIds: string[]) => Promise<void>
+  updateArrVisibility: (groupId: string, hiddenInstanceIds: string[]) => Promise<void>
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -318,7 +319,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   createUserGroup: async (data) => {
     const group = await api.userGroups.create(data)
-    set(state => ({ userGroups: [...state.userGroups, group] }))
+    set(state => ({ userGroups: [...state.userGroups, { ...group, hidden_arr_ids: [] }] }))
   },
 
   deleteUserGroup: async (id) => {
@@ -331,6 +332,15 @@ export const useStore = create<AppState>((set, get) => ({
     set(state => ({
       userGroups: state.userGroups.map(g =>
         g.id === groupId ? { ...g, hidden_service_ids: hiddenServiceIds } : g
+      ),
+    }))
+  },
+
+  updateArrVisibility: async (groupId, hiddenInstanceIds) => {
+    await api.arr.instances.updateVisibility(groupId, hiddenInstanceIds)
+    set(state => ({
+      userGroups: state.userGroups.map(g =>
+        g.id === groupId ? { ...g, hidden_arr_ids: hiddenInstanceIds } : g
       ),
     }))
   },

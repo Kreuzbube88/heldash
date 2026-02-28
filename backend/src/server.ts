@@ -12,6 +12,7 @@ import { groupsRoutes } from './routes/groups'
 import { settingsRoutes } from './routes/settings'
 import { authRoutes } from './routes/auth'
 import { usersRoutes } from './routes/users'
+import { arrRoutes } from './routes/arr'
 
 const PORT = parseInt(process.env.PORT ?? '8282', 10)
 const DATA_DIR = process.env.DATA_DIR ?? '/data'
@@ -127,6 +128,7 @@ async function start() {
   await app.register(usersRoutes)
   await app.register(servicesRoutes)
   await app.register(groupsRoutes)
+  await app.register(arrRoutes)
   await app.register(settingsRoutes)
 
   // SPA fallback – serve index.html for all non-API routes

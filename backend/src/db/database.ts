@@ -136,6 +136,26 @@ function applySchema(db: Database.Database) {
       PRIMARY KEY (group_id, service_id)
     );
 
+    -- *arr media instances (Radarr / Sonarr / Prowlarr)
+    CREATE TABLE IF NOT EXISTS arr_instances (
+      id          TEXT PRIMARY KEY,
+      type        TEXT NOT NULL,
+      name        TEXT NOT NULL,
+      url         TEXT NOT NULL,
+      api_key     TEXT NOT NULL,
+      enabled     INTEGER NOT NULL DEFAULT 1,
+      position    INTEGER NOT NULL DEFAULT 0,
+      created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    -- *arr instance visibility per user group (presence = hidden)
+    CREATE TABLE IF NOT EXISTS group_arr_visibility (
+      group_id    TEXT NOT NULL,
+      instance_id TEXT NOT NULL,
+      PRIMARY KEY (group_id, instance_id)
+    );
+
     -- Insert default settings if not exist
     INSERT OR IGNORE INTO settings (key, value) VALUES
       ('theme_mode', '"dark"'),

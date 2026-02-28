@@ -5,6 +5,7 @@ import { Topbar } from './components/Topbar'
 import { Dashboard } from './pages/Dashboard'
 import { ServicesPage } from './pages/ServicesPage'
 import { SettingsPage } from './pages/Settings'
+import { MediaPage } from './pages/MediaPage'
 import { SetupPage } from './pages/SetupPage'
 import { ServiceModal } from './components/ServiceModal'
 import { LoginModal } from './components/LoginModal'
@@ -99,6 +100,7 @@ export default function App() {
               {page === 'dashboard' && <Dashboard onEdit={handleEditService} />}
               {page === 'settings' && <SettingsPage />}
               {page === 'services' && <ServicesPage onEdit={handleEditService} />}
+              {page === 'media' && <MediaPage />}
               {page === 'about' && (
                 <div style={{ display: 'flex', justifyContent: 'center' }}>
                   <div className="glass" style={{ padding: 32, borderRadius: 'var(--radius-xl)', maxWidth: 400, width: '100%', textAlign: 'center' }}>

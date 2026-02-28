@@ -67,4 +67,5 @@ export interface UserGroup {
   is_system: boolean
   created_at: string
   hidden_service_ids: string[]
+  hidden_arr_ids: string[]
 }

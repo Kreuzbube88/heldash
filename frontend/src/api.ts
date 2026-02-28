@@ -1,4 +1,5 @@
 import type { Service, Group, Settings, AuthUser, UserRecord, UserGroup } from './types'
+import type { ArrInstance, ArrStatus, ArrStats, ArrQueueResponse, ArrCalendarItem, ProwlarrIndexer } from './types/arr'
 
 const BASE = '/api'
 
@@ -69,6 +70,27 @@ export const api = {
         method: 'PUT',
         body: JSON.stringify({ hidden_service_ids: hiddenServiceIds }),
       }),
+  },
+
+  arr: {
+    instances: {
+      list: () => req<ArrInstance[]>('/arr/instances'),
+      create: (data: { type: string; name: string; url: string; api_key: string; enabled?: boolean; position?: number }) =>
+        req<ArrInstance>('/arr/instances', { method: 'POST', body: JSON.stringify(data) }),
+      update: (id: string, data: { name?: string; url?: string; api_key?: string; enabled?: boolean; position?: number }) =>
+        req<ArrInstance>(`/arr/instances/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+      delete: (id: string) => req<void>(`/arr/instances/${id}`, { method: 'DELETE' }),
+      updateVisibility: (groupId: string, hiddenInstanceIds: string[]) =>
+        req<{ ok: boolean; hidden_instance_ids: string[] }>(`/arr/groups/${groupId}/visibility`, {
+          method: 'PUT',
+          body: JSON.stringify({ hidden_instance_ids: hiddenInstanceIds }),
+        }),
+    },
+    status: (id: string) => req<ArrStatus>(`/arr/${id}/status`),
+    stats: (id: string) => req<ArrStats>(`/arr/${id}/stats`),
+    queue: (id: string) => req<ArrQueueResponse>(`/arr/${id}/queue`),
+    calendar: (id: string) => req<ArrCalendarItem[]>(`/arr/${id}/calendar`),
+    indexers: (id: string) => req<ProwlarrIndexer[]>(`/arr/${id}/indexers`),
   },
 
   health: () => req<{ status: string; version: string; uptime: number }>('/health'),

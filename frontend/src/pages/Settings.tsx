@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useStore } from '../store/useStore'
+import { useArrStore } from '../store/useArrStore'
 import { Plus, Trash2, Users, Shield, Pencil, X, Check, Eye, EyeOff } from 'lucide-react'
 import type { UserRecord, UserGroup, Service } from '../types'
+import type { ArrInstance } from '../types/arr'
 
 // ── Inline user edit form ─────────────────────────────────────────────────────
 function UserEditRow({
@@ -88,88 +90,98 @@ function UserEditRow({
   )
 }
 
-// ── Per-group app visibility editor ───────────────────────────────────────────
+// ── Reusable visibility checklist ─────────────────────────────────────────────
+function VisibilityChecklist({
+  label,
+  items,
+  hiddenIds,
+  onSave,
+}: {
+  label: string
+  items: { id: string; name: string; icon?: string | null; icon_url?: string | null }[]
+  hiddenIds: string[]
+  onSave: (hiddenIds: string[]) => Promise<void>
+}) {
+  const [hidden, setHidden] = useState<Set<string>>(new Set(hiddenIds))
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => { setHidden(new Set(hiddenIds)) }, [hiddenIds.join(',')])
+
+  const toggle = (id: string) => setHidden(prev => {
+    const next = new Set(prev)
+    next.has(id) ? next.delete(id) : next.add(id)
+    return next
+  })
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 }}>{label}</div>
+      {items.length === 0
+        ? <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>None configured yet.</span>
+        : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            {items.map(item => {
+              const visible = !hidden.has(item.id)
+              return (
+                <label key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer', userSelect: 'none' }}>
+                  <input type="checkbox" checked={visible} onChange={() => toggle(item.id)} style={{ accentColor: 'var(--accent)', width: 14, height: 14 }} />
+                  {item.icon_url
+                    ? <img src={item.icon_url} alt="" style={{ width: 16, height: 16, objectFit: 'contain', borderRadius: 3, flexShrink: 0 }} />
+                    : item.icon ? <span style={{ fontSize: 14, lineHeight: 1 }}>{item.icon}</span> : null
+                  }
+                  <span style={{ color: visible ? 'var(--text-primary)' : 'var(--text-muted)' }}>{item.name}</span>
+                  {visible
+                    ? <Eye size={11} style={{ color: 'var(--status-online)', marginLeft: 'auto' }} />
+                    : <EyeOff size={11} style={{ color: 'var(--text-muted)', marginLeft: 'auto' }} />
+                  }
+                </label>
+              )
+            })}
+          </div>
+        )
+      }
+      <button className="btn btn-primary btn-sm" onClick={async () => { setSaving(true); try { await onSave([...hidden]) } finally { setSaving(false) } }} disabled={saving} style={{ alignSelf: 'flex-start', fontSize: 12, marginTop: 2 }}>
+        <Check size={12} /> {saving ? 'Saving…' : 'Save'}
+      </button>
+    </div>
+  )
+}
+
+// ── Per-group visibility editor (Apps + Media) ────────────────────────────────
 function GroupVisibilityEditor({
   group,
   services,
-  onSave,
+  arrInstances,
+  onSaveApps,
+  onSaveArr,
 }: {
   group: UserGroup
   services: Service[]
-  onSave: (hiddenIds: string[]) => Promise<void>
+  arrInstances: ArrInstance[]
+  onSaveApps: (hiddenIds: string[]) => Promise<void>
+  onSaveArr: (hiddenIds: string[]) => Promise<void>
 }) {
-  const [hidden, setHidden] = useState<Set<string>>(new Set(group.hidden_service_ids))
-  const [saving, setSaving] = useState(false)
-
-  // Keep in sync if group prop changes
-  useEffect(() => {
-    setHidden(new Set(group.hidden_service_ids))
-  }, [group.hidden_service_ids.join(',')])
-
-  const toggle = (id: string) => {
-    setHidden(prev => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
-
-  const handleSave = async () => {
-    setSaving(true)
-    try {
-      await onSave([...hidden])
-    } finally {
-      setSaving(false)
-    }
-  }
+  const [tab, setTab] = useState<'apps' | 'media'>('apps')
 
   return (
-    <div style={{ padding: '10px 14px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 }}>
-        App Visibility
+    <div style={{ padding: '10px 14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {/* Tab switcher */}
+      <div style={{ display: 'flex', gap: 4 }}>
+        {(['apps', 'media'] as const).map(t => (
+          <button
+            key={t}
+            className="btn btn-ghost btn-sm"
+            onClick={() => setTab(t)}
+            style={{ fontSize: 11, padding: '3px 10px', textTransform: 'capitalize', color: tab === t ? 'var(--accent)' : 'var(--text-muted)', borderBottom: tab === t ? '2px solid var(--accent)' : '2px solid transparent', borderRadius: 0 }}
+          >
+            {t === 'apps' ? 'Apps' : 'Media'}
+          </button>
+        ))}
       </div>
-      {services.length === 0 ? (
-        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>No apps added yet.</span>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-          {services.map(s => {
-            const visible = !hidden.has(s.id)
-            return (
-              <label
-                key={s.id}
-                style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer', userSelect: 'none' }}
-              >
-                <input
-                  type="checkbox"
-                  checked={visible}
-                  onChange={() => toggle(s.id)}
-                  style={{ accentColor: 'var(--accent)', width: 14, height: 14 }}
-                />
-                {s.icon_url
-                  ? <img src={s.icon_url} alt="" style={{ width: 16, height: 16, objectFit: 'contain', borderRadius: 3, flexShrink: 0 }} />
-                  : s.icon
-                    ? <span style={{ fontSize: 14, lineHeight: 1 }}>{s.icon}</span>
-                    : null
-                }
-                <span style={{ color: visible ? 'var(--text-primary)' : 'var(--text-muted)' }}>{s.name}</span>
-                {visible
-                  ? <Eye size={11} style={{ color: 'var(--status-online)', marginLeft: 'auto' }} />
-                  : <EyeOff size={11} style={{ color: 'var(--text-muted)', marginLeft: 'auto' }} />
-                }
-              </label>
-            )
-          })}
-        </div>
-      )}
-      <button
-        className="btn btn-primary btn-sm"
-        onClick={handleSave}
-        disabled={saving}
-        style={{ alignSelf: 'flex-start', fontSize: 12, marginTop: 4 }}
-      >
-        <Check size={12} /> {saving ? 'Saving…' : 'Save'}
-      </button>
+      {tab === 'apps'
+        ? <VisibilityChecklist label="App Visibility" items={services} hiddenIds={group.hidden_service_ids} onSave={onSaveApps} />
+        : <VisibilityChecklist label="Media Visibility" items={arrInstances.map(i => ({ id: i.id, name: i.name }))} hiddenIds={group.hidden_arr_ids} onSave={onSaveArr} />
+      }
     </div>
   )
 }
@@ -181,8 +193,9 @@ export function SettingsPage() {
     services,
     isAdmin, authUser,
     users, loadUsers, createUser, updateUser, deleteUser,
-    userGroups, loadUserGroups, createUserGroup, deleteUserGroup, updateGroupVisibility,
+    userGroups, loadUserGroups, createUserGroup, deleteUserGroup, updateGroupVisibility, updateArrVisibility,
   } = useStore()
+  const { instances: arrInstances } = useArrStore()
 
   const [title, setTitle] = useState(settings?.dashboard_title ?? 'HELDASH')
   const [newGroup, setNewGroup] = useState('')
@@ -489,7 +502,9 @@ export function SettingsPage() {
                     <GroupVisibilityEditor
                       group={g}
                       services={services}
-                      onSave={(hiddenIds) => updateGroupVisibility(g.id, hiddenIds)}
+                      arrInstances={arrInstances}
+                      onSaveApps={(hiddenIds) => updateGroupVisibility(g.id, hiddenIds)}
+                      onSaveArr={(hiddenIds) => updateArrVisibility(g.id, hiddenIds)}
                     />
                   </div>
                 )}

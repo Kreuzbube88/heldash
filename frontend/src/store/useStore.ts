@@ -64,7 +64,12 @@ export const useStore = create<AppState>((set, get) => ({
 
   createService: async (data) => {
     const svc = await api.services.create(data)
-    set(state => ({ services: [...state.services, { ...svc, tags: typeof svc.tags === 'string' ? JSON.parse(svc.tags) : svc.tags }] }))
+    const parsed = { ...svc, tags: typeof svc.tags === 'string' ? JSON.parse(svc.tags) : svc.tags }
+    set(state => ({ services: [...state.services, parsed] }))
+    // Trigger an immediate status check so the card shows online/offline right away
+    if (svc.check_enabled) {
+      get().checkService(parsed.id).catch(() => { /* ignore */ })
+    }
   },
 
   updateService: async (id, data) => {

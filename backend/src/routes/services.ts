@@ -1,7 +1,14 @@
 import { FastifyInstance } from 'fastify'
 import { getDb } from '../db/database'
 import { nanoid } from 'nanoid'
-import { request } from 'undici'
+import { request, Agent } from 'undici'
+
+// Reusable agent: accepts self-signed TLS certs (common in homelabs), 5s timeout
+const pingAgent = new Agent({
+  headersTimeout: 5_000,
+  bodyTimeout: 5_000,
+  connect: { rejectUnauthorized: false },
+})
 
 export async function servicesRoutes(app: FastifyInstance) {
   const db = getDb()
@@ -83,7 +90,9 @@ export async function servicesRoutes(app: FastifyInstance) {
     if (!service) return reply.status(404).send({ error: 'Not found' })
 
     const checkUrl = service.check_url || service.url
+    app.log.debug({ checkUrl }, 'Pinging service')
     const status = await pingService(checkUrl)
+    app.log.debug({ checkUrl, status }, 'Ping result')
 
     db.prepare('UPDATE services SET last_status = ?, last_checked = datetime(\'now\') WHERE id = ?')
       .run(status, req.params.id)
@@ -111,12 +120,13 @@ async function pingService(url: string): Promise<string> {
   try {
     const res = await request(url, {
       method: 'GET',
-      headersTimeout: 5000,
-      bodyTimeout: 5000,
+      dispatcher: pingAgent,
     })
     const status = res.statusCode < 500 ? 'online' : 'offline'
-    // Consume body to release the socket back to the connection pool
-    try { await res.body.text() } catch { /* ignore body read errors */ }
+    // Drain response body to release the socket back to the connection pool
+    try {
+      for await (const _ of res.body) { /* drain */ }
+    } catch { /* ignore body read errors */ }
     return status
   } catch {
     return 'offline'

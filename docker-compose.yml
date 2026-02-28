@@ -1,0 +1,29 @@
+services:
+  heldash:
+    image: ghcr.io/kreuzbube88/heldash:latest
+    container_name: heldash
+    restart: unless-stopped
+    ports:
+      - "8282:8282"
+    volumes:
+      - /mnt/cache/appdata/heldash:/data
+    environment:
+      # ── Core ──────────────────────────────────────────────
+      - NODE_ENV=production
+      - PORT=8282
+      - DATA_DIR=/data
+      - LOG_LEVEL=info         # debug | info | warn | error
+
+      # ── Security ─────────────────────────────────────────
+      # Generate with: openssl rand -hex 32
+      - SECRET_KEY=CHANGE_ME_GENERATE_A_RANDOM_SECRET
+
+      # ── Auth (Phase 2 - leave empty for now) ─────────────
+      # - OIDC_ISSUER=https://auth.yourdomain.com
+      # - OIDC_CLIENT_ID=heldash
+      # - OIDC_CLIENT_SECRET=your_secret
+      # - OIDC_REDIRECT_URI=https://heldash.yourdomain.com/auth/callback
+
+      # ── Proxy / Network ───────────────────────────────────
+      # - TRUST_PROXY=true     # Enable when behind nginx-proxy-manager
+      # - BASE_URL=https://heldash.yourdomain.com

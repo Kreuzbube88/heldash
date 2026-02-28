@@ -54,7 +54,6 @@ export interface UserRecord {
   email: string | null
   first_name: string | null
   last_name: string | null
-  role: string
   user_group_id: string | null
   is_active: boolean
   last_login: string | null
@@ -67,4 +66,5 @@ export interface UserGroup {
   description: string | null
   is_system: boolean
   created_at: string
+  hidden_service_ids: string[]
 }

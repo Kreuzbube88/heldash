@@ -53,8 +53,10 @@ export const api = {
 
   users: {
     list: () => req<UserRecord[]>('/users'),
-    create: (data: Partial<UserRecord> & { password: string }) => req<UserRecord>('/users', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: string, data: Partial<UserRecord> & { password?: string }) => req<UserRecord>(`/users/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    create: (data: Partial<UserRecord> & { password: string; user_group_id?: string }) =>
+      req<UserRecord>('/users', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: Partial<UserRecord> & { password?: string }) =>
+      req<UserRecord>(`/users/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     delete: (id: string) => req<void>(`/users/${id}`, { method: 'DELETE' }),
   },
 
@@ -62,6 +64,11 @@ export const api = {
     list: () => req<UserGroup[]>('/user-groups'),
     create: (data: { name: string; description?: string }) => req<UserGroup>('/user-groups', { method: 'POST', body: JSON.stringify(data) }),
     delete: (id: string) => req<void>(`/user-groups/${id}`, { method: 'DELETE' }),
+    updateVisibility: (id: string, hiddenServiceIds: string[]) =>
+      req<{ ok: boolean; hidden_service_ids: string[] }>(`/user-groups/${id}/visibility`, {
+        method: 'PUT',
+        body: JSON.stringify({ hidden_service_ids: hiddenServiceIds }),
+      }),
   },
 
   health: () => req<{ status: string; version: string; uptime: number }>('/health'),

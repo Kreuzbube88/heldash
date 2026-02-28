@@ -51,12 +51,13 @@ interface AppState {
 
   // User management actions (admin-only)
   loadUsers: () => Promise<void>
-  createUser: (data: Partial<UserRecord> & { password: string }) => Promise<void>
+  createUser: (data: Partial<UserRecord> & { password: string; user_group_id?: string }) => Promise<void>
   updateUser: (id: string, data: Partial<UserRecord> & { password?: string }) => Promise<void>
   deleteUser: (id: string) => Promise<void>
   loadUserGroups: () => Promise<void>
   createUserGroup: (data: { name: string; description?: string }) => Promise<void>
   deleteUserGroup: (id: string) => Promise<void>
+  updateGroupVisibility: (groupId: string, hiddenServiceIds: string[]) => Promise<void>
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -294,6 +295,15 @@ export const useStore = create<AppState>((set, get) => ({
   deleteUserGroup: async (id) => {
     await api.userGroups.delete(id)
     set(state => ({ userGroups: state.userGroups.filter(g => g.id !== id) }))
+  },
+
+  updateGroupVisibility: async (groupId, hiddenServiceIds) => {
+    await api.userGroups.updateVisibility(groupId, hiddenServiceIds)
+    set(state => ({
+      userGroups: state.userGroups.map(g =>
+        g.id === groupId ? { ...g, hidden_service_ids: hiddenServiceIds } : g
+      ),
+    }))
   },
 }))
 

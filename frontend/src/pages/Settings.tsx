@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useStore } from '../store/useStore'
-import { Plus, Trash2, Users, Shield, Pencil, X, Check } from 'lucide-react'
-import type { UserRecord, UserGroup } from '../types'
+import { Plus, Trash2, Users, Shield, Pencil, X, Check, Eye, EyeOff } from 'lucide-react'
+import type { UserRecord, UserGroup, Service } from '../types'
 
 // ── Inline user edit form ─────────────────────────────────────────────────────
 function UserEditRow({
@@ -14,10 +14,9 @@ function UserEditRow({
   user: UserRecord
   userGroups: UserGroup[]
   isSelf: boolean
-  onSave: (data: { role: string; user_group_id: string | null; is_active: boolean; password?: string }) => Promise<void>
+  onSave: (data: { user_group_id: string | null; is_active: boolean; password?: string }) => Promise<void>
   onCancel: () => void
 }) {
-  const [role, setRole] = useState(user.role)
   const [groupId, setGroupId] = useState(user.user_group_id ?? '')
   const [isActive, setIsActive] = useState(user.is_active)
   const [password, setPassword] = useState('')
@@ -30,7 +29,6 @@ function UserEditRow({
     setSaving(true)
     try {
       await onSave({
-        role,
         user_group_id: groupId || null,
         is_active: isActive,
         ...(password ? { password } : {}),
@@ -45,16 +43,9 @@ function UserEditRow({
   return (
     <div className="glass" style={{ padding: '12px 14px', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <label className="form-label" style={{ fontSize: 11 }}>Role</label>
-          <select className="form-input" value={role} onChange={e => setRole(e.target.value)} style={{ fontSize: 13, padding: '5px 8px' }} disabled={isSelf}>
-            <option value="user">User</option>
-            <option value="admin">Admin</option>
-          </select>
-        </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, minWidth: 120 }}>
-          <label className="form-label" style={{ fontSize: 11 }}>User Group</label>
-          <select className="form-input" value={groupId} onChange={e => setGroupId(e.target.value)} style={{ fontSize: 13, padding: '5px 8px' }}>
+          <label className="form-label" style={{ fontSize: 11 }}>Group</label>
+          <select className="form-input" value={groupId} onChange={e => setGroupId(e.target.value)} style={{ fontSize: 13, padding: '5px 8px' }} disabled={isSelf}>
             <option value="">— no group —</option>
             {userGroups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
           </select>
@@ -97,13 +88,100 @@ function UserEditRow({
   )
 }
 
+// ── Per-group app visibility editor ───────────────────────────────────────────
+function GroupVisibilityEditor({
+  group,
+  services,
+  onSave,
+}: {
+  group: UserGroup
+  services: Service[]
+  onSave: (hiddenIds: string[]) => Promise<void>
+}) {
+  const [hidden, setHidden] = useState<Set<string>>(new Set(group.hidden_service_ids))
+  const [saving, setSaving] = useState(false)
+
+  // Keep in sync if group prop changes
+  useEffect(() => {
+    setHidden(new Set(group.hidden_service_ids))
+  }, [group.hidden_service_ids.join(',')])
+
+  const toggle = (id: string) => {
+    setHidden(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      await onSave([...hidden])
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div style={{ padding: '10px 14px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 }}>
+        App Visibility
+      </div>
+      {services.length === 0 ? (
+        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>No apps added yet.</span>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+          {services.map(s => {
+            const visible = !hidden.has(s.id)
+            return (
+              <label
+                key={s.id}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer', userSelect: 'none' }}
+              >
+                <input
+                  type="checkbox"
+                  checked={visible}
+                  onChange={() => toggle(s.id)}
+                  style={{ accentColor: 'var(--accent)', width: 14, height: 14 }}
+                />
+                {s.icon_url
+                  ? <img src={s.icon_url} alt="" style={{ width: 16, height: 16, objectFit: 'contain', borderRadius: 3, flexShrink: 0 }} />
+                  : s.icon
+                    ? <span style={{ fontSize: 14, lineHeight: 1 }}>{s.icon}</span>
+                    : null
+                }
+                <span style={{ color: visible ? 'var(--text-primary)' : 'var(--text-muted)' }}>{s.name}</span>
+                {visible
+                  ? <Eye size={11} style={{ color: 'var(--status-online)', marginLeft: 'auto' }} />
+                  : <EyeOff size={11} style={{ color: 'var(--text-muted)', marginLeft: 'auto' }} />
+                }
+              </label>
+            )
+          })}
+        </div>
+      )}
+      <button
+        className="btn btn-primary btn-sm"
+        onClick={handleSave}
+        disabled={saving}
+        style={{ alignSelf: 'flex-start', fontSize: 12, marginTop: 4 }}
+      >
+        <Check size={12} /> {saving ? 'Saving…' : 'Save'}
+      </button>
+    </div>
+  )
+}
+
 // ── Main Settings page ────────────────────────────────────────────────────────
 export function SettingsPage() {
   const {
     settings, updateSettings, groups, createGroup, deleteGroup,
+    services,
     isAdmin, authUser,
     users, loadUsers, createUser, updateUser, deleteUser,
-    userGroups, loadUserGroups, createUserGroup, deleteUserGroup,
+    userGroups, loadUserGroups, createUserGroup, deleteUserGroup, updateGroupVisibility,
   } = useStore()
 
   const [title, setTitle] = useState(settings?.dashboard_title ?? 'HELDASH')
@@ -111,7 +189,7 @@ export function SettingsPage() {
   const [groupError, setGroupError] = useState('')
   const [saving, setSaving] = useState(false)
 
-  const [newUser, setNewUser] = useState({ username: '', first_name: '', last_name: '', email: '', password: '', role: 'user' })
+  const [newUser, setNewUser] = useState({ username: '', first_name: '', last_name: '', email: '', password: '', user_group_id: 'grp_guest' })
   const [userError, setUserError] = useState('')
   const [addingUser, setAddingUser] = useState(false)
 
@@ -119,6 +197,7 @@ export function SettingsPage() {
   const [ugError, setUgError] = useState('')
 
   const [editingUserId, setEditingUserId] = useState<string | null>(null)
+  const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null)
 
   useEffect(() => {
     if (isAdmin) {
@@ -163,9 +242,9 @@ export function SettingsPage() {
         last_name: newUser.last_name.trim(),
         email: newUser.email.trim() || undefined,
         password: newUser.password,
-        role: newUser.role,
-      } as any)
-      setNewUser({ username: '', first_name: '', last_name: '', email: '', password: '', role: 'user' })
+        user_group_id: newUser.user_group_id || undefined,
+      })
+      setNewUser({ username: '', first_name: '', last_name: '', email: '', password: '', user_group_id: 'grp_guest' })
     } catch (e: any) {
       setUserError(e.message)
     } finally {
@@ -189,7 +268,13 @@ export function SettingsPage() {
     setEditingUserId(null)
   }
 
-  const groupName = (id: string | null) => userGroups.find(g => g.id === id)?.name ?? '—'
+  const groupName = (id: string | null) => {
+    if (!id) return '—'
+    const g = userGroups.find(g => g.id === id)
+    return g ? g.name : '—'
+  }
+
+  const isAdmin_group = (id: string | null) => id === 'grp_admin'
 
   return (
     <div style={{ maxWidth: 600, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -288,8 +373,9 @@ export function SettingsPage() {
                     <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                       <span>{u.first_name} {u.last_name}</span>
                       {u.email && <span>{u.email}</span>}
-                      <span style={{ color: u.role === 'admin' ? 'var(--accent)' : 'inherit' }}>{u.role}</span>
-                      <span>Group: {groupName(u.user_group_id)}</span>
+                      <span style={{ color: isAdmin_group(u.user_group_id) ? 'var(--accent)' : 'inherit' }}>
+                        {groupName(u.user_group_id)}
+                      </span>
                       {u.last_login && <span>Last login: {new Date(u.last_login).toLocaleDateString('de-DE')}</span>}
                     </div>
                   </div>
@@ -332,9 +418,8 @@ export function SettingsPage() {
             <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Add User</div>
             <div style={{ display: 'flex', gap: 8 }}>
               <input className="form-input" placeholder="Username *" value={newUser.username} onChange={e => setNewUser(u => ({ ...u, username: e.target.value }))} style={{ flex: 1 }} />
-              <select className="form-input" value={newUser.role} onChange={e => setNewUser(u => ({ ...u, role: e.target.value }))} style={{ flexShrink: 0, width: 100 }}>
-                <option value="user">User</option>
-                <option value="admin">Admin</option>
+              <select className="form-input" value={newUser.user_group_id} onChange={e => setNewUser(u => ({ ...u, user_group_id: e.target.value }))} style={{ flexShrink: 0 }}>
+                {userGroups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
               </select>
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
@@ -361,22 +446,51 @@ export function SettingsPage() {
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
             {userGroups.map(g => (
-              <div key={g.id} className="glass" style={{ display: 'flex', alignItems: 'center', padding: '10px 14px', borderRadius: 'var(--radius-md)', justifyContent: 'space-between', gap: 8 }}>
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    {g.name}
-                    {g.is_system && <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 'var(--radius-sm)', background: 'var(--glass-bg)', color: 'var(--text-muted)', border: '1px solid var(--glass-border)' }}>system</span>}
+              <div key={g.id} className="glass" style={{ borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+                {/* Group header row */}
+                <div style={{ display: 'flex', alignItems: 'center', padding: '10px 14px', gap: 8 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 14, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      {g.name}
+                      {g.is_system && (
+                        <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 'var(--radius-sm)', background: 'var(--glass-bg)', color: 'var(--text-muted)', border: '1px solid var(--glass-border)' }}>system</span>
+                      )}
+                      {g.id === 'grp_admin' && (
+                        <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 'var(--radius-sm)', background: 'rgba(var(--accent-rgb),0.12)', color: 'var(--accent)', border: '1px solid rgba(var(--accent-rgb),0.25)' }}>full access</span>
+                      )}
+                    </div>
+                    {g.description && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{g.description}</div>}
                   </div>
-                  {g.description && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{g.description}</div>}
+                  {/* Visibility toggle button — not for admin group */}
+                  {g.id !== 'grp_admin' && (
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => setExpandedGroupId(expandedGroupId === g.id ? null : g.id)}
+                      style={{ fontSize: 11, gap: 4, padding: '4px 8px' }}
+                    >
+                      <Eye size={11} />
+                      {expandedGroupId === g.id ? 'Close' : 'App Visibility'}
+                    </button>
+                  )}
+                  {!g.is_system && (
+                    <button
+                      className="btn btn-danger btn-icon btn-sm"
+                      onClick={() => { if (confirm(`Delete group "${g.name}"?`)) deleteUserGroup(g.id) }}
+                      style={{ padding: '4px', width: 28, height: 28, flexShrink: 0 }}
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  )}
                 </div>
-                {!g.is_system && (
-                  <button
-                    className="btn btn-danger btn-icon btn-sm"
-                    onClick={() => { if (confirm(`Delete group "${g.name}"?`)) deleteUserGroup(g.id) }}
-                    style={{ padding: '4px', width: 28, height: 28, flexShrink: 0 }}
-                  >
-                    <Trash2 size={12} />
-                  </button>
+                {/* Expanded visibility editor */}
+                {expandedGroupId === g.id && g.id !== 'grp_admin' && (
+                  <div style={{ borderTop: '1px solid var(--glass-border)' }}>
+                    <GroupVisibilityEditor
+                      group={g}
+                      services={services}
+                      onSave={(hiddenIds) => updateGroupVisibility(g.id, hiddenIds)}
+                    />
+                  </div>
                 )}
               </div>
             ))}
@@ -396,7 +510,7 @@ export function SettingsPage() {
       <section className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 24, opacity: 0.5, pointerEvents: 'none' }}>
         <h3 style={{ marginBottom: 8, fontSize: 15, fontWeight: 600 }}>OIDC / SSO</h3>
         <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-          🔒 OIDC integration via voidauth — coming in a future phase. User records are already prepared with email, first/last name, and OIDC fields.
+          OIDC integration via voidauth — coming in a future phase. User records are already prepared with email, first/last name, and OIDC fields.
         </p>
       </section>
 

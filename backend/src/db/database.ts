@@ -55,6 +55,10 @@ function runMigrations(db: Database.Database) {
     INSERT OR IGNORE INTO user_groups (id, name, description, is_system)
     VALUES ('grp_guest', 'Guest', 'Read-only access', 1)
   `).run()
+
+  // Sync role column from group membership (runs every startup — idempotent)
+  db.exec("UPDATE users SET role = 'admin' WHERE user_group_id = 'grp_admin'")
+  db.exec("UPDATE users SET role = 'user' WHERE user_group_id IS NULL OR user_group_id != 'grp_admin'")
 }
 
 function applySchema(db: Database.Database) {
@@ -123,6 +127,13 @@ function applySchema(db: Database.Database) {
       last_login    TEXT,
       created_at    TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    -- App visibility per user group (presence = hidden)
+    CREATE TABLE IF NOT EXISTS group_service_visibility (
+      group_id    TEXT NOT NULL,
+      service_id  TEXT NOT NULL,
+      PRIMARY KEY (group_id, service_id)
     );
 
     -- Insert default settings if not exist

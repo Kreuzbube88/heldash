@@ -79,9 +79,25 @@ interface UploadIconBody {
 export async function servicesRoutes(app: FastifyInstance) {
   const db = getDb()
 
-  // GET /api/services
-  app.get('/api/services', async () => {
-    return db.prepare('SELECT * FROM services ORDER BY position_y, position_x').all()
+  // GET /api/services — filtered by the caller's group visibility
+  app.get('/api/services', async (req) => {
+    let groupId = 'grp_guest'
+    try {
+      await req.jwtVerify()
+      groupId = req.user.groupId ?? 'grp_guest'
+    } catch { /* unauthenticated — apply guest group visibility */ }
+
+    const all = db.prepare('SELECT * FROM services ORDER BY position_y, position_x').all() as ServiceRow[]
+
+    // Admin group sees everything
+    if (groupId === 'grp_admin') return all
+
+    // All other groups: filter out hidden services
+    const hidden = new Set(
+      (db.prepare('SELECT service_id FROM group_service_visibility WHERE group_id = ?').all(groupId) as { service_id: string }[])
+        .map(r => r.service_id)
+    )
+    return all.filter(s => !hidden.has(s.id))
   })
 
   // GET /api/services/:id

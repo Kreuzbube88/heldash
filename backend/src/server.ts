@@ -36,6 +36,19 @@ async function start() {
     origin: NODE_ENV === 'development' ? true : false,
   })
 
+  // Override JSON parser to accept empty bodies (prevents FST_ERR_CTP_EMPTY_JSON_BODY)
+  app.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, body, done) => {
+    if (!body || body === '') {
+      done(null, {})
+      return
+    }
+    try {
+      done(null, JSON.parse(body as string))
+    } catch (err) {
+      done(err as Error, undefined)
+    }
+  })
+
   // Serve frontend static files
   const publicPath = path.join(__dirname, '..', 'public')
   await app.register(staticFiles, {

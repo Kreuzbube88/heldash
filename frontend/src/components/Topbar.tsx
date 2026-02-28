@@ -16,7 +16,7 @@ const ACCENTS: { value: ThemeAccent; label: string; color: string }[] = [
 ]
 
 export function Topbar({ onAddService, onCheckAll, checking, onLogin }: Props) {
-  const { settings, setThemeMode, setThemeAccent, isAuthenticated, isAdmin, authUser, logout } = useStore()
+  const { settings, setThemeMode, setThemeAccent, isAuthenticated, isAdmin, authUser, logout, loadAll } = useStore()
   const mode = settings?.theme_mode ?? 'dark'
   const accent = settings?.theme_accent ?? 'cyan'
 
@@ -84,7 +84,7 @@ export function Topbar({ onAddService, onCheckAll, checking, onLogin }: Props) {
             <button
               className="btn btn-ghost btn-icon"
               data-tooltip="Logout"
-              onClick={logout}
+              onClick={() => logout().then(() => loadAll())}
             >
               <LogOut size={16} />
             </button>

@@ -19,8 +19,13 @@ export function ServiceCard({ service, onEdit }: Props) {
     e.preventDefault()
     e.stopPropagation()
     setChecking(true)
-    await checkService(service.id)
-    setChecking(false)
+    try {
+      await checkService(service.id)
+    } catch {
+      // ignore – status stays unchanged on error
+    } finally {
+      setChecking(false)
+    }
   }
 
   const handleDelete = async (e: React.MouseEvent) => {

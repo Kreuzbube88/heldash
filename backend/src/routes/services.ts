@@ -53,7 +53,13 @@ export async function servicesRoutes(app: FastifyInstance) {
     for (const field of fields) {
       if (req.body[field] !== undefined) {
         updates.push(`${field} = ?`)
-        values.push(field === 'tags' ? JSON.stringify(req.body[field]) : req.body[field])
+        if (field === 'tags') {
+          values.push(JSON.stringify(req.body[field]))
+        } else if (field === 'check_enabled') {
+          values.push(req.body[field] ? 1 : 0)
+        } else {
+          values.push(req.body[field])
+        }
       }
     }
 
@@ -108,7 +114,10 @@ async function pingService(url: string): Promise<string> {
       headersTimeout: 5000,
       bodyTimeout: 5000,
     })
-    return res.statusCode < 500 ? 'online' : 'offline'
+    const status = res.statusCode < 500 ? 'online' : 'offline'
+    // Consume body to release the socket back to the connection pool
+    try { await res.body.text() } catch { /* ignore body read errors */ }
+    return status
   } catch {
     return 'offline'
   }

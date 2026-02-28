@@ -249,6 +249,12 @@ body {
   padding: 24px;
 }
 
+.content-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+}
+
 /* ─── Sidebar Nav ─────────────────────────────────────────────────────────── */
 .sidebar-logo {
   display: flex;

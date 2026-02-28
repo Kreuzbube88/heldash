@@ -8,7 +8,7 @@ interface Props {
 
 export function Sidebar({ page, onNavigate }: Props) {
   const { settings } = useStore()
-  const title = settings?.dashboard_title ?? 'HEL Dashboard'
+  const title = settings?.dashboard_title ?? 'HELDASH'
 
   return (
     <aside className="sidebar">

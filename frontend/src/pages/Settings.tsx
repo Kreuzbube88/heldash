@@ -4,7 +4,7 @@ import { Plus, Trash2 } from 'lucide-react'
 
 export function SettingsPage() {
   const { settings, updateSettings, groups, createGroup, deleteGroup } = useStore()
-  const [title, setTitle] = useState(settings?.dashboard_title ?? 'HEL Dashboard')
+  const [title, setTitle] = useState(settings?.dashboard_title ?? 'HELDASH')
   const [newGroup, setNewGroup] = useState('')
   const [saving, setSaving] = useState(false)
 

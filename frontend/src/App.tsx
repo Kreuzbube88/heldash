@@ -3,6 +3,7 @@ import { useStore } from './store/useStore'
 import { Sidebar } from './components/Sidebar'
 import { Topbar } from './components/Topbar'
 import { Dashboard } from './pages/Dashboard'
+import { ServicesPage } from './pages/ServicesPage'
 import { SettingsPage } from './pages/Settings'
 import { ServiceModal } from './components/ServiceModal'
 import type { Service } from './types'
@@ -69,18 +70,20 @@ export default function App() {
             checking={checking}
           />
           <div className="content-area">
-            {page === 'dashboard' && <Dashboard onEdit={handleEditService} />}
-            {page === 'settings' && <SettingsPage />}
-            {page === 'services' && <Dashboard onEdit={handleEditService} />}
-            {page === 'about' && (
-              <div className="glass" style={{ padding: 24, borderRadius: 'var(--radius-xl)', maxWidth: 400 }}>
-                <h3 style={{ marginBottom: 8 }}>HEL Dashboard</h3>
-                <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-                  Personal homelab dashboard.<br />
-                  Built with ♥ and Fastify + React.
-                </p>
-              </div>
-            )}
+            <div className="content-inner">
+              {page === 'dashboard' && <Dashboard onEdit={handleEditService} />}
+              {page === 'settings' && <SettingsPage />}
+              {page === 'services' && <ServicesPage onEdit={handleEditService} />}
+              {page === 'about' && (
+                <div className="glass" style={{ padding: 24, borderRadius: 'var(--radius-xl)', maxWidth: 400 }}>
+                  <h3 style={{ marginBottom: 8 }}>HELDASH</h3>
+                  <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                    Personal homelab dashboard.<br />
+                    Built with ♥ and Fastify + React.
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

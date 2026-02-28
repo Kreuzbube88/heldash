@@ -83,7 +83,7 @@ function applySchema(db: Database.Database) {
     INSERT OR IGNORE INTO settings (key, value) VALUES
       ('theme_mode', '"dark"'),
       ('theme_accent', '"cyan"'),
-      ('dashboard_title', '"HEL Dashboard"'),
+      ('dashboard_title', '"HELDASH"'),
       ('auth_enabled', 'false'),
       ('auth_mode', '"none"');
   `)

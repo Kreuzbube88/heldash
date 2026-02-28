@@ -1,6 +1,7 @@
 services:
   heldash:
-    image: ghcr.io/kreuzbube88/heldash:latest
+    build: .
+    image: heldash:local
     container_name: heldash
     restart: unless-stopped
     ports:

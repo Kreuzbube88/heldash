@@ -2,6 +2,10 @@ import { FastifyInstance } from 'fastify'
 import { getDb } from '../db/database'
 import { nanoid } from 'nanoid'
 import { request, Agent } from 'undici'
+import fs from 'fs'
+import path from 'path'
+
+const DATA_DIR = process.env.DATA_DIR ?? '/data'
 
 // Reusable agent: accepts self-signed TLS certs (common in homelabs), 5s timeout
 const pingAgent = new Agent({
@@ -53,7 +57,7 @@ export async function servicesRoutes(app: FastifyInstance) {
     const existing = db.prepare('SELECT * FROM services WHERE id = ?').get(req.params.id) as any
     if (!existing) return reply.status(404).send({ error: 'Not found' })
 
-    const fields = ['name', 'url', 'icon', 'description', 'group_id', 'tags', 'check_enabled', 'check_url', 'check_interval', 'position_x', 'position_y', 'width', 'height']
+    const fields = ['name', 'url', 'icon', 'icon_url', 'description', 'group_id', 'tags', 'check_enabled', 'check_url', 'check_interval', 'position_x', 'position_y', 'width', 'height']
     const updates: string[] = ['updated_at = datetime(\'now\')']
     const values: any[] = []
 
@@ -114,6 +118,41 @@ export async function servicesRoutes(app: FastifyInstance) {
     )
     return results
   })
+
+  // POST /api/services/:id/icon - upload icon image (base64 JSON)
+  app.post<{ Params: { id: string }; Body: { data: string; content_type: string } }>(
+    '/api/services/:id/icon',
+    async (req, reply) => {
+      const service = db.prepare('SELECT * FROM services WHERE id = ?').get(req.params.id) as any
+      if (!service) return reply.status(404).send({ error: 'Not found' })
+
+      const { data, content_type } = req.body
+      if (!data || !content_type) return reply.status(400).send({ error: 'data and content_type required' })
+
+      const extMap: Record<string, string> = {
+        'image/png': 'png',
+        'image/jpeg': 'jpg',
+        'image/svg+xml': 'svg',
+      }
+      const ext = extMap[content_type]
+      if (!ext) return reply.status(400).send({ error: 'Unsupported type. Use PNG, JPG or SVG.' })
+
+      const buffer = Buffer.from(data, 'base64')
+      if (buffer.length > 512 * 1024) return reply.status(400).send({ error: 'Image too large (max 512 KB)' })
+
+      const iconsDir = path.join(DATA_DIR, 'icons')
+      fs.mkdirSync(iconsDir, { recursive: true })
+
+      const filename = `${req.params.id}.${ext}`
+      fs.writeFileSync(path.join(iconsDir, filename), buffer)
+
+      const icon_url = `/icons/${filename}`
+      db.prepare('UPDATE services SET icon_url = ?, updated_at = datetime(\'now\') WHERE id = ?')
+        .run(icon_url, req.params.id)
+
+      return { icon_url }
+    }
+  )
 }
 
 async function pingService(url: string): Promise<string> {

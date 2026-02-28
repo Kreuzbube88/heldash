@@ -3,6 +3,7 @@ import cors from '@fastify/cors'
 import helmet from '@fastify/helmet'
 import staticFiles from '@fastify/static'
 import path from 'path'
+import fs from 'fs'
 import { initDb } from './db/database'
 import { servicesRoutes } from './routes/services'
 import { groupsRoutes } from './routes/groups'
@@ -54,6 +55,23 @@ async function start() {
   await app.register(staticFiles, {
     root: publicPath,
     prefix: '/',
+  })
+
+  // Serve uploaded service icons
+  app.get<{ Params: { filename: string } }>('/icons/:filename', async (req, reply) => {
+    const iconsDir = path.join(DATA_DIR, 'icons')
+    // path.basename prevents path traversal attacks
+    const filePath = path.join(iconsDir, path.basename(req.params.filename))
+    if (!fs.existsSync(filePath)) return reply.status(404).send({ error: 'Not found' })
+    const mimeTypes: Record<string, string> = {
+      '.png': 'image/png',
+      '.jpg': 'image/jpeg',
+      '.svg': 'image/svg+xml',
+    }
+    const ext = path.extname(filePath).toLowerCase()
+    reply.header('Content-Type', mimeTypes[ext] ?? 'application/octet-stream')
+    reply.header('Cache-Control', 'public, max-age=3600')
+    return reply.send(fs.createReadStream(filePath))
   })
 
   // Health check endpoint

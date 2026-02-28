@@ -24,6 +24,8 @@ export const api = {
     delete: (id: string) => req<void>(`/services/${id}`, { method: 'DELETE' }),
     check: (id: string) => req<{ id: string; status: string; checked_at: string }>(`/services/${id}/check`, { method: 'POST', body: JSON.stringify({}) }),
     checkAll: () => req<{ id: string; status: string }[]>('/services/check-all', { method: 'POST', body: JSON.stringify({}) }),
+    uploadIcon: (id: string, data: string, contentType: string) =>
+      req<{ icon_url: string }>(`/services/${id}/icon`, { method: 'POST', body: JSON.stringify({ data, content_type: contentType }) }),
   },
 
   groups: {

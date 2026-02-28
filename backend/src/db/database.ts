@@ -23,7 +23,17 @@ export function initDb(dataDir: string): Database.Database {
   db.pragma('foreign_keys = ON')
 
   applySchema(db)
+  runMigrations(db)
   return db
+}
+
+function runMigrations(db: Database.Database) {
+  // Add icon_url column to existing databases (safe to run multiple times)
+  try {
+    db.exec('ALTER TABLE services ADD COLUMN icon_url TEXT')
+  } catch {
+    // Column already exists – ignore
+  }
 }
 
 function applySchema(db: Database.Database) {

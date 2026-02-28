@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { Service } from '../types'
 import { useStore } from '../store/useStore'
-import { ExternalLink, RefreshCw, Pencil, Trash2 } from 'lucide-react'
+import { RefreshCw, Pencil, Trash2 } from 'lucide-react'
 
 interface Props {
   service: Service
@@ -12,6 +12,7 @@ export function ServiceCard({ service, onEdit }: Props) {
   const { checkService, deleteService } = useStore()
   const [checking, setChecking] = useState(false)
   const [showActions, setShowActions] = useState(false)
+  const [imgError, setImgError] = useState(false)
 
   const status = service.last_status ?? 'unknown'
 
@@ -51,48 +52,65 @@ export function ServiceCard({ service, onEdit }: Props) {
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => setShowActions(false)}
     >
-      {/* Action buttons */}
+      {/*
+        Action buttons – right side, vertically centered.
+        flex-direction: column-reverse → JSX order [Delete, Edit, Refresh]
+        renders as: Refresh (top), Edit (middle), Delete (bottom)
+      */}
       <div style={{
         position: 'absolute',
-        top: 8, right: 8,
+        right: 6,
+        top: '50%',
+        transform: 'translateY(-50%)',
         display: 'flex',
+        flexDirection: 'column-reverse',
         gap: 4,
         opacity: showActions ? 1 : 0,
         transition: 'opacity 150ms ease',
         zIndex: 2,
       }}>
         <button
+          className="btn btn-danger btn-icon btn-sm"
+          onClick={handleDelete}
+          title="Löschen"
+          style={{ padding: '4px', width: 26, height: 26 }}
+        >
+          <Trash2 size={12} />
+        </button>
+        <button
+          className="btn btn-ghost btn-icon btn-sm"
+          onClick={handleEdit}
+          title="Bearbeiten"
+          style={{ padding: '4px', width: 26, height: 26 }}
+        >
+          <Pencil size={12} />
+        </button>
+        <button
           className="btn btn-ghost btn-icon btn-sm"
           onClick={handleCheck}
-          data-tooltip="Check status"
-          style={{ padding: '4px', width: '26px', height: '26px' }}
+          title="Status prüfen"
+          style={{ padding: '4px', width: 26, height: 26 }}
         >
           {checking
             ? <div className="spinner" style={{ width: 12, height: 12, borderWidth: 1.5 }} />
             : <RefreshCw size={12} />
           }
         </button>
-        <button
-          className="btn btn-ghost btn-icon btn-sm"
-          onClick={handleEdit}
-          data-tooltip="Edit"
-          style={{ padding: '4px', width: '26px', height: '26px' }}
-        >
-          <Pencil size={12} />
-        </button>
-        <button
-          className="btn btn-danger btn-icon btn-sm"
-          onClick={handleDelete}
-          data-tooltip="Delete"
-          style={{ padding: '4px', width: '26px', height: '26px' }}
-        >
-          <Trash2 size={12} />
-        </button>
       </div>
 
       <div className="service-card-header">
         <div className="service-icon">
-          {service.icon ?? '🔗'}
+          {service.icon_url && !imgError
+            ? (
+              <img
+                src={service.icon_url}
+                alt={service.name}
+                style={{ width: 28, height: 28, objectFit: 'contain' }}
+                onError={() => setImgError(true)}
+              />
+            )
+            : (service.icon ?? '🔗')
+          }
         </div>
         <div
           className={`service-status ${status}`}
@@ -106,15 +124,6 @@ export function ServiceCard({ service, onEdit }: Props) {
           <div className="service-description">{service.description}</div>
         )}
         <div className="service-url">{service.url.replace(/^https?:\/\//, '')}</div>
-      </div>
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 'auto' }}>
-        <ExternalLink size={11} style={{ color: 'var(--text-muted)' }} />
-        {service.last_checked && (
-          <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-            {new Date(service.last_checked + 'Z').toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </span>
-        )}
       </div>
     </a>
   )

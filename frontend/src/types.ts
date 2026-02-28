@@ -4,6 +4,7 @@ export interface Service {
   name: string
   url: string
   icon: string | null
+  icon_url: string | null
   description: string | null
   tags: string[] // parsed from JSON string
   position_x: number

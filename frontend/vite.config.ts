@@ -16,6 +16,10 @@ export default defineConfig({
         target: 'http://localhost:8282',
         changeOrigin: true,
       },
+      '/icons': {
+        target: 'http://localhost:8282',
+        changeOrigin: true,
+      },
     },
   },
   build: {

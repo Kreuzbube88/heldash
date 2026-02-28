@@ -13,7 +13,8 @@ interface AppState {
   // Actions
   loadAll: () => Promise<void>
   loadServices: () => Promise<void>
-  createService: (data: Partial<Service>) => Promise<void>
+  createService: (data: Partial<Service>) => Promise<string>
+  uploadServiceIcon: (id: string, file: File) => Promise<void>
   updateService: (id: string, data: Partial<Service>) => Promise<void>
   deleteService: (id: string) => Promise<void>
   checkService: (id: string) => Promise<void>
@@ -70,6 +71,20 @@ export const useStore = create<AppState>((set, get) => ({
     if (svc.check_enabled) {
       get().checkService(parsed.id).catch(() => { /* ignore */ })
     }
+    return parsed.id
+  },
+
+  uploadServiceIcon: async (id, file) => {
+    const base64 = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve((reader.result as string).split(',')[1])
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+    const result = await api.services.uploadIcon(id, base64, file.type)
+    set(state => ({
+      services: state.services.map(s => s.id === id ? { ...s, icon_url: result.icon_url } : s),
+    }))
   },
 
   updateService: async (id, data) => {

@@ -61,6 +61,7 @@ interface AppState {
   updateArrVisibility: (groupId: string, hiddenInstanceIds: string[]) => Promise<void>
   updateWidgetVisibility: (groupId: string, hiddenWidgetIds: string[]) => Promise<void>
   updateDockerAccess: (groupId: string, enabled: boolean) => Promise<void>
+  updateDockerWidgetAccess: (groupId: string, enabled: boolean) => Promise<void>
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -361,6 +362,15 @@ export const useStore = create<AppState>((set, get) => ({
     set(state => ({
       userGroups: state.userGroups.map(g =>
         g.id === groupId ? { ...g, docker_access: enabled } : g
+      ),
+    }))
+  },
+
+  updateDockerWidgetAccess: async (groupId, enabled) => {
+    await api.userGroups.updateDockerWidgetAccess(groupId, enabled)
+    set(state => ({
+      userGroups: state.userGroups.map(g =>
+        g.id === groupId ? { ...g, docker_widget_access: enabled } : g
       ),
     }))
   },

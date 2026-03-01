@@ -85,6 +85,11 @@ export const api = {
         method: 'PUT',
         body: JSON.stringify({ enabled }),
       }),
+    updateDockerWidgetAccess: (id: string, enabled: boolean) =>
+      req<{ ok: boolean }>(`/user-groups/${id}/docker-widget-access`, {
+        method: 'PUT',
+        body: JSON.stringify({ enabled }),
+      }),
   },
 
   arr: {

@@ -184,34 +184,69 @@ function VisibilityChecklist({
 
 // ── Per-group visibility editor ───────────────────────────────────────────────
 function GroupVisibilityEditor({
-  group, services, arrInstances, widgets, onSaveApps, onSaveArr, onSaveWidgets,
+  group, services, arrInstances, widgets,
+  onSaveApps, onSaveArr, onSaveWidgets,
+  onToggleDockerAccess, onToggleDockerWidgetAccess,
 }: {
   group: UserGroup
   services: Service[]
   arrInstances: ArrInstance[]
-  widgets: { id: string; name: string }[]
+  widgets: { id: string; name: string; type: string }[]
   onSaveApps: (hiddenIds: string[]) => Promise<void>
   onSaveArr: (hiddenIds: string[]) => Promise<void>
   onSaveWidgets: (hiddenIds: string[]) => Promise<void>
+  onToggleDockerAccess: (enabled: boolean) => void
+  onToggleDockerWidgetAccess: (enabled: boolean) => void
 }) {
-  const [tab, setTab] = useState<'apps' | 'media' | 'widgets'>('apps')
+  const [tab, setTab] = useState<'apps' | 'media' | 'widgets' | 'docker'>('apps')
+  // Non-docker widgets only in the widgets tab (docker_overview is managed via the Docker tab)
+  const nonDockerWidgets = widgets.filter(w => w.type !== 'docker_overview')
   return (
     <div style={{ padding: '10px 14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div style={{ display: 'flex', gap: 4 }}>
-        {(['apps', 'media', 'widgets'] as const).map(t => (
+        {(['apps', 'media', 'widgets', 'docker'] as const).map(t => (
           <button
             key={t}
             className="btn btn-ghost btn-sm"
             onClick={() => setTab(t)}
             style={{ fontSize: 11, padding: '3px 10px', textTransform: 'capitalize', color: tab === t ? 'var(--accent)' : 'var(--text-muted)', borderBottom: tab === t ? '2px solid var(--accent)' : '2px solid transparent', borderRadius: 0 }}
           >
-            {t === 'apps' ? 'Apps' : t === 'media' ? 'Media' : 'Widgets'}
+            {t === 'apps' ? 'Apps' : t === 'media' ? 'Media' : t === 'widgets' ? 'Widgets' : 'Docker'}
           </button>
         ))}
       </div>
       {tab === 'apps' && <VisibilityChecklist label="Visibility" items={services} hiddenIds={group.hidden_service_ids} onSave={onSaveApps} />}
       {tab === 'media' && <VisibilityChecklist label="Visibility" items={arrInstances.map(i => ({ id: i.id, name: i.name }))} hiddenIds={group.hidden_arr_ids} onSave={onSaveArr} />}
-      {tab === 'widgets' && <VisibilityChecklist label="Visibility" items={widgets} hiddenIds={group.hidden_widget_ids ?? []} onSave={onSaveWidgets} />}
+      {tab === 'widgets' && <VisibilityChecklist label="Visibility" items={nonDockerWidgets} hiddenIds={group.hidden_widget_ids ?? []} onSave={onSaveWidgets} />}
+      {tab === 'docker' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 }}>Docker Permissions</div>
+          <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', userSelect: 'none' }}>
+            <input
+              type="checkbox"
+              checked={group.docker_access}
+              onChange={e => onToggleDockerAccess(e.target.checked)}
+              style={{ accentColor: 'var(--accent)', width: 14, height: 14, marginTop: 2, flexShrink: 0 }}
+            />
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 500 }}>Docker page in sidebar</div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>Allow access to the Docker containers page</div>
+            </div>
+          </label>
+          <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', userSelect: 'none' }}>
+            <input
+              type="checkbox"
+              checked={group.docker_widget_access}
+              onChange={e => onToggleDockerWidgetAccess(e.target.checked)}
+              style={{ accentColor: 'var(--accent)', width: 14, height: 14, marginTop: 2, flexShrink: 0 }}
+            />
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 500 }}>Docker Overview widget</div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>Show Docker Overview widgets on the dashboard</div>
+            </div>
+          </label>
+        </div>
+      )}
     </div>
   )
 }
@@ -224,7 +259,8 @@ export function SettingsPage() {
     isAdmin, authUser,
     users, loadUsers, createUser, updateUser, deleteUser,
     userGroups, loadUserGroups, createUserGroup, deleteUserGroup,
-    updateGroupVisibility, updateArrVisibility, updateWidgetVisibility, updateDockerAccess,
+    updateGroupVisibility, updateArrVisibility, updateWidgetVisibility,
+    updateDockerAccess, updateDockerWidgetAccess,
   } = useStore()
   const { instances: arrInstances, loadInstances } = useArrStore()
   const { widgets, loadWidgets } = useWidgetStore()
@@ -484,21 +520,10 @@ export function SettingsPage() {
                     {g.description && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{g.description}</div>}
                   </div>
                   {g.id !== 'grp_admin' && (
-                    <>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, cursor: 'pointer', userSelect: 'none', color: 'var(--text-secondary)', flexShrink: 0 }}>
-                        <input
-                          type="checkbox"
-                          checked={g.docker_access}
-                          onChange={e => updateDockerAccess(g.id, e.target.checked)}
-                          style={{ accentColor: 'var(--accent)', width: 13, height: 13 }}
-                        />
-                        Docker
-                      </label>
-                      <button className="btn btn-ghost btn-sm" onClick={() => setExpandedGroupId(expandedGroupId === g.id ? null : g.id)} style={{ fontSize: 11, gap: 4, padding: '4px 8px' }}>
-                        <Eye size={11} />
-                        {expandedGroupId === g.id ? 'Close' : 'Visibility'}
-                      </button>
-                    </>
+                    <button className="btn btn-ghost btn-sm" onClick={() => setExpandedGroupId(expandedGroupId === g.id ? null : g.id)} style={{ fontSize: 11, gap: 4, padding: '4px 8px' }}>
+                      <Eye size={11} />
+                      {expandedGroupId === g.id ? 'Close' : 'Permissions'}
+                    </button>
                   )}
                   {!g.is_system && (
                     <button className="btn btn-danger btn-icon btn-sm" onClick={() => { if (confirm(`Delete group "${g.name}"?`)) deleteUserGroup(g.id) }} style={{ padding: '4px', width: 28, height: 28, flexShrink: 0 }}>
@@ -512,10 +537,12 @@ export function SettingsPage() {
                       group={g}
                       services={services}
                       arrInstances={arrInstances}
-                      widgets={widgets.map(w => ({ id: w.id, name: w.name }))}
+                      widgets={widgets.map(w => ({ id: w.id, name: w.name, type: w.type }))}
                       onSaveApps={(hiddenIds) => updateGroupVisibility(g.id, hiddenIds)}
                       onSaveArr={(hiddenIds) => updateArrVisibility(g.id, hiddenIds)}
                       onSaveWidgets={(hiddenIds) => updateWidgetVisibility(g.id, hiddenIds)}
+                      onToggleDockerAccess={(enabled) => updateDockerAccess(g.id, enabled)}
+                      onToggleDockerWidgetAccess={(enabled) => updateDockerWidgetAccess(g.id, enabled)}
                     />
                   </div>
                 )}

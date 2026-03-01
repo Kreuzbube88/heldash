@@ -12,6 +12,9 @@ function WidgetIcon({ widget, size = 32 }: { widget: Pick<Widget, 'type' | 'conf
   const normalizeUrl = (u: string) => u.replace(/\/$/, '').toLowerCase()
 
   if (widget.type === 'docker_overview') {
+    if (widget.icon_url) {
+      return <img src={widget.icon_url} alt="" style={{ width: size, height: size, objectFit: 'contain', borderRadius: 6, flexShrink: 0 }} />
+    }
     return <Container size={size * 0.8} style={{ color: 'var(--accent)', flexShrink: 0 }} />
   }
 
@@ -107,18 +110,18 @@ export function DockerOverviewContent({ isAdmin }: { isAdmin: boolean }) {
             <div style={{ display: 'flex', gap: 4 }}>
               <button className="btn btn-ghost btn-sm" onClick={() => handleControl('start')}
                 disabled={controlling || selectedContainer?.state === 'running'}
-                style={{ flex: 1, gap: 3, fontSize: 11, padding: '4px 6px' }}>
-                <Play size={10} /> Start
+                style={{ flex: 1, gap: 3, fontSize: 11, padding: '4px 6px', color: (!controlling && selectedContainer?.state !== 'running') ? 'var(--status-online)' : undefined, borderColor: (!controlling && selectedContainer?.state !== 'running') ? 'rgba(34,197,94,0.35)' : undefined }}>
+                {controlling ? <div className="spinner" style={{ width: 8, height: 8, borderWidth: 1.5 }} /> : <Play size={10} />} Start
               </button>
               <button className="btn btn-ghost btn-sm" onClick={() => handleControl('stop')}
                 disabled={controlling || selectedContainer?.state !== 'running'}
-                style={{ flex: 1, gap: 3, fontSize: 11, padding: '4px 6px' }}>
-                <Square size={10} /> Stop
+                style={{ flex: 1, gap: 3, fontSize: 11, padding: '4px 6px', color: (!controlling && selectedContainer?.state === 'running') ? 'var(--status-offline)' : undefined, borderColor: (!controlling && selectedContainer?.state === 'running') ? 'rgba(239,68,68,0.35)' : undefined }}>
+                {controlling ? <div className="spinner" style={{ width: 8, height: 8, borderWidth: 1.5 }} /> : <Square size={10} />} Stop
               </button>
               <button className="btn btn-ghost btn-sm" onClick={() => handleControl('restart')}
                 disabled={controlling}
-                style={{ flex: 1, gap: 3, fontSize: 11, padding: '4px 6px' }}>
-                <RotateCcw size={10} /> Restart
+                style={{ flex: 1, gap: 3, fontSize: 11, padding: '4px 6px', color: !controlling ? '#f59e0b' : undefined, borderColor: !controlling ? 'rgba(245,158,11,0.35)' : undefined }}>
+                {controlling ? <div className="spinner" style={{ width: 8, height: 8, borderWidth: 1.5 }} /> : <RotateCcw size={10} />} Restart
               </button>
             </div>
           )}
@@ -289,12 +292,13 @@ function WidgetForm({
           />
         </div>
 
-        {/* Icon — hidden for docker_overview which always uses the Container lucide icon */}
-        {type !== 'docker_overview' && (
+        {/* Icon */}
+        {true && (
           <div>
             <label className="form-label" style={{ fontSize: 11 }}>
               Icon
               {type === 'adguard_home' && <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginLeft: 6 }}>(auto-matched from app URL, or upload custom)</span>}
+              {type === 'docker_overview' && <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginLeft: 6 }}>(custom icon, or leave blank for default)</span>}
             </label>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               {(pendingIcon?.preview ?? (isEdit ? initial?.icon_url : null)) && (

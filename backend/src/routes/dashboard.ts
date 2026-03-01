@@ -111,14 +111,20 @@ export async function dashboardRoutes(app: FastifyInstance) {
       }
 
       if (item.type === 'widget' && item.ref_id) {
-        if (filterGroupId !== null) {
-          const hidden = db.prepare(
-            'SELECT 1 FROM group_widget_visibility WHERE group_id = ? AND widget_id = ?'
-          ).get(filterGroupId, item.ref_id)
-          if (hidden) continue
-        }
         const widget = db.prepare('SELECT * FROM widgets WHERE id = ?').get(item.ref_id) as WidgetRow | undefined
         if (!widget) continue
+        if (filterGroupId !== null) {
+          // docker_overview widgets require docker_widget_access — not controlled by group_widget_visibility
+          if (widget.type === 'docker_overview') {
+            const grp = db.prepare('SELECT docker_widget_access FROM user_groups WHERE id = ?').get(filterGroupId) as { docker_widget_access: number } | undefined
+            if (!grp || grp.docker_widget_access !== 1) continue
+          } else {
+            const hidden = db.prepare(
+              'SELECT 1 FROM group_widget_visibility WHERE group_id = ? AND widget_id = ?'
+            ).get(filterGroupId, item.ref_id)
+            if (hidden) continue
+          }
+        }
         result.push({
           id: item.id,
           type: 'widget',

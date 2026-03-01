@@ -43,6 +43,8 @@ function runMigrations(db: Database.Database) {
     'ALTER TABLE widgets ADD COLUMN icon_url TEXT',
     // Docker page access per user group
     'ALTER TABLE user_groups ADD COLUMN docker_access INTEGER NOT NULL DEFAULT 0',
+    // Docker widget visibility per user group
+    'ALTER TABLE user_groups ADD COLUMN docker_widget_access INTEGER NOT NULL DEFAULT 0',
   ]
   for (const sql of migrations) {
     try {

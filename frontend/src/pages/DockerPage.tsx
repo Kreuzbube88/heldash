@@ -332,16 +332,19 @@ function ContainerDetail({
         {isAdmin && (
           <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
             <button className="btn btn-ghost btn-sm" onClick={() => handleControl('start')}
-              disabled={controlling || currentState === 'running'} style={{ gap: 5, fontSize: 12 }}>
-              <Play size={12} /> Start
+              disabled={controlling || currentState === 'running'}
+              style={{ gap: 5, fontSize: 12, color: (!controlling && currentState !== 'running') ? 'var(--status-online)' : undefined, borderColor: (!controlling && currentState !== 'running') ? 'rgba(34,197,94,0.35)' : undefined }}>
+              {controlling ? <div className="spinner" style={{ width: 10, height: 10, borderWidth: 1.5 }} /> : <Play size={12} />} Start
             </button>
             <button className="btn btn-ghost btn-sm" onClick={() => handleControl('stop')}
-              disabled={controlling || currentState !== 'running'} style={{ gap: 5, fontSize: 12 }}>
-              <Square size={12} /> Stop
+              disabled={controlling || currentState !== 'running'}
+              style={{ gap: 5, fontSize: 12, color: (!controlling && currentState === 'running') ? 'var(--status-offline)' : undefined, borderColor: (!controlling && currentState === 'running') ? 'rgba(239,68,68,0.35)' : undefined }}>
+              {controlling ? <div className="spinner" style={{ width: 10, height: 10, borderWidth: 1.5 }} /> : <Square size={12} />} Stop
             </button>
             <button className="btn btn-ghost btn-sm" onClick={() => handleControl('restart')}
-              disabled={controlling} style={{ gap: 5, fontSize: 12 }}>
-              <RotateCcw size={12} /> Restart
+              disabled={controlling}
+              style={{ gap: 5, fontSize: 12, color: !controlling ? '#f59e0b' : undefined, borderColor: !controlling ? 'rgba(245,158,11,0.35)' : undefined }}>
+              {controlling ? <div className="spinner" style={{ width: 10, height: 10, borderWidth: 1.5 }} /> : <RotateCcw size={12} />} Restart
             </button>
           </div>
         )}

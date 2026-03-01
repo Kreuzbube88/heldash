@@ -205,7 +205,14 @@ export async function widgetsRoutes(app: FastifyInstance) {
       (db.prepare('SELECT widget_id FROM group_widget_visibility WHERE group_id = ?').all(groupId) as { widget_id: string }[])
         .map(r => r.widget_id)
     )
-    return all.filter(r => !hidden.has(r.id)).map(sanitize)
+    // docker_overview widgets are only visible to groups with docker_widget_access
+    const groupRow = db.prepare('SELECT docker_widget_access FROM user_groups WHERE id = ?').get(groupId) as { docker_widget_access: number } | undefined
+    const canSeeDockerWidget = groupRow?.docker_widget_access === 1
+    return all.filter(r => {
+      if (hidden.has(r.id)) return false
+      if (r.type === 'docker_overview' && !canSeeDockerWidget) return false
+      return true
+    }).map(sanitize)
   })
 
   // POST /api/widgets — create (admin only)
@@ -293,6 +300,10 @@ export async function widgetsRoutes(app: FastifyInstance) {
 
     if (row.type === 'adguard_home') {
       return getAdGuardStats(config.url ?? '', config.username ?? '', config.password ?? '')
+    }
+
+    if (row.type === 'docker_overview') {
+      return {}
     }
 
     // server_status (default)

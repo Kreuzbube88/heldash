@@ -189,29 +189,31 @@ export async function dockerRoutes(app: FastifyInstance) {
     const qs = req.query as Record<string, string>
     const tail = qs.tail ? parseInt(qs.tail, 10) : 200
 
+    // Hijack immediately so the SSE stream opens before we wait for Docker
+    reply.hijack()
+    reply.raw.setHeader('Content-Type', 'text/event-stream')
+    reply.raw.setHeader('Cache-Control', 'no-cache')
+    reply.raw.setHeader('Connection', 'keep-alive')
+    reply.raw.setHeader('X-Accel-Buffering', 'no')
+    reply.raw.flushHeaders()
+
     let dockerRes
     try {
       dockerRes = await dockerReq(
         `/v1.41/containers/${id}/logs?follow=1&stdout=1&stderr=1&timestamps=1&tail=${tail}`
       )
     } catch {
-      return reply.status(503).send({ error: 'Docker unavailable' })
+      reply.raw.write('data: {"stream":"stderr","log":"Docker unavailable","timestamp":""}\n\n')
+      reply.raw.end()
+      return
     }
 
     if (!dockerRes.statusCode || dockerRes.statusCode >= 400) {
       await dockerRes.body.text().catch(() => {})
-      return reply.status(dockerRes.statusCode ?? 502).send({ error: 'Container not found or Docker API error' })
+      reply.raw.write('data: {"stream":"stderr","log":"Container not found or Docker error","timestamp":""}\n\n')
+      reply.raw.end()
+      return
     }
-
-    // Hand off raw socket to us — prevents Fastify from calling reply.send() on return
-    reply.hijack()
-
-    // Set SSE headers
-    reply.raw.setHeader('Content-Type', 'text/event-stream')
-    reply.raw.setHeader('Cache-Control', 'no-cache')
-    reply.raw.setHeader('Connection', 'keep-alive')
-    reply.raw.setHeader('X-Accel-Buffering', 'no')
-    reply.raw.flushHeaders()
 
     // Cleanup on client disconnect
     req.raw.on('close', () => {

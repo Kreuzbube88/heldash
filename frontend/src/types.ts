@@ -142,6 +142,7 @@ export interface UserGroup {
   description: string | null
   is_system: boolean
   docker_access: boolean
+  docker_widget_access: boolean
   created_at: string
   hidden_service_ids: string[]
   hidden_arr_ids: string[]

@@ -141,6 +141,19 @@ volumes:
 
 Das `:ro` (read-only) reicht vollständig aus — auch Start, Stop und Restart von Containern funktionieren damit.
 
+### Festplatten für das Server-Status-Widget
+
+Damit das Server-Status-Widget den Belegungsstand einzelner Festplatten anzeigen kann, müssen diese ebenfalls als Pfade in den Container gemountet werden. `:ro` ist ausreichend:
+
+```yaml
+volumes:
+  - /mnt/disk1:/hdd1:ro
+  - /mnt/disk2:/hdd2:ro
+  - /mnt/cache:/cache:ro
+```
+
+Die Pfade (`/hdd1`, `/hdd2`, ...) werden anschließend im Widget-Formular unter „Festplatten" eingetragen. Ohne diesen Mount kann der Container den Speicherstand der Festplatte nicht auslesen.
+
 > **Sicherheitshinweis:** Der Docker-Socket gibt dem Container vollen Zugriff auf die Docker Engine des Hosts. In einem Heimlabor-Umfeld (single-user, trusted network) ist dies vertretbar. In Multi-Tenant-Umgebungen sollte ein Docker-Socket-Proxy (z.B. Tecnativa/docker-socket-proxy) vorgeschaltet werden.
 
 ---

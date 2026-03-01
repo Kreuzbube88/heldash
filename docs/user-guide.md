@@ -204,7 +204,15 @@ Je nach Typ erscheinen weitere Felder:
 - **AdGuard Home:** URL + Benutzername + Passwort der AdGuard-Instanz
 - **Docker Overview:** Keine weitere Konfiguration nötig
 
-**Hinweis zu Festplatten (Server Status):** Alle vom System gemeldeten Laufwerke werden automatisch aufgelistet — es muss nichts manuell konfiguriert werden. Netzlaufwerke oder temporäre Mounts können dabei ebenfalls erscheinen.
+**Festplatten einrichten (Server Status):** Festplatten werden nicht automatisch erkannt — jede Festplatte muss zuerst in der Docker-Konfiguration als Pfad in den Container eingebunden werden (z.B. `/hdd1`, `/hdd2`). Read-only (`:ro`) reicht dabei vollständig aus. Anschließend wird dieser Pfad im Widget-Formular unter „Festplatten" eingetragen, damit der Speicherzustand (belegt / gesamt) angezeigt wird.
+
+Beispiel docker-compose:
+```yaml
+volumes:
+  - /mnt/disk1:/hdd1:ro
+  - /mnt/disk2:/hdd2:ro
+```
+Im Widget dann `/hdd1` und `/hdd2` als Festplatten-Pfade angeben.
 
 **Hinweis:** Zugangsdaten (AdGuard-Passwort) werden nur auf dem Server gespeichert und **nie** an den Browser übertragen.
 

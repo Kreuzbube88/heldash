@@ -41,6 +41,8 @@ function runMigrations(db: Database.Database) {
     'ALTER TABLE dashboard_items ADD COLUMN owner_id TEXT NOT NULL DEFAULT \'guest\'',
     // Widget icons
     'ALTER TABLE widgets ADD COLUMN icon_url TEXT',
+    // Docker page access per user group
+    'ALTER TABLE user_groups ADD COLUMN docker_access INTEGER NOT NULL DEFAULT 0',
   ]
   for (const sql of migrations) {
     try {
@@ -59,6 +61,9 @@ function runMigrations(db: Database.Database) {
     INSERT OR IGNORE INTO user_groups (id, name, description, is_system)
     VALUES ('grp_guest', 'Guest', 'Read-only access', 1)
   `).run()
+
+  // Admin group always has Docker access
+  db.exec("UPDATE user_groups SET docker_access = 1 WHERE id = 'grp_admin'")
 
   // Sync role column from group membership (runs every startup — idempotent)
   db.exec("UPDATE users SET role = 'admin' WHERE user_group_id = 'grp_admin'")

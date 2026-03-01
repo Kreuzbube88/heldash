@@ -8,13 +8,14 @@ import { ServicesPage } from './pages/ServicesPage'
 import { SettingsPage } from './pages/Settings'
 import { MediaPage } from './pages/MediaPage'
 import { WidgetsPage } from './pages/WidgetsPage'
+import { DockerPage } from './pages/DockerPage'
 import { SetupPage } from './pages/SetupPage'
 import { ServiceModal } from './components/ServiceModal'
 import { LoginModal } from './components/LoginModal'
 import type { Service } from './types'
 
 export default function App() {
-  const { loadAll, checkAllServices, checkAuth, settings, authReady, needsSetup, isAdmin } = useStore()
+  const { loadAll, checkAllServices, checkAuth, settings, authReady, needsSetup, isAdmin, authUser, userGroups } = useStore()
   const { loadDashboard } = useDashboardStore()
   const [page, setPage] = useState('dashboard')
   const [showModal, setShowModal] = useState(false)
@@ -42,6 +43,14 @@ export default function App() {
       setPage('dashboard')
     }
   }, [isAdmin, authReady])
+
+  // Kick users without docker access off docker page
+  useEffect(() => {
+    if (!authReady || page !== 'docker') return
+    const groupData = userGroups.find(g => g.id === authUser?.groupId)
+    const canSeeDocker = isAdmin || (groupData?.docker_access ?? false)
+    if (!canSeeDocker) setPage('dashboard')
+  }, [isAdmin, authReady, authUser, userGroups, page])
 
   // Auto-check services every 60s
   useEffect(() => {
@@ -120,6 +129,7 @@ export default function App() {
                   onFormClose={() => setShowAddWidget(false)}
                 />
               )}
+              {page === 'docker' && <DockerPage />}
               {page === 'about' && (
                 <div style={{ display: 'flex', justifyContent: 'center' }}>
                   <div className="glass" style={{ padding: 32, borderRadius: 'var(--radius-xl)', maxWidth: 400, width: '100%', textAlign: 'center' }}>

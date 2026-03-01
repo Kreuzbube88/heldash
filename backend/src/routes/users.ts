@@ -23,6 +23,7 @@ interface UserGroupRow {
   name: string
   description: string | null
   is_system: number
+  docker_access: number
   created_at: string
 }
 
@@ -166,6 +167,7 @@ export async function usersRoutes(app: FastifyInstance) {
     return groups.map(g => ({
       ...g,
       is_system: g.is_system === 1,
+      docker_access: g.docker_access === 1,
       hidden_service_ids: (db.prepare(
         'SELECT service_id FROM group_service_visibility WHERE group_id = ?'
       ).all(g.id) as { service_id: string }[]).map(r => r.service_id),
@@ -186,7 +188,7 @@ export async function usersRoutes(app: FastifyInstance) {
     db.prepare('INSERT INTO user_groups (id, name, description, is_system) VALUES (?, ?, ?, 0)')
       .run(id, name.trim(), description?.trim() ?? null)
     const group = db.prepare('SELECT * FROM user_groups WHERE id = ?').get(id) as UserGroupRow
-    return reply.status(201).send({ ...group, is_system: false, hidden_service_ids: [], hidden_arr_ids: [], hidden_widget_ids: [] })
+    return reply.status(201).send({ ...group, is_system: false, docker_access: false, hidden_service_ids: [], hidden_arr_ids: [], hidden_widget_ids: [] })
   })
 
   // PUT /api/user-groups/:id/visibility — set hidden app list for a group
@@ -238,6 +240,21 @@ export async function usersRoutes(app: FastifyInstance) {
         insert.run(req.params.id, widgetId)
       }
       return { ok: true, hidden_widget_ids }
+    }
+  )
+
+  // PUT /api/user-groups/:id/docker-access — toggle Docker page access for a group
+  app.put<{ Params: { id: string }; Body: { enabled: boolean } }>(
+    '/api/user-groups/:id/docker-access',
+    { preHandler: [app.requireAdmin] },
+    async (req, reply) => {
+      const group = db.prepare('SELECT * FROM user_groups WHERE id = ?').get(req.params.id) as UserGroupRow | undefined
+      if (!group) return reply.status(404).send({ error: 'Not found' })
+      if (req.params.id === 'grp_admin') return reply.status(400).send({ error: 'Admin group always has Docker access' })
+      const { enabled } = req.body
+      if (typeof enabled !== 'boolean') return reply.status(400).send({ error: 'enabled must be boolean' })
+      db.prepare('UPDATE user_groups SET docker_access = ? WHERE id = ?').run(enabled ? 1 : 0, req.params.id)
+      return { ok: true, docker_access: enabled }
     }
   )
 

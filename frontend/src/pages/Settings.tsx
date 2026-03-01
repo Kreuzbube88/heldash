@@ -224,7 +224,7 @@ export function SettingsPage() {
     isAdmin, authUser,
     users, loadUsers, createUser, updateUser, deleteUser,
     userGroups, loadUserGroups, createUserGroup, deleteUserGroup,
-    updateGroupVisibility, updateArrVisibility, updateWidgetVisibility,
+    updateGroupVisibility, updateArrVisibility, updateWidgetVisibility, updateDockerAccess,
   } = useStore()
   const { instances: arrInstances, loadInstances } = useArrStore()
   const { widgets, loadWidgets } = useWidgetStore()
@@ -484,10 +484,21 @@ export function SettingsPage() {
                     {g.description && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{g.description}</div>}
                   </div>
                   {g.id !== 'grp_admin' && (
-                    <button className="btn btn-ghost btn-sm" onClick={() => setExpandedGroupId(expandedGroupId === g.id ? null : g.id)} style={{ fontSize: 11, gap: 4, padding: '4px 8px' }}>
-                      <Eye size={11} />
-                      {expandedGroupId === g.id ? 'Close' : 'Visibility'}
-                    </button>
+                    <>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, cursor: 'pointer', userSelect: 'none', color: 'var(--text-secondary)', flexShrink: 0 }}>
+                        <input
+                          type="checkbox"
+                          checked={g.docker_access}
+                          onChange={e => updateDockerAccess(g.id, e.target.checked)}
+                          style={{ accentColor: 'var(--accent)', width: 13, height: 13 }}
+                        />
+                        Docker
+                      </label>
+                      <button className="btn btn-ghost btn-sm" onClick={() => setExpandedGroupId(expandedGroupId === g.id ? null : g.id)} style={{ fontSize: 11, gap: 4, padding: '4px 8px' }}>
+                        <Eye size={11} />
+                        {expandedGroupId === g.id ? 'Close' : 'Visibility'}
+                      </button>
+                    </>
                   )}
                   {!g.is_system && (
                     <button className="btn btn-danger btn-icon btn-sm" onClick={() => { if (confirm(`Delete group "${g.name}"?`)) deleteUserGroup(g.id) }} style={{ padding: '4px', width: 28, height: 28, flexShrink: 0 }}>

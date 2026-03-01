@@ -1,4 +1,4 @@
-import type { Service, Group, Settings, AuthUser, UserRecord, UserGroup, DashboardItem, Widget, WidgetStats } from './types'
+import type { Service, Group, Settings, AuthUser, UserRecord, UserGroup, DashboardItem, Widget, WidgetStats, DockerContainer, ContainerStats } from './types'
 import type { ArrInstance, ArrStatus, ArrStats, ArrQueueResponse, ArrCalendarItem, ProwlarrIndexer, SabnzbdQueueData, SabnzbdHistoryData } from './types/arr'
 
 const BASE = '/api'
@@ -80,6 +80,11 @@ export const api = {
         method: 'PUT',
         body: JSON.stringify({ hidden_widget_ids: hiddenWidgetIds }),
       }),
+    updateDockerAccess: (id: string, enabled: boolean) =>
+      req<{ ok: boolean }>(`/user-groups/${id}/docker-access`, {
+        method: 'PUT',
+        body: JSON.stringify({ enabled }),
+      }),
   },
 
   arr: {
@@ -132,6 +137,13 @@ export const api = {
       req<void>(`/dashboard/items/by-ref${asGuest ? '?as=guest' : ''}`, { method: 'DELETE', body: JSON.stringify({ type, ref_id }) }),
     reorder: (ids: string[], asGuest?: boolean) =>
       req<{ ok: boolean }>(`/dashboard/reorder${asGuest ? '?as=guest' : ''}`, { method: 'PATCH', body: JSON.stringify({ ids }) }),
+  },
+
+  docker: {
+    containers: () => req<DockerContainer[]>('/docker/containers'),
+    stats: (id: string) => req<ContainerStats>(`/docker/containers/${id}/stats`),
+    control: (id: string, action: 'start' | 'stop' | 'restart') =>
+      req<{ ok: boolean }>(`/docker/containers/${id}/${action}`, { method: 'POST', body: JSON.stringify({}) }),
   },
 
   health: () => req<{ status: string; version: string; uptime: number }>('/health'),

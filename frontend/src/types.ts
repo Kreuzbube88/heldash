@@ -141,8 +141,30 @@ export interface UserGroup {
   name: string
   description: string | null
   is_system: boolean
+  docker_access: boolean
   created_at: string
   hidden_service_ids: string[]
   hidden_arr_ids: string[]
   hidden_widget_ids: string[]
+}
+
+export interface DockerContainer {
+  id: string
+  name: string
+  image: string
+  state: string   // 'running' | 'exited' | 'paused' | 'restarting' | 'dead' | 'created'
+  status: string  // human-readable e.g. "Up 3 days"
+  startedAt: string | null
+}
+
+export interface ContainerStats {
+  cpuPercent: number
+  memUsed: number   // bytes
+  memTotal: number  // bytes
+}
+
+export interface DockerLogEvent {
+  stream: 'stdout' | 'stderr'
+  log: string
+  timestamp: string
 }

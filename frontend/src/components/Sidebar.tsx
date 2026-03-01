@@ -1,4 +1,4 @@
-import { LayoutDashboard, Settings, AppWindow, Info, Tv2, BarChart2 } from 'lucide-react'
+import { LayoutDashboard, Settings, AppWindow, Info, Tv2, BarChart2, Container } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { useArrStore } from '../store/useArrStore'
 import { useWidgetStore } from '../store/useWidgetStore'
@@ -24,9 +24,12 @@ function PrismaIcon() {
 }
 
 export function Sidebar({ page, onNavigate }: Props) {
-  const { settings, services, isAdmin, isAuthenticated } = useStore()
+  const { settings, services, isAdmin, isAuthenticated, authUser, userGroups } = useStore()
   const { instances } = useArrStore()
   const { widgets } = useWidgetStore()
+
+  const userGroupData = userGroups.find(g => g.id === authUser?.groupId)
+  const canSeeDocker = isAdmin || (userGroupData?.docker_access ?? false)
   const title = settings?.dashboard_title ?? 'HELDASH'
 
   const onlineCount = services.filter(s => s.last_status === 'online').length
@@ -65,6 +68,9 @@ export function Sidebar({ page, onNavigate }: Props) {
           )}
           {(isAdmin || widgets.length > 0) && (
             <NavItem icon={<BarChart2 size={16} />} label="Widgets" active={page === 'widgets'} onClick={() => onNavigate('widgets')} />
+          )}
+          {canSeeDocker && (
+            <NavItem icon={<Container size={16} />} label="Docker" active={page === 'docker'} onClick={() => onNavigate('docker')} />
           )}
         </>
       )}

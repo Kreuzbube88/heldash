@@ -114,6 +114,7 @@ On first launch you will be prompted to create an admin account.
 | `SECRET_KEY` | **Yes** | insecure fallback | Secret for JWT signing. Generate with: `openssl rand -hex 32` |
 | `SECURE_COOKIES` | **Yes** | `false` | `false` = HTTP (direct LAN), `true` = HTTPS (behind nginx-proxy-manager with SSL) |
 | `LOG_LEVEL` | No | `info` | `debug` · `info` · `warn` · `error` |
+| `LOG_FORMAT` | No | `pretty` | `pretty` = human-readable colorized output (default). `json` = raw JSON for log aggregators (Loki, Graylog, etc.) |
 
 ---
 

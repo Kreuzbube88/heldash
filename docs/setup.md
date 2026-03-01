@@ -12,7 +12,8 @@
 8. [Erster Start](#erster-start)
 9. [Updates](#updates)
 10. [Docker-Seite aktivieren](#docker-seite-aktivieren)
-11. [Healthcheck](#healthcheck)
+11. [Logging](#logging)
+12. [Healthcheck](#healthcheck)
 
 ---
 
@@ -76,6 +77,7 @@ openssl rand -hex 32
 | `SECRET_KEY` | **Ja** | unsicherer Fallback | Schlüssel zum Signieren der JWT-Auth-Tokens. Muss ein langer, zufälliger String sein. Beim Ändern werden alle bestehenden Sessions ungültig. |
 | `SECURE_COOKIES` | **Ja** | `false` | `false` = HTTP (direkter LAN-Zugriff ohne TLS). `true` = HTTPS (hinter nginx-proxy-manager oder einem anderen TLS-Proxy). Bei `true` werden Cookies mit dem `Secure`-Flag gesetzt — Login funktioniert dann **nur** über HTTPS. |
 | `LOG_LEVEL` | Nein | `info` | Verbosität des Logs: `debug` · `info` · `warn` · `error` |
+| `LOG_FORMAT` | Nein | `pretty` | Log-Ausgabeformat: `pretty` = lesbar + farbig (Standard, ideal für direkte Container-Logs). `json` = strukturiertes JSON (für Log-Aggregatoren wie Loki, Graylog oder Grafana). |
 
 ### Wichtig: SECRET_KEY
 
@@ -205,6 +207,63 @@ Damit die Docker-Seite im Sidebar erscheint und Containerlisten/Logs abrufbar si
 2. **Gruppe berechtigt:** Unter Einstellungen → Gruppen → [Gruppe wählen] → Tab „Docker" den Haken bei „Docker-Seite" setzen
 
 Admins haben immer Zugriff. Für andere Gruppen muss der Zugriff explizit aktiviert werden.
+
+---
+
+## Logging
+
+HELDASH gibt beim Start eine Zusammenfassung aus, gefolgt von strukturierten Log-Meldungen für alle relevanten Ereignisse.
+
+### Startup-Zusammenfassung
+
+Beim Start erscheint ein Block mit den wichtigsten Konfigurationsdetails:
+
+```
+INFO  HELDASH starting { port: 8282, dataDir: '/data', dockerSocket: 'present',
+                         secretKey: 'set', migrationsApplied: 0, nodeEnv: 'production' }
+INFO  HELDASH ready { port: 8282 }
+```
+
+Fehlt der Docker-Socket oder der `SECRET_KEY`, erscheint sofort eine `WARN`-Meldung.
+
+### Was geloggt wird
+
+| Ereignis | Level |
+|---|---|
+| Start / Ready | `INFO` |
+| Fehlender `SECRET_KEY` | `WARN` |
+| Docker-Socket nicht gefunden | `WARN` |
+| DB-Migrationen angewendet (Anzahl) | `INFO` |
+| Login erfolgreich | `INFO` |
+| Login fehlgeschlagen (User unbekannt / falsches Passwort / inaktiv) | `WARN` |
+| Logout | `INFO` |
+| Erster Admin-Account erstellt | `INFO` |
+| Service offline gegangen | `WARN` |
+| Service wieder online | `INFO` |
+| Service erstellt / gelöscht | `INFO` |
+| Container gestartet / gestoppt / neu gestartet | `INFO` |
+| Docker-Socket nicht erreichbar | `WARN` |
+| Antwort > 1 Sekunde | `WARN` |
+| Graceful Shutdown (SIGTERM/SIGINT) | `INFO` |
+
+### Log-Format wechseln
+
+Standardmäßig nutzt HELDASH `pino-pretty` — farbige, menschenlesbare Ausgabe, ideal für direkte Container-Logs (`docker logs heldash`).
+
+Für Log-Aggregatoren wie **Loki** oder **Graylog** auf strukturiertes JSON umschalten:
+
+```yaml
+environment:
+  - LOG_FORMAT=json
+```
+
+Im JSON-Format lassen sich Felder wie `username`, `id` oder `ms` direkt filtern und in Dashboards visualisieren.
+
+### Logs live ansehen
+
+```bash
+docker logs -f heldash
+```
 
 ---
 

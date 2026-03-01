@@ -343,7 +343,7 @@ All routes prefixed `/api`. Frontend uses relative paths.
 - **Docker log multiplexing** — Non-TTY containers prefix each frame with an 8-byte header: `[stream_type(1)][reserved(3)][size(4 big-endian)]`. TTY containers send raw text. Detection: first byte is `0x01` or `0x02` = muxed.
 - **Self-signed TLS** — undici agents use `connect: { rejectUnauthorized: false }` — homelabs use self-signed certs.
 - **let db!: Database.Database** — Definite assignment assertion required for module-level DB instance with TypeScript strict mode.
-- **DB migrations** — `ALTER TABLE … ADD COLUMN` inside try/catch in `runMigrations()` — silently ignores "column already exists" on old DB files.
+- **DB migrations** — `ALTER TABLE … ADD COLUMN` inside try/catch in `runMigrations()` — silently ignores "column already exists" on old DB files. `runMigrations()` returns the count of newly applied migrations (0 = already up-to-date); `initDb()` returns this count so `server.ts` can log it on startup.
 - **Icon paths** — `path.basename()` in the `/icons/:filename` route prevents path traversal attacks.
 - **Node.js not installed on dev machine** — Cannot run npm/tsc locally; TypeScript errors caught by CI only.
 - **JWT secret** — `SECRET_KEY` env var required. Falls back to insecure default in dev (logged as warning).
@@ -354,6 +354,7 @@ All routes prefixed `/api`. Frontend uses relative paths.
 - **docker_overview widget access** — Bypasses `group_widget_visibility` table. Controlled by `user_groups.docker_widget_access` column. Dashboard route and widget list route both enforce this separately.
 - **Topbar widget visibility** — `loadWidgets()` in `Topbar.tsx` depends on `[isAuthenticated, authUser?.id]` so the permission-filtered widget list is always refreshed after login/logout. Without this, a user's stale widget list would persist in the Zustand store across auth state changes, potentially showing topbar widgets that the new user's group cannot access.
 - **AdGuard password** — Stripped by `sanitize()` in widgets.ts before any response. Never leaves the backend.
+- **Logging** — pino-pretty is always active (not just in `NODE_ENV=development`). `LOG_FORMAT=json` disables it for raw JSON output. `/api/health` and `/api/time` have `disableRequestLogging: true` (polled every 30s each — would flood logs otherwise). Auth failures, service status changes, and Docker control actions all emit structured log entries with context fields (`username`, `id`, `name`, etc.). Sensitive headers (`authorization`, `cookie`) are redacted via Pino `redact` option. Graceful shutdown handled via `process.on('SIGTERM'/'SIGINT')` with `await app.close()` before `process.exit(0)`.
 
 ---
 
@@ -412,6 +413,7 @@ All routes prefixed `/api`. Frontend uses relative paths.
 | DATA_DIR | /data | Root for DB and icon files |
 | NODE_ENV | production | |
 | LOG_LEVEL | info | Pino log level |
+| LOG_FORMAT | pretty | `pretty` = pino-pretty always on (colorized, human-readable). `json` = raw structured JSON for log aggregators |
 | SECRET_KEY | — | **Required.** JWT signing secret (`openssl rand -hex 32`) |
 | SECURE_COOKIES | false | `true` = HTTPS only (behind TLS proxy) |
 

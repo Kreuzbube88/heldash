@@ -59,6 +59,7 @@ interface AppState {
   deleteUserGroup: (id: string) => Promise<void>
   updateGroupVisibility: (groupId: string, hiddenServiceIds: string[]) => Promise<void>
   updateArrVisibility: (groupId: string, hiddenInstanceIds: string[]) => Promise<void>
+  updateWidgetVisibility: (groupId: string, hiddenWidgetIds: string[]) => Promise<void>
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -337,10 +338,19 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   updateArrVisibility: async (groupId, hiddenInstanceIds) => {
-    await api.arr.instances.updateVisibility(groupId, hiddenInstanceIds)
+    await api.userGroups.updateArrVisibility(groupId, hiddenInstanceIds)
     set(state => ({
       userGroups: state.userGroups.map(g =>
         g.id === groupId ? { ...g, hidden_arr_ids: hiddenInstanceIds } : g
+      ),
+    }))
+  },
+
+  updateWidgetVisibility: async (groupId, hiddenWidgetIds) => {
+    await api.userGroups.updateWidgetVisibility(groupId, hiddenWidgetIds)
+    set(state => ({
+      userGroups: state.userGroups.map(g =>
+        g.id === groupId ? { ...g, hidden_widget_ids: hiddenWidgetIds } : g
       ),
     }))
   },

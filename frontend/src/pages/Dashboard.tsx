@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react'
 import { useStore } from '../store/useStore'
 import { useArrStore } from '../store/useArrStore'
 import { useDashboardStore } from '../store/useDashboardStore'
+import { useWidgetStore } from '../store/useWidgetStore'
 import { ServiceCard } from '../components/ServiceCard'
 import { ArrCardContent, SabnzbdCardContent } from '../components/MediaCard'
-import type { Service, DashboardItem, DashboardServiceItem, DashboardArrItem, DashboardPlaceholderItem } from '../types'
+import type { Service, DashboardItem, DashboardServiceItem, DashboardArrItem, DashboardPlaceholderItem, DashboardWidgetItem } from '../types'
 import {
   DndContext,
   DragEndEvent,
@@ -149,6 +150,83 @@ function DashboardArrCard({ item, editMode }: {
           onRemove={() => removeItem(item.id)}
         />
       )}
+    </div>
+  )
+}
+
+// ── Widget card ───────────────────────────────────────────────────────────────
+function DashboardWidgetCard({ item, editMode }: {
+  item: DashboardWidgetItem
+  editMode: boolean
+}) {
+  const { removeItem } = useDashboardStore()
+  const { stats, loadStats } = useWidgetStore()
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: item.id, disabled: !editMode,
+  })
+  const [showHandle, setShowHandle] = useState(false)
+  const s = stats[item.widget.id]
+
+  useEffect(() => {
+    loadStats(item.widget.id).catch(() => {})
+    const interval = setInterval(() => loadStats(item.widget.id).catch(() => {}), 30_000)
+    return () => clearInterval(interval)
+  }, [item.widget.id])
+
+  const ramUsedGb = s ? (s.ram.used / 1024).toFixed(1) : null
+  const ramTotalGb = s ? (s.ram.total / 1024).toFixed(1) : null
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.4 : 1,
+        position: 'relative',
+        gridColumn: 'span 2',
+      }}
+      onMouseEnter={() => setShowHandle(true)}
+      onMouseLeave={() => setShowHandle(false)}
+    >
+      <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{item.widget.name}</div>
+        {s ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <DashStatBar label="CPU" value={s.cpu.load >= 0 ? s.cpu.load : null} extra={s.cpu.load >= 0 ? `${s.cpu.load}%` : '—'} />
+            <DashStatBar label="RAM" value={s.ram.total > 0 ? Math.round((s.ram.used / s.ram.total) * 100) : null} extra={s.ram.total > 0 ? `${ramUsedGb}/${ramTotalGb} GB` : '—'} />
+            {s.disks.map(d => (
+              <DashStatBar key={d.path} label={d.name} value={d.total > 0 ? Math.round((d.used / d.total) * 100) : null} extra={d.total > 0 ? `${Math.round(d.used / 1024)}/${Math.round(d.total / 1024)} GB` : '—'} />
+            ))}
+          </div>
+        ) : (
+          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Loading…</div>
+        )}
+      </div>
+      {editMode && (
+        <EditOverlay
+          dragProps={{ ...attributes, ...listeners }}
+          showHandle={showHandle}
+          isDragging={isDragging}
+          onRemove={() => removeItem(item.id)}
+        />
+      )}
+    </div>
+  )
+}
+
+function DashStatBar({ label, value, extra }: { label: string; value: number | null; extra: string }) {
+  const pct = value ?? 0
+  const color = pct >= 90 ? 'var(--status-offline)' : pct >= 70 ? '#f59e0b' : 'var(--accent)'
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+        <span style={{ color: 'var(--text-secondary)' }}>{label}</span>
+        <span style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: 11 }}>{extra}</span>
+      </div>
+      <div style={{ height: 3, borderRadius: 2, background: 'var(--glass-border)', overflow: 'hidden' }}>
+        <div style={{ height: '100%', width: `${Math.min(pct, 100)}%`, background: color, borderRadius: 2, transition: 'width 0.4s ease' }} />
+      </div>
     </div>
   )
 }
@@ -301,6 +379,15 @@ export function Dashboard({ onEdit }: Props) {
                   <DashboardArrCard
                     key={item.id}
                     item={item as DashboardArrItem}
+                    editMode={editMode}
+                  />
+                )
+              }
+              if (item.type === 'widget') {
+                return (
+                  <DashboardWidgetCard
+                    key={item.id}
+                    item={item as DashboardWidgetItem}
                     editMode={editMode}
                   />
                 )

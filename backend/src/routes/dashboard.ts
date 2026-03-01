@@ -11,6 +11,17 @@ interface DashboardItemRow {
   created_at: string
 }
 
+interface WidgetRow {
+  id: string
+  type: string
+  name: string
+  config: string
+  position: number
+  show_in_topbar: number
+  created_at: string
+  updated_at: string
+}
+
 interface ServiceRow {
   id: string
   group_id: string | null
@@ -75,6 +86,31 @@ export async function dashboardRoutes(app: FastifyInstance) {
         continue
       }
 
+      if (item.type === 'widget' && item.ref_id) {
+        if (groupId !== null) {
+          const hidden = db.prepare(
+            'SELECT 1 FROM group_widget_visibility WHERE group_id = ? AND widget_id = ?'
+          ).get(groupId, item.ref_id)
+          if (hidden) continue
+        }
+        const widget = db.prepare('SELECT * FROM widgets WHERE id = ?').get(item.ref_id) as WidgetRow | undefined
+        if (!widget) continue
+        result.push({
+          id: item.id,
+          type: 'widget',
+          position: item.position,
+          ref_id: item.ref_id,
+          widget: {
+            id: widget.id,
+            type: widget.type,
+            name: widget.name,
+            config: JSON.parse(widget.config ?? '{}'),
+            show_in_topbar: widget.show_in_topbar === 1,
+          },
+        })
+        continue
+      }
+
       if (item.type === 'service' && item.ref_id) {
         // Visibility check for non-admins
         if (groupId !== null) {
@@ -129,7 +165,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
   app.post('/api/dashboard/items', { preHandler: app.requireAdmin }, async (req, reply) => {
     const { type, ref_id } = req.body as AddItemBody
 
-    if (!['service', 'arr_instance', 'placeholder', 'placeholder_app', 'placeholder_instance', 'placeholder_row'].includes(type)) {
+    if (!['service', 'arr_instance', 'placeholder', 'placeholder_app', 'placeholder_instance', 'placeholder_row', 'widget'].includes(type)) {
       return reply.status(400).send({ error: 'Invalid type' })
     }
     const isPlaceholderType = type === 'placeholder' || type === 'placeholder_app' || type === 'placeholder_instance' || type === 'placeholder_row'

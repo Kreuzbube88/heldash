@@ -156,13 +156,32 @@ function applySchema(db: Database.Database) {
       PRIMARY KEY (group_id, instance_id)
     );
 
-    -- Dashboard items — unified ordered list (services, arr instances, placeholders)
+    -- Dashboard items — unified ordered list (services, arr instances, placeholders, widgets)
     CREATE TABLE IF NOT EXISTS dashboard_items (
       id         TEXT PRIMARY KEY,
-      type       TEXT NOT NULL,    -- 'service' | 'arr_instance' | 'placeholder'
+      type       TEXT NOT NULL,    -- 'service' | 'arr_instance' | 'placeholder_*' | 'widget'
       ref_id     TEXT,             -- NULL for placeholders
       position   INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    -- Widgets
+    CREATE TABLE IF NOT EXISTS widgets (
+      id             TEXT PRIMARY KEY,
+      type           TEXT NOT NULL,               -- 'server_status'
+      name           TEXT NOT NULL,
+      config         TEXT NOT NULL DEFAULT '{}',  -- JSON per widget type
+      position       INTEGER NOT NULL DEFAULT 0,
+      show_in_topbar INTEGER NOT NULL DEFAULT 0,
+      created_at     TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at     TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    -- Widget visibility per user group (presence = hidden)
+    CREATE TABLE IF NOT EXISTS group_widget_visibility (
+      group_id  TEXT NOT NULL,
+      widget_id TEXT NOT NULL,
+      PRIMARY KEY (group_id, widget_id)
     );
 
     -- Insert default settings if not exist

@@ -89,7 +89,36 @@ export interface DashboardPlaceholderItem {
   position: number
 }
 
-export type DashboardItem = DashboardServiceItem | DashboardArrItem | DashboardPlaceholderItem
+export interface ServerStatusConfig {
+  disks: { path: string; name: string }[]
+}
+
+export interface Widget {
+  id: string
+  type: 'server_status'
+  name: string
+  config: ServerStatusConfig
+  position: number
+  show_in_topbar: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface ServerStats {
+  cpu: { load: number }
+  ram: { total: number; used: number; free: number }
+  disks: { path: string; name: string; total: number; used: number; free: number }[]
+}
+
+export interface DashboardWidgetItem {
+  id: string
+  type: 'widget'
+  position: number
+  ref_id: string
+  widget: Pick<Widget, 'id' | 'type' | 'name' | 'config' | 'show_in_topbar'>
+}
+
+export type DashboardItem = DashboardServiceItem | DashboardArrItem | DashboardPlaceholderItem | DashboardWidgetItem
 
 export interface UserGroup {
   id: string
@@ -99,4 +128,5 @@ export interface UserGroup {
   created_at: string
   hidden_service_ids: string[]
   hidden_arr_ids: string[]
+  hidden_widget_ids: string[]
 }

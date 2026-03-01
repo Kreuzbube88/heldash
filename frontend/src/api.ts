@@ -1,4 +1,4 @@
-import type { Service, Group, Settings, AuthUser, UserRecord, UserGroup, DashboardItem } from './types'
+import type { Service, Group, Settings, AuthUser, UserRecord, UserGroup, DashboardItem, Widget, ServerStats } from './types'
 import type { ArrInstance, ArrStatus, ArrStats, ArrQueueResponse, ArrCalendarItem, ProwlarrIndexer, SabnzbdQueueData, SabnzbdHistoryData } from './types/arr'
 
 const BASE = '/api'
@@ -66,9 +66,19 @@ export const api = {
     create: (data: { name: string; description?: string }) => req<UserGroup>('/user-groups', { method: 'POST', body: JSON.stringify(data) }),
     delete: (id: string) => req<void>(`/user-groups/${id}`, { method: 'DELETE' }),
     updateVisibility: (id: string, hiddenServiceIds: string[]) =>
-      req<{ ok: boolean; hidden_service_ids: string[] }>(`/user-groups/${id}/visibility`, {
+      req<{ ok: boolean }>(`/user-groups/${id}/visibility`, {
         method: 'PUT',
         body: JSON.stringify({ hidden_service_ids: hiddenServiceIds }),
+      }),
+    updateArrVisibility: (id: string, hiddenArrIds: string[]) =>
+      req<{ ok: boolean }>(`/user-groups/${id}/arr-visibility`, {
+        method: 'PUT',
+        body: JSON.stringify({ hidden_arr_ids: hiddenArrIds }),
+      }),
+    updateWidgetVisibility: (id: string, hiddenWidgetIds: string[]) =>
+      req<{ ok: boolean }>(`/user-groups/${id}/widget-visibility`, {
+        method: 'PUT',
+        body: JSON.stringify({ hidden_widget_ids: hiddenWidgetIds }),
       }),
   },
 
@@ -93,6 +103,16 @@ export const api = {
     calendar: (id: string) => req<ArrCalendarItem[]>(`/arr/${id}/calendar`),
     indexers: (id: string) => req<ProwlarrIndexer[]>(`/arr/${id}/indexers`),
     history: (id: string) => req<SabnzbdHistoryData>(`/arr/${id}/history`),
+  },
+
+  widgets: {
+    list: () => req<Widget[]>('/widgets'),
+    create: (data: { type: string; name: string; config: object; show_in_topbar?: boolean }) =>
+      req<Widget>('/widgets', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: Partial<{ name: string; config: object; show_in_topbar: boolean; position: number }>) =>
+      req<Widget>(`/widgets/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    delete: (id: string) => req<void>(`/widgets/${id}`, { method: 'DELETE' }),
+    stats: (id: string) => req<ServerStats>(`/widgets/${id}/stats`),
   },
 
   dashboard: {

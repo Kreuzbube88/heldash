@@ -12,13 +12,14 @@ interface DashboardState {
 
   addService: (refId: string) => Promise<void>
   addArrInstance: (refId: string) => Promise<void>
+  addWidget: (refId: string) => Promise<void>
   addPlaceholder: (size: 'app' | 'instance' | 'row') => Promise<void>
   removeItem: (id: string) => Promise<void>
-  removeByRef: (type: 'service' | 'arr_instance', refId: string) => Promise<void>
+  removeByRef: (type: 'service' | 'arr_instance' | 'widget', refId: string) => Promise<void>
   reorder: (orderedIds: string[]) => Promise<void>
 
-  isOnDashboard: (type: 'service' | 'arr_instance', refId: string) => boolean
-  getDashboardItemId: (type: 'service' | 'arr_instance', refId: string) => string | undefined
+  isOnDashboard: (type: 'service' | 'arr_instance' | 'widget', refId: string) => boolean
+  getDashboardItemId: (type: 'service' | 'arr_instance' | 'widget', refId: string) => string | undefined
 }
 
 export const useDashboardStore = create<DashboardState>((set, get) => ({
@@ -47,6 +48,11 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
 
   addArrInstance: async (refId) => {
     await api.dashboard.addItem('arr_instance', refId)
+    await get().loadDashboard()
+  },
+
+  addWidget: async (refId) => {
+    await api.dashboard.addItem('widget', refId)
     await get().loadDashboard()
   },
 

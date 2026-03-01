@@ -54,6 +54,14 @@ interface VisibilityBody {
   hidden_service_ids: string[]
 }
 
+interface ArrVisibilityBody {
+  hidden_arr_ids: string[]
+}
+
+interface WidgetVisibilityBody {
+  hidden_widget_ids: string[]
+}
+
 function roleFromGroup(groupId: string | null | undefined): string {
   return groupId === 'grp_admin' ? 'admin' : 'user'
 }
@@ -152,7 +160,7 @@ export async function usersRoutes(app: FastifyInstance) {
 
   // ── User-group endpoints (admin-only) ──────────────────────────────────────
 
-  // GET /api/user-groups — includes hidden_service_ids and hidden_arr_ids per group
+  // GET /api/user-groups — includes hidden_service_ids, hidden_arr_ids, hidden_widget_ids per group
   app.get('/api/user-groups', { preHandler: [app.requireAdmin] }, async () => {
     const groups = db.prepare('SELECT * FROM user_groups ORDER BY is_system DESC, name').all() as UserGroupRow[]
     return groups.map(g => ({
@@ -164,6 +172,9 @@ export async function usersRoutes(app: FastifyInstance) {
       hidden_arr_ids: (db.prepare(
         'SELECT instance_id FROM group_arr_visibility WHERE group_id = ?'
       ).all(g.id) as { instance_id: string }[]).map(r => r.instance_id),
+      hidden_widget_ids: (db.prepare(
+        'SELECT widget_id FROM group_widget_visibility WHERE group_id = ?'
+      ).all(g.id) as { widget_id: string }[]).map(r => r.widget_id),
     }))
   })
 
@@ -193,6 +204,40 @@ export async function usersRoutes(app: FastifyInstance) {
         insert.run(req.params.id, serviceId)
       }
       return { ok: true, hidden_service_ids }
+    }
+  )
+
+  // PUT /api/user-groups/:id/arr-visibility — set hidden arr instance list for a group
+  app.put<{ Params: { id: string }; Body: ArrVisibilityBody }>(
+    '/api/user-groups/:id/arr-visibility',
+    { preHandler: [app.requireAdmin] },
+    async (req, reply) => {
+      const group = db.prepare('SELECT id FROM user_groups WHERE id = ?').get(req.params.id)
+      if (!group) return reply.status(404).send({ error: 'Not found' })
+      const { hidden_arr_ids } = req.body
+      db.prepare('DELETE FROM group_arr_visibility WHERE group_id = ?').run(req.params.id)
+      const insert = db.prepare('INSERT INTO group_arr_visibility (group_id, instance_id) VALUES (?, ?)')
+      for (const instanceId of hidden_arr_ids) {
+        insert.run(req.params.id, instanceId)
+      }
+      return { ok: true, hidden_arr_ids }
+    }
+  )
+
+  // PUT /api/user-groups/:id/widget-visibility — set hidden widget list for a group
+  app.put<{ Params: { id: string }; Body: WidgetVisibilityBody }>(
+    '/api/user-groups/:id/widget-visibility',
+    { preHandler: [app.requireAdmin] },
+    async (req, reply) => {
+      const group = db.prepare('SELECT id FROM user_groups WHERE id = ?').get(req.params.id)
+      if (!group) return reply.status(404).send({ error: 'Not found' })
+      const { hidden_widget_ids } = req.body
+      db.prepare('DELETE FROM group_widget_visibility WHERE group_id = ?').run(req.params.id)
+      const insert = db.prepare('INSERT INTO group_widget_visibility (group_id, widget_id) VALUES (?, ?)')
+      for (const widgetId of hidden_widget_ids) {
+        insert.run(req.params.id, widgetId)
+      }
+      return { ok: true, hidden_widget_ids }
     }
   )
 

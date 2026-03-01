@@ -7,6 +7,7 @@ import { Dashboard } from './pages/Dashboard'
 import { ServicesPage } from './pages/ServicesPage'
 import { SettingsPage } from './pages/Settings'
 import { MediaPage } from './pages/MediaPage'
+import { WidgetsPage } from './pages/WidgetsPage'
 import { SetupPage } from './pages/SetupPage'
 import { ServiceModal } from './components/ServiceModal'
 import { LoginModal } from './components/LoginModal'
@@ -21,6 +22,7 @@ export default function App() {
   const [editService, setEditService] = useState<Service | null>(null)
   const [checking, setChecking] = useState(false)
   const [showAddInstance, setShowAddInstance] = useState(false)
+  const [showAddWidget, setShowAddWidget] = useState(false)
 
   useEffect(() => {
     checkAuth().then(() => Promise.all([loadAll(), loadDashboard()]))
@@ -89,13 +91,14 @@ export default function App() {
       </div>
 
       <div className="app-layout">
-        <Sidebar page={page} onNavigate={setPage} />
+        <Sidebar page={page} onNavigate={(p) => { setPage(p); if (p !== 'widgets') setShowAddWidget(false); if (p !== 'media') setShowAddInstance(false) }} />
 
         <div className="main-area">
           <Topbar
             page={page}
             onAddService={() => setShowModal(true)}
             onAddInstance={() => setShowAddInstance(true)}
+            onAddWidget={() => setShowAddWidget(true)}
             onCheckAll={handleCheckAll}
             checking={checking}
             onLogin={() => setShowLogin(true)}
@@ -109,6 +112,12 @@ export default function App() {
                 <MediaPage
                   showAddForm={showAddInstance}
                   onFormClose={() => setShowAddInstance(false)}
+                />
+              )}
+              {page === 'widgets' && (
+                <WidgetsPage
+                  showAddForm={showAddWidget}
+                  onFormClose={() => setShowAddWidget(false)}
                 />
               )}
               {page === 'about' && (

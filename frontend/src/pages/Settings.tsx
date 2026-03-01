@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useStore } from '../store/useStore'
 import { useArrStore } from '../store/useArrStore'
+import { useWidgetStore } from '../store/useWidgetStore'
 import { Plus, Trash2, Users, Shield, Pencil, X, Check, Eye, EyeOff } from 'lucide-react'
 import type { UserRecord, UserGroup, Service } from '../types'
 import type { ArrInstance } from '../types/arr'
@@ -147,41 +148,44 @@ function VisibilityChecklist({
   )
 }
 
-// ── Per-group visibility editor (Apps + Media) ────────────────────────────────
+// ── Per-group visibility editor (Apps + Media + Widgets) ──────────────────────
 function GroupVisibilityEditor({
   group,
   services,
   arrInstances,
+  widgets,
   onSaveApps,
   onSaveArr,
+  onSaveWidgets,
 }: {
   group: UserGroup
   services: Service[]
   arrInstances: ArrInstance[]
+  widgets: { id: string; name: string }[]
   onSaveApps: (hiddenIds: string[]) => Promise<void>
   onSaveArr: (hiddenIds: string[]) => Promise<void>
+  onSaveWidgets: (hiddenIds: string[]) => Promise<void>
 }) {
-  const [tab, setTab] = useState<'apps' | 'media'>('apps')
+  const [tab, setTab] = useState<'apps' | 'media' | 'widgets'>('apps')
 
   return (
     <div style={{ padding: '10px 14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
       {/* Tab switcher */}
       <div style={{ display: 'flex', gap: 4 }}>
-        {(['apps', 'media'] as const).map(t => (
+        {(['apps', 'media', 'widgets'] as const).map(t => (
           <button
             key={t}
             className="btn btn-ghost btn-sm"
             onClick={() => setTab(t)}
             style={{ fontSize: 11, padding: '3px 10px', textTransform: 'capitalize', color: tab === t ? 'var(--accent)' : 'var(--text-muted)', borderBottom: tab === t ? '2px solid var(--accent)' : '2px solid transparent', borderRadius: 0 }}
           >
-            {t === 'apps' ? 'Apps' : 'Media'}
+            {t === 'apps' ? 'Apps' : t === 'media' ? 'Media' : 'Widgets'}
           </button>
         ))}
       </div>
-      {tab === 'apps'
-        ? <VisibilityChecklist label="Visibility" items={services} hiddenIds={group.hidden_service_ids} onSave={onSaveApps} />
-        : <VisibilityChecklist label="Visibility" items={arrInstances.map(i => ({ id: i.id, name: i.name }))} hiddenIds={group.hidden_arr_ids} onSave={onSaveArr} />
-      }
+      {tab === 'apps' && <VisibilityChecklist label="Visibility" items={services} hiddenIds={group.hidden_service_ids} onSave={onSaveApps} />}
+      {tab === 'media' && <VisibilityChecklist label="Visibility" items={arrInstances.map(i => ({ id: i.id, name: i.name }))} hiddenIds={group.hidden_arr_ids} onSave={onSaveArr} />}
+      {tab === 'widgets' && <VisibilityChecklist label="Visibility" items={widgets} hiddenIds={group.hidden_widget_ids ?? []} onSave={onSaveWidgets} />}
     </div>
   )
 }
@@ -193,9 +197,10 @@ export function SettingsPage() {
     services,
     isAdmin, authUser,
     users, loadUsers, createUser, updateUser, deleteUser,
-    userGroups, loadUserGroups, createUserGroup, deleteUserGroup, updateGroupVisibility, updateArrVisibility,
+    userGroups, loadUserGroups, createUserGroup, deleteUserGroup, updateGroupVisibility, updateArrVisibility, updateWidgetVisibility,
   } = useStore()
   const { instances: arrInstances, loadInstances } = useArrStore()
+  const { widgets, loadWidgets } = useWidgetStore()
 
   const [title, setTitle] = useState(settings?.dashboard_title ?? 'HELDASH')
   const [newGroup, setNewGroup] = useState('')
@@ -217,6 +222,7 @@ export function SettingsPage() {
       loadUsers().catch(() => {})
       loadUserGroups().catch(() => {})
       loadInstances().catch(() => {})
+      loadWidgets().catch(() => {})
     }
   }, [isAdmin])
 
@@ -504,8 +510,10 @@ export function SettingsPage() {
                       group={g}
                       services={services}
                       arrInstances={arrInstances}
+                      widgets={widgets.map(w => ({ id: w.id, name: w.name }))}
                       onSaveApps={(hiddenIds) => updateGroupVisibility(g.id, hiddenIds)}
                       onSaveArr={(hiddenIds) => updateArrVisibility(g.id, hiddenIds)}
+                      onSaveWidgets={(hiddenIds) => updateWidgetVisibility(g.id, hiddenIds)}
                     />
                   </div>
                 )}

@@ -46,6 +46,7 @@ heldash/
 │       │   ├── useDockerStore.ts  # Docker store: containers, stats, control
 │       │   ├── useWidgetStore.ts  # Widget store: widgets, stats, AdGuard toggle
 │       │   └── useDashboardStore.ts # Dashboard item store
+│       ├── utils.ts               # Shared utilities: normalizeUrl, containerCounts
 │       ├── styles/
 │       │   └── global.css      # All CSS: variables, glass, layout, components
 │       ├── components/
@@ -105,6 +106,14 @@ Raw better-sqlite3 prepared statements. Fast, no abstraction overhead. Row types
 
 ### Auth: JWT in httpOnly cookie
 `@fastify/jwt` signs tokens with `SECRET_KEY`. Cookie is `httpOnly`, `sameSite: strict`. Two Fastify decorators: `app.authenticate` (verify JWT) and `app.requireAdmin` (verify JWT + assert groupId === 'grp_admin'). Public routes: all GETs, `/api/auth/status`, check endpoints.
+
+### Shared frontend utilities (`utils.ts`)
+Two pure functions used across multiple components:
+- `normalizeUrl(u)` — strips trailing slash, lowercases. Used in `Dashboard.tsx` and `WidgetsPage.tsx` to match widget URLs against service URLs for icon inheritance.
+- `containerCounts(containers)` — single-pass loop returning `{ running, stopped, restarting }`. Used in `DockerPage.tsx`, `WidgetsPage.tsx`, and `Topbar.tsx`. More efficient than three separate `.filter()` calls.
+
+### Service parsing helper (`useStore.ts`)
+`parseService(s)` converts the raw `tags` string from the API (`JSON.stringify`'d array) into a proper JS array. Defined once at the top of the store module; used in `loadAll`, `loadServices`, `createService`, and `updateService` to avoid duplicated `JSON.parse(s.tags)` expressions.
 
 ### Group-based access control
 - `grp_admin` — built-in, full access, always has Docker + Docker widget access (cannot be deleted)
@@ -341,6 +350,7 @@ All routes prefixed `/api`. Frontend uses relative paths.
 - **Sonarr calendar** — Requires `includeSeries=true`, otherwise `series` is undefined on episode objects.
 - **SABnzbd API** — Single `/api` endpoint, `mode=X&apikey=KEY&output=json`. `SabnzbdClient` does NOT extend `ArrBaseClient`.
 - **Healthcheck** — Uses `127.0.0.1` not `localhost` to avoid IPv6 resolution issues in Docker.
+- **Service visibility SQL pattern** — `GET /api/services` uses a `LEFT JOIN group_service_visibility` to filter hidden services directly in SQL (`WHERE g.service_id IS NULL`). Never load all rows into memory and filter in JS.
 - **docker_overview widget access** — Bypasses `group_widget_visibility` table. Controlled by `user_groups.docker_widget_access` column. Dashboard route and widget list route both enforce this separately.
 - **Topbar widget visibility** — `loadWidgets()` in `Topbar.tsx` depends on `[isAuthenticated, authUser?.id]` so the permission-filtered widget list is always refreshed after login/logout. Without this, a user's stale widget list would persist in the Zustand store across auth state changes, potentially showing topbar widgets that the new user's group cannot access.
 - **AdGuard password** — Stripped by `sanitize()` in widgets.ts before any response. Never leaves the backend.
@@ -360,6 +370,9 @@ All routes prefixed `/api`. Frontend uses relative paths.
 - All API calls go through `api.ts` — never call `fetch` directly in components.
 - All state mutations go through the Zustand store — never call `api.*` directly in components.
 - `useStore` = main app; `useArrStore` = media; `useDockerStore` = Docker; `useWidgetStore` = widgets; `useDashboardStore` = dashboard items.
+- Shared pure functions go in `utils.ts` — never redefine `normalizeUrl` or container counting inline.
+- `useEffect` dependency arrays must use stable primitives (strings, numbers) — never put `.filter()` or `.map()` calls directly inside the array; extract to a variable first.
+- Parallelize independent API calls with `Promise.all()` — never fire them sequentially with separate `.catch()` chains.
 - Status "unknown" = neutral gray dot only — no text, no tooltip.
 - Error messages go in local `error` state → displayed inline in the form/modal.
 

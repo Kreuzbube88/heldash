@@ -2,9 +2,46 @@ import { useState, useEffect } from 'react'
 import { useStore } from '../store/useStore'
 import { useArrStore } from '../store/useArrStore'
 import { useWidgetStore } from '../store/useWidgetStore'
-import { Plus, Trash2, Users, Shield, Pencil, X, Check, Eye, EyeOff } from 'lucide-react'
+import { Plus, Trash2, Users, Shield, Pencil, X, Check, Eye, EyeOff, Settings, KeyRound } from 'lucide-react'
 import type { UserRecord, UserGroup, Service } from '../types'
 import type { ArrInstance } from '../types/arr'
+
+type SettingsTab = 'general' | 'users' | 'groups' | 'oidc'
+
+// ── Tab bar ───────────────────────────────────────────────────────────────────
+function TabBar({ active, onChange }: { active: SettingsTab; onChange: (t: SettingsTab) => void }) {
+  const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
+    { id: 'general', label: 'General', icon: <Settings size={13} /> },
+    { id: 'users',   label: 'Users',   icon: <Users size={13} /> },
+    { id: 'groups',  label: 'Groups',  icon: <Shield size={13} /> },
+    { id: 'oidc',    label: 'OIDC / SSO', icon: <KeyRound size={13} /> },
+  ]
+  return (
+    <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: '6px 8px', display: 'flex', gap: 2 }}>
+      {tabs.map(t => (
+        <button
+          key={t.id}
+          onClick={() => onChange(t.id)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '7px 14px',
+            borderRadius: 'var(--radius-md)',
+            fontSize: 13, fontWeight: active === t.id ? 600 : 400,
+            background: active === t.id ? 'rgba(var(--accent-rgb), 0.12)' : 'transparent',
+            color: active === t.id ? 'var(--accent)' : 'var(--text-secondary)',
+            border: active === t.id ? '1px solid rgba(var(--accent-rgb), 0.25)' : '1px solid transparent',
+            cursor: 'pointer',
+            transition: 'all 150ms ease',
+            fontFamily: 'var(--font-sans)',
+          }}
+        >
+          {t.icon}
+          {t.label}
+        </button>
+      ))}
+    </div>
+  )
+}
 
 // ── Inline user edit form ─────────────────────────────────────────────────────
 function UserEditRow({
@@ -60,10 +97,7 @@ function UserEditRow({
             onClick={() => setIsActive(a => !a)}
             disabled={isSelf}
             style={{
-              padding: '5px 12px',
-              borderRadius: 'var(--radius-sm)',
-              fontSize: 12,
-              fontWeight: 600,
+              padding: '5px 12px', borderRadius: 'var(--radius-sm)', fontSize: 12, fontWeight: 600,
               cursor: isSelf ? 'default' : 'pointer',
               background: isActive ? 'rgba(34,197,94,0.12)' : 'var(--glass-bg)',
               color: isActive ? 'var(--status-online)' : 'var(--text-muted)',
@@ -148,15 +182,9 @@ function VisibilityChecklist({
   )
 }
 
-// ── Per-group visibility editor (Apps + Media + Widgets) ──────────────────────
+// ── Per-group visibility editor ───────────────────────────────────────────────
 function GroupVisibilityEditor({
-  group,
-  services,
-  arrInstances,
-  widgets,
-  onSaveApps,
-  onSaveArr,
-  onSaveWidgets,
+  group, services, arrInstances, widgets, onSaveApps, onSaveArr, onSaveWidgets,
 }: {
   group: UserGroup
   services: Service[]
@@ -167,10 +195,8 @@ function GroupVisibilityEditor({
   onSaveWidgets: (hiddenIds: string[]) => Promise<void>
 }) {
   const [tab, setTab] = useState<'apps' | 'media' | 'widgets'>('apps')
-
   return (
     <div style={{ padding: '10px 14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {/* Tab switcher */}
       <div style={{ display: 'flex', gap: 4 }}>
         {(['apps', 'media', 'widgets'] as const).map(t => (
           <button
@@ -197,10 +223,13 @@ export function SettingsPage() {
     services,
     isAdmin, authUser,
     users, loadUsers, createUser, updateUser, deleteUser,
-    userGroups, loadUserGroups, createUserGroup, deleteUserGroup, updateGroupVisibility, updateArrVisibility, updateWidgetVisibility,
+    userGroups, loadUserGroups, createUserGroup, deleteUserGroup,
+    updateGroupVisibility, updateArrVisibility, updateWidgetVisibility,
   } = useStore()
   const { instances: arrInstances, loadInstances } = useArrStore()
   const { widgets, loadWidgets } = useWidgetStore()
+
+  const [activeTab, setActiveTab] = useState<SettingsTab>('general')
 
   const [title, setTitle] = useState(settings?.dashboard_title ?? 'HELDASH')
   const [newGroup, setNewGroup] = useState('')
@@ -230,22 +259,15 @@ export function SettingsPage() {
 
   const saveTitle = async () => {
     setSaving(true)
-    try {
-      await updateSettings({ dashboard_title: title })
-    } finally {
-      setSaving(false)
-    }
+    try { await updateSettings({ dashboard_title: title }) }
+    finally { setSaving(false) }
   }
 
   const handleAddGroup = async () => {
     if (!newGroup.trim()) return
     setGroupError('')
-    try {
-      await createGroup({ name: newGroup.trim() })
-      setNewGroup('')
-    } catch (e: any) {
-      setGroupError(e.message ?? 'Failed to create group')
-    }
+    try { await createGroup({ name: newGroup.trim() }); setNewGroup('') }
+    catch (e: any) { setGroupError(e.message ?? 'Failed to create group') }
   }
 
   const handleAddUser = async () => {
@@ -275,12 +297,8 @@ export function SettingsPage() {
   const handleAddUserGroup = async () => {
     setUgError('')
     if (!newUG.name.trim()) return
-    try {
-      await createUserGroup({ name: newUG.name.trim(), description: newUG.description.trim() || undefined })
-      setNewUG({ name: '', description: '' })
-    } catch (e: any) {
-      setUgError(e.message ?? 'Failed to create group')
-    }
+    try { await createUserGroup({ name: newUG.name.trim(), description: newUG.description.trim() || undefined }); setNewUG({ name: '', description: '' }) }
+    catch (e: any) { setUgError(e.message ?? 'Failed to create group') }
   }
 
   const handleSaveUser = async (userId: string, data: Parameters<typeof updateUser>[1]) => {
@@ -294,91 +312,88 @@ export function SettingsPage() {
     return g ? g.name : '—'
   }
 
-  const isAdmin_group = (id: string | null) => id === 'grp_admin'
+  const isAdminGroup = (id: string | null) => id === 'grp_admin'
 
   return (
-    <div style={{ maxWidth: 600, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 24 }}>
+    <div style={{ maxWidth: 700, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-      {/* General */}
-      <section className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 24 }}>
-        <h3 style={{ marginBottom: 20, fontSize: 15, fontWeight: 600 }}>General</h3>
-        <div className="form-group">
-          <label className="form-label">Dashboard Title</label>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input className="form-input" value={title} onChange={e => setTitle(e.target.value)} />
-            <button className="btn btn-primary" onClick={saveTitle} disabled={saving} style={{ flexShrink: 0 }}>
-              {saving ? '...' : 'Save'}
-            </button>
-          </div>
-        </div>
-      </section>
+      {/* Tab bar */}
+      <TabBar active={activeTab} onChange={setActiveTab} />
 
-      {/* Appearance */}
-      <section className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 24 }}>
-        <h3 style={{ marginBottom: 20, fontSize: 15, fontWeight: 600 }}>Appearance</h3>
-        <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-          Use the theme toggle (☀/🌙) and accent color dots in the top bar to change the look.
-        </p>
-        <div style={{ marginTop: 16, display: 'flex', gap: 12, alignItems: 'center' }}>
-          <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Current:</span>
-          <span className="glass" style={{ padding: '4px 10px', borderRadius: 'var(--radius-sm)', fontSize: 12, fontFamily: 'var(--font-mono)' }}>
-            {settings.theme_mode} / {settings.theme_accent}
-          </span>
-        </div>
-      </section>
+      {/* ── General ──────────────────────────────────────────────────────────── */}
+      {activeTab === 'general' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-      {/* App Groups */}
-      <section className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 24 }}>
-        <h3 style={{ marginBottom: 20, fontSize: 15, fontWeight: 600 }}>App Groups</h3>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
-          {groups.length === 0 && (
-            <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No groups yet.</p>
-          )}
-          {groups.map(g => (
-            <div key={g.id} className="glass" style={{ display: 'flex', alignItems: 'center', padding: '10px 14px', borderRadius: 'var(--radius-md)', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 14 }}>{g.icon ? `${g.icon} ` : ''}{g.name}</span>
-              {isAdmin && (
-                <button className="btn btn-danger btn-icon btn-sm" onClick={() => deleteGroup(g.id)} style={{ padding: '4px', width: 28, height: 28 }}>
-                  <Trash2 size={12} />
+          {/* Dashboard title */}
+          <section className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 24 }}>
+            <h3 style={{ marginBottom: 20, fontSize: 15, fontWeight: 600 }}>General</h3>
+            <div className="form-group">
+              <label className="form-label">Dashboard Title</label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input className="form-input" value={title} onChange={e => setTitle(e.target.value)} />
+                <button className="btn btn-primary" onClick={saveTitle} disabled={saving} style={{ flexShrink: 0 }}>
+                  {saving ? '...' : 'Save'}
                 </button>
-              )}
+              </div>
             </div>
-          ))}
-        </div>
-        {isAdmin && (
-          <>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <input
-                className="form-input"
-                value={newGroup}
-                onChange={e => setNewGroup(e.target.value)}
-                placeholder="New group name"
-                onKeyDown={e => e.key === 'Enter' && handleAddGroup()}
-              />
-              <button className="btn btn-primary" onClick={handleAddGroup} style={{ flexShrink: 0 }}>
-                <Plus size={14} /> Add
-              </button>
-            </div>
-            {groupError && <div style={{ fontSize: 12, color: 'var(--status-offline)', marginTop: 6 }}>{groupError}</div>}
-          </>
-        )}
-      </section>
+          </section>
 
-      {/* User Management — admin only */}
-      {isAdmin && (
+          {/* Appearance */}
+          <section className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 24 }}>
+            <h3 style={{ marginBottom: 16, fontSize: 15, fontWeight: 600 }}>Appearance</h3>
+            <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+              Use the theme toggle (☀/🌙) and accent color dots in the top bar to change the look.
+            </p>
+            <div style={{ marginTop: 16, display: 'flex', gap: 12, alignItems: 'center' }}>
+              <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Current:</span>
+              <span className="glass" style={{ padding: '4px 10px', borderRadius: 'var(--radius-sm)', fontSize: 12, fontFamily: 'var(--font-mono)' }}>
+                {settings.theme_mode} / {settings.theme_accent}
+              </span>
+            </div>
+          </section>
+
+          {/* App Groups */}
+          <section className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 24 }}>
+            <h3 style={{ marginBottom: 20, fontSize: 15, fontWeight: 600 }}>App Groups</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+              {groups.length === 0 && <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No groups yet.</p>}
+              {groups.map(g => (
+                <div key={g.id} className="glass" style={{ display: 'flex', alignItems: 'center', padding: '10px 14px', borderRadius: 'var(--radius-md)', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 14 }}>{g.icon ? `${g.icon} ` : ''}{g.name}</span>
+                  {isAdmin && (
+                    <button className="btn btn-danger btn-icon btn-sm" onClick={() => deleteGroup(g.id)} style={{ padding: '4px', width: 28, height: 28 }}>
+                      <Trash2 size={12} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+            {isAdmin && (
+              <>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input className="form-input" value={newGroup} onChange={e => setNewGroup(e.target.value)} placeholder="New group name" onKeyDown={e => e.key === 'Enter' && handleAddGroup()} />
+                  <button className="btn btn-primary" onClick={handleAddGroup} style={{ flexShrink: 0 }}>
+                    <Plus size={14} /> Add
+                  </button>
+                </div>
+                {groupError && <div style={{ fontSize: 12, color: 'var(--status-offline)', marginTop: 6 }}>{groupError}</div>}
+              </>
+            )}
+          </section>
+        </div>
+      )}
+
+      {/* ── Users ────────────────────────────────────────────────────────────── */}
+      {activeTab === 'users' && isAdmin && (
         <section className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 24 }}>
           <h3 style={{ marginBottom: 16, fontSize: 15, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
             <Users size={15} /> Users
           </h3>
 
-          {/* User list */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
-            {users.length === 0 && (
-              <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No users loaded.</p>
-            )}
+            {users.length === 0 && <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No users loaded.</p>}
             {users.map(u => (
               <div key={u.id} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {/* User row */}
                 <div className="glass" style={{ display: 'flex', alignItems: 'center', padding: '10px 14px', borderRadius: 'var(--radius-md)', gap: 8 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 500, fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -393,33 +408,21 @@ export function SettingsPage() {
                     <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                       <span>{u.first_name} {u.last_name}</span>
                       {u.email && <span>{u.email}</span>}
-                      <span style={{ color: isAdmin_group(u.user_group_id) ? 'var(--accent)' : 'inherit' }}>
+                      <span style={{ color: isAdminGroup(u.user_group_id) ? 'var(--accent)' : 'inherit' }}>
                         {groupName(u.user_group_id)}
                       </span>
                       {u.last_login && <span>Last login: {new Date(u.last_login).toLocaleDateString('de-DE')}</span>}
                     </div>
                   </div>
-                  <button
-                    className="btn btn-ghost btn-icon btn-sm"
-                    onClick={() => setEditingUserId(editingUserId === u.id ? null : u.id)}
-                    data-tooltip="Edit"
-                    style={{ padding: '4px', width: 28, height: 28, flexShrink: 0 }}
-                  >
+                  <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setEditingUserId(editingUserId === u.id ? null : u.id)} data-tooltip="Edit" style={{ padding: '4px', width: 28, height: 28, flexShrink: 0 }}>
                     <Pencil size={12} />
                   </button>
                   {u.id !== authUser?.sub && (
-                    <button
-                      className="btn btn-danger btn-icon btn-sm"
-                      onClick={() => { if (confirm(`Delete user "${u.username}"?`)) deleteUser(u.id) }}
-                      data-tooltip="Delete"
-                      style={{ padding: '4px', width: 28, height: 28, flexShrink: 0 }}
-                    >
+                    <button className="btn btn-danger btn-icon btn-sm" onClick={() => { if (confirm(`Delete user "${u.username}"?`)) deleteUser(u.id) }} data-tooltip="Delete" style={{ padding: '4px', width: 28, height: 28, flexShrink: 0 }}>
                       <Trash2 size={12} />
                     </button>
                   )}
                 </div>
-
-                {/* Inline edit form */}
                 {editingUserId === u.id && (
                   <UserEditRow
                     user={u}
@@ -433,7 +436,6 @@ export function SettingsPage() {
             ))}
           </div>
 
-          {/* Add user form */}
           <div style={{ borderTop: '1px solid var(--glass-border)', paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Add User</div>
             <input className="form-input" placeholder="Username *" value={newUser.username} onChange={e => setNewUser(u => ({ ...u, username: e.target.value }))} />
@@ -459,8 +461,8 @@ export function SettingsPage() {
         </section>
       )}
 
-      {/* User Groups — admin only */}
-      {isAdmin && (
+      {/* ── Groups ───────────────────────────────────────────────────────────── */}
+      {activeTab === 'groups' && isAdmin && (
         <section className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 24 }}>
           <h3 style={{ marginBottom: 16, fontSize: 15, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
             <Shield size={15} /> User Groups
@@ -468,7 +470,6 @@ export function SettingsPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
             {userGroups.map(g => (
               <div key={g.id} className="glass" style={{ borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
-                {/* Group header row */}
                 <div style={{ display: 'flex', alignItems: 'center', padding: '10px 14px', gap: 8 }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 14, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -482,28 +483,18 @@ export function SettingsPage() {
                     </div>
                     {g.description && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{g.description}</div>}
                   </div>
-                  {/* Visibility toggle button — not for admin group */}
                   {g.id !== 'grp_admin' && (
-                    <button
-                      className="btn btn-ghost btn-sm"
-                      onClick={() => setExpandedGroupId(expandedGroupId === g.id ? null : g.id)}
-                      style={{ fontSize: 11, gap: 4, padding: '4px 8px' }}
-                    >
+                    <button className="btn btn-ghost btn-sm" onClick={() => setExpandedGroupId(expandedGroupId === g.id ? null : g.id)} style={{ fontSize: 11, gap: 4, padding: '4px 8px' }}>
                       <Eye size={11} />
                       {expandedGroupId === g.id ? 'Close' : 'Visibility'}
                     </button>
                   )}
                   {!g.is_system && (
-                    <button
-                      className="btn btn-danger btn-icon btn-sm"
-                      onClick={() => { if (confirm(`Delete group "${g.name}"?`)) deleteUserGroup(g.id) }}
-                      style={{ padding: '4px', width: 28, height: 28, flexShrink: 0 }}
-                    >
+                    <button className="btn btn-danger btn-icon btn-sm" onClick={() => { if (confirm(`Delete group "${g.name}"?`)) deleteUserGroup(g.id) }} style={{ padding: '4px', width: 28, height: 28, flexShrink: 0 }}>
                       <Trash2 size={12} />
                     </button>
                   )}
                 </div>
-                {/* Expanded visibility editor */}
                 {expandedGroupId === g.id && g.id !== 'grp_admin' && (
                   <div style={{ borderTop: '1px solid var(--glass-border)' }}>
                     <GroupVisibilityEditor
@@ -531,13 +522,74 @@ export function SettingsPage() {
         </section>
       )}
 
-      {/* OIDC — placeholder */}
-      <section className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 24, opacity: 0.5, pointerEvents: 'none' }}>
-        <h3 style={{ marginBottom: 8, fontSize: 15, fontWeight: 600 }}>OIDC / SSO</h3>
-        <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-          OIDC integration via voidauth — coming in a future phase. User records are already prepared with email, first/last name, and OIDC fields.
-        </p>
-      </section>
+      {/* ── OIDC / SSO ───────────────────────────────────────────────────────── */}
+      {activeTab === 'oidc' && (
+        <section className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 24 }}>
+          <h3 style={{ marginBottom: 6, fontSize: 15, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <KeyRound size={15} /> OIDC / SSO
+          </h3>
+          <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 24 }}>
+            OIDC/SSO integration will be configured here — not via environment variables.
+            The fields below show the planned configuration options.
+          </p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, opacity: 0.45, pointerEvents: 'none' }}>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <div style={{ flex: 1 }}>
+                <label className="form-label">Provider Name</label>
+                <input className="form-input" placeholder="e.g. Authentik, voidauth, Keycloak" readOnly />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, justifyContent: 'flex-end' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, userSelect: 'none', marginBottom: 6 }}>
+                  <input type="checkbox" readOnly style={{ accentColor: 'var(--accent)', width: 14, height: 14 }} />
+                  Enabled
+                </label>
+              </div>
+            </div>
+            <div>
+              <label className="form-label">Issuer / Discovery URL</label>
+              <input className="form-input" placeholder="https://auth.example.com/application/o/heldash/" readOnly />
+            </div>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <div style={{ flex: 1 }}>
+                <label className="form-label">Client ID</label>
+                <input className="form-input" placeholder="heldash" readOnly />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label className="form-label">Client Secret</label>
+                <input className="form-input" type="password" placeholder="••••••••••••••••" readOnly />
+              </div>
+            </div>
+            <div>
+              <label className="form-label">Scopes</label>
+              <input className="form-input" placeholder="openid profile email" readOnly />
+            </div>
+            <div>
+              <label className="form-label">Redirect URI (auto-generated)</label>
+              <input className="form-input" placeholder="https://heldash.example.com/api/auth/oidc/callback" readOnly />
+            </div>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <div style={{ flex: 1 }}>
+                <label className="form-label">Default Group for new OIDC users</label>
+                <select className="form-input" disabled><option>Guest</option></select>
+              </div>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4, justifyContent: 'flex-end' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, userSelect: 'none', marginBottom: 6 }}>
+                  <input type="checkbox" readOnly style={{ accentColor: 'var(--accent)', width: 14, height: 14 }} />
+                  Auto-provision users
+                </label>
+              </div>
+            </div>
+            <button className="btn btn-primary" style={{ alignSelf: 'flex-start' }} disabled>
+              <Check size={14} /> Save
+            </button>
+          </div>
+
+          <div style={{ marginTop: 20, padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'rgba(var(--accent-rgb), 0.06)', border: '1px solid rgba(var(--accent-rgb), 0.2)', fontSize: 12, color: 'var(--text-secondary)' }}>
+            Coming in a future release. User records are already prepared with <code style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>oidc_subject</code> and <code style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>oidc_provider</code> fields.
+          </div>
+        </section>
+      )}
 
     </div>
   )

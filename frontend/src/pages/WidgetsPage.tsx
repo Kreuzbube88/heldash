@@ -102,7 +102,7 @@ export function DockerOverviewContent({ isAdmin }: { isAdmin: boolean }) {
             style={{ fontSize: 12, padding: '5px 8px' }}
           >
             <option value="">Select container…</option>
-            {containers.map(c => (
+            {[...containers].sort((a, b) => a.name.localeCompare(b.name)).map(c => (
               <option key={c.id} value={c.id}>{c.name} ({c.state})</option>
             ))}
           </select>

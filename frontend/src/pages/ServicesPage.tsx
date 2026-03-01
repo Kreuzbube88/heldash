@@ -52,14 +52,21 @@ export function ServicesPage({ onEdit }: Props) {
             <span style={{ fontSize: 11, color: 'var(--text-muted)', opacity: 0.6 }}>({section.services.length})</span>
           </div>
           <div className="glass" style={{ borderRadius: 'var(--radius-xl)', overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+              <colgroup>
+                <col style={{ width: '28%' }} />
+                <col style={{ width: isAdmin ? '42%' : '48%' }} />
+                <col style={{ width: '12%' }} />
+                <col style={{ width: '10%' }} />
+                {isAdmin && <col style={{ width: '8%' }} />}
+              </colgroup>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--glass-border)' }}>
                   <th style={thStyle}>App</th>
                   <th style={thStyle}>URL</th>
                   <th style={thStyle}>Status</th>
                   <th style={thStyle}>Check</th>
-                  {isAdmin && <th style={{ ...thStyle, width: 80, textAlign: 'right' }}></th>}
+                  {isAdmin && <th style={{ ...thStyle, textAlign: 'right' }}></th>}
                 </tr>
               </thead>
               <tbody>
@@ -89,12 +96,12 @@ export function ServicesPage({ onEdit }: Props) {
                         </div>
                       </div>
                     </td>
-                    <td style={tdStyle}>
+                    <td style={{ ...tdStyle, overflow: 'hidden' }}>
                       <a
                         href={s.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--accent)', opacity: 0.8, textDecoration: 'none' }}
+                        style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--accent)', opacity: 0.8, textDecoration: 'none', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                       >
                         {s.url}
                       </a>

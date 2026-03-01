@@ -76,8 +76,6 @@ openssl rand -hex 32
 | `SECRET_KEY` | **Ja** | unsicherer Fallback | Schlüssel zum Signieren der JWT-Auth-Tokens. Muss ein langer, zufälliger String sein. Beim Ändern werden alle bestehenden Sessions ungültig. |
 | `SECURE_COOKIES` | **Ja** | `false` | `false` = HTTP (direkter LAN-Zugriff ohne TLS). `true` = HTTPS (hinter nginx-proxy-manager oder einem anderen TLS-Proxy). Bei `true` werden Cookies mit dem `Secure`-Flag gesetzt — Login funktioniert dann **nur** über HTTPS. |
 | `LOG_LEVEL` | Nein | `info` | Verbosität des Logs: `debug` · `info` · `warn` · `error` |
-| `PORT` | Nein | `8282` | Interner Fastify-Port. Wird in der Regel nicht geändert. |
-| `DATA_DIR` | Nein | `/data` | Pfad innerhalb des Containers, unter dem Datenbank und Icons abgelegt werden. Entspricht dem Mount-Ziel des Volumes. |
 
 ### Wichtig: SECRET_KEY
 
@@ -141,7 +139,7 @@ volumes:
   - /var/run/docker.sock:/var/run/docker.sock:ro
 ```
 
-Das `:ro` (read-only) ist für alle lesenden Operationen ausreichend. Start/Stop/Restart-Befehle benötigen jedoch Schreibzugriff — in diesem Fall `:ro` weglassen.
+Das `:ro` (read-only) reicht vollständig aus — auch Start, Stop und Restart von Containern funktionieren damit.
 
 > **Sicherheitshinweis:** Der Docker-Socket gibt dem Container vollen Zugriff auf die Docker Engine des Hosts. In einem Heimlabor-Umfeld (single-user, trusted network) ist dies vertretbar. In Multi-Tenant-Umgebungen sollte ein Docker-Socket-Proxy (z.B. Tecnativa/docker-socket-proxy) vorgeschaltet werden.
 

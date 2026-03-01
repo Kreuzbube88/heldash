@@ -6,7 +6,7 @@
   <Network>bridge</Network>
   <Shell>sh</Shell>
   <Privileged>false</Privileged>
-  <Overview>Persönliches Homelab-Dashboard. Zeigt Service-Kacheln mit Live-Status-Indikatoren, unterstützt Drag-and-Drop-Layout, Gruppen, Media-Server-Integration (Radarr, Sonarr, Prowlarr, SABnzbd) und Benutzerverwaltung.</Overview>
+  <Overview>Persönliches Homelab-Dashboard mit Glass-Morphism-Design. Zeigt Service-Kacheln mit Live-Status-Indikatoren, unterstützt Drag-and-Drop-Layout, App-Gruppen, Media-Server-Integration (Radarr, Sonarr, Prowlarr, SABnzbd), Docker-Container-Verwaltung mit Live-Logs, Widget-System (Server Status, AdGuard Home, Docker Overview) sowie Benutzerverwaltung mit gruppenbasierter Zugriffskontrolle.</Overview>
   <Category>Tools:</Category>
   <WebUI>http://[IP]:[PORT:8282]/</WebUI>
 
@@ -33,6 +33,42 @@
     Display="always"
     Required="true"
     Mask="false">/mnt/user/appdata/heldash</Config>
+
+  <!-- Docker Socket (optional, für Docker-Seite) -->
+  <Config
+    Name="Docker Socket"
+    Target="/var/run/docker.sock"
+    Default="/var/run/docker.sock"
+    Mode="ro"
+    Description="Optional: Docker-Socket einbinden um die Docker-Seite zu aktivieren (Container-Liste, Logs, Start/Stop/Restart). Read-only reicht aus."
+    Type="Path"
+    Display="always"
+    Required="false"
+    Mask="false">/var/run/docker.sock</Config>
+
+  <!-- Env: PUID -->
+  <Config
+    Name="PUID"
+    Target="PUID"
+    Default="99"
+    Mode=""
+    Description="User-ID unter der der Prozess im Container läuft. Unraid-Standard: 99 (nobody)."
+    Type="Variable"
+    Display="always"
+    Required="true"
+    Mask="false">99</Config>
+
+  <!-- Env: PGID -->
+  <Config
+    Name="PGID"
+    Target="PGID"
+    Default="100"
+    Mode=""
+    Description="Group-ID unter der der Prozess im Container läuft. Unraid-Standard: 100 (users)."
+    Type="Variable"
+    Display="always"
+    Required="true"
+    Mask="false">100</Config>
 
   <!-- Env: SECRET_KEY -->
   <Config

@@ -66,14 +66,14 @@ export function Sidebar({ page, onNavigate }: Props) {
           {(isAdmin || widgets.length > 0) && (
             <NavItem icon={<BarChart2 size={16} />} label="Widgets" active={page === 'widgets'} onClick={() => onNavigate('widgets')} />
           )}
-
-          <span className="nav-section-label" style={{ marginTop: 8 }}>System</span>
-          {isAdmin && (
-            <NavItem icon={<Settings size={16} />} label="Settings" active={page === 'settings'} onClick={() => onNavigate('settings')} />
-          )}
-          <NavItem icon={<Info size={16} />} label="About" active={page === 'about'} onClick={() => onNavigate('about')} />
         </>
       )}
+
+      <span className="nav-section-label" style={{ marginTop: 8 }}>System</span>
+      {isAdmin && (
+        <NavItem icon={<Settings size={16} />} label="Settings" active={page === 'settings'} onClick={() => onNavigate('settings')} />
+      )}
+      <NavItem icon={<Info size={16} />} label="About" active={page === 'about'} onClick={() => onNavigate('about')} />
     </aside>
   )
 }

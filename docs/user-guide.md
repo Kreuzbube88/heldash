@@ -200,9 +200,11 @@ Als Admin: Auf die **Widgets**-Seite wechseln → oben rechts **„Add Widget"**
 | **Auf Dashboard** | Volle Widget-Ansicht auf dem Dashboard |
 
 Je nach Typ erscheinen weitere Felder:
-- **Server Status:** URL des Servers (z.B. `http://192.168.1.1`), auf dem der HELDASH-Backend-Agent laufen muss
+- **Server Status:** Keine weitere Konfiguration nötig — es werden automatisch die Daten des Hostsystems angezeigt, auf dem HELDASH läuft (CPU, RAM, alle eingebundenen Festplatten/Partitionen)
 - **AdGuard Home:** URL + Benutzername + Passwort der AdGuard-Instanz
 - **Docker Overview:** Keine weitere Konfiguration nötig
+
+**Hinweis zu Festplatten (Server Status):** Alle vom System gemeldeten Laufwerke werden automatisch aufgelistet — es muss nichts manuell konfiguriert werden. Netzlaufwerke oder temporäre Mounts können dabei ebenfalls erscheinen.
 
 **Hinweis:** Zugangsdaten (AdGuard-Passwort) werden nur auf dem Server gespeichert und **nie** an den Browser übertragen.
 
@@ -226,7 +228,7 @@ Die Einstellungen sind in vier Tabs aufgeteilt.
 ### Tab: Allgemein
 
 - **Dashboard-Titel** — Wird in der Sidebar angezeigt (Standard: HELDASH)
-- **Theme** — Dunkel / Hell-Modus und Akzentfarbe (kann auch direkt in der Topbar geändert werden)
+- **Theme** — Zeigt die aktuelle Einstellung. Dunkel/Hell-Modus und Akzentfarbe werden direkt in der Topbar geändert (siehe [Design anpassen](#design-anpassen))
 
 ### Tab: Benutzer
 
@@ -256,7 +258,7 @@ Gruppen steuern, was ein Benutzer sehen und nutzen darf. Jeder Benutzer gehört 
 | **Widgets** | Welche Widgets (Server Status, AdGuard) für diese Gruppe sichtbar sind |
 | **Docker** | Docker-Seite freigeben · Docker-Overview-Widget freigeben |
 
-Änderungen gelten sofort — kein Speichern-Button nötig.
+Änderungen müssen mit dem **Speichern**-Button bestätigt werden.
 
 ### Tab: OIDC / SSO
 

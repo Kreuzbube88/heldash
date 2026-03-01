@@ -5,10 +5,12 @@ import type { DashboardItem } from '../types'
 interface DashboardState {
   items: DashboardItem[]
   editMode: boolean
+  guestMode: boolean
   loading: boolean
 
   loadDashboard: () => Promise<void>
   setEditMode: (v: boolean) => void
+  setGuestMode: (v: boolean) => Promise<void>
 
   addService: (refId: string) => Promise<void>
   addArrInstance: (refId: string) => Promise<void>
@@ -25,12 +27,13 @@ interface DashboardState {
 export const useDashboardStore = create<DashboardState>((set, get) => ({
   items: [],
   editMode: false,
+  guestMode: false,
   loading: false,
 
   loadDashboard: async () => {
     set({ loading: true })
     try {
-      const items = await api.dashboard.list()
+      const items = await api.dashboard.list(get().guestMode)
       set({ items })
     } finally {
       set({ loading: false })
@@ -39,26 +42,30 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
 
   setEditMode: (v) => set({ editMode: v }),
 
+  setGuestMode: async (v) => {
+    set({ guestMode: v, editMode: false })
+    const items = await api.dashboard.list(v)
+    set({ items })
+  },
+
   addService: async (refId) => {
-    const raw = await api.dashboard.addItem('service', refId)
-    // Reload to get embedded service data
+    await api.dashboard.addItem('service', refId, get().guestMode)
     await get().loadDashboard()
-    return
   },
 
   addArrInstance: async (refId) => {
-    await api.dashboard.addItem('arr_instance', refId)
+    await api.dashboard.addItem('arr_instance', refId, get().guestMode)
     await get().loadDashboard()
   },
 
   addWidget: async (refId) => {
-    await api.dashboard.addItem('widget', refId)
+    await api.dashboard.addItem('widget', refId, get().guestMode)
     await get().loadDashboard()
   },
 
   addPlaceholder: async (size) => {
     const type = size === 'instance' ? 'placeholder_instance' : size === 'row' ? 'placeholder_row' : 'placeholder_app'
-    const raw = await api.dashboard.addItem(type)
+    const raw = await api.dashboard.addItem(type, undefined, get().guestMode)
     set(state => ({
       items: [...state.items, { id: raw.id, type, position: raw.position } as import('../types').DashboardPlaceholderItem],
     }))
@@ -66,14 +73,14 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
 
   removeItem: async (id) => {
     set(state => ({ items: state.items.filter(i => i.id !== id) }))
-    await api.dashboard.removeItem(id)
+    await api.dashboard.removeItem(id, get().guestMode)
   },
 
   removeByRef: async (type, refId) => {
     set(state => ({
       items: state.items.filter(i => !(i.type === type && 'ref_id' in i && i.ref_id === refId)),
     }))
-    await api.dashboard.removeByRef(type, refId)
+    await api.dashboard.removeByRef(type, refId, get().guestMode)
   },
 
   reorder: async (orderedIds) => {
@@ -87,7 +94,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
         .filter((x): x is DashboardItem => x !== null)
       return { items: reordered }
     })
-    await api.dashboard.reorder(orderedIds)
+    await api.dashboard.reorder(orderedIds, get().guestMode)
   },
 
   isOnDashboard: (type, refId) =>

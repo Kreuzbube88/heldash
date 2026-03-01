@@ -302,7 +302,7 @@ interface Props {
 export function Dashboard({ onEdit }: Props) {
   const { isAdmin } = useStore()
   const { instances, loadInstances, loadAllStats } = useArrStore()
-  const { items, editMode, loading, reorder } = useDashboardStore()
+  const { items, editMode, guestMode, loading, reorder } = useDashboardStore()
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
@@ -347,9 +347,9 @@ export function Dashboard({ onEdit }: Props) {
       <div className="empty-state">
         <div className="empty-state-icon">⬡</div>
         <div className="empty-state-text">
-          {isAdmin
-            ? 'Dashboard is empty.\nEnable "Show on Dashboard" in app or instance settings.'
-            : 'No items on the dashboard yet.'}
+          {guestMode
+            ? 'Guest dashboard is empty.\nUse edit mode to set up the guest view.'
+            : 'Dashboard is empty.\nEnable "Show on Dashboard" in app or instance settings, or use edit mode to add items.'}
         </div>
       </div>
     )

@@ -37,6 +37,8 @@ function runMigrations(db: Database.Database) {
     'ALTER TABLE users ADD COLUMN user_group_id TEXT',  // FK not enforceable via ALTER TABLE in SQLite
     'ALTER TABLE users ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1',
     'ALTER TABLE users ADD COLUMN updated_at TEXT NOT NULL DEFAULT (datetime(\'now\'))',
+    // Per-user dashboard: existing items become the shared guest dashboard
+    'ALTER TABLE dashboard_items ADD COLUMN owner_id TEXT NOT NULL DEFAULT \'guest\'',
   ]
   for (const sql of migrations) {
     try {

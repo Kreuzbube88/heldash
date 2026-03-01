@@ -116,16 +116,16 @@ export const api = {
   },
 
   dashboard: {
-    list: () => req<DashboardItem[]>('/dashboard'),
-    addItem: (type: string, ref_id?: string) =>
+    list: (asGuest?: boolean) => req<DashboardItem[]>(`/dashboard${asGuest ? '?as=guest' : ''}`),
+    addItem: (type: string, ref_id?: string, asGuest?: boolean) =>
       req<{ id: string; type: string; ref_id: string | null; position: number }>(
-        '/dashboard/items', { method: 'POST', body: JSON.stringify({ type, ref_id }) }
+        `/dashboard/items${asGuest ? '?as=guest' : ''}`, { method: 'POST', body: JSON.stringify({ type, ref_id }) }
       ),
-    removeItem: (id: string) => req<void>(`/dashboard/items/${id}`, { method: 'DELETE' }),
-    removeByRef: (type: string, ref_id: string) =>
-      req<void>('/dashboard/items/by-ref', { method: 'DELETE', body: JSON.stringify({ type, ref_id }) }),
-    reorder: (ids: string[]) =>
-      req<{ ok: boolean }>('/dashboard/reorder', { method: 'PATCH', body: JSON.stringify({ ids }) }),
+    removeItem: (id: string, asGuest?: boolean) => req<void>(`/dashboard/items/${id}${asGuest ? '?as=guest' : ''}`, { method: 'DELETE' }),
+    removeByRef: (type: string, ref_id: string, asGuest?: boolean) =>
+      req<void>(`/dashboard/items/by-ref${asGuest ? '?as=guest' : ''}`, { method: 'DELETE', body: JSON.stringify({ type, ref_id }) }),
+    reorder: (ids: string[], asGuest?: boolean) =>
+      req<{ ok: boolean }>(`/dashboard/reorder${asGuest ? '?as=guest' : ''}`, { method: 'PATCH', body: JSON.stringify({ ids }) }),
   },
 
   health: () => req<{ status: string; version: string; uptime: number }>('/health'),

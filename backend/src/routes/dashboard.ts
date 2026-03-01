@@ -8,6 +8,7 @@ interface DashboardItemRow {
   type: string
   ref_id: string | null
   position: number
+  owner_id: string
   created_at: string
 }
 
@@ -59,14 +60,36 @@ interface ReorderBody {
 }
 
 // ── Helper ────────────────────────────────────────────────────────────────────
-/** Returns null for admins (no filtering), groupId string for all others */
-async function callerGroupId(req: FastifyRequest): Promise<string | null> {
+interface CallerInfo {
+  ownerId: string
+  filterGroupId: string | null  // null = admin (no visibility filtering)
+  canWrite: boolean
+}
+
+/**
+ * Determines who is making the request and what they can do:
+ * - Admin (own dashboard):     ownerId=sub,     filterGroupId=null,       canWrite=true
+ * - Admin (?as=guest):         ownerId='guest',  filterGroupId='grp_guest', canWrite=true
+ * - Regular user (own dash):   ownerId=sub,     filterGroupId=groupId,    canWrite=true
+ * - grp_guest user:            ownerId='guest',  filterGroupId='grp_guest', canWrite=false
+ * - Unauthenticated:           ownerId='guest',  filterGroupId='grp_guest', canWrite=false
+ */
+async function callerInfo(req: FastifyRequest): Promise<CallerInfo> {
+  const asGuest = (req.query as Record<string, string>).as === 'guest'
   try {
     await req.jwtVerify()
-    if (req.user.role === 'admin') return null
-    return req.user.groupId ?? 'grp_guest'
+    if (req.user.role === 'admin') {
+      if (asGuest) return { ownerId: 'guest', filterGroupId: 'grp_guest', canWrite: true }
+      return { ownerId: req.user.sub, filterGroupId: null, canWrite: true }
+    }
+    // Non-admin authenticated user
+    const groupId = req.user.groupId ?? 'grp_guest'
+    if (groupId === 'grp_guest') {
+      return { ownerId: 'guest', filterGroupId: 'grp_guest', canWrite: false }
+    }
+    return { ownerId: req.user.sub, filterGroupId: groupId, canWrite: true }
   } catch {
-    return 'grp_guest'
+    return { ownerId: 'guest', filterGroupId: 'grp_guest', canWrite: false }
   }
 }
 
@@ -74,10 +97,10 @@ async function callerGroupId(req: FastifyRequest): Promise<string | null> {
 export async function dashboardRoutes(app: FastifyInstance) {
   const db = getDb()
 
-  // GET /api/dashboard — ordered items with embedded data, filtered by group visibility
+  // GET /api/dashboard — ordered items with embedded data, filtered by owner and group visibility
   app.get('/api/dashboard', async (req) => {
-    const groupId = await callerGroupId(req)
-    const items = db.prepare('SELECT * FROM dashboard_items ORDER BY position').all() as DashboardItemRow[]
+    const { ownerId, filterGroupId } = await callerInfo(req)
+    const items = db.prepare('SELECT * FROM dashboard_items WHERE owner_id = ? ORDER BY position').all(ownerId) as DashboardItemRow[]
     const result = []
 
     for (const item of items) {
@@ -87,10 +110,10 @@ export async function dashboardRoutes(app: FastifyInstance) {
       }
 
       if (item.type === 'widget' && item.ref_id) {
-        if (groupId !== null) {
+        if (filterGroupId !== null) {
           const hidden = db.prepare(
             'SELECT 1 FROM group_widget_visibility WHERE group_id = ? AND widget_id = ?'
-          ).get(groupId, item.ref_id)
+          ).get(filterGroupId, item.ref_id)
           if (hidden) continue
         }
         const widget = db.prepare('SELECT * FROM widgets WHERE id = ?').get(item.ref_id) as WidgetRow | undefined
@@ -112,11 +135,10 @@ export async function dashboardRoutes(app: FastifyInstance) {
       }
 
       if (item.type === 'service' && item.ref_id) {
-        // Visibility check for non-admins
-        if (groupId !== null) {
+        if (filterGroupId !== null) {
           const hidden = db.prepare(
             'SELECT 1 FROM group_service_visibility WHERE group_id = ? AND service_id = ?'
-          ).get(groupId, item.ref_id)
+          ).get(filterGroupId, item.ref_id)
           if (hidden) continue
         }
         const svc = db.prepare('SELECT * FROM services WHERE id = ?').get(item.ref_id) as ServiceRow | undefined
@@ -136,11 +158,10 @@ export async function dashboardRoutes(app: FastifyInstance) {
       }
 
       if (item.type === 'arr_instance' && item.ref_id) {
-        // Visibility check for non-admins
-        if (groupId !== null) {
+        if (filterGroupId !== null) {
           const hidden = db.prepare(
             'SELECT 1 FROM group_arr_visibility WHERE group_id = ? AND instance_id = ?'
-          ).get(groupId, item.ref_id)
+          ).get(filterGroupId, item.ref_id)
           if (hidden) continue
         }
         const inst = db.prepare(
@@ -161,8 +182,11 @@ export async function dashboardRoutes(app: FastifyInstance) {
     return result
   })
 
-  // POST /api/dashboard/items — add item (admin only)
-  app.post('/api/dashboard/items', { preHandler: app.requireAdmin }, async (req, reply) => {
+  // POST /api/dashboard/items — add item (authenticated, own dashboard)
+  app.post('/api/dashboard/items', async (req, reply) => {
+    const { ownerId, canWrite } = await callerInfo(req)
+    if (!canWrite) return reply.status(403).send({ error: 'Forbidden' })
+
     const { type, ref_id } = req.body as AddItemBody
 
     if (!['service', 'arr_instance', 'placeholder', 'placeholder_app', 'placeholder_instance', 'placeholder_row', 'widget'].includes(type)) {
@@ -173,48 +197,57 @@ export async function dashboardRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: 'ref_id required for service and arr_instance' })
     }
 
-    // Prevent duplicates for service/arr_instance
+    // Prevent duplicates per owner
     if (ref_id) {
       const existing = db.prepare(
-        'SELECT id FROM dashboard_items WHERE type = ? AND ref_id = ?'
-      ).get(type, ref_id)
+        'SELECT id FROM dashboard_items WHERE type = ? AND ref_id = ? AND owner_id = ?'
+      ).get(type, ref_id, ownerId)
       if (existing) return reply.status(409).send({ error: 'Already on dashboard' })
     }
 
-    const maxRow = db.prepare('SELECT MAX(position) as m FROM dashboard_items').get() as { m: number | null }
+    const maxRow = db.prepare('SELECT MAX(position) as m FROM dashboard_items WHERE owner_id = ?').get(ownerId) as { m: number | null }
     const position = (maxRow.m ?? -1) + 1
     const id = nanoid()
 
-    db.prepare('INSERT INTO dashboard_items (id, type, ref_id, position) VALUES (?, ?, ?, ?)').run(
-      id, type, ref_id ?? null, position
+    db.prepare('INSERT INTO dashboard_items (id, type, ref_id, position, owner_id) VALUES (?, ?, ?, ?, ?)').run(
+      id, type, ref_id ?? null, position, ownerId
     )
 
     return { id, type, ref_id: ref_id ?? null, position }
   })
 
-  // DELETE /api/dashboard/items/by-ref — remove by ref_id + type (admin only)
+  // DELETE /api/dashboard/items/by-ref — remove by ref_id + type
   // Registered BEFORE :id to avoid parametric route capturing "by-ref"
-  app.delete('/api/dashboard/items/by-ref', { preHandler: app.requireAdmin }, async (req, reply) => {
+  app.delete('/api/dashboard/items/by-ref', async (req, reply) => {
+    const { ownerId, canWrite } = await callerInfo(req)
+    if (!canWrite) return reply.status(403).send({ error: 'Forbidden' })
+
     const { type, ref_id } = req.body as { type: string; ref_id: string }
-    db.prepare('DELETE FROM dashboard_items WHERE type = ? AND ref_id = ?').run(type, ref_id)
+    db.prepare('DELETE FROM dashboard_items WHERE type = ? AND ref_id = ? AND owner_id = ?').run(type, ref_id, ownerId)
     return reply.status(204).send()
   })
 
-  // DELETE /api/dashboard/items/:id — remove item (admin only)
-  app.delete('/api/dashboard/items/:id', { preHandler: app.requireAdmin }, async (req, reply) => {
+  // DELETE /api/dashboard/items/:id — remove item
+  app.delete('/api/dashboard/items/:id', async (req, reply) => {
+    const { ownerId, canWrite } = await callerInfo(req)
+    if (!canWrite) return reply.status(403).send({ error: 'Forbidden' })
+
     const { id } = req.params as { id: string }
-    const item = db.prepare('SELECT id FROM dashboard_items WHERE id = ?').get(id)
+    const item = db.prepare('SELECT id FROM dashboard_items WHERE id = ? AND owner_id = ?').get(id, ownerId)
     if (!item) return reply.status(404).send({ error: 'Not found' })
     db.prepare('DELETE FROM dashboard_items WHERE id = ?').run(id)
     return reply.status(204).send()
   })
 
-  // PATCH /api/dashboard/reorder — bulk position update (admin only)
-  app.patch('/api/dashboard/reorder', { preHandler: app.requireAdmin }, async (req, reply) => {
+  // PATCH /api/dashboard/reorder — bulk position update
+  app.patch('/api/dashboard/reorder', async (req, reply) => {
+    const { ownerId, canWrite } = await callerInfo(req)
+    if (!canWrite) return reply.status(403).send({ error: 'Forbidden' })
+
     const { ids } = req.body as ReorderBody
     if (!Array.isArray(ids)) return reply.status(400).send({ error: 'ids must be an array' })
-    const update = db.prepare('UPDATE dashboard_items SET position = ? WHERE id = ?')
-    const runAll = db.transaction(() => { ids.forEach((id, i) => update.run(i, id)) })
+    const update = db.prepare('UPDATE dashboard_items SET position = ? WHERE id = ? AND owner_id = ?')
+    const runAll = db.transaction(() => { ids.forEach((id, i) => update.run(i, id, ownerId)) })
     runAll()
     return { ok: true }
   })

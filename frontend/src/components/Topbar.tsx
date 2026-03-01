@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Sun, Moon, RefreshCw, Plus, LogIn, LogOut, Pencil, LayoutGrid, LayoutList, Minus } from 'lucide-react'
+import { Sun, Moon, RefreshCw, Plus, LogIn, LogOut, Pencil, LayoutGrid, LayoutList, Minus, Users } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { useDashboardStore } from '../store/useDashboardStore'
 import { useWidgetStore } from '../store/useWidgetStore'
@@ -24,10 +24,14 @@ const ACCENTS: { value: ThemeAccent; label: string; color: string }[] = [
 
 export function Topbar({ page, onAddService, onAddInstance, onAddWidget, onCheckAll, checking, onLogin }: Props) {
   const { settings, setThemeMode, setThemeAccent, isAuthenticated, isAdmin, authUser, logout, loadAll } = useStore()
-  const { loadDashboard, editMode, setEditMode, addPlaceholder } = useDashboardStore()
+  const { loadDashboard, editMode, setEditMode, addPlaceholder, guestMode, setGuestMode } = useDashboardStore()
   const { widgets, stats, loadWidgets, loadStats } = useWidgetStore()
   const mode = settings?.theme_mode ?? 'dark'
   const accent = settings?.theme_accent ?? 'cyan'
+
+  // Users in grp_guest (or no group) cannot edit the dashboard
+  const isGuestUser = !isAdmin && (!authUser?.groupId || authUser.groupId === 'grp_guest')
+  const canEditDashboard = isAuthenticated && !isGuestUser
 
   const topbarWidgets = widgets.filter(w => w.show_in_topbar)
 
@@ -154,34 +158,54 @@ export function Topbar({ page, onAddService, onAddInstance, onAddWidget, onCheck
           }
         </button>
 
-        {isAdmin && page === 'dashboard' && (
+        {/* Dashboard controls */}
+        {page === 'dashboard' && (
           <>
-            {editMode && (
+            {/* Guest Mode toggle — admin only, always visible even when in guest mode */}
+            {isAdmin && (
+              <button
+                className={guestMode ? 'btn btn-primary' : 'btn btn-ghost'}
+                data-tooltip={guestMode ? 'Exit guest mode' : 'Edit guest dashboard'}
+                onClick={() => setGuestMode(!guestMode)}
+                style={{ gap: 6 }}
+              >
+                <Users size={15} />
+                Guest Mode
+              </button>
+            )}
+
+            {/* Edit Dashboard — all authenticated non-guest users */}
+            {canEditDashboard && (
               <>
-                <button className="btn btn-ghost" onClick={() => addPlaceholder('app')} style={{ gap: 6 }}>
-                  <LayoutGrid size={15} />
-                  App
-                </button>
-                <button className="btn btn-ghost" onClick={() => addPlaceholder('instance')} style={{ gap: 6 }}>
-                  <LayoutList size={15} />
-                  Instance
-                </button>
-                <button className="btn btn-ghost" onClick={() => addPlaceholder('row')} style={{ gap: 6 }}>
-                  <Minus size={15} />
-                  Row
+                {editMode && (
+                  <>
+                    <button className="btn btn-ghost" onClick={() => addPlaceholder('app')} style={{ gap: 6 }}>
+                      <LayoutGrid size={15} />
+                      App
+                    </button>
+                    <button className="btn btn-ghost" onClick={() => addPlaceholder('instance')} style={{ gap: 6 }}>
+                      <LayoutList size={15} />
+                      Instance
+                    </button>
+                    <button className="btn btn-ghost" onClick={() => addPlaceholder('row')} style={{ gap: 6 }}>
+                      <Minus size={15} />
+                      Row
+                    </button>
+                  </>
+                )}
+                <button
+                  className={editMode ? 'btn btn-primary' : 'btn btn-ghost'}
+                  onClick={() => setEditMode(!editMode)}
+                  style={{ gap: 6 }}
+                >
+                  <Pencil size={15} />
+                  {editMode ? 'Done' : 'Edit Dashboard'}
                 </button>
               </>
             )}
-            <button
-              className={editMode ? 'btn btn-primary' : 'btn btn-ghost'}
-              onClick={() => setEditMode(!editMode)}
-              style={{ gap: 6 }}
-            >
-              <Pencil size={15} />
-              {editMode ? 'Done' : 'Edit Dashboard'}
-            </button>
           </>
         )}
+
         {isAdmin && page === 'media' && (
           <button className="btn btn-primary" onClick={onAddInstance} style={{ gap: 6 }}>
             <Plus size={16} />
@@ -209,7 +233,11 @@ export function Topbar({ page, onAddService, onAddInstance, onAddWidget, onCheck
             <button
               className="btn btn-ghost btn-icon"
               data-tooltip="Logout"
-              onClick={() => logout().then(() => Promise.all([loadAll(), loadDashboard()]))}
+              onClick={async () => {
+                if (guestMode) await setGuestMode(false)
+                await logout()
+                await Promise.all([loadAll(), loadDashboard()])
+              }}
             >
               <LogOut size={16} />
             </button>

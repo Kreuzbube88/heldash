@@ -1,6 +1,7 @@
 import { LayoutDashboard, Settings, AppWindow, Info, Tv2, BarChart2 } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { useArrStore } from '../store/useArrStore'
+import { useWidgetStore } from '../store/useWidgetStore'
 
 interface Props {
   page: string
@@ -25,6 +26,7 @@ function PrismaIcon() {
 export function Sidebar({ page, onNavigate }: Props) {
   const { settings, services, isAdmin } = useStore()
   const { instances } = useArrStore()
+  const { widgets } = useWidgetStore()
   const title = settings?.dashboard_title ?? 'HELDASH'
 
   const onlineCount = services.filter(s => s.last_status === 'online').length
@@ -58,7 +60,9 @@ export function Sidebar({ page, onNavigate }: Props) {
       {(isAdmin || instances.length > 0) && (
         <NavItem icon={<Tv2 size={16} />} label="Media" active={page === 'media'} onClick={() => onNavigate('media')} />
       )}
-      <NavItem icon={<BarChart2 size={16} />} label="Widgets" active={page === 'widgets'} onClick={() => onNavigate('widgets')} />
+      {(isAdmin || widgets.length > 0) && (
+        <NavItem icon={<BarChart2 size={16} />} label="Widgets" active={page === 'widgets'} onClick={() => onNavigate('widgets')} />
+      )}
 
       <span className="nav-section-label" style={{ marginTop: 8 }}>System</span>
       {isAdmin && (

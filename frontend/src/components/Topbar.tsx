@@ -3,6 +3,7 @@ import { Sun, Moon, RefreshCw, Plus, LogIn, LogOut, Pencil, LayoutGrid, LayoutLi
 import { useStore } from '../store/useStore'
 import { useDashboardStore } from '../store/useDashboardStore'
 import { useWidgetStore } from '../store/useWidgetStore'
+import { useDockerStore } from '../store/useDockerStore'
 import { api } from '../api'
 import type { ThemeAccent, ServerStats, AdGuardStats } from '../types'
 
@@ -26,6 +27,7 @@ export function Topbar({ page, onAddService, onAddInstance, onAddWidget, onCheck
   const { settings, setThemeMode, setThemeAccent, isAuthenticated, isAdmin, authUser, logout, loadAll } = useStore()
   const { loadDashboard, editMode, setEditMode, addPlaceholder, guestMode, setGuestMode } = useDashboardStore()
   const { widgets, stats, loadWidgets, loadStats } = useWidgetStore()
+  const { containers, loadContainers } = useDockerStore()
   const mode = settings?.theme_mode ?? 'dark'
   const accent = settings?.theme_accent ?? 'cyan'
 
@@ -34,6 +36,7 @@ export function Topbar({ page, onAddService, onAddInstance, onAddWidget, onCheck
   const canEditDashboard = isAuthenticated && !isGuestUser
 
   const topbarWidgets = widgets.filter(w => w.show_in_topbar)
+  const hasDockerTopbar = topbarWidgets.some(w => w.type === 'docker_overview')
 
   // Server clock: fetch server time once, compute offset, tick every second
   const [serverOffset, setServerOffset] = useState(0)
@@ -54,14 +57,24 @@ export function Topbar({ page, onAddService, onAddInstance, onAddWidget, onCheck
     loadWidgets().catch(() => {})
   }, [])
 
+  // Poll stats for server_status + adguard_home topbar widgets
   useEffect(() => {
-    if (topbarWidgets.length === 0) return
-    topbarWidgets.forEach(w => loadStats(w.id).catch(() => {}))
+    const statsWidgets = topbarWidgets.filter(w => w.type !== 'docker_overview')
+    if (statsWidgets.length === 0) return
+    statsWidgets.forEach(w => loadStats(w.id).catch(() => {}))
     const interval = setInterval(() => {
-      topbarWidgets.forEach(w => loadStats(w.id).catch(() => {}))
+      statsWidgets.forEach(w => loadStats(w.id).catch(() => {}))
     }, 15_000)
     return () => clearInterval(interval)
-  }, [topbarWidgets.map(w => w.id).join(',')])
+  }, [topbarWidgets.filter(w => w.type !== 'docker_overview').map(w => w.id).join(',')])
+
+  // Poll container list for docker_overview topbar widgets
+  useEffect(() => {
+    if (!hasDockerTopbar) return
+    loadContainers().catch(() => {})
+    const interval = setInterval(() => loadContainers().catch(() => {}), 30_000)
+    return () => clearInterval(interval)
+  }, [hasDockerTopbar])
 
   return (
     <header className="topbar">
@@ -75,29 +88,38 @@ export function Topbar({ page, onAddService, onAddInstance, onAddWidget, onCheck
       {/* Center zone — topbar widget stats */}
       <div className="topbar-center">
         {topbarWidgets.map(w => {
-          const s = stats[w.id]
-          if (!s) return null
-
           let parts: (string | null)[] = []
 
-          if (w.type === 'adguard_home') {
-            const ag = s as AdGuardStats
-            if (ag.total_queries === -1) {
+          if (w.type === 'docker_overview') {
+            const running    = containers.filter(c => c.state === 'running').length
+            const stopped    = containers.filter(c => c.state === 'exited' || c.state === 'dead' || c.state === 'created').length
+            const restarting = containers.filter(c => c.state === 'restarting').length
+            parts = [
+              `${containers.length} total`,
+              `${running} running`,
+              stopped > 0    ? `${stopped} stopped`    : null,
+              restarting > 0 ? `${restarting} restarting` : null,
+            ]
+          } else if (w.type === 'adguard_home') {
+            const s = stats[w.id] as AdGuardStats | undefined
+            if (!s) return null
+            if (s.total_queries === -1) {
               parts = ['DNS —']
             } else {
               const fmt = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n)
               parts = [
-                `DNS ${fmt(ag.total_queries)} req`,
-                `${fmt(ag.blocked_queries)} blocked (${ag.blocked_percent}%)`,
-                ag.protection_enabled ? 'Protected' : 'Paused',
+                `DNS ${fmt(s.total_queries)} req`,
+                `${fmt(s.blocked_queries)} blocked (${s.blocked_percent}%)`,
+                s.protection_enabled ? 'Protected' : 'Paused',
               ]
             }
           } else {
             // server_status
-            const ss = s as ServerStats
-            const ramUsedGb = (ss.ram.used / 1024).toFixed(1)
-            const ramTotalGb = (ss.ram.total / 1024).toFixed(1)
-            const diskParts = ss.disks
+            const s = stats[w.id] as ServerStats | undefined
+            if (!s) return null
+            const ramUsedGb = (s.ram.used / 1024).toFixed(1)
+            const ramTotalGb = (s.ram.total / 1024).toFixed(1)
+            const diskParts = s.disks
               .filter(d => d.total > 0)
               .map(d => {
                 const pct = Math.round((d.used / d.total) * 100)
@@ -106,8 +128,8 @@ export function Topbar({ page, onAddService, onAddInstance, onAddWidget, onCheck
                 return `${d.name} ${pct}% · ${usedGb}/${totalGb} GB`
               })
             parts = [
-              ss.cpu.load >= 0 ? `CPU ${ss.cpu.load}%` : null,
-              ss.ram.total > 0 ? `RAM ${ramUsedGb}/${ramTotalGb} GB` : null,
+              s.cpu.load >= 0 ? `CPU ${s.cpu.load}%` : null,
+              s.ram.total > 0 ? `RAM ${ramUsedGb}/${ramTotalGb} GB` : null,
               ...diskParts,
             ]
           }

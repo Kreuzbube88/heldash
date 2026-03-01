@@ -24,7 +24,7 @@ function PrismaIcon() {
 }
 
 export function Sidebar({ page, onNavigate }: Props) {
-  const { settings, services, isAdmin } = useStore()
+  const { settings, services, isAdmin, isAuthenticated } = useStore()
   const { instances } = useArrStore()
   const { widgets } = useWidgetStore()
   const title = settings?.dashboard_title ?? 'HELDASH'
@@ -56,19 +56,24 @@ export function Sidebar({ page, onNavigate }: Props) {
       <span className="nav-section-label">Navigation</span>
 
       <NavItem icon={<LayoutDashboard size={16} />} label="Dashboard" active={page === 'dashboard'} onClick={() => onNavigate('dashboard')} />
-      <NavItem icon={<AppWindow size={16} />} label="Apps" active={page === 'services'} onClick={() => onNavigate('services')} />
-      {(isAdmin || instances.length > 0) && (
-        <NavItem icon={<Tv2 size={16} />} label="Media" active={page === 'media'} onClick={() => onNavigate('media')} />
-      )}
-      {(isAdmin || widgets.length > 0) && (
-        <NavItem icon={<BarChart2 size={16} />} label="Widgets" active={page === 'widgets'} onClick={() => onNavigate('widgets')} />
-      )}
 
-      <span className="nav-section-label" style={{ marginTop: 8 }}>System</span>
-      {isAdmin && (
-        <NavItem icon={<Settings size={16} />} label="Settings" active={page === 'settings'} onClick={() => onNavigate('settings')} />
+      {isAuthenticated && (
+        <>
+          <NavItem icon={<AppWindow size={16} />} label="Apps" active={page === 'services'} onClick={() => onNavigate('services')} />
+          {(isAdmin || instances.length > 0) && (
+            <NavItem icon={<Tv2 size={16} />} label="Media" active={page === 'media'} onClick={() => onNavigate('media')} />
+          )}
+          {(isAdmin || widgets.length > 0) && (
+            <NavItem icon={<BarChart2 size={16} />} label="Widgets" active={page === 'widgets'} onClick={() => onNavigate('widgets')} />
+          )}
+
+          <span className="nav-section-label" style={{ marginTop: 8 }}>System</span>
+          {isAdmin && (
+            <NavItem icon={<Settings size={16} />} label="Settings" active={page === 'settings'} onClick={() => onNavigate('settings')} />
+          )}
+          <NavItem icon={<Info size={16} />} label="About" active={page === 'about'} onClick={() => onNavigate('about')} />
+        </>
       )}
-      <NavItem icon={<Info size={16} />} label="About" active={page === 'about'} onClick={() => onNavigate('about')} />
     </aside>
   )
 }

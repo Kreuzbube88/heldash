@@ -7,7 +7,7 @@ interface Props {
 }
 
 export function ServicesPage({ onEdit }: Props) {
-  const { services, groups, deleteService } = useStore()
+  const { services, groups, deleteService, isAdmin } = useStore()
 
   const handleDelete = (service: Service) => {
     if (confirm(`Delete "${service.name}"?`)) {
@@ -59,7 +59,7 @@ export function ServicesPage({ onEdit }: Props) {
                   <th style={thStyle}>URL</th>
                   <th style={thStyle}>Status</th>
                   <th style={thStyle}>Check</th>
-                  <th style={{ ...thStyle, width: 80, textAlign: 'right' }}></th>
+                  {isAdmin && <th style={{ ...thStyle, width: 80, textAlign: 'right' }}></th>}
                 </tr>
               </thead>
               <tbody>
@@ -122,26 +122,28 @@ export function ServicesPage({ onEdit }: Props) {
                         {s.check_enabled ? 'On' : 'Off'}
                       </span>
                     </td>
-                    <td style={{ ...tdStyle, textAlign: 'right' }}>
-                      <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
-                        <button
-                          className="btn btn-ghost btn-icon btn-sm"
-                          onClick={() => onEdit(s)}
-                          data-tooltip="Edit"
-                          style={{ padding: '4px', width: 28, height: 28 }}
-                        >
-                          <Pencil size={12} />
-                        </button>
-                        <button
-                          className="btn btn-danger btn-icon btn-sm"
-                          onClick={() => handleDelete(s)}
-                          data-tooltip="Delete"
-                          style={{ padding: '4px', width: 28, height: 28 }}
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      </div>
-                    </td>
+                    {isAdmin && (
+                      <td style={{ ...tdStyle, textAlign: 'right' }}>
+                        <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
+                          <button
+                            className="btn btn-ghost btn-icon btn-sm"
+                            onClick={() => onEdit(s)}
+                            data-tooltip="Edit"
+                            style={{ padding: '4px', width: 28, height: 28 }}
+                          >
+                            <Pencil size={12} />
+                          </button>
+                          <button
+                            className="btn btn-danger btn-icon btn-sm"
+                            onClick={() => handleDelete(s)}
+                            data-tooltip="Delete"
+                            style={{ padding: '4px', width: 28, height: 28 }}
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

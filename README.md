@@ -33,22 +33,34 @@ Coded by Claude.ai because iam to stupid to code but can wirte prompts lol
 - 🖼️ Media cards inherit the icon from a matching app (matched by URL)
 - 🔒 API keys stored server-side only — never exposed to the browser
 
+**Docker**
+- 🐳 Docker page — live container list with CPU/RAM stats, state badges, and uptime
+- 📋 Sortable container table (click column headers: name, image, status, uptime, CPU/memory)
+- 📊 Overview bar — Total / Running / Stopped / Restarting counts at a glance
+- 📜 Live log streaming per container via SSE (stdout + stderr, filter, reconnect)
+- ▶️ Start / Stop / Restart containers directly from the dashboard (admin-only)
+- 🔒 Per-group Docker page access — disabled by default, enabled per group by an admin
+
 **Widgets**
 - 🖥️ Server Status — live CPU, RAM, and disk usage with progress bars (Linux hosts)
 - 🛡️ AdGuard Home — DNS query stats, block rate, protection toggle (admin-only)
+- 🐳 Docker Overview — container counts + Start/Stop/Restart dropdown (admin-only)
 - 📊 Widgets can be pinned to the topbar for at-a-glance stats
 - 🔒 Widget credentials stored server-side only — never exposed to the browser
+- 🔒 Docker Overview widget access is controlled per group separately from the Docker page
 
 **Auth & Access**
 - 🔑 Local user authentication — admin setup on first launch
 - 👥 User groups (Admin, Guest + custom)
 - 👁️ Per-group visibility control for apps, media instances, and widgets
+- 🐳 Per-group Docker permissions — Docker page and Docker Overview widget enabled independently
 - 🎨 Guests can change theme locally (dark/light + accent color)
 - 🛠️ Admin "Guest Mode" — admins can switch to the guest view to set up the guest dashboard
 
 **Settings**
 - 🗂️ Tabbed settings page: General, Users, Groups, OIDC/SSO
 - 👤 User management (create, edit, deactivate, delete users)
+- 🔐 Group permissions editor with tabs: Apps · Media · Widgets · Docker
 - 🔐 OIDC/SSO configuration UI prepared (coming in a future release)
 
 **General**
@@ -167,9 +179,11 @@ Frontend dev server runs on :5173 and proxies `/api` and `/icons` calls to :8282
 - [x] Edit mode with drag & drop and placeholder cards
 - [x] "Show on Dashboard" toggle per app and instance
 - [x] Per-user dashboards with admin-managed guest dashboard
-- [x] Widget system (Server Status, AdGuard Home)
+- [x] Widget system (Server Status, AdGuard Home, Docker Overview)
 - [x] Topbar widget stats
 - [x] Tabbed settings page (General, Users, Groups, OIDC/SSO)
+- [x] Docker page — live container stats, log streaming, start/stop/restart
+- [x] Per-group Docker permissions (page access + widget access)
 - [ ] OIDC / SSO via voidauth or Authentik (UI prepared)
 - [ ] Notification webhooks (Gotify / ntfy)
 - [ ] More integrations (Immich, Jellyfin, ...)

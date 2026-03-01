@@ -166,14 +166,14 @@ async function start() {
   })
 
   // ── Health check — silent (polled every 30s by Docker healthcheck) ────────────
-  app.get('/api/health', { disableRequestLogging: true }, async () => ({
+  app.get('/api/health', { logLevel: 'silent' }, async () => ({
     status: 'ok',
     version: process.env.npm_package_version ?? '0.1.0',
     uptime: process.uptime(),
   }))
 
   // ── Server time — silent (polled by frontend clock, ~every 30s) ──────────────
-  app.get('/api/time', { disableRequestLogging: true }, async () => ({ iso: new Date().toISOString() }))
+  app.get('/api/time', { logLevel: 'silent' }, async () => ({ iso: new Date().toISOString() }))
 
   // ── API routes ───────────────────────────────────────────────────────────────
   await app.register(authRoutes)

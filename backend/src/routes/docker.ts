@@ -1,11 +1,13 @@
 import { FastifyInstance, FastifyRequest } from 'fastify'
-import { Client } from 'undici'
+import { Pool } from 'undici'
 import type { Dispatcher } from 'undici'
 import { getDb } from '../db/database'
 
 // ── Docker Engine API helper ──────────────────────────────────────────────────
-const dockerClient = new Client('http://localhost', {
+// Pool with multiple connections so batch stats requests run concurrently
+const dockerClient = new Pool('http://localhost', {
   socketPath: '/var/run/docker.sock',
+  connections: 10,
 })
 
 async function dockerReq(path: string, method: Dispatcher.HttpMethod = 'GET', body?: object) {
@@ -135,6 +137,51 @@ export async function dockerRoutes(app: FastifyInstance) {
     }
   })
 
+  // GET /api/docker/stats — batch stats for all running containers
+  app.get('/api/docker/stats', async (req, reply) => {
+    if (!(await hasDockerAccess(req))) return reply.status(403).send({ error: 'Forbidden' })
+
+    let listRes
+    try {
+      listRes = await dockerReq('/v1.41/containers/json?all=true')
+    } catch {
+      return reply.status(503).send({ error: 'Docker unavailable' })
+    }
+    if (!listRes.statusCode || listRes.statusCode >= 400) {
+      await listRes.body.text().catch(() => {})
+      return reply.status(502).send({ error: 'Docker API error' })
+    }
+
+    const containers = await listRes.body.json() as DockerContainerJson[]
+    const running = containers.filter(c => c.State === 'running')
+
+    const results = await Promise.all(
+      running.map(async c => {
+        try {
+          const res = await dockerReq(`/v1.41/containers/${c.Id}/stats?stream=false`)
+          if (!res.statusCode || res.statusCode >= 400) {
+            await res.body.text().catch(() => {})
+            return null
+          }
+          const s = await res.body.json() as DockerStatsJson
+          const cpuDelta = s.cpu_stats.cpu_usage.total_usage - s.precpu_stats.cpu_usage.total_usage
+          const sysDelta = s.cpu_stats.system_cpu_usage - s.precpu_stats.system_cpu_usage
+          const numCPU = s.cpu_stats.online_cpus ?? s.cpu_stats.cpu_usage.percpu_usage?.length ?? 1
+          const cpuPercent = sysDelta > 0 ? Math.round(((cpuDelta / sysDelta) * numCPU * 100) * 10) / 10 : 0
+          return { id: c.Id, cpuPercent, memUsed: s.memory_stats.usage ?? 0, memTotal: s.memory_stats.limit ?? 0 }
+        } catch {
+          return null
+        }
+      })
+    )
+
+    const out: Record<string, { cpuPercent: number; memUsed: number; memTotal: number }> = {}
+    for (const r of results) {
+      if (r) out[r.id] = { cpuPercent: r.cpuPercent, memUsed: r.memUsed, memTotal: r.memTotal }
+    }
+    return out
+  })
+
   // GET /api/docker/containers/:id/logs — SSE log stream
   app.get('/api/docker/containers/:id/logs', async (req, reply) => {
     if (!(await hasDockerAccess(req))) return reply.status(403).send({ error: 'Forbidden' })
@@ -155,6 +202,9 @@ export async function dockerRoutes(app: FastifyInstance) {
       await dockerRes.body.text().catch(() => {})
       return reply.status(dockerRes.statusCode ?? 502).send({ error: 'Container not found or Docker API error' })
     }
+
+    // Hand off raw socket to us — prevents Fastify from calling reply.send() on return
+    reply.hijack()
 
     // Set SSE headers
     reply.raw.setHeader('Content-Type', 'text/event-stream')

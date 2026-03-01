@@ -5,12 +5,16 @@ import { useDashboardStore } from '../store/useDashboardStore'
 import { useWidgetStore } from '../store/useWidgetStore'
 import { ServiceCard } from '../components/ServiceCard'
 import { ArrCardContent, SabnzbdCardContent } from '../components/MediaCard'
-import { AdGuardStatsView } from './WidgetsPage'
+import { AdGuardStatsView, DockerOverviewContent } from './WidgetsPage'
 import type { Service, DashboardItem, DashboardServiceItem, DashboardArrItem, DashboardPlaceholderItem, DashboardWidgetItem, ServerStats, AdGuardStats, AdGuardHomeConfig } from '../types'
 
 function DashboardWidgetIcon({ widget }: { widget: DashboardWidgetItem['widget'] }) {
   const { services } = useStore()
   const normalizeUrl = (u: string) => u.replace(/\/$/, '').toLowerCase()
+
+  if (widget.type === 'docker_overview') {
+    return <Container size={20} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+  }
 
   let iconUrl: string | null = null
   let iconEmoji: string | null = null
@@ -45,7 +49,7 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { GripVertical, X } from 'lucide-react'
+import { GripVertical, X, Container } from 'lucide-react'
 
 // ── Shared edit-mode overlay (drag handle + remove button) ────────────────────
 function EditOverlay({
@@ -194,6 +198,7 @@ function DashboardWidgetCard({ item, editMode }: {
   const s = stats[item.widget.id]
 
   useEffect(() => {
+    if (item.widget.type === 'docker_overview') return  // DockerOverviewContent handles its own loading
     loadStats(item.widget.id).catch(() => {})
     const interval = setInterval(() => loadStats(item.widget.id).catch(() => {}), 30_000)
     return () => clearInterval(interval)
@@ -229,7 +234,9 @@ function DashboardWidgetCard({ item, editMode }: {
           <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{item.widget.name}</div>
         </div>
 
-        {item.widget.type === 'adguard_home' ? (
+        {item.widget.type === 'docker_overview' ? (
+          <DockerOverviewContent isAdmin={isAdmin} />
+        ) : item.widget.type === 'adguard_home' ? (
           s ? (
             <AdGuardStatsView
               stats={s as AdGuardStats}

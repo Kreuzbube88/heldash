@@ -101,9 +101,9 @@ export interface AdGuardHomeConfig {
 
 export interface Widget {
   id: string
-  type: 'server_status' | 'adguard_home'
+  type: 'server_status' | 'adguard_home' | 'docker_overview'
   name: string
-  config: ServerStatusConfig | AdGuardHomeConfig
+  config: ServerStatusConfig | AdGuardHomeConfig | Record<string, never>
   position: number
   show_in_topbar: boolean
   icon_url: string | null

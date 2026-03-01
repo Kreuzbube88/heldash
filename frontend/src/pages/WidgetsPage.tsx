@@ -1,14 +1,19 @@
 import { useEffect, useRef, useState } from 'react'
 import { useWidgetStore } from '../store/useWidgetStore'
+import { useDockerStore } from '../store/useDockerStore'
 import { useDashboardStore } from '../store/useDashboardStore'
 import { useStore } from '../store/useStore'
-import { Trash2, Pencil, X, Check, Plus, Minus, LayoutDashboard, Shield, ShieldOff, Upload } from 'lucide-react'
+import { Trash2, Pencil, X, Check, Plus, Minus, LayoutDashboard, Shield, ShieldOff, Upload, Container, Play, Square, RotateCcw } from 'lucide-react'
 import type { Widget, ServerStatusConfig, AdGuardHomeConfig, ServerStats, AdGuardStats } from '../types'
 
 // ── Widget icon — URL-matched service icon or custom icon_url ─────────────────
 function WidgetIcon({ widget, size = 32 }: { widget: Pick<Widget, 'type' | 'config' | 'icon_url'>; size?: number }) {
   const { services } = useStore()
   const normalizeUrl = (u: string) => u.replace(/\/$/, '').toLowerCase()
+
+  if (widget.type === 'docker_overview') {
+    return <Container size={size * 0.8} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+  }
 
   let iconUrl: string | null = null
   let iconEmoji: string | null = null
@@ -31,6 +36,99 @@ function WidgetIcon({ widget, size = 32 }: { widget: Pick<Widget, 'type' | 'conf
     return <span style={{ fontSize: size * 0.7, lineHeight: 1, flexShrink: 0 }}>{iconEmoji}</span>
   }
   return null
+}
+
+// ── Docker Overview widget content ────────────────────────────────────────────
+export function DockerOverviewContent({ isAdmin }: { isAdmin: boolean }) {
+  const { containers, loadContainers, loadAllStats, controlContainer } = useDockerStore()
+  const [selectedId, setSelectedId] = useState('')
+  const [controlling, setControlling] = useState(false)
+  const [ctrlError, setCtrlError] = useState('')
+
+  useEffect(() => {
+    loadContainers()
+    loadAllStats()
+    const t = setInterval(() => { loadContainers(); loadAllStats() }, 30_000)
+    return () => clearInterval(t)
+  }, [])
+
+  const running    = containers.filter(c => c.state === 'running').length
+  const stopped    = containers.filter(c => c.state === 'exited' || c.state === 'dead' || c.state === 'created').length
+  const restarting = containers.filter(c => c.state === 'restarting').length
+
+  const selectedContainer = containers.find(c => c.id === selectedId) ?? null
+
+  const handleControl = async (action: 'start' | 'stop' | 'restart') => {
+    if (!selectedId) return
+    setCtrlError('')
+    setControlling(true)
+    try {
+      await controlContainer(selectedId, action)
+      await loadContainers()
+    } catch (e: any) {
+      setCtrlError(e.message)
+    } finally {
+      setControlling(false)
+    }
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {/* Count grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
+        {[
+          { label: 'Total',      value: containers.length, color: 'var(--accent)' },
+          { label: 'Running',    value: running,    color: 'var(--status-online)' },
+          { label: 'Stopped',    value: stopped,    color: 'var(--text-muted)' },
+          { label: 'Restarting', value: restarting, color: '#f59e0b' },
+        ].map(({ label, value, color }) => (
+          <div key={label} style={{ textAlign: 'center', padding: '6px 4px', borderRadius: 'var(--radius-sm)', border: `1px solid ${color}22`, background: `${color}0a` }}>
+            <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'var(--font-mono)', color, lineHeight: 1.1 }}>{value}</div>
+            <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 500, marginTop: 2, letterSpacing: '0.3px' }}>{label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Container selector + controls — admin only */}
+      {isAdmin && containers.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <select
+            className="form-input"
+            value={selectedId}
+            onChange={e => setSelectedId(e.target.value)}
+            style={{ fontSize: 12, padding: '5px 8px' }}
+          >
+            <option value="">Select container…</option>
+            {containers.map(c => (
+              <option key={c.id} value={c.id}>{c.name} ({c.state})</option>
+            ))}
+          </select>
+          {selectedId && (
+            <div style={{ display: 'flex', gap: 4 }}>
+              <button className="btn btn-ghost btn-sm" onClick={() => handleControl('start')}
+                disabled={controlling || selectedContainer?.state === 'running'}
+                style={{ flex: 1, gap: 3, fontSize: 11, padding: '4px 6px' }}>
+                <Play size={10} /> Start
+              </button>
+              <button className="btn btn-ghost btn-sm" onClick={() => handleControl('stop')}
+                disabled={controlling || selectedContainer?.state !== 'running'}
+                style={{ flex: 1, gap: 3, fontSize: 11, padding: '4px 6px' }}>
+                <Square size={10} /> Stop
+              </button>
+              <button className="btn btn-ghost btn-sm" onClick={() => handleControl('restart')}
+                disabled={controlling}
+                style={{ flex: 1, gap: 3, fontSize: 11, padding: '4px 6px' }}>
+                <RotateCcw size={10} /> Restart
+              </button>
+            </div>
+          )}
+          {ctrlError && (
+            <div style={{ fontSize: 11, color: 'var(--status-offline)' }}>{ctrlError}</div>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 // ── Disk config row ───────────────────────────────────────────────────────────
@@ -82,8 +180,8 @@ function WidgetForm({
   onCancel: () => void
 }) {
   const isEdit = !!initial
-  const [type, setType] = useState<'server_status' | 'adguard_home'>(
-    (initial?.type as 'server_status' | 'adguard_home') ?? 'server_status'
+  const [type, setType] = useState<'server_status' | 'adguard_home' | 'docker_overview'>(
+    (initial?.type as 'server_status' | 'adguard_home' | 'docker_overview') ?? 'server_status'
   )
   const [name, setName] = useState(initial?.name ?? '')
   const [showTopbar, setShowTopbar] = useState(initial?.show_in_topbar ?? false)
@@ -118,10 +216,12 @@ function WidgetForm({
   }
 
   // Update default name when type changes (only on create)
-  const handleTypeChange = (t: 'server_status' | 'adguard_home') => {
+  const handleTypeChange = (t: 'server_status' | 'adguard_home' | 'docker_overview') => {
     setType(t)
     if (!isEdit && !name) {
-      setName(t === 'adguard_home' ? 'AdGuard Home' : 'Server Status')
+      if (t === 'adguard_home') setName('AdGuard Home')
+      else if (t === 'docker_overview') setName('Docker Overview')
+      else setName('Server Status')
     }
   }
 
@@ -132,6 +232,8 @@ function WidgetForm({
     let config: object
     if (type === 'server_status') {
       config = { disks }
+    } else if (type === 'docker_overview') {
+      config = {}
     } else {
       if (!agUrl.trim()) return setError('URL is required')
       if (!agUsername.trim()) return setError('Username is required')
@@ -168,10 +270,11 @@ function WidgetForm({
             <select
               className="form-input"
               value={type}
-              onChange={e => handleTypeChange(e.target.value as 'server_status' | 'adguard_home')}
+              onChange={e => handleTypeChange(e.target.value as 'server_status' | 'adguard_home' | 'docker_overview')}
             >
               <option value="server_status">Server Status</option>
               <option value="adguard_home">AdGuard Home</option>
+              <option value="docker_overview">Docker Overview</option>
             </select>
           </div>
         )}
@@ -182,51 +285,53 @@ function WidgetForm({
             className="form-input"
             value={name}
             onChange={e => setName(e.target.value)}
-            placeholder={type === 'adguard_home' ? 'AdGuard Home' : 'Server Status'}
+            placeholder={type === 'adguard_home' ? 'AdGuard Home' : type === 'docker_overview' ? 'Docker Overview' : 'Server Status'}
           />
         </div>
 
-        {/* Icon — only shown when no URL-match is expected (server_status) or as override */}
-        <div>
-          <label className="form-label" style={{ fontSize: 11 }}>
-            Icon
-            {type === 'adguard_home' && <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginLeft: 6 }}>(auto-matched from app URL, or upload custom)</span>}
-          </label>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {(pendingIcon?.preview ?? (isEdit ? initial?.icon_url : null)) && (
-              <img
-                src={pendingIcon?.preview ?? initial?.icon_url ?? ''}
-                alt=""
-                style={{ width: 36, height: 36, objectFit: 'contain', borderRadius: 6, border: '1px solid var(--glass-border)' }}
+        {/* Icon — hidden for docker_overview which always uses the Container lucide icon */}
+        {type !== 'docker_overview' && (
+          <div>
+            <label className="form-label" style={{ fontSize: 11 }}>
+              Icon
+              {type === 'adguard_home' && <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginLeft: 6 }}>(auto-matched from app URL, or upload custom)</span>}
+            </label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {(pendingIcon?.preview ?? (isEdit ? initial?.icon_url : null)) && (
+                <img
+                  src={pendingIcon?.preview ?? initial?.icon_url ?? ''}
+                  alt=""
+                  style={{ width: 36, height: 36, objectFit: 'contain', borderRadius: 6, border: '1px solid var(--glass-border)' }}
+                />
+              )}
+              <input
+                ref={iconInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/svg+xml"
+                style={{ display: 'none' }}
+                onChange={e => { const f = e.target.files?.[0]; if (f) handleIconFile(f) }}
               />
-            )}
-            <input
-              ref={iconInputRef}
-              type="file"
-              accept="image/png,image/jpeg,image/svg+xml"
-              style={{ display: 'none' }}
-              onChange={e => { const f = e.target.files?.[0]; if (f) handleIconFile(f) }}
-            />
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm"
-              onClick={() => iconInputRef.current?.click()}
-              style={{ gap: 4, fontSize: 12 }}
-            >
-              <Upload size={12} /> {pendingIcon || (isEdit && initial?.icon_url) ? 'Change Icon' : 'Upload Icon'}
-            </button>
-            {(pendingIcon || (isEdit && initial?.icon_url)) && (
               <button
                 type="button"
                 className="btn btn-ghost btn-sm"
-                onClick={() => setPendingIcon(null)}
-                style={{ fontSize: 12, color: 'var(--text-muted)' }}
+                onClick={() => iconInputRef.current?.click()}
+                style={{ gap: 4, fontSize: 12 }}
               >
-                <X size={12} />
+                <Upload size={12} /> {pendingIcon || (isEdit && initial?.icon_url) ? 'Change Icon' : 'Upload Icon'}
               </button>
-            )}
+              {(pendingIcon || (isEdit && initial?.icon_url)) && (
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => setPendingIcon(null)}
+                  style={{ fontSize: 12, color: 'var(--text-muted)' }}
+                >
+                  <X size={12} />
+                </button>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         <div style={{ display: 'flex', gap: 16 }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer', userSelect: 'none' }}>
@@ -334,10 +439,11 @@ function WidgetCard({
   const [toggling, setToggling] = useState(false)
 
   useEffect(() => {
+    if (widget.type === 'docker_overview') return  // DockerOverviewContent handles its own data loading
     loadStats(widget.id).catch(() => {})
     const interval = setInterval(() => loadStats(widget.id).catch(() => {}), 30_000)
     return () => clearInterval(interval)
-  }, [widget.id])
+  }, [widget.id, widget.type])
 
   const handleProtectionToggle = async () => {
     if (!isAdmin || widget.type !== 'adguard_home' || !s) return
@@ -358,7 +464,7 @@ function WidgetCard({
           <div>
             <div style={{ fontWeight: 600, fontSize: 14 }}>{widget.name}</div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, display: 'flex', gap: 8 }}>
-              <span>{widget.type === 'adguard_home' ? 'AdGuard Home' : 'Server Status'}</span>
+              <span>{widget.type === 'adguard_home' ? 'AdGuard Home' : widget.type === 'docker_overview' ? 'Docker Overview' : 'Server Status'}</span>
               {widget.show_in_topbar && <span style={{ color: 'var(--accent)' }}>· Topbar</span>}
             </div>
           </div>
@@ -376,7 +482,9 @@ function WidgetCard({
       </div>
 
       {/* Stats preview — branched by widget type */}
-      {widget.type === 'server_status' ? (
+      {widget.type === 'docker_overview' ? (
+        <DockerOverviewContent isAdmin={isAdmin} />
+      ) : widget.type === 'server_status' ? (
         s ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {(() => {

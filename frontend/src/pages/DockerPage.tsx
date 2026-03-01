@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useDockerStore } from '../store/useDockerStore'
 import { useStore } from '../store/useStore'
-import { ArrowLeft, RefreshCw, Play, Square, RotateCcw, Search } from 'lucide-react'
+import { ArrowLeft, RefreshCw, Play, Square, RotateCcw, Search, ChevronUp, ChevronDown } from 'lucide-react'
 import type { DockerContainer, ContainerStats, DockerLogEvent } from '../types'
 
 // ── Status badge ──────────────────────────────────────────────────────────────
@@ -20,6 +20,23 @@ function StatusBadge({ state }: { state: string }) {
       }} />
       <span style={{ fontSize: 12, color, fontWeight: 500 }}>{state}</span>
     </span>
+  )
+}
+
+// ── Stat pill (overview bar) ───────────────────────────────────────────────────
+function StatPill({ label, value, color }: { label: string; value: number; color?: string }) {
+  const c = color ?? 'var(--accent)'
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 8, padding: '6px 14px',
+      background: 'var(--glass-bg)', backdropFilter: 'blur(12px)',
+      border: `1px solid ${c}`,
+      borderRadius: 'var(--radius-md)',
+      boxShadow: `0 0 8px ${c}22`,
+    }}>
+      <span style={{ fontSize: 18, fontWeight: 700, fontFamily: 'var(--font-mono)', color: c, lineHeight: 1 }}>{value}</span>
+      <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500, letterSpacing: '0.3px' }}>{label}</span>
+    </div>
   )
 }
 
@@ -56,28 +73,87 @@ function StatsDisplay({ stats }: { stats: ContainerStats | undefined }) {
   )
 }
 
+// ── Sort helpers ───────────────────────────────────────────────────────────────
+type SortCol = 'name' | 'image' | 'state' | 'uptime' | 'cpu' | 'mem'
+
+function sortContainers(
+  list: DockerContainer[],
+  stats: Record<string, ContainerStats>,
+  col: SortCol,
+  dir: 'asc' | 'desc'
+): DockerContainer[] {
+  const factor = dir === 'asc' ? 1 : -1
+  return [...list].sort((a, b) => {
+    let cmp = 0
+    switch (col) {
+      case 'name':   cmp = a.name.localeCompare(b.name); break
+      case 'image':  cmp = a.image.localeCompare(b.image); break
+      case 'state':  cmp = a.state.localeCompare(b.state); break
+      case 'uptime': {
+        const ta = a.startedAt ? new Date(a.startedAt).getTime() : 0
+        const tb = b.startedAt ? new Date(b.startedAt).getTime() : 0
+        cmp = ta - tb
+        break
+      }
+      case 'cpu':    cmp = (stats[a.id]?.cpuPercent ?? -1) - (stats[b.id]?.cpuPercent ?? -1); break
+      case 'mem':    cmp = (stats[a.id]?.memUsed ?? -1) - (stats[b.id]?.memUsed ?? -1); break
+    }
+    return cmp * factor
+  })
+}
+
+function SortHeader({
+  label, col, sortCol, sortDir, onSort,
+}: {
+  label: string; col: SortCol; sortCol: SortCol | null; sortDir: 'asc' | 'desc'; onSort: (c: SortCol) => void
+}) {
+  const active = sortCol === col
+  return (
+    <th style={{ padding: '12px 16px', textAlign: 'left' }}>
+      <button
+        onClick={() => onSort(col)}
+        style={{
+          background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+          display: 'flex', alignItems: 'center', gap: 4,
+          fontSize: 11, fontWeight: 600, color: active ? 'var(--accent)' : 'var(--text-muted)',
+          textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: 'var(--font-sans)',
+        }}
+      >
+        {label}
+        {active
+          ? (sortDir === 'asc' ? <ChevronUp size={11} /> : <ChevronDown size={11} />)
+          : <ChevronUp size={11} style={{ opacity: 0.2 }} />}
+      </button>
+    </th>
+  )
+}
+
 // ── Container overview table ──────────────────────────────────────────────────
 function ContainerTable({
   containers,
   stats,
   filter,
+  sortCol,
+  sortDir,
+  onSort,
   onSelect,
-  onRefresh,
-  refreshing,
 }: {
   containers: DockerContainer[]
   stats: Record<string, ContainerStats>
   filter: string
+  sortCol: SortCol | null
+  sortDir: 'asc' | 'desc'
+  onSort: (col: SortCol) => void
   onSelect: (id: string) => void
-  onRefresh: () => void
-  refreshing: boolean
 }) {
   const filtered = containers.filter(c =>
     c.name.toLowerCase().includes(filter.toLowerCase()) ||
     c.image.toLowerCase().includes(filter.toLowerCase())
   )
 
-  if (filtered.length === 0) {
+  const sorted = sortCol ? sortContainers(filtered, stats, sortCol, sortDir) : filtered
+
+  if (sorted.length === 0) {
     return (
       <div className="empty-state">
         <div className="empty-state-icon">🐳</div>
@@ -88,25 +164,31 @@ function ContainerTable({
     )
   }
 
+  const cols: { label: string; col: SortCol }[] = [
+    { label: 'Name', col: 'name' },
+    { label: 'Image', col: 'image' },
+    { label: 'Status', col: 'state' },
+    { label: 'Uptime', col: 'uptime' },
+    { label: 'CPU / Memory', col: 'cpu' },
+  ]
+
   return (
     <div className="glass" style={{ borderRadius: 'var(--radius-xl)', overflow: 'hidden' }}>
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr style={{ borderBottom: '1px solid var(--glass-border)' }}>
-            {['Name', 'Image', 'Status', 'Uptime', 'CPU / Memory'].map(h => (
-              <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                {h}
-              </th>
+            {cols.map(({ label, col }) => (
+              <SortHeader key={col} label={label} col={col} sortCol={sortCol} sortDir={sortDir} onSort={onSort} />
             ))}
           </tr>
         </thead>
         <tbody>
-          {filtered.map((c, i) => (
+          {sorted.map((c, i) => (
             <tr
               key={c.id}
               onClick={() => onSelect(c.id)}
               style={{
-                borderBottom: i < filtered.length - 1 ? '1px solid var(--glass-border)' : undefined,
+                borderBottom: i < sorted.length - 1 ? '1px solid var(--glass-border)' : undefined,
                 cursor: 'pointer',
                 transition: 'background 100ms ease',
               }}
@@ -140,8 +222,7 @@ function ContainerTable({
 }
 
 // ── Log line ──────────────────────────────────────────────────────────────────
-function LogLine({ evt, filter }: { evt: DockerLogEvent; filter: string }) {
-  if (filter && !evt.log.toLowerCase().includes(filter.toLowerCase())) return null
+function LogLine({ evt }: { evt: DockerLogEvent }) {
   const isErr = evt.stream === 'stderr'
   const ts = evt.timestamp ? evt.timestamp.replace('T', ' ').replace(/\.\d+Z$/, '') : ''
   return (
@@ -193,7 +274,6 @@ function ContainerDetail({
         }
         setLogs(prev => {
           const next = [...prev, evt]
-          // Cap at 5000 lines to prevent memory bloat
           return next.length > 5000 ? next.slice(next.length - 5000) : next
         })
       } catch { /* ignore malformed events */ }
@@ -220,10 +300,8 @@ function ContainerDetail({
     setControlling(true)
     try {
       await controlContainer(container.id, action)
-      // Reload container list and update current state
       await loadContainers()
       setCurrentState(action === 'stop' ? 'exited' : 'running')
-      // Restart the log stream after container action
       setTimeout(() => startStream(), 1500)
     } catch (e: any) {
       setCtrlError(e.message)
@@ -253,28 +331,16 @@ function ContainerDetail({
         )}
         {isAdmin && (
           <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-            <button
-              className="btn btn-ghost btn-sm"
-              onClick={() => handleControl('start')}
-              disabled={controlling || currentState === 'running'}
-              style={{ gap: 5, fontSize: 12 }}
-            >
+            <button className="btn btn-ghost btn-sm" onClick={() => handleControl('start')}
+              disabled={controlling || currentState === 'running'} style={{ gap: 5, fontSize: 12 }}>
               <Play size={12} /> Start
             </button>
-            <button
-              className="btn btn-ghost btn-sm"
-              onClick={() => handleControl('stop')}
-              disabled={controlling || currentState !== 'running'}
-              style={{ gap: 5, fontSize: 12 }}
-            >
+            <button className="btn btn-ghost btn-sm" onClick={() => handleControl('stop')}
+              disabled={controlling || currentState !== 'running'} style={{ gap: 5, fontSize: 12 }}>
               <Square size={12} /> Stop
             </button>
-            <button
-              className="btn btn-ghost btn-sm"
-              onClick={() => handleControl('restart')}
-              disabled={controlling}
-              style={{ gap: 5, fontSize: 12 }}
-            >
+            <button className="btn btn-ghost btn-sm" onClick={() => handleControl('restart')}
+              disabled={controlling} style={{ gap: 5, fontSize: 12 }}>
               <RotateCcw size={12} /> Restart
             </button>
           </div>
@@ -289,7 +355,6 @@ function ContainerDetail({
 
       {/* Log viewer */}
       <div className="glass" style={{ borderRadius: 'var(--radius-xl)', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
-        {/* Log toolbar */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderBottom: '1px solid var(--glass-border)', flexShrink: 0 }}>
           <Search size={13} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
           <input
@@ -309,26 +374,19 @@ function ContainerDetail({
               {live ? 'Live' : 'Ended'}
             </span>
           </div>
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={startStream}
-            style={{ fontSize: 11, gap: 4, padding: '3px 8px' }}
-            title="Reconnect stream"
-          >
+          <button className="btn btn-ghost btn-sm" onClick={startStream}
+            style={{ fontSize: 11, gap: 4, padding: '3px 8px' }} title="Reconnect stream">
             <RotateCcw size={11} /> Reconnect
           </button>
         </div>
 
-        {/* Log content */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '10px 16px' }}>
           {visibleLogs.length === 0 && (
             <div style={{ fontSize: 12, color: 'var(--text-muted)', padding: '16px 0' }}>
               {logs.length === 0 ? 'Waiting for logs…' : 'No lines match the filter.'}
             </div>
           )}
-          {visibleLogs.map((evt, i) => (
-            <LogLine key={i} evt={evt} filter="" />
-          ))}
+          {visibleLogs.map((evt, i) => <LogLine key={i} evt={evt} />)}
           <div ref={logEndRef} />
         </div>
       </div>
@@ -338,24 +396,24 @@ function ContainerDetail({
 
 // ── Main Docker page ──────────────────────────────────────────────────────────
 export function DockerPage() {
-  const { containers, stats, loading, error, loadContainers, loadStats } = useDockerStore()
+  const { containers, stats, loading, error, loadContainers, loadAllStats } = useDockerStore()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [filter, setFilter] = useState('')
   const [refreshing, setRefreshing] = useState(false)
+  const [sortCol, setSortCol] = useState<SortCol | null>('name')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
 
   useEffect(() => {
     loadContainers()
   }, [])
 
-  // Poll stats for running containers every 2s while on overview
+  // Batch-poll stats every 2s while on overview
   useEffect(() => {
-    if (selectedId) return  // don't poll in detail view
-    const runningIds = containers.filter(c => c.state === 'running').map(c => c.id)
-    if (runningIds.length === 0) return
-    runningIds.forEach(id => loadStats(id))
-    const interval = setInterval(() => {
-      runningIds.forEach(id => loadStats(id))
-    }, 2_000)
+    if (selectedId) return
+    const running = containers.filter(c => c.state === 'running')
+    if (running.length === 0) return
+    loadAllStats()
+    const interval = setInterval(() => loadAllStats(), 2_000)
     return () => clearInterval(interval)
   }, [selectedId, containers.map(c => c.id).join(',')])
 
@@ -365,31 +423,48 @@ export function DockerPage() {
     setRefreshing(false)
   }
 
+  const handleSort = (col: SortCol) => {
+    if (sortCol === col) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortCol(col)
+      setSortDir('asc')
+    }
+  }
+
   const selectedContainer = selectedId ? containers.find(c => c.id === selectedId) ?? null : null
 
   if (selectedContainer) {
     return (
       <div style={{ height: 'calc(100vh - 60px - 48px)', display: 'flex', flexDirection: 'column' }}>
-        <ContainerDetail
-          container={selectedContainer}
-          onBack={() => setSelectedId(null)}
-        />
+        <ContainerDetail container={selectedContainer} onBack={() => setSelectedId(null)} />
       </div>
     )
   }
 
+  const running    = containers.filter(c => c.state === 'running').length
+  const stopped    = containers.filter(c => c.state === 'exited' || c.state === 'dead' || c.state === 'created').length
+  const restarting = containers.filter(c => c.state === 'restarting').length
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {/* Toolbar */}
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-        <div style={{ position: 'relative', flex: 1, maxWidth: 320 }}>
+      {/* Toolbar: overview pills left, filter+refresh right */}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <StatPill label="Total"      value={containers.length} color="var(--accent)" />
+          <StatPill label="Running"    value={running}    color="var(--status-online)" />
+          <StatPill label="Stopped"    value={stopped}    color="var(--text-muted)" />
+          <StatPill label="Restarting" value={restarting} color="#f59e0b" />
+        </div>
+        <div style={{ flex: 1 }} />
+        <div style={{ position: 'relative' }}>
           <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
           <input
             className="form-input"
             placeholder="Filter containers…"
             value={filter}
             onChange={e => setFilter(e.target.value)}
-            style={{ paddingLeft: 30, fontSize: 13 }}
+            style={{ paddingLeft: 30, fontSize: 13, width: 220 }}
           />
         </div>
         <button className="btn btn-ghost btn-icon" onClick={handleRefresh} disabled={refreshing} data-tooltip="Refresh">
@@ -422,9 +497,10 @@ export function DockerPage() {
           containers={containers}
           stats={stats}
           filter={filter}
+          sortCol={sortCol}
+          sortDir={sortDir}
+          onSort={handleSort}
           onSelect={setSelectedId}
-          onRefresh={handleRefresh}
-          refreshing={refreshing}
         />
       ) : null}
     </div>

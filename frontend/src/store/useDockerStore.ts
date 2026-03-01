@@ -10,6 +10,7 @@ interface DockerState {
 
   loadContainers: () => Promise<void>
   loadStats: (id: string) => Promise<void>
+  loadAllStats: () => Promise<void>
   controlContainer: (id: string, action: 'start' | 'stop' | 'restart') => Promise<void>
 }
 
@@ -35,6 +36,15 @@ export const useDockerStore = create<DockerState>((set) => ({
       set(state => ({ stats: { ...state.stats, [id]: s } }))
     } catch {
       // ignore stat errors (container may not be running)
+    }
+  },
+
+  loadAllStats: async () => {
+    try {
+      const result = await api.docker.allStats()
+      set({ stats: result })
+    } catch {
+      // ignore — Docker may be unavailable
     }
   },
 

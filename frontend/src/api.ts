@@ -142,6 +142,7 @@ export const api = {
   docker: {
     containers: () => req<DockerContainer[]>('/docker/containers'),
     stats: (id: string) => req<ContainerStats>(`/docker/containers/${id}/stats`),
+    allStats: () => req<Record<string, ContainerStats>>('/docker/stats'),
     control: (id: string, action: 'start' | 'stop' | 'restart') =>
       req<{ ok: boolean }>(`/docker/containers/${id}/${action}`, { method: 'POST', body: JSON.stringify({}) }),
   },

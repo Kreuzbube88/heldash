@@ -1,11 +1,16 @@
 import { FastifyInstance, FastifyRequest } from 'fastify'
-import { request } from 'undici'
+import { Client } from 'undici'
+import type { Dispatcher } from 'undici'
 import { getDb } from '../db/database'
 
 // ── Docker Engine API helper ──────────────────────────────────────────────────
-async function dockerReq(path: string, method = 'GET', body?: object) {
-  return request(`http://localhost${path}`, {
-    socketPath: '/var/run/docker.sock',
+const dockerClient = new Client('http://localhost', {
+  socketPath: '/var/run/docker.sock',
+})
+
+async function dockerReq(path: string, method: Dispatcher.HttpMethod = 'GET', body?: object) {
+  return dockerClient.request({
+    path,
     method,
     ...(body
       ? { body: JSON.stringify(body), headers: { 'content-type': 'application/json' } }

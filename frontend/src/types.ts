@@ -102,11 +102,34 @@ export interface AdGuardHomeConfig {
   // password intentionally omitted — never sent to frontend
 }
 
+export interface CustomButtonConfig {
+  buttons: { id: string; label: string; url: string; method: 'GET' | 'POST' }[]
+}
+
+export interface HomeAssistantConfig {
+  url: string
+  entities: { entity_id: string; label: string }[]
+  // token intentionally omitted — never sent to frontend
+}
+
+export interface PiholeConfig {
+  url: string
+  // password intentionally omitted — never sent to frontend
+}
+
+export interface HaEntityState {
+  entity_id: string
+  label: string
+  state: string
+  unit: string | null
+  device_class: string | null
+}
+
 export interface Widget {
   id: string
-  type: 'server_status' | 'adguard_home' | 'docker_overview'
+  type: 'server_status' | 'adguard_home' | 'docker_overview' | 'custom_button' | 'home_assistant' | 'pihole'
   name: string
-  config: ServerStatusConfig | AdGuardHomeConfig | Record<string, never>
+  config: ServerStatusConfig | AdGuardHomeConfig | CustomButtonConfig | HomeAssistantConfig | PiholeConfig | Record<string, never>
   position: number
   show_in_topbar: boolean
   icon_url: string | null
@@ -127,7 +150,7 @@ export interface AdGuardStats {
   protection_enabled: boolean
 }
 
-export type WidgetStats = ServerStats | AdGuardStats
+export type WidgetStats = ServerStats | AdGuardStats | HaEntityState[]
 
 export interface DashboardWidgetItem {
   id: string

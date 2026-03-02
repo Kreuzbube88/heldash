@@ -14,6 +14,9 @@ interface WidgetState {
   uploadWidgetIcon: (id: string, data: string, contentType: string) => Promise<void>
   loadStats: (id: string) => Promise<void>
   setAdGuardProtection: (id: string, enabled: boolean) => Promise<void>
+  triggerButton: (widgetId: string, buttonId: string) => Promise<void>
+  haToggle: (widgetId: string, entityId: string, currentState: string) => Promise<void>
+  setPiholeProtection: (widgetId: string, enabled: boolean) => Promise<void>
 }
 
 export const useWidgetStore = create<WidgetState>((set, get) => ({
@@ -68,5 +71,19 @@ export const useWidgetStore = create<WidgetState>((set, get) => ({
     await api.widgets.setAdGuardProtection(id, enabled)
     // Reload stats so protection_enabled reflects the new state
     await get().loadStats(id)
+  },
+
+  triggerButton: async (widgetId, buttonId) => {
+    await api.widgets.triggerButton(widgetId, buttonId)
+  },
+
+  haToggle: async (widgetId, entityId, currentState) => {
+    await api.widgets.haToggle(widgetId, entityId, currentState)
+    await get().loadStats(widgetId)
+  },
+
+  setPiholeProtection: async (widgetId, enabled) => {
+    await api.widgets.setPiholeProtection(widgetId, enabled)
+    await get().loadStats(widgetId)
   },
 }))

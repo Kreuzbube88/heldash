@@ -3,8 +3,8 @@ import { useWidgetStore } from '../store/useWidgetStore'
 import { useDockerStore } from '../store/useDockerStore'
 import { useDashboardStore } from '../store/useDashboardStore'
 import { useStore } from '../store/useStore'
-import { Trash2, Pencil, X, Check, Plus, Minus, LayoutDashboard, Shield, ShieldOff, Upload, Container, Play, Square, RotateCcw } from 'lucide-react'
-import type { Widget, ServerStatusConfig, AdGuardHomeConfig, ServerStats, AdGuardStats } from '../types'
+import { Trash2, Pencil, X, Check, Plus, Minus, LayoutDashboard, Shield, ShieldOff, Upload, Container, Play, Square, RotateCcw, Zap } from 'lucide-react'
+import type { Widget, ServerStatusConfig, AdGuardHomeConfig, CustomButtonConfig, HomeAssistantConfig, ServerStats, AdGuardStats, HaEntityState } from '../types'
 import { normalizeUrl, containerCounts } from '../utils'
 
 // ── Widget icon — URL-matched service icon or custom icon_url ─────────────────
@@ -21,8 +21,9 @@ function WidgetIcon({ widget, size = 32 }: { widget: Pick<Widget, 'type' | 'conf
   let iconUrl: string | null = null
   let iconEmoji: string | null = null
 
-  if (widget.type === 'adguard_home') {
-    const widgetUrl = normalizeUrl((widget.config as AdGuardHomeConfig).url ?? '')
+  if (widget.type === 'adguard_home' || widget.type === 'pihole' || widget.type === 'home_assistant') {
+    const cfg = widget.config as { url?: string }
+    const widgetUrl = normalizeUrl(cfg.url ?? '')
     const match = widgetUrl
       ? services.find(s => normalizeUrl(s.url) === widgetUrl || (s.check_url && normalizeUrl(s.check_url) === widgetUrl))
       : undefined
@@ -170,6 +171,155 @@ function DiskRow({
   )
 }
 
+// ── Entity row (Home Assistant) ───────────────────────────────────────────────
+function EntityRow({
+  entity,
+  onChange,
+  onRemove,
+}: {
+  entity: { entity_id: string; label: string }
+  onChange: (e: { entity_id: string; label: string }) => void
+  onRemove: () => void
+}) {
+  return (
+    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+      <input
+        className="form-input"
+        placeholder="Label (e.g. Living Room)"
+        value={entity.label}
+        onChange={e => onChange({ ...entity, label: e.target.value })}
+        style={{ flex: 1, minWidth: 0, fontSize: 13, padding: '5px 8px' }}
+      />
+      <input
+        className="form-input"
+        placeholder="entity_id (e.g. light.living_room)"
+        value={entity.entity_id}
+        onChange={e => onChange({ ...entity, entity_id: e.target.value })}
+        style={{ flex: 2, minWidth: 0, fontSize: 13, padding: '5px 8px' }}
+      />
+      <button type="button" className="btn btn-ghost btn-icon btn-sm" onClick={onRemove} style={{ flexShrink: 0, padding: '4px', width: 28, height: 28 }}>
+        <Minus size={12} />
+      </button>
+    </div>
+  )
+}
+
+// ── Home Assistant entity state view ─────────────────────────────────────────
+function HaStatsView({
+  entities,
+  widgetId,
+  isAdmin,
+}: {
+  entities: HaEntityState[]
+  widgetId: string
+  isAdmin: boolean
+}) {
+  const { haToggle } = useWidgetStore()
+  const [toggling, setToggling] = useState<string | null>(null)
+
+  if (entities.length === 0) {
+    return <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '8px 0' }}>No entities configured.</div>
+  }
+
+  const handleToggle = async (entityId: string, currentState: string) => {
+    setToggling(entityId)
+    try { await haToggle(widgetId, entityId, currentState) }
+    finally { setToggling(null) }
+  }
+
+  const toggleableDomains = ['switch', 'light', 'input_boolean', 'automation']
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {entities.map(e => {
+        const domain = e.entity_id.split('.')[0]
+        const isToggleable = toggleableDomains.includes(domain) && (isAdmin || true)
+        const isOn = e.state === 'on'
+        const isUnavailable = e.state === 'unavailable' || e.state === 'unknown'
+        return (
+          <div key={e.entity_id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ flex: 1, fontSize: 12, color: 'var(--text-secondary)' }}>{e.label || e.entity_id}</span>
+            {isUnavailable ? (
+              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>unavailable</span>
+            ) : e.unit ? (
+              <span style={{ fontSize: 13, fontFamily: 'var(--font-mono)', color: 'var(--accent)', fontWeight: 600 }}>
+                {e.state} <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{e.unit}</span>
+              </span>
+            ) : isToggleable ? (
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={() => handleToggle(e.entity_id, e.state)}
+                disabled={toggling === e.entity_id}
+                style={{ fontSize: 11, padding: '2px 10px', gap: 4, color: isOn ? 'var(--status-online)' : 'var(--text-muted)', borderColor: isOn ? 'rgba(34,197,94,0.35)' : undefined, minWidth: 54 }}
+              >
+                {toggling === e.entity_id
+                  ? <div className="spinner" style={{ width: 10, height: 10, borderWidth: 1.5 }} />
+                  : isOn ? 'On' : 'Off'
+                }
+              </button>
+            ) : (
+              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{e.state}</span>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ── Custom buttons view ───────────────────────────────────────────────────────
+function CustomButtonsView({ widget }: { widget: Widget }) {
+  const { triggerButton } = useWidgetStore()
+  const config = widget.config as CustomButtonConfig
+  const [triggering, setTriggering] = useState<string | null>(null)
+  const [results, setResults] = useState<Record<string, 'ok' | 'err'>>({})
+
+  if (!config.buttons?.length) {
+    return <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '8px 0' }}>No buttons configured.</div>
+  }
+
+  const handleTrigger = async (buttonId: string) => {
+    if (triggering) return
+    setTriggering(buttonId)
+    try {
+      await triggerButton(widget.id, buttonId)
+      setResults(r => ({ ...r, [buttonId]: 'ok' }))
+      setTimeout(() => setResults(r => { const n = { ...r }; delete n[buttonId]; return n }), 2000)
+    } catch {
+      setResults(r => ({ ...r, [buttonId]: 'err' }))
+      setTimeout(() => setResults(r => { const n = { ...r }; delete n[buttonId]; return n }), 3000)
+    } finally {
+      setTriggering(null)
+    }
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {config.buttons.map(btn => (
+        <button
+          key={btn.id}
+          className="btn btn-ghost btn-sm"
+          onClick={() => handleTrigger(btn.id)}
+          disabled={triggering === btn.id}
+          style={{
+            gap: 6, justifyContent: 'flex-start', fontSize: 13, padding: '7px 10px',
+            color: results[btn.id] === 'ok' ? 'var(--status-online)' : results[btn.id] === 'err' ? 'var(--status-offline)' : undefined,
+            borderColor: results[btn.id] === 'ok' ? 'rgba(34,197,94,0.35)' : results[btn.id] === 'err' ? 'rgba(239,68,68,0.35)' : undefined,
+          }}
+        >
+          {triggering === btn.id
+            ? <div className="spinner" style={{ width: 10, height: 10, borderWidth: 1.5 }} />
+            : <Zap size={12} style={{ flexShrink: 0 }} />
+          }
+          <span style={{ flex: 1, textAlign: 'left' }}>{btn.label}</span>
+          {results[btn.id] === 'ok' && <Check size={11} />}
+          {results[btn.id] === 'err' && <X size={11} />}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 // ── Widget form (create or edit) ───────────────────────────────────────────────
 function WidgetForm({
   initial,
@@ -181,8 +331,9 @@ function WidgetForm({
   onCancel: () => void
 }) {
   const isEdit = !!initial
-  const [type, setType] = useState<'server_status' | 'adguard_home' | 'docker_overview'>(
-    (initial?.type as 'server_status' | 'adguard_home' | 'docker_overview') ?? 'server_status'
+  type WidgetFormType = 'server_status' | 'adguard_home' | 'docker_overview' | 'custom_button' | 'home_assistant' | 'pihole'
+  const [type, setType] = useState<WidgetFormType>(
+    (initial?.type as WidgetFormType) ?? 'server_status'
   )
   const [name, setName] = useState(initial?.name ?? '')
   const [showTopbar, setShowTopbar] = useState(initial?.show_in_topbar ?? false)
@@ -197,6 +348,22 @@ function WidgetForm({
   const [agUrl, setAgUrl] = useState(existingAdGuard?.url ?? '')
   const [agUsername, setAgUsername] = useState(existingAdGuard?.username ?? '')
   const [agPassword, setAgPassword] = useState('')  // blank = keep existing on edit
+
+  // custom_button config
+  const [buttons, setButtons] = useState<{ id: string; label: string; url: string; method: 'GET' | 'POST' }[]>(
+    initial?.type === 'custom_button' ? (initial.config as CustomButtonConfig).buttons ?? [] : []
+  )
+
+  // home_assistant config
+  const existingHa = initial?.type === 'home_assistant' ? (initial.config as HomeAssistantConfig) : null
+  const [haUrl, setHaUrl] = useState(existingHa?.url ?? '')
+  const [haToken, setHaToken] = useState('')  // blank = keep existing on edit
+  const [haEntities, setHaEntities] = useState<{ entity_id: string; label: string }[]>(existingHa?.entities ?? [])
+
+  // pihole config
+  const existingPihole = initial?.type === 'pihole' ? (initial.config as { url?: string }) : null
+  const [phUrl, setPhUrl] = useState(existingPihole?.url ?? '')
+  const [phPassword, setPhPassword] = useState('')  // blank = keep existing on edit
 
   // icon
   const [pendingIcon, setPendingIcon] = useState<{ data: string; contentType: string; preview: string } | null>(null)
@@ -217,11 +384,14 @@ function WidgetForm({
   }
 
   // Update default name when type changes (only on create)
-  const handleTypeChange = (t: 'server_status' | 'adguard_home' | 'docker_overview') => {
+  const handleTypeChange = (t: WidgetFormType) => {
     setType(t)
     if (!isEdit && !name) {
       if (t === 'adguard_home') setName('AdGuard Home')
       else if (t === 'docker_overview') setName('Docker Overview')
+      else if (t === 'custom_button') setName('Quick Actions')
+      else if (t === 'home_assistant') setName('Home Assistant')
+      else if (t === 'pihole') setName('Pi-hole')
       else setName('Server Status')
     }
   }
@@ -235,6 +405,16 @@ function WidgetForm({
       config = { disks }
     } else if (type === 'docker_overview') {
       config = {}
+    } else if (type === 'custom_button') {
+      config = { buttons }
+    } else if (type === 'home_assistant') {
+      if (!haUrl.trim()) return setError('URL is required')
+      if (!isEdit && !haToken) return setError('Token is required')
+      config = { url: haUrl.trim(), entities: haEntities, ...(haToken ? { token: haToken } : {}) }
+    } else if (type === 'pihole') {
+      if (!phUrl.trim()) return setError('URL is required')
+      if (!isEdit && !phPassword) return setError('Password is required')
+      config = { url: phUrl.trim(), ...(phPassword ? { password: phPassword } : {}) }
     } else {
       if (!agUrl.trim()) return setError('URL is required')
       if (!agUsername.trim()) return setError('Username is required')
@@ -257,6 +437,16 @@ function WidgetForm({
     setDisks(d => d.map((x, idx) => idx === i ? disk : x))
   const removeDisk = (i: number) => setDisks(d => d.filter((_, idx) => idx !== i))
 
+  const addButton = () => setButtons(b => [...b, { id: Math.random().toString(36).slice(2), label: '', url: '', method: 'POST' as const }])
+  const updateButton = (i: number, btn: { id: string; label: string; url: string; method: 'GET' | 'POST' }) =>
+    setButtons(b => b.map((x, idx) => idx === i ? btn : x))
+  const removeButton = (i: number) => setButtons(b => b.filter((_, idx) => idx !== i))
+
+  const addEntity = () => setHaEntities(e => [...e, { entity_id: '', label: '' }])
+  const updateEntity = (i: number, entity: { entity_id: string; label: string }) =>
+    setHaEntities(e => e.map((x, idx) => idx === i ? entity : x))
+  const removeEntity = (i: number) => setHaEntities(e => e.filter((_, idx) => idx !== i))
+
   return (
     <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
@@ -271,11 +461,14 @@ function WidgetForm({
             <select
               className="form-input"
               value={type}
-              onChange={e => handleTypeChange(e.target.value as 'server_status' | 'adguard_home' | 'docker_overview')}
+              onChange={e => handleTypeChange(e.target.value as WidgetFormType)}
             >
               <option value="server_status">Server Status</option>
               <option value="adguard_home">AdGuard Home</option>
               <option value="docker_overview">Docker Overview</option>
+              <option value="custom_button">Custom Buttons</option>
+              <option value="home_assistant">Home Assistant</option>
+              <option value="pihole">Pi-hole</option>
             </select>
           </div>
         )}
@@ -405,6 +598,77 @@ function WidgetForm({
             </div>
           </div>
         )}
+
+        {/* custom_button config */}
+        {type === 'custom_button' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <label className="form-label" style={{ fontSize: 11, margin: 0 }}>Buttons</label>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={addButton} style={{ gap: 4, fontSize: 11, padding: '3px 8px' }}>
+                <Plus size={11} /> Add Button
+              </button>
+            </div>
+            {buttons.length === 0 && (
+              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>No buttons yet. Click "Add Button".</span>
+            )}
+            {buttons.map((btn, i) => (
+              <div key={btn.id} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <input className="form-input" placeholder="Label" value={btn.label} onChange={e => updateButton(i, { ...btn, label: e.target.value })} style={{ flex: 1, minWidth: 0, fontSize: 13, padding: '5px 8px' }} />
+                <input className="form-input" placeholder="URL" value={btn.url} onChange={e => updateButton(i, { ...btn, url: e.target.value })} style={{ flex: 2, minWidth: 0, fontSize: 13, padding: '5px 8px' }} />
+                <select className="form-input" value={btn.method} onChange={e => updateButton(i, { ...btn, method: e.target.value as 'GET' | 'POST' })} style={{ width: 72, fontSize: 12, padding: '5px 6px' }}>
+                  <option value="GET">GET</option>
+                  <option value="POST">POST</option>
+                </select>
+                <button type="button" className="btn btn-ghost btn-icon btn-sm" onClick={() => removeButton(i)} style={{ flexShrink: 0, padding: '4px', width: 28, height: 28 }}><Minus size={12} /></button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* home_assistant config */}
+        {type === 'home_assistant' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div>
+              <label className="form-label" style={{ fontSize: 11 }}>Home Assistant URL</label>
+              <input className="form-input" value={haUrl} onChange={e => setHaUrl(e.target.value)} placeholder="http://homeassistant.local:8123" style={{ fontSize: 13 }} />
+            </div>
+            <div>
+              <label className="form-label" style={{ fontSize: 11 }}>
+                Long-Lived Access Token{isEdit && <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginLeft: 6 }}>(leave blank to keep existing)</span>}
+              </label>
+              <input className="form-input" type="password" value={haToken} onChange={e => setHaToken(e.target.value)} placeholder={isEdit ? '••••••••' : 'Token from HA Profile → Long-Lived Access Tokens'} autoComplete="new-password" style={{ fontSize: 13 }} />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <label className="form-label" style={{ fontSize: 11, margin: 0 }}>Entities</label>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={addEntity} style={{ gap: 4, fontSize: 11, padding: '3px 8px' }}>
+                <Plus size={11} /> Add Entity
+              </button>
+            </div>
+            {haEntities.length === 0 && (
+              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>No entities yet. Click "Add Entity".</span>
+            )}
+            {haEntities.map((e, i) => (
+              <EntityRow key={i} entity={e} onChange={entity => updateEntity(i, entity)} onRemove={() => removeEntity(i)} />
+            ))}
+          </div>
+        )}
+
+        {/* pihole config */}
+        {type === 'pihole' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div>
+              <label className="form-label" style={{ fontSize: 11 }}>Pi-hole URL</label>
+              <input className="form-input" value={phUrl} onChange={e => setPhUrl(e.target.value)} placeholder="http://192.168.1.1" style={{ fontSize: 13 }} />
+            </div>
+            <div>
+              <label className="form-label" style={{ fontSize: 11 }}>
+                Admin Password{isEdit && <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginLeft: 6 }}>(leave blank to keep existing)</span>}
+              </label>
+              <input className="form-input" type="password" value={phPassword} onChange={e => setPhPassword(e.target.value)} placeholder={isEdit ? '••••••••' : 'Pi-hole admin password'} autoComplete="new-password" style={{ fontSize: 13 }} />
+            </div>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>Requires Pi-hole v6+</p>
+          </div>
+        )}
       </div>
 
       {error && <div style={{ fontSize: 12, color: 'var(--status-offline)' }}>{error}</div>}
@@ -436,12 +700,12 @@ function WidgetCard({
   isOnDashboard: boolean
 }) {
   const { isAdmin } = useStore()
-  const { stats, loadStats, setAdGuardProtection } = useWidgetStore()
+  const { stats, loadStats, setAdGuardProtection, setPiholeProtection } = useWidgetStore()
   const s = stats[widget.id]
   const [toggling, setToggling] = useState(false)
 
   useEffect(() => {
-    if (widget.type === 'docker_overview') return  // DockerOverviewContent handles its own data loading
+    if (widget.type === 'docker_overview' || widget.type === 'custom_button') return
     loadStats(widget.id).catch(() => {})
     const interval = setInterval(() => loadStats(widget.id).catch(() => {}), 30_000)
     return () => clearInterval(interval)
@@ -458,6 +722,17 @@ function WidgetCard({
     }
   }
 
+  const handlePiholeToggle = async () => {
+    if (!isAdmin || widget.type !== 'pihole' || !s) return
+    const ph = s as AdGuardStats
+    setToggling(true)
+    try {
+      await setPiholeProtection(widget.id, !ph.protection_enabled)
+    } finally {
+      setToggling(false)
+    }
+  }
+
   return (
     <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 20, display: 'flex', flexDirection: 'column', gap: 14, position: 'relative' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' }}>
@@ -466,7 +741,7 @@ function WidgetCard({
           <div>
             <div style={{ fontWeight: 600, fontSize: 14 }}>{widget.name}</div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, display: 'flex', gap: 8 }}>
-              <span>{widget.type === 'adguard_home' ? 'AdGuard Home' : widget.type === 'docker_overview' ? 'Docker Overview' : 'Server Status'}</span>
+              <span>{{ adguard_home: 'AdGuard Home', docker_overview: 'Docker Overview', custom_button: 'Custom Buttons', home_assistant: 'Home Assistant', pihole: 'Pi-hole' }[widget.type] ?? 'Server Status'}</span>
               {widget.show_in_topbar && <span style={{ color: 'var(--accent)' }}>· Topbar</span>}
             </div>
           </div>
@@ -486,6 +761,8 @@ function WidgetCard({
       {/* Stats preview — branched by widget type */}
       {widget.type === 'docker_overview' ? (
         <DockerOverviewContent isAdmin={isAdmin} />
+      ) : widget.type === 'custom_button' ? (
+        <CustomButtonsView widget={widget} />
       ) : widget.type === 'server_status' ? (
         s ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -504,6 +781,23 @@ function WidgetCard({
           </div>
         ) : (
           <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '8px 0' }}>Loading stats…</div>
+        )
+      ) : widget.type === 'pihole' ? (
+        s ? (
+          <AdGuardStatsView
+            stats={s as AdGuardStats}
+            isAdmin={isAdmin}
+            toggling={toggling}
+            onToggle={handlePiholeToggle}
+          />
+        ) : (
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '8px 0' }}>Loading stats…</div>
+        )
+      ) : widget.type === 'home_assistant' ? (
+        s ? (
+          <HaStatsView entities={s as HaEntityState[]} widgetId={widget.id} isAdmin={isAdmin} />
+        ) : (
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '8px 0' }}>Loading states…</div>
         )
       ) : (
         // adguard_home

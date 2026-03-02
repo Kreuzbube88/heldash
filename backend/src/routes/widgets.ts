@@ -43,10 +43,20 @@ interface AdGuardProtectionBody {
 
 function sanitize(r: WidgetRow) {
   const rawConfig = JSON.parse(r.config ?? '{}')
-  // Strip password from adguard_home configs — credentials never leave the backend
-  const config = r.type === 'adguard_home'
-    ? (({ password: _p, ...safe }) => safe)(rawConfig)
-    : rawConfig
+  // Strip credentials from configs — they never leave the backend
+  let config: Record<string, unknown>
+  if (r.type === 'adguard_home') {
+    const { password: _p, ...safe } = rawConfig as Record<string, unknown>
+    config = safe
+  } else if (r.type === 'home_assistant') {
+    const { token: _t, ...safe } = rawConfig as Record<string, unknown>
+    config = safe
+  } else if (r.type === 'pihole') {
+    const { password: _p, ...safe } = rawConfig as Record<string, unknown>
+    config = safe
+  } else {
+    config = rawConfig as Record<string, unknown>
+  }
   return {
     id: r.id,
     type: r.type,
@@ -192,6 +202,132 @@ async function setAdGuardProtection(url: string, username: string, password: str
   }
 }
 
+// ── Pi-hole helpers ──────────────────────────────────────────────────────────
+
+const piholeSessionCache = new Map<string, { sid: string; expiresAt: number }>()
+
+async function getPiholeSession(url: string, password: string, widgetId: string): Promise<string | null> {
+  const cached = piholeSessionCache.get(widgetId)
+  if (cached && cached.expiresAt > Date.now()) return cached.sid
+  const base = url.replace(/\/$/, '')
+  try {
+    const res = await fetch(`${base}/api/auth`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+    })
+    if (!res.ok) return null
+    const data = await res.json() as { session?: { sid: string; validity: number } }
+    const sid = data.session?.sid
+    const validity = data.session?.validity ?? 1800
+    if (!sid) return null
+    piholeSessionCache.set(widgetId, { sid, expiresAt: Date.now() + (validity - 60) * 1000 })
+    return sid
+  } catch {
+    return null
+  }
+}
+
+interface PiholeStatsResult {
+  total_queries: number
+  blocked_queries: number
+  blocked_percent: number
+  protection_enabled: boolean
+}
+
+async function getPiholeStats(url: string, password: string, widgetId: string): Promise<PiholeStatsResult> {
+  const err: PiholeStatsResult = { total_queries: -1, blocked_queries: -1, blocked_percent: -1, protection_enabled: false }
+  if (!url) return err
+  const sid = await getPiholeSession(url, password, widgetId)
+  if (!sid) return err
+  const base = url.replace(/\/$/, '')
+  const headers = { 'X-FTL-SID': sid }
+  try {
+    const [summaryRes, blockRes] = await Promise.all([
+      fetch(`${base}/api/stats/summary`, { headers }),
+      fetch(`${base}/api/dns/blocking`, { headers }),
+    ])
+    if (!summaryRes.ok) { piholeSessionCache.delete(widgetId); return err }
+    const summary = await summaryRes.json() as Record<string, unknown>
+    const blocking = blockRes.ok ? await blockRes.json() as Record<string, unknown> : null
+    const queries = summary.queries as Record<string, unknown> | undefined
+    const total = typeof queries?.total === 'number' ? queries.total : 0
+    const blocked = typeof queries?.blocked === 'number' ? queries.blocked : 0
+    return {
+      total_queries: total,
+      blocked_queries: blocked,
+      blocked_percent: total > 0 ? Math.round((blocked / total) * 1000) / 10 : 0,
+      protection_enabled: blocking?.blocking === true,
+    }
+  } catch {
+    return err
+  }
+}
+
+async function togglePiholeProtection(url: string, password: string, widgetId: string, enabled: boolean): Promise<boolean> {
+  const sid = await getPiholeSession(url, password, widgetId)
+  if (!sid) return false
+  const base = url.replace(/\/$/, '')
+  try {
+    const res = await fetch(`${base}/api/dns/blocking`, {
+      method: 'POST',
+      headers: { 'X-FTL-SID': sid, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ blocking: enabled, timer: null }),
+    })
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
+// ── Home Assistant helpers ────────────────────────────────────────────────────
+
+interface HaEntity {
+  entity_id: string
+  label: string
+  state: string
+  unit: string | null
+  device_class: string | null
+}
+
+async function getHaStates(url: string, token: string, entities: { entity_id: string; label: string }[]): Promise<HaEntity[]> {
+  if (!url || !token || entities.length === 0) return []
+  const base = url.replace(/\/$/, '')
+  const headers = { Authorization: `Bearer ${token}` }
+  try {
+    return await Promise.all(entities.map(async e => {
+      const res = await fetch(`${base}/api/states/${e.entity_id}`, { headers })
+      if (!res.ok) return { entity_id: e.entity_id, label: e.label, state: 'unavailable', unit: null, device_class: null }
+      const data = await res.json() as { state: string; attributes: Record<string, unknown> }
+      return {
+        entity_id: e.entity_id,
+        label: e.label,
+        state: data.state,
+        unit: (data.attributes.unit_of_measurement as string | undefined) ?? null,
+        device_class: (data.attributes.device_class as string | undefined) ?? null,
+      }
+    }))
+  } catch {
+    return []
+  }
+}
+
+async function toggleHaEntity(url: string, token: string, entityId: string, currentState: string): Promise<boolean> {
+  const base = url.replace(/\/$/, '')
+  const domain = entityId.split('.')[0]
+  const service = currentState === 'on' ? 'turn_off' : 'turn_on'
+  try {
+    const res = await fetch(`${base}/api/services/${domain}/${service}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entity_id: entityId }),
+    })
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
 // ── Routes ────────────────────────────────────────────────────────────────────
 export async function widgetsRoutes(app: FastifyInstance) {
   const db = getDb()
@@ -218,7 +354,7 @@ export async function widgetsRoutes(app: FastifyInstance) {
   // POST /api/widgets — create (admin only)
   app.post('/api/widgets', { preHandler: [app.requireAdmin] }, async (req, reply) => {
     const { type, name, config = {}, show_in_topbar = false } = req.body as CreateWidgetBody
-    if (!['server_status', 'adguard_home', 'docker_overview'].includes(type)) {
+    if (!['server_status', 'adguard_home', 'docker_overview', 'custom_button', 'home_assistant', 'pihole'].includes(type)) {
       return reply.status(400).send({ error: 'Invalid widget type' })
     }
     if (!name?.trim()) return reply.status(400).send({ error: 'name is required' })
@@ -246,9 +382,19 @@ export async function widgetsRoutes(app: FastifyInstance) {
       if (row.type === 'adguard_home') {
         const existing = JSON.parse(row.config ?? '{}')
         const merged = { ...existing, ...config }
-        // If new password is empty string, keep existing password
         if (!merged.password) merged.password = existing.password ?? ''
         configToStore = JSON.stringify(merged)
+      } else if (row.type === 'home_assistant') {
+        const existing = JSON.parse(row.config ?? '{}')
+        const merged = { ...existing, ...config }
+        if (!merged.token) merged.token = existing.token ?? ''
+        configToStore = JSON.stringify(merged)
+      } else if (row.type === 'pihole') {
+        const existing = JSON.parse(row.config ?? '{}')
+        const merged = { ...existing, ...config }
+        if (!merged.password) merged.password = existing.password ?? ''
+        configToStore = JSON.stringify(merged)
+        piholeSessionCache.delete(id)
       } else {
         configToStore = JSON.stringify(config)
       }
@@ -306,6 +452,19 @@ export async function widgetsRoutes(app: FastifyInstance) {
       return {}
     }
 
+    if (row.type === 'custom_button') {
+      return {}
+    }
+
+    if (row.type === 'pihole') {
+      return getPiholeStats(config.url ?? '', config.password ?? '', id)
+    }
+
+    if (row.type === 'home_assistant') {
+      const entities: { entity_id: string; label: string }[] = Array.isArray(config.entities) ? config.entities : []
+      return getHaStates(config.url ?? '', config.token ?? '', entities)
+    }
+
     // server_status (default)
     const disks: DiskConfig[] = Array.isArray(config.disks) ? config.disks : []
     const [cpu, ram, diskStats] = await Promise.all([
@@ -361,6 +520,52 @@ export async function widgetsRoutes(app: FastifyInstance) {
     const config = JSON.parse(row.config ?? '{}')
     const ok = await setAdGuardProtection(config.url ?? '', config.username ?? '', config.password ?? '', enabled)
     if (!ok) return reply.status(502).send({ error: 'Failed to reach AdGuard Home' })
+    return { ok: true }
+  })
+
+  // POST /api/widgets/:id/trigger — fire a custom button webhook (authenticated)
+  app.post('/api/widgets/:id/trigger', { preHandler: [app.authenticate] }, async (req, reply) => {
+    const { id } = req.params as { id: string }
+    const { button_id } = req.body as { button_id: string }
+    const row = db.prepare('SELECT * FROM widgets WHERE id = ?').get(id) as WidgetRow | undefined
+    if (!row || row.type !== 'custom_button') return reply.status(404).send({ error: 'Not found' })
+    const config = JSON.parse(row.config ?? '{}')
+    const buttons: { id: string; label: string; url: string; method?: string }[] = Array.isArray(config.buttons) ? config.buttons : []
+    const button = buttons.find(b => b.id === button_id)
+    if (!button) return reply.status(404).send({ error: 'Button not found' })
+    try {
+      const res = await fetch(button.url, { method: button.method ?? 'GET' })
+      return { ok: true, status: res.status }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Unknown error'
+      return reply.status(502).send({ error: `Failed: ${msg}` })
+    }
+  })
+
+  // POST /api/widgets/:id/ha/toggle — toggle a HA entity (authenticated)
+  interface HaToggleBody { entity_id: string; current_state: string }
+  app.post('/api/widgets/:id/ha/toggle', { preHandler: [app.authenticate] }, async (req, reply) => {
+    const { id } = req.params as { id: string }
+    const { entity_id, current_state } = req.body as HaToggleBody
+    const row = db.prepare('SELECT * FROM widgets WHERE id = ?').get(id) as WidgetRow | undefined
+    if (!row || row.type !== 'home_assistant') return reply.status(404).send({ error: 'Not found' })
+    const config = JSON.parse(row.config ?? '{}')
+    const ok = await toggleHaEntity(config.url ?? '', config.token ?? '', entity_id, current_state)
+    if (!ok) return reply.status(502).send({ error: 'Failed to reach Home Assistant' })
+    return { ok: true }
+  })
+
+  // POST /api/widgets/:id/pihole/protection — toggle Pi-hole protection (admin only)
+  interface PiholeProtectionBody { enabled: boolean }
+  app.post('/api/widgets/:id/pihole/protection', { preHandler: [app.requireAdmin] }, async (req, reply) => {
+    const { id } = req.params as { id: string }
+    const { enabled } = req.body as PiholeProtectionBody
+    if (typeof enabled !== 'boolean') return reply.status(400).send({ error: 'enabled must be boolean' })
+    const row = db.prepare('SELECT * FROM widgets WHERE id = ?').get(id) as WidgetRow | undefined
+    if (!row || row.type !== 'pihole') return reply.status(404).send({ error: 'Not found' })
+    const config = JSON.parse(row.config ?? '{}')
+    const ok = await togglePiholeProtection(config.url ?? '', config.password ?? '', id, enabled)
+    if (!ok) return reply.status(502).send({ error: 'Failed to reach Pi-hole' })
     return { ok: true }
   })
 }

@@ -127,6 +127,12 @@ export const api = {
       req<{ ok: boolean }>(`/widgets/${id}/adguard/protection`, {
         method: 'POST', body: JSON.stringify({ enabled }),
       }),
+    triggerButton: (id: string, buttonId: string) =>
+      req<{ ok: boolean; status: number }>(`/widgets/${id}/trigger`, { method: 'POST', body: JSON.stringify({ button_id: buttonId }) }),
+    haToggle: (id: string, entityId: string, currentState: string) =>
+      req<{ ok: boolean }>(`/widgets/${id}/ha/toggle`, { method: 'POST', body: JSON.stringify({ entity_id: entityId, current_state: currentState }) }),
+    setPiholeProtection: (id: string, enabled: boolean) =>
+      req<{ ok: boolean }>(`/widgets/${id}/pihole/protection`, { method: 'POST', body: JSON.stringify({ enabled }) }),
     uploadIcon: (id: string, data: string, contentType: string) =>
       req<{ icon_url: string }>(`/widgets/${id}/icon`, { method: 'POST', body: JSON.stringify({ data, content_type: contentType }) }),
   },

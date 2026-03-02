@@ -7,9 +7,51 @@ import type { DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, rectSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Pencil, Trash2, Check, X, RefreshCw, GripVertical } from 'lucide-react'
+import { Pencil, Trash2, Check, X, RefreshCw, GripVertical, LayoutGrid, CalendarDays, Search, BarChart2, Compass, Database } from 'lucide-react'
 import type { ArrInstance } from '../types/arr'
 import { ArrCardContent, SabnzbdCardContent, SeerrCardContent } from '../components/MediaCard'
+
+// ── Tab type ──────────────────────────────────────────────────────────────────
+
+type MediaTab = 'instances' | 'library' | 'calendar' | 'indexers' | 'statistics' | 'discover'
+
+// ── Tab bar ───────────────────────────────────────────────────────────────────
+
+function TabBar({ active, onChange, showDiscover }: { active: MediaTab; onChange: (t: MediaTab) => void; showDiscover: boolean }) {
+  const tabs: { id: MediaTab; label: string; icon: React.ReactNode }[] = [
+    { id: 'instances',  label: 'Instances',  icon: <LayoutGrid size={13} /> },
+    { id: 'library',    label: 'Library',    icon: <Database size={13} /> },
+    { id: 'calendar',   label: 'Calendar',   icon: <CalendarDays size={13} /> },
+    { id: 'indexers',   label: 'Indexers',   icon: <Search size={13} /> },
+    { id: 'statistics', label: 'Statistics', icon: <BarChart2 size={13} /> },
+    ...(showDiscover ? [{ id: 'discover' as MediaTab, label: 'Discover', icon: <Compass size={13} /> }] : []),
+  ]
+  return (
+    <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: '6px 8px', display: 'flex', gap: 2, alignSelf: 'flex-start', flexWrap: 'wrap' }}>
+      {tabs.map(t => (
+        <button
+          key={t.id}
+          onClick={() => onChange(t.id)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '7px 14px',
+            borderRadius: 'var(--radius-md)',
+            fontSize: 13, fontWeight: active === t.id ? 600 : 400,
+            background: active === t.id ? 'rgba(var(--accent-rgb), 0.12)' : 'transparent',
+            color: active === t.id ? 'var(--accent)' : 'var(--text-secondary)',
+            border: active === t.id ? '1px solid rgba(var(--accent-rgb), 0.25)' : '1px solid transparent',
+            cursor: 'pointer',
+            transition: 'all 150ms ease',
+            fontFamily: 'var(--font-sans)',
+          }}
+        >
+          {t.icon}
+          {t.label}
+        </button>
+      ))}
+    </div>
+  )
+}
 
 // ── Sortable card wrapper ─────────────────────────────────────────────────────
 
@@ -145,14 +187,9 @@ function InstanceForm({
   )
 }
 
-// ── Main page ─────────────────────────────────────────────────────────────────
+// ── Instances tab ─────────────────────────────────────────────────────────────
 
-interface Props {
-  showAddForm?: boolean
-  onFormClose?: () => void
-}
-
-export function MediaPage({ showAddForm: showFromParent, onFormClose }: Props) {
+function InstancesTab({ showAddForm: showFromParent, onFormClose }: { showAddForm?: boolean; onFormClose?: () => void }) {
   const { isAdmin } = useStore()
   const { instances, loadInstances, loadAllStats, createInstance, updateInstance, deleteInstance, reorderInstances } = useArrStore()
   const { addArrInstance, removeByRef, isOnDashboard, getDashboardItemId, removeItem } = useDashboardStore()
@@ -160,7 +197,6 @@ export function MediaPage({ showAddForm: showFromParent, onFormClose }: Props) {
   const [showAddForm, setShowAddForm] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
 
-  // Sync add-form trigger from parent (Topbar button)
   useEffect(() => {
     if (showFromParent) {
       setShowAddForm(true)
@@ -222,7 +258,7 @@ export function MediaPage({ showAddForm: showFromParent, onFormClose }: Props) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <h2 style={{ fontSize: 18, fontWeight: 600, flex: 1 }}>Media</h2>
+        <h3 style={{ fontSize: 15, fontWeight: 600, flex: 1 }}>Instances</h3>
         <button className="btn btn-ghost btn-icon" data-tooltip="Refresh stats" onClick={handleRefresh} disabled={refreshing}>
           {refreshing
             ? <div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
@@ -262,6 +298,56 @@ export function MediaPage({ showAddForm: showFromParent, onFormClose }: Props) {
       {isAdmin && showAddForm && (
         <InstanceForm onSave={handleCreate} onCancel={() => setShowAddForm(false)} />
       )}
+    </div>
+  )
+}
+
+// ── Stub tab ──────────────────────────────────────────────────────────────────
+
+function ComingSoonTab({ label }: { label: string }) {
+  return (
+    <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 48, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+      <p style={{ fontSize: 14, color: 'var(--text-muted)' }}>{label} — Coming soon</p>
+    </div>
+  )
+}
+
+// ── Main page ─────────────────────────────────────────────────────────────────
+
+interface Props {
+  showAddForm?: boolean
+  onFormClose?: () => void
+}
+
+export function MediaPage({ showAddForm: showFromParent, onFormClose }: Props) {
+  const { instances } = useArrStore()
+  const [activeTab, setActiveTab] = useState<MediaTab>('instances')
+
+  // When Topbar "Add Instance" fires, switch to Instances tab
+  useEffect(() => {
+    if (showFromParent) {
+      setActiveTab('instances')
+    }
+  }, [showFromParent])
+
+  const hasSeerr = instances.some(i => i.type === 'seerr' && i.enabled)
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <h2 style={{ fontSize: 18, fontWeight: 600, flex: 1 }}>Media</h2>
+      </div>
+
+      <TabBar active={activeTab} onChange={setActiveTab} showDiscover={hasSeerr} />
+
+      {activeTab === 'instances' && (
+        <InstancesTab showAddForm={showFromParent} onFormClose={onFormClose} />
+      )}
+      {activeTab === 'library' && <ComingSoonTab label="Library" />}
+      {activeTab === 'calendar' && <ComingSoonTab label="Calendar" />}
+      {activeTab === 'indexers' && <ComingSoonTab label="Indexers" />}
+      {activeTab === 'statistics' && <ComingSoonTab label="Statistics" />}
+      {activeTab === 'discover' && <ComingSoonTab label="Discover" />}
     </div>
   )
 }

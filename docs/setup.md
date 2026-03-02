@@ -101,9 +101,11 @@ Alle persistenten Daten liegen unter `/data` im Container. Dieser Pfad muss als 
 ```
 /data
 ├── db/
-│   └── heldash.db       ← SQLite-Datenbank (alle Apps, Benutzer, Einstellungen)
-└── icons/
-    └── *.png/jpg/svg    ← Hochgeladene App-Icons
+│   └── heldash.db            ← SQLite-Datenbank (alle Apps, Benutzer, Einstellungen)
+├── icons/
+│   └── *.png/jpg/svg         ← Hochgeladene App- und Widget-Icons
+└── backgrounds/
+    └── *.png/jpg/svg/webp    ← Hochgeladene Dashboard-Hintergrundbilder
 ```
 
 Es werden keine weiteren externen Dienste (Postgres, Redis, etc.) benötigt.

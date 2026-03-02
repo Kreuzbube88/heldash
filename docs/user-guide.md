@@ -237,6 +237,7 @@ Die Einstellungen sind in vier Tabs aufgeteilt.
 
 - **Dashboard-Titel** — Wird in der Sidebar angezeigt (Standard: HELDASH)
 - **Theme** — Zeigt die aktuelle Einstellung. Dunkel/Hell-Modus und Akzentfarbe werden direkt in der Topbar geändert (siehe [Design anpassen](#design-anpassen))
+- **Hintergrundbilder** — Eigene Hintergrundbilder hochladen (PNG, JPG, SVG, WebP — max. 5 MB). Jedes Bild braucht einen Namen. Hochgeladene Bilder werden mit einem Vorschau-Thumbnail angezeigt und können dort auch wieder gelöscht werden. Welche Gruppe welches Bild zu sehen bekommt, wird unter **Einstellungen → Gruppen** eingestellt.
 
 ### Tab: Benutzer
 
@@ -257,7 +258,7 @@ Gruppen steuern, was ein Benutzer sehen und nutzen darf. Jeder Benutzer gehört 
 
 **Eigene Gruppen anlegen:** Über „Neue Gruppe" eine Gruppe mit Name und Beschreibung erstellen.
 
-**Berechtigungen bearbeiten:** Auf das Bearbeiten-Symbol einer Gruppe klicken. Es öffnet sich ein Dialog mit vier Tabs:
+**Berechtigungen bearbeiten:** Auf das Bearbeiten-Symbol einer Gruppe klicken. Es öffnet sich ein Dialog mit fünf Tabs:
 
 | Tab | Was man einstellen kann |
 |---|---|
@@ -265,8 +266,9 @@ Gruppen steuern, was ein Benutzer sehen und nutzen darf. Jeder Benutzer gehört 
 | **Media** | Welche Media-Instanzen für diese Gruppe sichtbar sind |
 | **Widgets** | Welche Widgets (Server Status, AdGuard) für diese Gruppe sichtbar sind |
 | **Docker** | Docker-Seite freigeben · Docker-Overview-Widget freigeben |
+| **Background** | Hintergrundbild für diese Gruppe auswählen (Dropdown mit allen hochgeladenen Bildern, oder „Kein Hintergrund") |
 
-Änderungen müssen mit dem **Speichern**-Button bestätigt werden.
+Änderungen im Background-Tab werden sofort gespeichert. Änderungen in den anderen Tabs müssen mit dem **Speichern**-Button bestätigt werden.
 
 ### Tab: OIDC / SSO
 

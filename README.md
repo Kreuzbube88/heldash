@@ -60,7 +60,8 @@ Coded by Claude.ai because iam to stupid to code but can wirte prompts lol
 **Settings**
 - 🗂️ Tabbed settings page: General, Users, Groups, OIDC/SSO
 - 👤 User management (create, edit, deactivate, delete users)
-- 🔐 Group permissions editor with tabs: Apps · Media · Widgets · Docker
+- 🔐 Group permissions editor with tabs: Apps · Media · Widgets · Docker · Background
+- 🖼️ Background images — upload custom backgrounds (PNG/JPG/SVG/WebP, max 5 MB), assign one per user group
 - 🔐 OIDC/SSO configuration UI prepared (coming in a future release)
 
 **General**
@@ -144,9 +145,11 @@ All data is stored under `/data` (mount a host path here):
 ```
 /data
 ├── db/
-│   └── heldash.db    ← SQLite database
-└── icons/
-    └── *.png/jpg/svg ← Uploaded app icons
+│   └── heldash.db         ← SQLite database
+├── icons/
+│   └── *.png/jpg/svg      ← Uploaded app and widget icons
+└── backgrounds/
+    └── *.png/jpg/svg/webp ← Uploaded dashboard background images
 ```
 
 ---
@@ -161,7 +164,7 @@ cd backend && npm install && npm run dev
 cd frontend && npm install && npm run dev
 ```
 
-Frontend dev server runs on :5173 and proxies `/api` and `/icons` calls to :8282.
+Frontend dev server runs on :5173 and proxies `/api`, `/icons`, and `/backgrounds` calls to :8282.
 
 ---
 
@@ -185,6 +188,7 @@ Frontend dev server runs on :5173 and proxies `/api` and `/icons` calls to :8282
 - [x] Tabbed settings page (General, Users, Groups, OIDC/SSO)
 - [x] Docker page — live container stats, log streaming, start/stop/restart
 - [x] Per-group Docker permissions (page access + widget access)
+- [x] Background images — upload and assign per user group
 - [ ] OIDC / SSO via voidauth or Authentik (UI prepared)
 - [ ] Notification webhooks (Gotify / ntfy)
 - [ ] More integrations (Immich, Jellyfin, ...)

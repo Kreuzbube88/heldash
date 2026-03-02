@@ -33,15 +33,15 @@ heldash/
 │   └── docker-build.yml        # Manual image build & push to GHCR
 ├── frontend/
 │   ├── index.html              # Sets data-theme="dark" data-accent="cyan" defaults
-│   ├── vite.config.ts          # Dev proxy /api + /icons → :8282
+│   ├── vite.config.ts          # Dev proxy /api + /icons + /backgrounds → :8282
 │   ├── tsconfig.json           # strict: true, paths: @/* → src/*
 │   └── src/
 │       ├── main.tsx            # Entry point — just mounts <App />
 │       ├── App.tsx             # Root: layout, routing (page state), modals
 │       ├── api.ts              # Typed fetch wrapper + all API calls
-│       ├── types.ts            # Service, Group, Settings, AuthUser, UserRecord, UserGroup, Widget, DockerContainer, ...
+│       ├── types.ts            # Service, Group, Settings, AuthUser, UserRecord, UserGroup, Widget, Background, DockerContainer, ...
 │       ├── store/
-│       │   ├── useStore.ts        # Main store: services, groups, settings, auth, users, userGroups
+│       │   ├── useStore.ts        # Main store: services, groups, settings, auth, users, userGroups, backgrounds
 │       │   ├── useArrStore.ts     # Media store: instances, statuses, stats, queues, histories
 │       │   ├── useDockerStore.ts  # Docker store: containers, stats, control
 │       │   ├── useWidgetStore.ts  # Widget store: widgets, stats, AdGuard toggle
@@ -58,7 +58,7 @@ heldash/
 │       ├── pages/
 │       │   ├── Dashboard.tsx   # DnD grid: services, arr instances, widgets, placeholders
 │       │   ├── ServicesPage.tsx # Table view of all services (fixed-width columns via colgroup)
-│       │   ├── Settings.tsx    # Tabbed: General, Users, Groups (Apps/Media/Widgets/Docker tabs), OIDC
+│       │   ├── Settings.tsx    # Tabbed: General (incl. background upload), Users, Groups (Apps/Media/Widgets/Docker/Background tabs), OIDC
 │       │   ├── MediaPage.tsx   # Arr/media instances (flat DnD grid)
 │       │   ├── DockerPage.tsx  # Docker containers: overview bar, sortable table, log viewer
 │       │   ├── WidgetsPage.tsx # Widget management + DockerOverviewContent (exported, reused by Dashboard)
@@ -88,7 +88,8 @@ heldash/
             ├── arr.ts          # Arr instance CRUD + server-side proxy routes
             ├── widgets.ts      # Widget CRUD + stats endpoints + icon upload
             ├── dashboard.ts    # Dashboard item management (ordered list, per-owner)
-            └── docker.ts       # Docker Engine API proxy (containers, stats, logs SSE, control)
+            ├── docker.ts       # Docker Engine API proxy (containers, stats, logs SSE, control)
+            └── backgrounds.ts  # Background image CRUD + assign to user group
 ```
 
 ---
@@ -121,6 +122,7 @@ Two pure functions used across multiple components:
 - Custom groups — read-only with per-group visibility; Docker page and Docker widget access enabled independently by admin
 - Visibility is sparse: junction tables store only the **hidden** items (presence = hidden)
 - `docker_overview` widgets bypass `group_widget_visibility` — instead filtered by `docker_widget_access` column on `user_groups`
+- Background images: each group has a `background_id` FK (nullable) — the background shown on the dashboard for members of that group. Admin assigns via Settings → Groups → Background tab. `GET /api/backgrounds/mine` resolves the caller's group background (unauthenticated falls back to `grp_guest`).
 
 ### Docker Engine API proxy
 `docker.ts` connects to `/var/run/docker.sock` via `undici.Pool` (10 connections) so batch stats requests run concurrently. Access controlled by `hasDockerAccess()` (checks `docker_access` column on user's group). SSE log streaming uses `reply.hijack()` called **before** the Docker API request so the SSE connection opens immediately; errors are sent as SSE events.
@@ -138,8 +140,8 @@ Three widget types: `server_status`, `adguard_home`, `docker_overview`. Widget c
 ### CSS custom properties, no Tailwind
 Full design system via CSS variables (`--glass-bg`, `--accent`, `--text-primary`, etc.). Theme switching works by changing `data-theme` and `data-accent` on `<html>`. No framework overhead.
 
-### Icon upload via base64 JSON
-No multipart/form-data. Frontend reads the file as DataURL, strips prefix, sends `{ data: string, content_type: string }` as JSON. Backend writes to `DATA_DIR/icons/<id>.<ext>` and stores `/icons/<id>.<ext>` in `icon_url` column.
+### Icon / background upload via base64 JSON
+No multipart/form-data. Frontend reads the file as DataURL, strips prefix, sends `{ data: string, content_type: string }` as JSON. Backend writes to `DATA_DIR/icons/<id>.<ext>` (icons) or `DATA_DIR/backgrounds/<id>.<ext>` (backgrounds) and stores the path in the DB. Both routes use `path.basename()` to prevent path traversal attacks.
 
 ### Drag & Drop persistence strategy
 - Service groups: `position` column, PATCH on drag end
@@ -214,6 +216,15 @@ No React Router. A single `page` state string in `App.tsx` controls which page c
 | is_system | INTEGER | 0/1 — system groups cannot be deleted |
 | docker_access | INTEGER | 0/1 — Docker page visible in sidebar |
 | docker_widget_access | INTEGER | 0/1 — Docker Overview widgets visible |
+| background_id | TEXT | FK → backgrounds.id (nullable) — dashboard background for this group |
+| created_at | TEXT | |
+
+### backgrounds
+| Column | Type | Notes |
+|---|---|---|
+| id | TEXT PK | nanoid() |
+| name | TEXT NOT NULL | Display name |
+| file_path | TEXT NOT NULL | `/backgrounds/<id>.<ext>` |
 | created_at | TEXT | |
 
 ### group_service_visibility / group_arr_visibility / group_widget_visibility
@@ -294,6 +305,7 @@ All routes prefixed `/api`. Frontend uses relative paths.
 | PUT | /api/user-groups/:id/widget-visibility | requireAdmin | Set hidden widget IDs (non-docker only) |
 | PUT | /api/user-groups/:id/docker-access | requireAdmin | Toggle Docker page access |
 | PUT | /api/user-groups/:id/docker-widget-access | requireAdmin | Toggle Docker widget access |
+| PUT | /api/user-groups/:id/background | requireAdmin | Assign background (background_id or null) |
 
 ### Widgets
 | Method | Path | Auth | Description |
@@ -326,12 +338,21 @@ All routes prefixed `/api`. Frontend uses relative paths.
 | POST | /api/docker/containers/:id/stop | requireAdmin | Stop container |
 | POST | /api/docker/containers/:id/restart | requireAdmin | Restart container |
 
+### Backgrounds
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | /api/backgrounds | requireAdmin | List all background images |
+| GET | /api/backgrounds/mine | public | Background assigned to caller's group (null if none) |
+| POST | /api/backgrounds | requireAdmin | Upload background (base64 JSON, max 5 MB, png/jpg/svg/webp) |
+| DELETE | /api/backgrounds/:id | requireAdmin | Delete background + file, clears all group assignments |
+
 ### Misc
 | Method | Path | Description |
 |---|---|---|
 | GET | /api/health | `{ status, version, uptime }` |
 | GET | /api/time | `{ iso }` — server time |
 | GET | /icons/:filename | Serve uploaded icons |
+| GET | /backgrounds/:filename | Serve uploaded background images |
 
 ---
 
@@ -403,7 +424,7 @@ All routes prefixed `/api`. Frontend uses relative paths.
 3. SSH into Unraid: `cd /path/to/heldash && docker compose pull && docker compose up -d`
 
 **Image**: `ghcr.io/kreuzbube88/heldash:<tag>`
-**Data volume**: `/mnt/cache/appdata/heldash:/data` (contains `db/heldash.db` and `icons/`)
+**Data volume**: `/mnt/cache/appdata/heldash:/data` (contains `db/heldash.db`, `icons/`, and `backgrounds/`)
 
 ---
 
@@ -456,6 +477,7 @@ All routes prefixed `/api`. Frontend uses relative paths.
 - [x] Docker Overview widget with container counts and control dropdown
 
 ### Phase 5 — Enhancements
+- [x] Background images — upload and assign per user group (applied as subtle overlay)
 - [ ] OIDC / SSO via voidauth or Authentik
 - [ ] Notification webhooks (Gotify / ntfy) on status change
 - [ ] Custom check intervals per service (backend scheduler)

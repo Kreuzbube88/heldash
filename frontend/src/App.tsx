@@ -133,7 +133,7 @@ export default function App() {
               {page === 'about' && (
                 <div style={{ display: 'flex', justifyContent: 'center' }}>
                   <div className="glass" style={{ padding: 32, borderRadius: 'var(--radius-xl)', maxWidth: 400, width: '100%', textAlign: 'center' }}>
-                    <h3 style={{ marginBottom: 12 }}>HELDASH</h3>
+                    <img src="/logo.png" alt="HELDASH" style={{ width: '100%', maxWidth: 320, marginBottom: 20 }} />
                     <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
                       Personal homelab dashboard.<br />
                       Built with ♥ and Fastify + React.

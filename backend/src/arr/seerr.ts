@@ -79,4 +79,12 @@ export class SeerrClient extends ArrBaseClient {
   deleteRequest(id: number): Promise<void> {
     return this.del(`request/${id}`)
   }
+
+  getMovieDetails(tmdbId: number): Promise<{ title: string }> {
+    return this.get<{ title: string }>(`movie/${tmdbId}`)
+  }
+
+  getTvDetails(tmdbId: number): Promise<{ name: string }> {
+    return this.get<{ name: string }>(`tv/${tmdbId}`)
+  }
 }

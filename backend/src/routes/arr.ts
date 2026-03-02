@@ -376,7 +376,50 @@ export async function arrRoutes(app: FastifyInstance) {
       if (row.type !== 'seerr') return reply.status(400).send({ error: 'Only available for Seerr' })
       try {
         const page = Math.max(1, parseInt(req.query.page ?? '1', 10))
-        return await new SeerrClient(row.url, row.api_key).getRequests(page, req.query.filter)
+        const filter = req.query.filter
+        const client = new SeerrClient(row.url, row.api_key)
+
+        // 'declined' is not a valid API filter in Overseerr/Seerr — fetch all and filter server-side
+        const apiFilter = filter === 'declined' ? undefined : filter
+        const response = await client.getRequests(page, apiFilter)
+
+        let results = response.results
+        if (filter === 'declined') {
+          results = results.filter(r => r.status === 3)
+        }
+
+        // Enrich with titles via movie/tv endpoints (parallel, each independently)
+        const seen = new Set<string>()
+        const titleMap: Record<string, string> = {}
+        await Promise.allSettled(
+          results
+            .filter(r => {
+              const key = `${r.media.mediaType}:${r.media.tmdbId}`
+              if (seen.has(key)) return false
+              seen.add(key)
+              return true
+            })
+            .map(async r => {
+              const key = `${r.media.mediaType}:${r.media.tmdbId}`
+              try {
+                if (r.media.mediaType === 'movie') {
+                  const data = await client.getMovieDetails(r.media.tmdbId)
+                  titleMap[key] = data.title
+                } else {
+                  const data = await client.getTvDetails(r.media.tmdbId)
+                  titleMap[key] = data.name
+                }
+              } catch { /* title enrichment optional — falls back to tmdbId in frontend */ }
+            })
+        )
+
+        return {
+          ...response,
+          results: results.map(r => ({
+            ...r,
+            media: { ...r.media, title: titleMap[`${r.media.mediaType}:${r.media.tmdbId}`] },
+          })),
+        }
       } catch (e: any) {
         return reply.status(502).send({ error: 'Upstream error', detail: e.message })
       }

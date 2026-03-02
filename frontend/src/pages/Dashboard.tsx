@@ -4,7 +4,7 @@ import { useArrStore } from '../store/useArrStore'
 import { useDashboardStore } from '../store/useDashboardStore'
 import { useWidgetStore } from '../store/useWidgetStore'
 import { ServiceCard } from '../components/ServiceCard'
-import { ArrCardContent, SabnzbdCardContent } from '../components/MediaCard'
+import { ArrCardContent, SabnzbdCardContent, SeerrCardContent } from '../components/MediaCard'
 import { AdGuardStatsView, DockerOverviewContent } from './WidgetsPage'
 import type { Service, DashboardItem, DashboardServiceItem, DashboardArrItem, DashboardPlaceholderItem, DashboardWidgetItem, ServerStats, AdGuardStats, AdGuardHomeConfig } from '../types'
 import { normalizeUrl } from '../utils'
@@ -167,7 +167,9 @@ function DashboardArrCard({ item, editMode }: {
       <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
         {item.instance.type === 'sabnzbd'
           ? <SabnzbdCardContent instance={item.instance} />
-          : <ArrCardContent instance={item.instance} />
+          : item.instance.type === 'seerr'
+            ? <SeerrCardContent instance={item.instance} />
+            : <ArrCardContent instance={item.instance} />
         }
       </div>
       {editMode && (

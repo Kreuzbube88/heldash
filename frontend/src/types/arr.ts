@@ -70,6 +70,7 @@ export interface SeerrMedia {
   tmdbId: number
   tvdbId?: number | null
   status: number  // 1=unknown, 2=pending, 3=processing, 4=partially_available, 5=available
+  title?: string  // enriched by backend via /movie/:tmdbId or /tv/:tmdbId
 }
 
 export interface SeerrRequest {

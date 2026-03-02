@@ -434,13 +434,14 @@ function SeerrRequestList({
     return <p style={{ fontSize: 12, color: 'var(--text-muted)', padding: '8px 0' }}>No requests.</p>
   }
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 210, overflowY: 'auto', paddingRight: 2 }}>
       {requests.map(req => {
         const st = SEERR_REQUEST_STATUS[req.status] ?? { label: 'Unknown', color: 'var(--text-muted)' }
         const who = req.requestedBy.displayName ?? req.requestedBy.username ?? req.requestedBy.email
         const isBusy = controlling === req.id
+        const title = req.media.title ?? `${req.media.mediaType === 'movie' ? 'Movie' : 'TV'} #${req.media.tmdbId}`
         return (
-          <div key={req.id} className="glass" style={{ padding: '8px 12px', borderRadius: 'var(--radius-md)', fontSize: 12 }}>
+          <div key={req.id} className="glass" style={{ padding: '8px 12px', borderRadius: 'var(--radius-md)', fontSize: 12, flexShrink: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
               <span style={{
                 fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 'var(--radius-sm)',
@@ -451,13 +452,13 @@ function SeerrRequestList({
               }}>
                 {req.media.mediaType === 'movie' ? 'Movie' : 'TV'}
               </span>
-              <span style={{ color: 'var(--text-muted)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                TMDB #{req.media.tmdbId}
+              <span style={{ fontWeight: 500, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {title}
               </span>
               <span style={{ fontSize: 10, color: st.color, flexShrink: 0, fontWeight: 600 }}>{st.label}</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-muted)' }}>
-              <span style={{ flex: 1 }}>by {who}</span>
+              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>by {who}</span>
               {isAdmin && (
                 <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
                   {req.status === 1 && (

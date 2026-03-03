@@ -629,6 +629,7 @@ function DiscoverTab() {
   const [loading, setLoading] = useState(false)
   const [tab, setTab] = useState<'trending' | 'movies' | 'tv'>('trending')
   const [page, setPage] = useState(1)
+  const [search, setSearch] = useState('')
 
   const seerrInstances = instances.filter(i => i.type === 'seerr' && i.enabled)
   const selected = seerrInstances[0]
@@ -654,35 +655,53 @@ function DiscoverTab() {
   }
 
   const data = tab === 'trending' ? discoverTrending[selected.id] : (tab === 'movies' ? discoverMovies[selected.id] : discoverTv[selected.id])
-  const results = data?.results ?? []
+  const allResults = data?.results ?? []
+
+  const results = allResults.filter((item: any) => {
+    const title = (item.title || item.name || '').toLowerCase()
+    return title.includes(search.toLowerCase())
+  })
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <div style={{ display: 'flex', gap: 8 }}>
-        {(['trending', 'movies', 'tv'] as const).map(t => (
-          <button
-            key={t}
-            onClick={() => { setTab(t); setPage(1) }}
-            style={{
-              padding: '6px 12px',
-              borderRadius: 'var(--radius-md)',
-              fontSize: 13,
-              background: tab === t ? 'rgba(var(--accent-rgb), 0.12)' : 'rgba(var(--text-rgb), 0.05)',
-              color: tab === t ? 'var(--accent)' : 'var(--text-secondary)',
-              border: 'none',
-              cursor: 'pointer',
-              textTransform: 'capitalize',
-            }}
-          >
-            {t}
-          </button>
-        ))}
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: '6px 8px', display: 'flex', gap: 2 }}>
+          {(['trending', 'movies', 'tv'] as const).map(t => (
+            <button
+              key={t}
+              onClick={() => { setTab(t); setPage(1); setSearch('') }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '7px 14px',
+                borderRadius: 'var(--radius-md)',
+                fontSize: 13, fontWeight: tab === t ? 600 : 400,
+                background: tab === t ? 'rgba(var(--accent-rgb), 0.12)' : 'transparent',
+                color: tab === t ? 'var(--accent)' : 'var(--text-secondary)',
+                border: tab === t ? '1px solid rgba(var(--accent-rgb), 0.25)' : '1px solid transparent',
+                cursor: 'pointer',
+                transition: 'all 150ms ease',
+                textTransform: 'capitalize',
+                fontFamily: 'var(--font-sans)',
+              }}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+        <input
+          type="text"
+          placeholder="Search…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="form-input"
+          style={{ flex: 1, minWidth: 150, fontSize: 13, padding: '5px 8px' }}
+        />
+        {loading && <div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />}
       </div>
 
-      {loading && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />
-          <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Loading…</span>
+      {results.length === 0 && !loading && (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No results found.</p>
         </div>
       )}
 
@@ -692,7 +711,7 @@ function DiscoverTab() {
           const title = item.title || item.name || 'Unknown'
 
           return (
-            <div key={item.id} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div key={`${item.mediaType}-${item.id}`} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div
                 className="glass"
                 style={{
@@ -715,7 +734,7 @@ function DiscoverTab() {
                   {title}
                 </div>
                 <button
-                  onClick={() => alert('Request button not yet implemented')}
+                  onClick={() => alert('Request functionality coming soon')}
                   className="btn btn-primary btn-sm"
                   style={{ fontSize: 11, padding: '4px 8px' }}
                 >
@@ -727,7 +746,7 @@ function DiscoverTab() {
         })}
       </div>
 
-      {tab !== 'trending' && (
+      {tab !== 'trending' && allResults.length > 0 && (
         <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 12 }}>
           <button
             onClick={() => setPage(Math.max(1, page - 1))}

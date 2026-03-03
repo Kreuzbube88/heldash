@@ -311,18 +311,34 @@ function CalendarTab() {
   const [view, setView] = useState<CalendarView>('week')
   const [filterInstanceId, setFilterInstanceId] = useState<string | null>(null)
   const [selectedDate, setSelectedDate] = useState(new Date())
+  const [loadedUntil, setLoadedUntil] = useState(new Date())
 
   const radarrSonarrInstances = instances.filter(i => (i.type === 'radarr' || i.type === 'sonarr') && i.enabled)
 
+  // Initial load
   useEffect(() => {
     if (radarrSonarrInstances.length === 0) return
     const loadAll = async () => {
       setLoading(true)
       await Promise.allSettled(radarrSonarrInstances.map(i => loadCalendar(i.id)))
       setLoading(false)
+      setLoadedUntil(new Date(Date.now() + 365 * 86400000)) // Assume ~1 year of data loaded
     }
     loadAll()
   }, [radarrSonarrInstances.map(i => i.id).join(',')])
+
+  // Reload if navigating beyond loaded data
+  useEffect(() => {
+    if (radarrSonarrInstances.length === 0 || selectedDate <= loadedUntil) return
+    const loadAll = async () => {
+      setLoading(true)
+      await Promise.allSettled(radarrSonarrInstances.map(i => loadCalendar(i.id)))
+      setLoading(false)
+      setLoadedUntil(new Date(Date.now() + 365 * 86400000))
+    }
+    const timer = setTimeout(loadAll, 300) // Debounce rapid navigation
+    return () => clearTimeout(timer)
+  }, [selectedDate, radarrSonarrInstances.map(i => i.id).join('')])
 
   // Helper: format date as DD/MM/YYYY
   const formatDate = (date: Date): string => {
@@ -587,9 +603,14 @@ function CalendarTab() {
 
       {/* Content - scrollable */}
       <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', paddingRight: 8 }}>
+        {loading && (
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
+            <div className="spinner" style={{ width: 20, height: 20, borderWidth: 2 }} />
+          </div>
+        )}
         {filteredEvents.length === 0 && !loading && (
           <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
-            <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No releases in this period.</p>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No releases scheduled for this period.</p>
           </div>
         )}
 

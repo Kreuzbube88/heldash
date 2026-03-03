@@ -550,7 +550,7 @@ export function SettingsPage() {
                     style={{ display: 'none' }}
                     onChange={e => {
                       const f = e.target.files?.[0]
-                      if (f && f.size > 5 * 1024 * 1024) { setBgError('Max 5 MB'); return }
+                      if (f && f.size > 10 * 1024 * 1024) { setBgError('Max 10 MB'); return }
                       setBgError('')
                       setBgFile(f ?? null)
                     }}

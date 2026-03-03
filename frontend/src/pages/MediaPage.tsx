@@ -306,6 +306,8 @@ function InstancesTab({ showAddForm: showFromParent, onFormClose }: { showAddFor
 function CalendarTab() {
   const { instances, calendars, loadCalendar } = useArrStore()
   const [loading, setLoading] = useState(false)
+  const [view, setView] = useState<'list' | 'grid'>('list')
+  const [filterInstanceId, setFilterInstanceId] = useState<string | null>(null)
 
   const radarrSonarrInstances = instances.filter(i => (i.type === 'radarr' || i.type === 'sonarr') && i.enabled)
 
@@ -360,6 +362,14 @@ function CalendarTab() {
 
   events.sort((a, b) => a.date.localeCompare(b.date))
 
+  // Filter by instance if selected
+  const filteredEvents = filterInstanceId
+    ? events.map(e => ({
+        ...e,
+        items: e.items.filter(i => i.instanceId === filterInstanceId),
+      })).filter(e => e.items.length > 0)
+    : events
+
   if (radarrSonarrInstances.length === 0) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
@@ -369,49 +379,161 @@ function CalendarTab() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {loading && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />
-          <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Loading calendar…</span>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, height: '100%' }}>
+      {/* Controls */}
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: '6px 8px', display: 'flex', gap: 2 }}>
+          {(['list', 'grid'] as const).map(v => (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '7px 14px',
+                borderRadius: 'var(--radius-md)',
+                fontSize: 13, fontWeight: view === v ? 600 : 400,
+                background: view === v ? 'rgba(var(--accent-rgb), 0.12)' : 'transparent',
+                color: view === v ? 'var(--accent)' : 'var(--text-secondary)',
+                border: view === v ? '1px solid rgba(var(--accent-rgb), 0.25)' : '1px solid transparent',
+                cursor: 'pointer',
+                transition: 'all 150ms ease',
+                textTransform: 'capitalize',
+                fontFamily: 'var(--font-sans)',
+              }}
+            >
+              {v === 'list' ? '☰' : '▦'} {v}
+            </button>
+          ))}
         </div>
-      )}
 
-      {events.length === 0 && !loading && (
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
-          <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No upcoming releases.</p>
+        <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: '6px 8px', display: 'flex', gap: 2 }}>
+          <button
+            onClick={() => setFilterInstanceId(null)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '7px 14px',
+              borderRadius: 'var(--radius-md)',
+              fontSize: 13, fontWeight: !filterInstanceId ? 600 : 400,
+              background: !filterInstanceId ? 'rgba(var(--accent-rgb), 0.12)' : 'transparent',
+              color: !filterInstanceId ? 'var(--accent)' : 'var(--text-secondary)',
+              border: !filterInstanceId ? '1px solid rgba(var(--accent-rgb), 0.25)' : '1px solid transparent',
+              cursor: 'pointer',
+              transition: 'all 150ms ease',
+              fontFamily: 'var(--font-sans)',
+            }}
+          >
+            All
+          </button>
+          {radarrSonarrInstances.map(inst => (
+            <button
+              key={inst.id}
+              onClick={() => setFilterInstanceId(inst.id)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '7px 14px',
+                borderRadius: 'var(--radius-md)',
+                fontSize: 13, fontWeight: filterInstanceId === inst.id ? 600 : 400,
+                background: filterInstanceId === inst.id ? 'rgba(var(--accent-rgb), 0.12)' : 'transparent',
+                color: filterInstanceId === inst.id ? 'var(--accent)' : 'var(--text-secondary)',
+                border: filterInstanceId === inst.id ? '1px solid rgba(var(--accent-rgb), 0.25)' : '1px solid transparent',
+                cursor: 'pointer',
+                transition: 'all 150ms ease',
+                fontFamily: 'var(--font-sans)',
+              }}
+            >
+              <span style={{ fontSize: 12 }}>{inst.type === 'radarr' ? '🎬' : '📺'}</span>
+              {inst.name}
+            </button>
+          ))}
         </div>
-      )}
 
-      {events.map(event => (
-        <div key={event.date} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <h4 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}>
-            {new Date(event.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
-          </h4>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {event.items.map((item, idx) => (
-              <div key={`${event.date}-${idx}`} className="glass" style={{ borderRadius: 'var(--radius-lg)', padding: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ fontSize: 18 }}>
-                  {item.type === 'movie' ? '🎬' : '📺'}
+        {loading && <div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />}
+      </div>
+
+      {/* Content - scrollable */}
+      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', paddingRight: 8 }}>
+        {filteredEvents.length === 0 && !loading && (
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No upcoming releases.</p>
+          </div>
+        )}
+
+        {view === 'list' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {filteredEvents.map(event => (
+              <div key={event.date} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <h4 style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', position: 'sticky', top: 0, background: 'rgba(0,0,0,0.2)', padding: '8px 12px', borderRadius: 'var(--radius-md)' }}>
+                  {new Date(event.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                </h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {event.items.map((item, idx) => (
+                    <div key={`${event.date}-${idx}`} className="glass" style={{ borderRadius: 'var(--radius-lg)', padding: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <div style={{ fontSize: 18 }}>
+                        {item.type === 'movie' ? '🎬' : '📺'}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {item.title}
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+                          {item.instanceName}
+                        </div>
+                      </div>
+                      {item.hasFile && (
+                        <div style={{ fontSize: 11, background: 'rgba(var(--accent-rgb), 0.15)', color: 'var(--accent)', padding: '4px 8px', borderRadius: 'var(--radius-sm)' }}>
+                          ✓ Got it
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {item.title}
-                  </div>
-                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
-                    {item.instanceName}
-                  </div>
-                </div>
-                {item.hasFile && (
-                  <div style={{ fontSize: 11, background: 'rgba(var(--accent-rgb), 0.15)', color: 'var(--accent)', padding: '2px 6px', borderRadius: 'var(--radius-sm)' }}>
-                    Downloaded
-                  </div>
-                )}
               </div>
             ))}
           </div>
-        </div>
-      ))}
+        )}
+
+        {view === 'grid' && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
+            {filteredEvents.flatMap(event =>
+              event.items.map((item, idx) => (
+                <div
+                  key={`${event.date}-${idx}`}
+                  className="glass"
+                  style={{
+                    borderRadius: 'var(--radius-lg)',
+                    padding: 14,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 8,
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' }}>
+                    <div style={{ fontSize: 16 }}>
+                      {item.type === 'movie' ? '🎬' : '📺'}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                      {new Date(event.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 4 }}>
+                      {item.title}
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                      {item.instanceName}
+                    </div>
+                  </div>
+                  {item.hasFile && (
+                    <div style={{ fontSize: 11, background: 'rgba(var(--accent-rgb), 0.15)', color: 'var(--accent)', padding: '4px 8px', borderRadius: 'var(--radius-sm)', textAlign: 'center' }}>
+                      ✓ Downloaded
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

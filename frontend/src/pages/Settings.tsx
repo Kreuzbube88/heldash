@@ -546,6 +546,7 @@ export function SettingsPage() {
                   <input
                     ref={bgFileRef}
                     type="file"
+                    accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml,image/bmp"
                     style={{ display: 'none' }}
                     onChange={e => {
                       const f = e.target.files?.[0]

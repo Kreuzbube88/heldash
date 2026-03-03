@@ -303,11 +303,14 @@ function InstancesTab({ showAddForm: showFromParent, onFormClose }: { showAddFor
 
 // ── Calendar tab ──────────────────────────────────────────────────────────────
 
+type CalendarView = 'day' | 'week' | 'month' | 'list' | 'grid'
+
 function CalendarTab() {
   const { instances, calendars, loadCalendar } = useArrStore()
   const [loading, setLoading] = useState(false)
-  const [view, setView] = useState<'list' | 'grid'>('list')
+  const [view, setView] = useState<CalendarView>('week')
   const [filterInstanceId, setFilterInstanceId] = useState<string | null>(null)
+  const [selectedDate, setSelectedDate] = useState(new Date())
 
   const radarrSonarrInstances = instances.filter(i => (i.type === 'radarr' || i.type === 'sonarr') && i.enabled)
 
@@ -320,6 +323,58 @@ function CalendarTab() {
     }
     loadAll()
   }, [radarrSonarrInstances.map(i => i.id).join(',')])
+
+  // Helper: get date range for a given view
+  const getDateRange = (): { start: Date; end: Date; label: string } => {
+    const d = new Date(selectedDate)
+    d.setHours(0, 0, 0, 0)
+
+    if (view === 'day') {
+      return {
+        start: d,
+        end: new Date(d.getTime() + 86400000),
+        label: d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }),
+      }
+    } else if (view === 'week') {
+      const start = new Date(d)
+      start.setDate(d.getDate() - d.getDay()) // Start at Sunday
+      const end = new Date(start)
+      end.setDate(end.getDate() + 7)
+      return {
+        start,
+        end,
+        label: `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} — ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`,
+      }
+    } else {
+      // month view
+      const start = new Date(d.getFullYear(), d.getMonth(), 1)
+      const end = new Date(d.getFullYear(), d.getMonth() + 1, 1)
+      return {
+        start,
+        end,
+        label: d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+      }
+    }
+  }
+
+  const dateRange = getDateRange()
+
+  // Navigation handlers
+  const goToday = () => setSelectedDate(new Date())
+  const goPrev = () => {
+    const d = new Date(selectedDate)
+    if (view === 'day') d.setDate(d.getDate() - 1)
+    else if (view === 'week') d.setDate(d.getDate() - 7)
+    else d.setMonth(d.getMonth() - 1)
+    setSelectedDate(d)
+  }
+  const goNext = () => {
+    const d = new Date(selectedDate)
+    if (view === 'day') d.setDate(d.getDate() + 1)
+    else if (view === 'week') d.setDate(d.getDate() + 7)
+    else d.setMonth(d.getMonth() + 1)
+    setSelectedDate(d)
+  }
 
   // Build unified calendar: group events by date
   const events: Array<{ date: string; items: Array<{ title: string; type: 'movie' | 'episode'; instanceId: string; instanceName: string; hasFile: boolean }> }> = []
@@ -362,13 +417,18 @@ function CalendarTab() {
 
   events.sort((a, b) => a.date.localeCompare(b.date))
 
-  // Filter by instance if selected
+  // Filter by date range and instance
+  const dateFilteredEvents = events.filter(e => {
+    const eventDate = new Date(e.date)
+    return eventDate >= dateRange.start && eventDate < dateRange.end
+  })
+
   const filteredEvents = filterInstanceId
-    ? events.map(e => ({
+    ? dateFilteredEvents.map(e => ({
         ...e,
         items: e.items.filter(i => i.instanceId === filterInstanceId),
       })).filter(e => e.items.length > 0)
-    : events
+    : dateFilteredEvents
 
   if (radarrSonarrInstances.length === 0) {
     return (
@@ -382,8 +442,9 @@ function CalendarTab() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, height: '100%' }}>
       {/* Controls */}
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+        {/* View selector */}
         <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: '6px 8px', display: 'flex', gap: 2 }}>
-          {(['list', 'grid'] as const).map(v => (
+          {(['day', 'week', 'month', 'list', 'grid'] as const).map(v => (
             <button
               key={v}
               onClick={() => setView(v)}
@@ -401,11 +462,74 @@ function CalendarTab() {
                 fontFamily: 'var(--font-sans)',
               }}
             >
-              {v === 'list' ? '☰' : '▦'} {v}
+              {v === 'day' && '📅'}
+              {v === 'week' && '📆'}
+              {v === 'month' && '🗓'}
+              {v === 'list' && '☰'}
+              {v === 'grid' && '▦'}
+              {' '}{v}
             </button>
           ))}
         </div>
 
+        {/* Date navigation (hidden for list/grid views) */}
+        {(['day', 'week', 'month'] as const).includes(view) && (
+          <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: '6px 8px', display: 'flex', gap: 2, alignItems: 'center' }}>
+            <button
+              onClick={goPrev}
+              style={{
+                padding: '7px 10px',
+                borderRadius: 'var(--radius-md)',
+                fontSize: 13,
+                background: 'transparent',
+                color: 'var(--text-secondary)',
+                border: '1px solid transparent',
+                cursor: 'pointer',
+                transition: 'all 150ms ease',
+                fontFamily: 'var(--font-sans)',
+              }}
+            >
+              ←
+            </button>
+            <button
+              onClick={goToday}
+              style={{
+                padding: '7px 12px',
+                borderRadius: 'var(--radius-md)',
+                fontSize: 13,
+                background: 'transparent',
+                color: 'var(--text-secondary)',
+                border: '1px solid transparent',
+                cursor: 'pointer',
+                transition: 'all 150ms ease',
+                fontFamily: 'var(--font-sans)',
+              }}
+            >
+              Today
+            </button>
+            <button
+              onClick={goNext}
+              style={{
+                padding: '7px 10px',
+                borderRadius: 'var(--radius-md)',
+                fontSize: 13,
+                background: 'transparent',
+                color: 'var(--text-secondary)',
+                border: '1px solid transparent',
+                cursor: 'pointer',
+                transition: 'all 150ms ease',
+                fontFamily: 'var(--font-sans)',
+              }}
+            >
+              →
+            </button>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginLeft: 8, paddingLeft: 8, borderLeft: '1px solid rgba(var(--accent-rgb), 0.2)' }}>
+              {dateRange.label}
+            </div>
+          </div>
+        )}
+
+        {/* Instance filter */}
         <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: '6px 8px', display: 'flex', gap: 2 }}>
           <button
             onClick={() => setFilterInstanceId(null)}
@@ -454,11 +578,11 @@ function CalendarTab() {
       <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', paddingRight: 8 }}>
         {filteredEvents.length === 0 && !loading && (
           <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
-            <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No upcoming releases.</p>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No releases in this period.</p>
           </div>
         )}
 
-        {view === 'list' && (
+        {(['list'] as const).includes(view) && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {filteredEvents.map(event => (
               <div key={event.date} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -492,7 +616,7 @@ function CalendarTab() {
           </div>
         )}
 
-        {view === 'grid' && (
+        {(['grid'] as const).includes(view) && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
             {filteredEvents.flatMap(event =>
               event.items.map((item, idx) => (
@@ -531,6 +655,40 @@ function CalendarTab() {
                 </div>
               ))
             )}
+          </div>
+        )}
+
+        {(['day', 'week', 'month'] as const).includes(view) && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {filteredEvents.map(event => (
+              <div key={event.date} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <h4 style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', position: 'sticky', top: 0, background: 'rgba(0,0,0,0.2)', padding: '8px 12px', borderRadius: 'var(--radius-md)' }}>
+                  {new Date(event.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                </h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {event.items.map((item, idx) => (
+                    <div key={`${event.date}-${idx}`} className="glass" style={{ borderRadius: 'var(--radius-lg)', padding: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <div style={{ fontSize: 18 }}>
+                        {item.type === 'movie' ? '🎬' : '📺'}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {item.title}
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+                          {item.instanceName}
+                        </div>
+                      </div>
+                      {item.hasFile && (
+                        <div style={{ fontSize: 11, background: 'rgba(var(--accent-rgb), 0.15)', color: 'var(--accent)', padding: '4px 8px', borderRadius: 'var(--radius-sm)' }}>
+                          ✓ Got it
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>

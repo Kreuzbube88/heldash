@@ -457,12 +457,15 @@ function IndexersTab() {
 
         return (
           <div key={inst.id} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <h3 style={{ fontSize: 14, fontWeight: 600 }}>
-              {inst.name}
-              <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-secondary)', marginLeft: 8 }}>
-                ({enabledCount} enabled)
-              </span>
-            </h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 20 }}>🔍</span>
+              <h3 style={{ fontSize: 14, fontWeight: 600 }}>
+                {inst.name}
+                <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-secondary)', marginLeft: 8 }}>
+                  ({enabledCount} enabled)
+                </span>
+              </h3>
+            </div>
 
             {instIndexers.length === 0 && !loading && (
               <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>No indexers configured.</div>
@@ -512,6 +515,14 @@ function IndexersTab() {
 
 // ── Library tab ───────────────────────────────────────────────────────────────
 
+function getTypeEmoji(type: string): string {
+  switch (type) {
+    case 'radarr': return '🎬'
+    case 'sonarr': return '📺'
+    default: return '🎥'
+  }
+}
+
 function LibraryTab() {
   const { instances, movies, series, loadMovies, loadSeries } = useArrStore()
   const [loading, setLoading] = useState(false)
@@ -560,16 +571,29 @@ function LibraryTab() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-        <select
-          value={selectedInstanceId || ''}
-          onChange={e => setSelectedInstanceId(e.target.value)}
-          className="form-input"
-          style={{ fontSize: 13, padding: '5px 8px' }}
-        >
+        <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: '6px 8px', display: 'flex', gap: 8, alignItems: 'center' }}>
           {radarrSonarrInstances.map(i => (
-            <option key={i.id} value={i.id}>{i.name}</option>
+            <button
+              key={i.id}
+              onClick={() => setSelectedInstanceId(i.id)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '7px 14px',
+                borderRadius: 'var(--radius-md)',
+                fontSize: 13, fontWeight: selectedInstanceId === i.id ? 600 : 400,
+                background: selectedInstanceId === i.id ? 'rgba(var(--accent-rgb), 0.12)' : 'transparent',
+                color: selectedInstanceId === i.id ? 'var(--accent)' : 'var(--text-secondary)',
+                border: selectedInstanceId === i.id ? '1px solid rgba(var(--accent-rgb), 0.25)' : '1px solid transparent',
+                cursor: 'pointer',
+                transition: 'all 150ms ease',
+                fontFamily: 'var(--font-sans)',
+              }}
+            >
+              <span style={{ fontSize: 14 }}>{getTypeEmoji(i.type)}</span>
+              {i.name}
+            </button>
           ))}
-        </select>
+        </div>
         <input
           type="text"
           placeholder="Search…"
@@ -587,32 +611,97 @@ function LibraryTab() {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 14 }}>
         {filtered.map((item: any) => {
           const posterUrl = item.images?.find((i: any) => i.coverType === 'poster')?.remoteUrl
           const title = item.title || item.name || 'Unknown'
+          const monitored = item.monitored ? '✓' : '○'
+          const hasFile = item.hasFile ? '💾' : '❌'
 
           return (
-            <div key={item.id} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div
+              key={item.id}
+              className="glass"
+              style={{
+                borderRadius: 'var(--radius-lg)',
+                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 0,
+                transition: 'all 200ms ease',
+                cursor: 'pointer',
+              }}
+              onMouseEnter={e => {
+                ;(e.currentTarget as HTMLElement).style.transform = 'translateY(-4px)'
+                ;(e.currentTarget as HTMLElement).style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.3)'
+              }}
+              onMouseLeave={e => {
+                ;(e.currentTarget as HTMLElement).style.transform = 'none'
+                ;(e.currentTarget as HTMLElement).style.boxShadow = 'none'
+              }}
+            >
+              {/* Poster */}
               <div
-                className="glass"
                 style={{
-                  borderRadius: 'var(--radius-lg)',
-                  overflow: 'hidden',
                   aspectRatio: '2 / 3',
-                  background: posterUrl ? undefined : 'rgba(var(--text-rgb), 0.05)',
+                  background: posterUrl ? undefined : 'linear-gradient(135deg, rgba(var(--accent-rgb), 0.2), rgba(var(--text-rgb), 0.1))',
                   backgroundImage: posterUrl ? `url(${posterUrl})` : undefined,
                   backgroundSize: 'cover',
                   backgroundPosition: 'center',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
+                  position: 'relative',
                 }}
               >
-                {!posterUrl && <span style={{ fontSize: 28 }}>{selected?.type === 'radarr' ? '🎬' : '📺'}</span>}
+                {!posterUrl && <span style={{ fontSize: 32 }}>{getTypeEmoji(selected?.type)}</span>}
+
+                {/* Status Badges */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: 8,
+                    right: 8,
+                    display: 'flex',
+                    gap: 4,
+                    backdropFilter: 'blur(8px)',
+                  }}
+                >
+                  <div
+                    style={{
+                      background: 'rgba(0, 0, 0, 0.7)',
+                      color: monitored === '✓' ? '#22c55e' : '#ef4444',
+                      padding: '4px 8px',
+                      borderRadius: 'var(--radius-sm)',
+                      fontSize: 14,
+                    }}
+                  >
+                    {monitored}
+                  </div>
+                  <div
+                    style={{
+                      background: 'rgba(0, 0, 0, 0.7)',
+                      color: hasFile === '💾' ? '#22c55e' : '#ef4444',
+                      padding: '4px 8px',
+                      borderRadius: 'var(--radius-sm)',
+                      fontSize: 14,
+                    }}
+                  >
+                    {hasFile}
+                  </div>
+                </div>
               </div>
-              <div style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {title}
+
+              {/* Info */}
+              <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {title}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'flex', gap: 8 }}>
+                  <span title="Monitored">{monitored} Monitor</span>
+                  <span title="File">•</span>
+                  <span title="Has File">{hasFile}</span>
+                </div>
               </div>
             </div>
           )

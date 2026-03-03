@@ -631,6 +631,7 @@ function DiscoverTab() {
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const [requesting, setRequesting] = useState<string | null>(null)
+  const [sortBy, setSortBy] = useState('popularity.desc')
 
   const seerrInstances = instances.filter(i => i.type === 'seerr' && i.enabled)
   const selected = seerrInstances[0]
@@ -642,23 +643,23 @@ function DiscoverTab() {
       setLoading(true)
       await Promise.all([
         loadDiscoverTrending(selected.id),
-        loadDiscoverMovies(selected.id, 1),
-        loadDiscoverTv(selected.id, 1),
+        loadDiscoverMovies(selected.id, 1, sortBy),
+        loadDiscoverTv(selected.id, 1, sortBy),
       ])
       setLoading(false)
     }
     load()
-  }, [selected?.id])
+  }, [selected?.id, sortBy])
 
   // Load specific page when pagination changes
   useEffect(() => {
     if (!selected || page === 1) return
     const load = async () => {
-      if (tab === 'movies') await loadDiscoverMovies(selected.id, page)
-      else if (tab === 'tv') await loadDiscoverTv(selected.id, page)
+      if (tab === 'movies') await loadDiscoverMovies(selected.id, page, sortBy)
+      else if (tab === 'tv') await loadDiscoverTv(selected.id, page, sortBy)
     }
     load()
-  }, [tab, page, selected?.id])
+  }, [tab, page, selected?.id, sortBy])
 
   if (!selected) {
     return (
@@ -702,6 +703,36 @@ function DiscoverTab() {
             </button>
           ))}
         </div>
+
+        {tab !== 'trending' && (
+          <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: '6px 8px', display: 'flex', gap: 2 }}>
+            {[
+              { label: 'Popular', value: 'popularity.desc' },
+              { label: 'Top Rated', value: 'vote_average.desc' },
+              { label: 'Latest', value: 'release_date.desc' },
+            ].map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => { setSortBy(opt.value); setPage(1) }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '7px 14px',
+                  borderRadius: 'var(--radius-md)',
+                  fontSize: 13, fontWeight: sortBy === opt.value ? 600 : 400,
+                  background: sortBy === opt.value ? 'rgba(var(--accent-rgb), 0.12)' : 'transparent',
+                  color: sortBy === opt.value ? 'var(--accent)' : 'var(--text-secondary)',
+                  border: sortBy === opt.value ? '1px solid rgba(var(--accent-rgb), 0.25)' : '1px solid transparent',
+                  cursor: 'pointer',
+                  transition: 'all 150ms ease',
+                  fontFamily: 'var(--font-sans)',
+                }}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        )}
+
         <input
           type="text"
           placeholder="Search…"

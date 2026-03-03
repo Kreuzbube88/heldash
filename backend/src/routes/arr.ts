@@ -500,8 +500,8 @@ export async function arrRoutes(app: FastifyInstance) {
     }
   )
 
-  // GET /api/arr/:id/discover/movies?page=1
-  app.get<{ Params: { id: string }; Querystring: { page?: string } }>(
+  // GET /api/arr/:id/discover/movies?page=1&sortBy=popularity.desc
+  app.get<{ Params: { id: string }; Querystring: { page?: string; sortBy?: string } }>(
     '/api/arr/:id/discover/movies',
     async (req, reply) => {
       const row = await resolveInstance(req, reply, req.params.id)
@@ -509,15 +509,16 @@ export async function arrRoutes(app: FastifyInstance) {
       if (row.type !== 'seerr') return reply.status(400).send({ error: 'Only available for Seerr' })
       try {
         const page = Math.max(1, parseInt(req.query.page ?? '1', 10))
-        return await new SeerrClient(row.url, row.api_key).getDiscoverMovies(page)
+        const sortBy = req.query.sortBy ?? 'popularity.desc'
+        return await new SeerrClient(row.url, row.api_key).getDiscoverMovies(page, sortBy)
       } catch (e: any) {
         return reply.status(502).send({ error: 'Upstream error', detail: e.message })
       }
     }
   )
 
-  // GET /api/arr/:id/discover/tv?page=1
-  app.get<{ Params: { id: string }; Querystring: { page?: string } }>(
+  // GET /api/arr/:id/discover/tv?page=1&sortBy=popularity.desc
+  app.get<{ Params: { id: string }; Querystring: { page?: string; sortBy?: string } }>(
     '/api/arr/:id/discover/tv',
     async (req, reply) => {
       const row = await resolveInstance(req, reply, req.params.id)
@@ -525,7 +526,8 @@ export async function arrRoutes(app: FastifyInstance) {
       if (row.type !== 'seerr') return reply.status(400).send({ error: 'Only available for Seerr' })
       try {
         const page = Math.max(1, parseInt(req.query.page ?? '1', 10))
-        return await new SeerrClient(row.url, row.api_key).getDiscoverTv(page)
+        const sortBy = req.query.sortBy ?? 'popularity.desc'
+        return await new SeerrClient(row.url, row.api_key).getDiscoverTv(page, sortBy)
       } catch (e: any) {
         return reply.status(502).send({ error: 'Upstream error', detail: e.message })
       }

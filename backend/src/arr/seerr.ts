@@ -106,12 +106,12 @@ export class SeerrClient extends ArrBaseClient {
     return this.get<{ name: string }>(`tv/${tmdbId}`)
   }
 
-  getDiscoverMovies(page = 1): Promise<SeerrDiscoverResponse> {
-    return this.get<SeerrDiscoverResponse>('discover/movies', { page: String(page) })
+  getDiscoverMovies(page = 1, sortBy = 'popularity.desc'): Promise<SeerrDiscoverResponse> {
+    return this.get<SeerrDiscoverResponse>('discover/movies', { page: String(page), sortBy })
   }
 
-  getDiscoverTv(page = 1): Promise<SeerrDiscoverResponse> {
-    return this.get<SeerrDiscoverResponse>('discover/tv', { page: String(page) })
+  getDiscoverTv(page = 1, sortBy = 'popularity.desc'): Promise<SeerrDiscoverResponse> {
+    return this.get<SeerrDiscoverResponse>('discover/tv', { page: String(page), sortBy })
   }
 
   getTrending(): Promise<SeerrDiscoverResponse> {

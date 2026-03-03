@@ -30,8 +30,8 @@ interface ArrState {
   loadSeerrRequests: (id: string, filter?: string, page?: number) => Promise<void>
   loadMovies: (id: string) => Promise<void>
   loadSeries: (id: string) => Promise<void>
-  loadDiscoverMovies: (id: string, page?: number) => Promise<void>
-  loadDiscoverTv: (id: string, page?: number) => Promise<void>
+  loadDiscoverMovies: (id: string, page?: number, sortBy?: string) => Promise<void>
+  loadDiscoverTv: (id: string, page?: number, sortBy?: string) => Promise<void>
   loadDiscoverTrending: (id: string) => Promise<void>
   discoverRequest: (id: string, mediaType: 'movie' | 'tv', tmdbId: number) => Promise<void>
   seerrApprove: (id: string, requestId: number) => Promise<void>
@@ -151,16 +151,16 @@ export const useArrStore = create<ArrState>((set, get) => ({
     } catch { /* keep previous state on error */ }
   },
 
-  loadDiscoverMovies: async (id, page = 1) => {
+  loadDiscoverMovies: async (id, page = 1, sortBy = 'popularity.desc') => {
     try {
-      const data = await api.arr.discoverMovies(id, page)
+      const data = await api.arr.discoverMovies(id, page, sortBy)
       set(state => ({ discoverMovies: { ...state.discoverMovies, [id]: data } }))
     } catch { /* keep previous state on error */ }
   },
 
-  loadDiscoverTv: async (id, page = 1) => {
+  loadDiscoverTv: async (id, page = 1, sortBy = 'popularity.desc') => {
     try {
-      const data = await api.arr.discoverTv(id, page)
+      const data = await api.arr.discoverTv(id, page, sortBy)
       set(state => ({ discoverTv: { ...state.discoverTv, [id]: data } }))
     } catch { /* keep previous state on error */ }
   },

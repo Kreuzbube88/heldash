@@ -324,6 +324,14 @@ function CalendarTab() {
     loadAll()
   }, [radarrSonarrInstances.map(i => i.id).join(',')])
 
+  // Helper: format date as DD/MM/YYYY
+  const formatDate = (date: Date): string => {
+    const day = String(date.getDate()).padStart(2, '0')
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const year = date.getFullYear()
+    return `${day}/${month}/${year}`
+  }
+
   // Helper: get date range for a given view
   const getDateRange = (): { start: Date; end: Date; label: string } => {
     const d = new Date(selectedDate)
@@ -333,17 +341,20 @@ function CalendarTab() {
       return {
         start: d,
         end: new Date(d.getTime() + 86400000),
-        label: d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }),
+        label: formatDate(d),
       }
     } else if (view === 'week') {
       const start = new Date(d)
-      start.setDate(d.getDate() - d.getDay()) // Start at Sunday
+      // Start at Monday (1 = Monday, 0 = Sunday)
+      const day = start.getDay()
+      const diff = start.getDate() - day + (day === 0 ? -6 : 1)
+      start.setDate(diff)
       const end = new Date(start)
       end.setDate(end.getDate() + 7)
       return {
         start,
         end,
-        label: `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} — ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`,
+        label: `${formatDate(start)} — ${formatDate(end)}`,
       }
     } else {
       // month view
@@ -352,7 +363,7 @@ function CalendarTab() {
       return {
         start,
         end,
-        label: d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+        label: d.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' }),
       }
     }
   }
@@ -587,7 +598,7 @@ function CalendarTab() {
             {filteredEvents.map(event => (
               <div key={event.date} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <h4 style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', position: 'sticky', top: 0, background: 'rgba(0,0,0,0.2)', padding: '8px 12px', borderRadius: 'var(--radius-md)' }}>
-                  {new Date(event.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                  {formatDate(new Date(event.date))}
                 </h4>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {event.items.map((item, idx) => (
@@ -636,7 +647,7 @@ function CalendarTab() {
                       {item.type === 'movie' ? '🎬' : '📺'}
                     </div>
                     <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
-                      {new Date(event.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      {formatDate(new Date(event.date))}
                     </div>
                   </div>
                   <div>
@@ -663,7 +674,7 @@ function CalendarTab() {
             {filteredEvents.map(event => (
               <div key={event.date} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <h4 style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', position: 'sticky', top: 0, background: 'rgba(0,0,0,0.2)', padding: '8px 12px', borderRadius: 'var(--radius-md)' }}>
-                  {new Date(event.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                  {formatDate(new Date(event.date))}
                 </h4>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {event.items.map((item, idx) => (

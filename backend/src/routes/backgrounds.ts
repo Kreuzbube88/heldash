@@ -62,17 +62,22 @@ export async function backgroundsRoutes(app: FastifyInstance) {
     if (!name?.trim()) return reply.status(400).send({ error: 'Name required' })
     if (!data) return reply.status(400).send({ error: 'Image data required' })
 
-    const allowedTypes: Record<string, string> = {
-      'image/png': '.png',
-      'image/jpeg': '.jpg',
-      'image/svg+xml': '.svg',
-      'image/webp': '.webp',
-    }
-    const ext = allowedTypes[content_type]
-    if (!ext) return reply.status(415).send({ error: 'Unsupported type (png/jpg/svg/webp only)' })
-
     const buf = Buffer.from(data, 'base64')
     if (buf.length > 10 * 1024 * 1024) return reply.status(413).send({ error: 'Image too large (max 10 MB)' })
+
+    // Determine file extension from content-type or default to .bin
+    const typeMap: Record<string, string> = {
+      'image/png': '.png',
+      'image/jpeg': '.jpg',
+      'image/jpg': '.jpg',
+      'image/gif': '.gif',
+      'image/webp': '.webp',
+      'image/svg+xml': '.svg',
+      'image/bmp': '.bmp',
+      'image/tiff': '.tiff',
+      'image/x-icon': '.ico',
+    }
+    const ext = typeMap[content_type] || '.bin'
 
     const id = nanoid()
     const bgDir = path.join(DATA_DIR, 'backgrounds')

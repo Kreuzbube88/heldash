@@ -634,14 +634,27 @@ function DiscoverTab() {
   const seerrInstances = instances.filter(i => i.type === 'seerr' && i.enabled)
   const selected = seerrInstances[0]
 
+  // Load all data on mount in parallel
   useEffect(() => {
     if (!selected) return
     const load = async () => {
       setLoading(true)
-      if (tab === 'trending') await loadDiscoverTrending(selected.id)
-      else if (tab === 'movies') await loadDiscoverMovies(selected.id, page)
-      else await loadDiscoverTv(selected.id, page)
+      await Promise.all([
+        loadDiscoverTrending(selected.id),
+        loadDiscoverMovies(selected.id, 1),
+        loadDiscoverTv(selected.id, 1),
+      ])
       setLoading(false)
+    }
+    load()
+  }, [selected?.id])
+
+  // Load specific page when pagination changes
+  useEffect(() => {
+    if (!selected || page === 1) return
+    const load = async () => {
+      if (tab === 'movies') await loadDiscoverMovies(selected.id, page)
+      else if (tab === 'tv') await loadDiscoverTv(selected.id, page)
     }
     load()
   }, [tab, page, selected?.id])

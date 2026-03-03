@@ -719,36 +719,111 @@ function DiscoverTab() {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 14 }}>
         {results.map((item: any) => {
           const posterUrl = item.posterPath ? `https://image.tmdb.org/t/p/w300${item.posterPath}` : null
+          const backdropUrl = item.backdropPath ? `https://image.tmdb.org/t/p/w500${item.backdropPath}` : null
           const title = item.title || item.name || 'Unknown'
+          const year = item.releaseDate?.slice(0, 4) || item.firstAirDate?.slice(0, 4) || ''
+          const rating = item.voteAverage ? Math.round(item.voteAverage * 10) / 10 : null
+          const overview = item.overview?.slice(0, 100) + (item.overview?.length > 100 ? '...' : '') || ''
 
           return (
-            <div key={`${item.mediaType}-${item.id}`} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div
+              key={`${item.mediaType}-${item.id}`}
+              className="glass"
+              style={{
+                borderRadius: 'var(--radius-lg)',
+                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 0,
+                transition: 'all 200ms ease',
+                cursor: 'pointer',
+              }}
+              onMouseEnter={e => {
+                ;(e.currentTarget as HTMLElement).style.transform = 'translateY(-4px)'
+                ;(e.currentTarget as HTMLElement).style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.3)'
+              }}
+              onMouseLeave={e => {
+                ;(e.currentTarget as HTMLElement).style.transform = 'none'
+                ;(e.currentTarget as HTMLElement).style.boxShadow = 'none'
+              }}
+            >
+              {/* Poster */}
               <div
-                className="glass"
                 style={{
-                  borderRadius: 'var(--radius-lg)',
-                  overflow: 'hidden',
                   aspectRatio: '2 / 3',
-                  background: posterUrl ? undefined : 'rgba(var(--text-rgb), 0.05)',
+                  background: posterUrl ? undefined : 'linear-gradient(135deg, rgba(var(--accent-rgb), 0.2), rgba(var(--text-rgb), 0.1))',
                   backgroundImage: posterUrl ? `url(${posterUrl})` : undefined,
                   backgroundSize: 'cover',
                   backgroundPosition: 'center',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
+                  position: 'relative',
                 }}
               >
-                {!posterUrl && <span style={{ fontSize: 28 }}>{item.mediaType === 'movie' ? '🎬' : '📺'}</span>}
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <div style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {title}
+                {!posterUrl && <span style={{ fontSize: 32 }}>{item.mediaType === 'movie' ? '🎬' : '📺'}</span>}
+
+                {/* Rating Badge */}
+                {rating !== null && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: 8,
+                      right: 8,
+                      background: 'rgba(0, 0, 0, 0.7)',
+                      color: rating >= 7 ? '#22c55e' : rating >= 5 ? '#eab308' : '#ef4444',
+                      padding: '4px 8px',
+                      borderRadius: 'var(--radius-sm)',
+                      fontSize: 11,
+                      fontWeight: 600,
+                      backdropFilter: 'blur(8px)',
+                    }}
+                  >
+                    ★ {rating}
+                  </div>
+                )}
+
+                {/* Media Type Badge */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: 8,
+                    left: 8,
+                    background: 'rgba(0, 0, 0, 0.7)',
+                    color: 'var(--accent)',
+                    padding: '4px 8px',
+                    borderRadius: 'var(--radius-sm)',
+                    fontSize: 10,
+                    fontWeight: 600,
+                    textTransform: 'uppercase',
+                    backdropFilter: 'blur(8px)',
+                  }}
+                >
+                  {item.mediaType === 'movie' ? 'Movie' : 'TV'}
                 </div>
+              </div>
+
+              {/* Info */}
+              <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2 }}>
+                    {title}
+                  </div>
+                  {year && <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{year}</div>}
+                </div>
+
+                {overview && (
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                    {overview}
+                  </div>
+                )}
+
                 <button
-                  onClick={async () => {
+                  onClick={async e => {
+                    e.stopPropagation()
                     if (!selected) return
                     const key = `${item.mediaType}-${item.id}`
                     setRequesting(key)
@@ -763,9 +838,9 @@ function DiscoverTab() {
                   }}
                   disabled={requesting === `${item.mediaType}-${item.id}`}
                   className="btn btn-primary btn-sm"
-                  style={{ fontSize: 11, padding: '4px 8px' }}
+                  style={{ fontSize: 12, padding: '6px 12px', marginTop: 'auto' }}
                 >
-                  {requesting === `${item.mediaType}-${item.id}` ? '...' : 'Request'}
+                  {requesting === `${item.mediaType}-${item.id}` ? 'Requesting...' : '+ Request'}
                 </button>
               </div>
             </div>

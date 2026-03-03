@@ -16,7 +16,7 @@ import type { Service } from './types'
 import { calcAutoTheme } from './utils'
 
 export default function App() {
-  const { loadAll, checkAllServices, checkAuth, settings, authReady, needsSetup, isAdmin, authUser, userGroups, myBackground, loadMyBackground } = useStore()
+  const { loadAll, checkAllServices, checkAuth, settings, authReady, needsSetup, isAdmin, isAuthenticated, authUser, userGroups, myBackground, loadMyBackground } = useStore()
   const { loadDashboard } = useDashboardStore()
   const [page, setPage] = useState('dashboard')
   const [showModal, setShowModal] = useState(false)
@@ -129,7 +129,9 @@ export default function App() {
       </div>
 
       <div className="app-layout">
-        <Sidebar page={page} onNavigate={(p) => { setPage(p); if (p !== 'widgets') setShowAddWidget(false); if (p !== 'media') setShowAddInstance(false) }} />
+        {isAuthenticated && (
+          <Sidebar page={page} onNavigate={(p) => { setPage(p); if (p !== 'widgets') setShowAddWidget(false); if (p !== 'media') setShowAddInstance(false) }} />
+        )}
 
         <div className="main-area">
           <Topbar

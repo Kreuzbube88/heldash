@@ -14,6 +14,7 @@ export interface RadarrMovieRow {
   sizeOnDisk: number
   inCinemas?: string
   digitalRelease?: string
+  images?: { coverType: string; remoteUrl: string }[]
 }
 
 export interface RadarrQueueItem {

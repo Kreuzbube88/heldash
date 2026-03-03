@@ -601,6 +601,241 @@ function StatRow({ label, value }: { label: string; value: string }) {
   )
 }
 
+// ── Library tab ───────────────────────────────────────────────────────────────
+
+function LibraryTab() {
+  const { instances, movies, series, loadMovies, loadSeries } = useArrStore()
+  const [loading, setLoading] = useState(false)
+  const [search, setSearch] = useState('')
+  const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(null)
+
+  const radarrSonarrInstances = instances.filter(i => (i.type === 'radarr' || i.type === 'sonarr') && i.enabled)
+
+  useEffect(() => {
+    if (radarrSonarrInstances.length === 0) return
+    const loadAll = async () => {
+      setLoading(true)
+      await Promise.allSettled(radarrSonarrInstances.map(i => (
+        i.type === 'radarr' ? loadMovies(i.id) : loadSeries(i.id)
+      )))
+      if (!selectedInstanceId && radarrSonarrInstances.length > 0) {
+        setSelectedInstanceId(radarrSonarrInstances[0].id)
+      }
+      setLoading(false)
+    }
+    loadAll()
+  }, [radarrSonarrInstances.map(i => i.id).join(',')])
+
+  if (radarrSonarrInstances.length === 0) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
+        <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No Radarr/Sonarr instances configured.</p>
+      </div>
+    )
+  }
+
+  const selected = selectedInstanceId ? radarrSonarrInstances.find(i => i.id === selectedInstanceId) : radarrSonarrInstances[0]
+  const items = selected?.type === 'radarr' ? (movies[selected.id] ?? []) : (series[selected.id] ?? [])
+
+  const filtered = items.filter((item: any) => {
+    const title = item.title || item.name || ''
+    return title.toLowerCase().includes(search.toLowerCase())
+  })
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+        <select
+          value={selectedInstanceId || ''}
+          onChange={e => setSelectedInstanceId(e.target.value)}
+          className="form-input"
+          style={{ fontSize: 13, padding: '5px 8px' }}
+        >
+          {radarrSonarrInstances.map(i => (
+            <option key={i.id} value={i.id}>{i.name}</option>
+          ))}
+        </select>
+        <input
+          type="text"
+          placeholder="Search…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="form-input"
+          style={{ flex: 1, minWidth: 150, fontSize: 13, padding: '5px 8px' }}
+        />
+        {loading && <div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />}
+      </div>
+
+      {filtered.length === 0 && !loading && (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No results found.</p>
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12 }}>
+        {filtered.map((item: any) => {
+          const posterUrl = item.images?.find((i: any) => i.coverType === 'poster')?.remoteUrl
+          const title = item.title || item.name || 'Unknown'
+
+          return (
+            <div key={item.id} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div
+                className="glass"
+                style={{
+                  borderRadius: 'var(--radius-lg)',
+                  overflow: 'hidden',
+                  aspectRatio: '2 / 3',
+                  background: posterUrl ? undefined : 'rgba(var(--text-rgb), 0.05)',
+                  backgroundImage: posterUrl ? `url(${posterUrl})` : undefined,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {!posterUrl && <span style={{ fontSize: 28 }}>{selected?.type === 'radarr' ? '🎬' : '📺'}</span>}
+              </div>
+              <div style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {title}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ── Discover tab (Seerr) ───────────────────────────────────────────────────────
+
+function DiscoverTab() {
+  const { instances, discoverMovies, discoverTv, discoverTrending, loadDiscoverMovies, loadDiscoverTv, loadDiscoverTrending } = useArrStore()
+  const [loading, setLoading] = useState(false)
+  const [tab, setTab] = useState<'trending' | 'movies' | 'tv'>('trending')
+  const [page, setPage] = useState(1)
+
+  const seerrInstances = instances.filter(i => i.type === 'seerr' && i.enabled)
+  const selected = seerrInstances[0]
+
+  useEffect(() => {
+    if (!selected) return
+    const load = async () => {
+      setLoading(true)
+      if (tab === 'trending') await loadDiscoverTrending(selected.id)
+      else if (tab === 'movies') await loadDiscoverMovies(selected.id, page)
+      else await loadDiscoverTv(selected.id, page)
+      setLoading(false)
+    }
+    load()
+  }, [tab, page, selected?.id])
+
+  if (!selected) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
+        <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No Seerr instances configured.</p>
+      </div>
+    )
+  }
+
+  const data = tab === 'trending' ? discoverTrending[selected.id] : (tab === 'movies' ? discoverMovies[selected.id] : discoverTv[selected.id])
+  const results = data?.results ?? []
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div style={{ display: 'flex', gap: 8 }}>
+        {(['trending', 'movies', 'tv'] as const).map(t => (
+          <button
+            key={t}
+            onClick={() => { setTab(t); setPage(1) }}
+            style={{
+              padding: '6px 12px',
+              borderRadius: 'var(--radius-md)',
+              fontSize: 13,
+              background: tab === t ? 'rgba(var(--accent-rgb), 0.12)' : 'rgba(var(--text-rgb), 0.05)',
+              color: tab === t ? 'var(--accent)' : 'var(--text-secondary)',
+              border: 'none',
+              cursor: 'pointer',
+              textTransform: 'capitalize',
+            }}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
+
+      {loading && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />
+          <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Loading…</span>
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12 }}>
+        {results.map((item: any) => {
+          const posterUrl = item.posterPath ? `https://image.tmdb.org/t/p/w300${item.posterPath}` : null
+          const title = item.title || item.name || 'Unknown'
+
+          return (
+            <div key={item.id} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div
+                className="glass"
+                style={{
+                  borderRadius: 'var(--radius-lg)',
+                  overflow: 'hidden',
+                  aspectRatio: '2 / 3',
+                  background: posterUrl ? undefined : 'rgba(var(--text-rgb), 0.05)',
+                  backgroundImage: posterUrl ? `url(${posterUrl})` : undefined,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {!posterUrl && <span style={{ fontSize: 28 }}>{item.mediaType === 'movie' ? '🎬' : '📺'}</span>}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {title}
+                </div>
+                <button
+                  onClick={() => alert('Request button not yet implemented')}
+                  className="btn btn-primary btn-sm"
+                  style={{ fontSize: 11, padding: '4px 8px' }}
+                >
+                  Request
+                </button>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {tab !== 'trending' && (
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 12 }}>
+          <button
+            onClick={() => setPage(Math.max(1, page - 1))}
+            disabled={page === 1}
+            className="btn btn-ghost btn-sm"
+            style={{ fontSize: 12 }}
+          >
+            Previous
+          </button>
+          <span style={{ fontSize: 12, color: 'var(--text-secondary)', alignSelf: 'center' }}>Page {page}</span>
+          <button
+            onClick={() => setPage(page + 1)}
+            className="btn btn-ghost btn-sm"
+            style={{ fontSize: 12 }}
+          >
+            Next
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Stub tab ──────────────────────────────────────────────────────────────────
 
 function ComingSoonTab({ label }: { label: string }) {
@@ -642,11 +877,11 @@ export function MediaPage({ showAddForm: showFromParent, onFormClose }: Props) {
       {activeTab === 'instances' && (
         <InstancesTab showAddForm={showFromParent} onFormClose={onFormClose} />
       )}
-      {activeTab === 'library' && <ComingSoonTab label="Library" />}
+      {activeTab === 'library' && <LibraryTab />}
       {activeTab === 'calendar' && <CalendarTab />}
       {activeTab === 'indexers' && <IndexersTab />}
       {activeTab === 'statistics' && <StatisticsTab />}
-      {activeTab === 'discover' && <ComingSoonTab label="Discover" />}
+      {activeTab === 'discover' && <DiscoverTab />}
     </div>
   )
 }

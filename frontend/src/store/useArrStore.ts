@@ -12,6 +12,11 @@ interface ArrState {
   sabQueues: Record<string, SabnzbdQueueData>
   histories: Record<string, SabnzbdHistoryData>
   seerrRequests: Record<string, SeerrRequestsResponse>
+  movies: Record<string, any[]>
+  series: Record<string, any[]>
+  discoverMovies: Record<string, any>
+  discoverTv: Record<string, any>
+  discoverTrending: Record<string, any>
 
   loadInstances: () => Promise<void>
   loadAllStats: () => Promise<void>
@@ -23,6 +28,11 @@ interface ArrState {
   loadSabQueue: (id: string) => Promise<void>
   loadHistory: (id: string) => Promise<void>
   loadSeerrRequests: (id: string, filter?: string, page?: number) => Promise<void>
+  loadMovies: (id: string) => Promise<void>
+  loadSeries: (id: string) => Promise<void>
+  loadDiscoverMovies: (id: string, page?: number) => Promise<void>
+  loadDiscoverTv: (id: string, page?: number) => Promise<void>
+  loadDiscoverTrending: (id: string) => Promise<void>
   seerrApprove: (id: string, requestId: number) => Promise<void>
   seerrDecline: (id: string, requestId: number) => Promise<void>
   seerrDelete: (id: string, requestId: number) => Promise<void>
@@ -43,6 +53,11 @@ export const useArrStore = create<ArrState>((set, get) => ({
   sabQueues: {},
   histories: {},
   seerrRequests: {},
+  movies: {},
+  series: {},
+  discoverMovies: {},
+  discoverTv: {},
+  discoverTrending: {},
 
   loadInstances: async () => {
     const instances = await api.arr.instances.list()
@@ -121,6 +136,41 @@ export const useArrStore = create<ArrState>((set, get) => ({
     await api.arr.seerrDelete(id, requestId)
   },
 
+  loadMovies: async (id) => {
+    try {
+      const movies = await api.arr.movies(id)
+      set(state => ({ movies: { ...state.movies, [id]: movies } }))
+    } catch { /* keep previous state on error */ }
+  },
+
+  loadSeries: async (id) => {
+    try {
+      const series = await api.arr.series(id)
+      set(state => ({ series: { ...state.series, [id]: series } }))
+    } catch { /* keep previous state on error */ }
+  },
+
+  loadDiscoverMovies: async (id, page = 1) => {
+    try {
+      const data = await api.arr.discoverMovies(id, page)
+      set(state => ({ discoverMovies: { ...state.discoverMovies, [id]: data } }))
+    } catch { /* keep previous state on error */ }
+  },
+
+  loadDiscoverTv: async (id, page = 1) => {
+    try {
+      const data = await api.arr.discoverTv(id, page)
+      set(state => ({ discoverTv: { ...state.discoverTv, [id]: data } }))
+    } catch { /* keep previous state on error */ }
+  },
+
+  loadDiscoverTrending: async (id) => {
+    try {
+      const data = await api.arr.discoverTrending(id)
+      set(state => ({ discoverTrending: { ...state.discoverTrending, [id]: data } }))
+    } catch { /* keep previous state on error */ }
+  },
+
   createInstance: async (data) => {
     const instance = await api.arr.instances.create(data)
     set(state => ({ instances: [...state.instances, instance] }))
@@ -159,6 +209,11 @@ export const useArrStore = create<ArrState>((set, get) => ({
       sabQueues: Object.fromEntries(Object.entries(state.sabQueues).filter(([k]) => k !== id)),
       histories: Object.fromEntries(Object.entries(state.histories).filter(([k]) => k !== id)),
       seerrRequests: Object.fromEntries(Object.entries(state.seerrRequests).filter(([k]) => k !== id)),
+      movies: Object.fromEntries(Object.entries(state.movies).filter(([k]) => k !== id)),
+      series: Object.fromEntries(Object.entries(state.series).filter(([k]) => k !== id)),
+      discoverMovies: Object.fromEntries(Object.entries(state.discoverMovies).filter(([k]) => k !== id)),
+      discoverTv: Object.fromEntries(Object.entries(state.discoverTv).filter(([k]) => k !== id)),
+      discoverTrending: Object.fromEntries(Object.entries(state.discoverTrending).filter(([k]) => k !== id)),
     }))
   },
 }))

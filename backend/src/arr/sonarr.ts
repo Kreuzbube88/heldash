@@ -15,6 +15,7 @@ export interface SonarrSeriesRow {
     totalEpisodeCount: number
     sizeOnDisk: number
   }
+  images?: { coverType: string; remoteUrl: string }[]
 }
 
 export interface SonarrQueueItem {

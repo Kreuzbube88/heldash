@@ -39,6 +39,24 @@ interface SeerrStatus {
   restartRequired?: boolean
 }
 
+export interface SeerrDiscoverResult {
+  id: number
+  mediaType: 'movie' | 'tv'
+  tmdbId: number
+  title?: string
+  name?: string
+  posterPath?: string
+  releaseDate?: string
+  firstAirDate?: string
+  voteAverage?: number
+  overview?: string
+}
+
+export interface SeerrDiscoverResponse {
+  pageInfo?: { pages: number; pageSize: number; results: number; page: number }
+  results: SeerrDiscoverResult[]
+}
+
 export class SeerrClient extends ArrBaseClient {
   constructor(baseUrl: string, apiKey: string) {
     super(baseUrl, apiKey, 'v1')
@@ -86,5 +104,19 @@ export class SeerrClient extends ArrBaseClient {
 
   getTvDetails(tmdbId: number): Promise<{ name: string }> {
     return this.get<{ name: string }>(`tv/${tmdbId}`)
+  }
+
+  getDiscoverMovies(page = 1): Promise<SeerrDiscoverResponse> {
+    const params: Record<string, string> = { take: '20', skip: String((page - 1) * 20) }
+    return this.get<SeerrDiscoverResponse>('discover/movies', params)
+  }
+
+  getDiscoverTv(page = 1): Promise<SeerrDiscoverResponse> {
+    const params: Record<string, string> = { take: '20', skip: String((page - 1) * 20) }
+    return this.get<SeerrDiscoverResponse>('discover/tv', params)
+  }
+
+  getTrending(): Promise<SeerrDiscoverResponse> {
+    return this.get<SeerrDiscoverResponse>('discover/trending', { take: '20' })
   }
 }

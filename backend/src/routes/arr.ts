@@ -6,6 +6,7 @@ import { SonarrClient } from '../arr/sonarr'
 import { ProwlarrClient } from '../arr/prowlarr'
 import { SabnzbdClient } from '../arr/sabnzbd'
 import { SeerrClient } from '../arr/seerr'
+import type { SeerrDiscoverResponse } from '../arr/seerr'
 
 // ── DB row type ───────────────────────────────────────────────────────────────
 interface ArrInstanceRow {
@@ -365,6 +366,30 @@ export async function arrRoutes(app: FastifyInstance) {
     }
   })
 
+  // GET /api/arr/:id/movies (Radarr only)
+  app.get<{ Params: { id: string } }>('/api/arr/:id/movies', async (req, reply) => {
+    const row = await resolveInstance(req, reply, req.params.id)
+    if (!row) return
+    if (row.type !== 'radarr') return reply.status(400).send({ error: 'Only available for Radarr' })
+    try {
+      return await new RadarrClient(row.url, row.api_key).getMovies()
+    } catch (e: any) {
+      return reply.status(502).send({ error: 'Upstream error', detail: e.message })
+    }
+  })
+
+  // GET /api/arr/:id/series (Sonarr only)
+  app.get<{ Params: { id: string } }>('/api/arr/:id/series', async (req, reply) => {
+    const row = await resolveInstance(req, reply, req.params.id)
+    if (!row) return
+    if (row.type !== 'sonarr') return reply.status(400).send({ error: 'Only available for Sonarr' })
+    try {
+      return await new SonarrClient(row.url, row.api_key).getSeries()
+    } catch (e: any) {
+      return reply.status(502).send({ error: 'Upstream error', detail: e.message })
+    }
+  })
+
   // ── Seerr routes ────────────────────────────────────────────────────────────
 
   // GET /api/arr/:id/requests?page=1&filter=pending
@@ -469,6 +494,53 @@ export async function arrRoutes(app: FastifyInstance) {
       try {
         await new SeerrClient(row.url, row.api_key).deleteRequest(parseInt(req.params.requestId, 10))
         return reply.status(204).send()
+      } catch (e: any) {
+        return reply.status(502).send({ error: 'Upstream error', detail: e.message })
+      }
+    }
+  )
+
+  // GET /api/arr/:id/discover/movies?page=1
+  app.get<{ Params: { id: string }; Querystring: { page?: string } }>(
+    '/api/arr/:id/discover/movies',
+    async (req, reply) => {
+      const row = await resolveInstance(req, reply, req.params.id)
+      if (!row) return
+      if (row.type !== 'seerr') return reply.status(400).send({ error: 'Only available for Seerr' })
+      try {
+        const page = Math.max(1, parseInt(req.query.page ?? '1', 10))
+        return await new SeerrClient(row.url, row.api_key).getDiscoverMovies(page)
+      } catch (e: any) {
+        return reply.status(502).send({ error: 'Upstream error', detail: e.message })
+      }
+    }
+  )
+
+  // GET /api/arr/:id/discover/tv?page=1
+  app.get<{ Params: { id: string }; Querystring: { page?: string } }>(
+    '/api/arr/:id/discover/tv',
+    async (req, reply) => {
+      const row = await resolveInstance(req, reply, req.params.id)
+      if (!row) return
+      if (row.type !== 'seerr') return reply.status(400).send({ error: 'Only available for Seerr' })
+      try {
+        const page = Math.max(1, parseInt(req.query.page ?? '1', 10))
+        return await new SeerrClient(row.url, row.api_key).getDiscoverTv(page)
+      } catch (e: any) {
+        return reply.status(502).send({ error: 'Upstream error', detail: e.message })
+      }
+    }
+  )
+
+  // GET /api/arr/:id/discover/trending
+  app.get<{ Params: { id: string } }>(
+    '/api/arr/:id/discover/trending',
+    async (req, reply) => {
+      const row = await resolveInstance(req, reply, req.params.id)
+      if (!row) return
+      if (row.type !== 'seerr') return reply.status(400).send({ error: 'Only available for Seerr' })
+      try {
+        return await new SeerrClient(row.url, row.api_key).getTrending()
       } catch (e: any) {
         return reply.status(502).send({ error: 'Upstream error', detail: e.message })
       }

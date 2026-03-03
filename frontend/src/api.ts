@@ -124,6 +124,17 @@ export const api = {
       req<SeerrRequest>(`/arr/${id}/requests/${requestId}/decline`, { method: 'POST', body: JSON.stringify({}) }),
     seerrDelete: (id: string, requestId: number) =>
       req<void>(`/arr/${id}/requests/${requestId}`, { method: 'DELETE' }),
+    movies: (id: string) => req<any[]>(`/arr/${id}/movies`),
+    series: (id: string) => req<any[]>(`/arr/${id}/series`),
+    discoverMovies: (id: string, page = 1) => {
+      const params = new URLSearchParams({ page: String(page) })
+      return req<any>(`/arr/${id}/discover/movies?${params}`)
+    },
+    discoverTv: (id: string, page = 1) => {
+      const params = new URLSearchParams({ page: String(page) })
+      return req<any>(`/arr/${id}/discover/tv?${params}`)
+    },
+    discoverTrending: (id: string) => req<any>(`/arr/${id}/discover/trending`),
   },
 
   widgets: {

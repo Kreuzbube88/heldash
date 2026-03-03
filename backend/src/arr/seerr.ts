@@ -107,16 +107,14 @@ export class SeerrClient extends ArrBaseClient {
   }
 
   getDiscoverMovies(page = 1): Promise<SeerrDiscoverResponse> {
-    const params: Record<string, string> = { take: '20', skip: String((page - 1) * 20) }
-    return this.get<SeerrDiscoverResponse>('discover/movies', params)
+    return this.get<SeerrDiscoverResponse>('discover/movies', { page: String(page) })
   }
 
   getDiscoverTv(page = 1): Promise<SeerrDiscoverResponse> {
-    const params: Record<string, string> = { take: '20', skip: String((page - 1) * 20) }
-    return this.get<SeerrDiscoverResponse>('discover/tv', params)
+    return this.get<SeerrDiscoverResponse>('discover/tv', { page: String(page) })
   }
 
   getTrending(): Promise<SeerrDiscoverResponse> {
-    return this.get<SeerrDiscoverResponse>('discover/trending', { take: '20' })
+    return this.get<SeerrDiscoverResponse>('discover/trending')
   }
 }

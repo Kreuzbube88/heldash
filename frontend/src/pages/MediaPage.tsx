@@ -7,13 +7,13 @@ import type { DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, rectSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Pencil, Trash2, Check, X, RefreshCw, GripVertical, LayoutGrid, CalendarDays, Search, BarChart2, Compass, Database, Tv2 } from 'lucide-react'
-import type { ArrInstance, ArrCalendarItem, RadarrCalendarItem, SonarrCalendarItem, RadarrStats, SonarrStats, ProwlarrStats, SabnzbdStats } from '../types/arr'
+import { Pencil, Trash2, Check, X, RefreshCw, GripVertical, LayoutGrid, CalendarDays, Search, Compass, Database } from 'lucide-react'
+import type { ArrInstance, ArrCalendarItem, RadarrCalendarItem, SonarrCalendarItem } from '../types/arr'
 import { ArrCardContent, SabnzbdCardContent, SeerrCardContent } from '../components/MediaCard'
 
 // ── Tab type ──────────────────────────────────────────────────────────────────
 
-type MediaTab = 'instances' | 'library' | 'calendar' | 'indexers' | 'statistics' | 'discover'
+type MediaTab = 'instances' | 'library' | 'calendar' | 'indexers' | 'discover'
 
 // ── Tab bar ───────────────────────────────────────────────────────────────────
 
@@ -23,11 +23,10 @@ function TabBar({ active, onChange, showDiscover }: { active: MediaTab; onChange
     { id: 'library',    label: 'Library',    icon: <Database size={13} /> },
     { id: 'calendar',   label: 'Calendar',   icon: <CalendarDays size={13} /> },
     { id: 'indexers',   label: 'Indexers',   icon: <Search size={13} /> },
-    { id: 'statistics', label: 'Statistics', icon: <BarChart2 size={13} /> },
     ...(showDiscover ? [{ id: 'discover' as MediaTab, label: 'Discover', icon: <Compass size={13} /> }] : []),
   ]
   return (
-    <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: '6px 8px', display: 'flex', gap: 2, alignSelf: 'flex-start', flexWrap: 'wrap' }}>
+    <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: '6px 8px', display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
       {tabs.map(t => (
         <button
           key={t.id}
@@ -511,96 +510,6 @@ function IndexersTab() {
   )
 }
 
-// ── Statistics tab ────────────────────────────────────────────────────────────
-
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B'
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return Math.round((bytes / Math.pow(k, i)) * 10) / 10 + ' ' + sizes[i]
-}
-
-function StatisticsTab() {
-  const { instances, stats } = useArrStore()
-  const enabledInstances = instances.filter(i => i.enabled)
-
-  if (enabledInstances.length === 0) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
-        <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No instances configured.</p>
-      </div>
-    )
-  }
-
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
-      {enabledInstances.map(inst => {
-        const stat = stats[inst.id]
-        if (!stat) {
-          return (
-            <div key={inst.id} className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 20 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>{inst.name}</div>
-              <div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
-            </div>
-          )
-        }
-
-        return (
-          <div key={inst.id} className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div style={{ fontSize: 13, fontWeight: 600 }}>{inst.name}</div>
-
-            {stat.type === 'radarr' && (
-              <>
-                <StatRow label="Movies" value={String((stat as RadarrStats).movieCount)} />
-                <StatRow label="Monitored" value={String((stat as RadarrStats).monitored)} />
-                <StatRow label="With File" value={String((stat as RadarrStats).withFile)} />
-                <StatRow label="Size" value={formatBytes((stat as RadarrStats).sizeOnDisk)} />
-              </>
-            )}
-
-            {stat.type === 'sonarr' && (
-              <>
-                <StatRow label="Series" value={String((stat as SonarrStats).seriesCount)} />
-                <StatRow label="Monitored" value={String((stat as SonarrStats).monitored)} />
-                <StatRow label="Episodes" value={String((stat as SonarrStats).episodeCount)} />
-                <StatRow label="Size" value={formatBytes((stat as SonarrStats).sizeOnDisk)} />
-              </>
-            )}
-
-            {stat.type === 'prowlarr' && (
-              <>
-                <StatRow label="Indexers" value={String((stat as ProwlarrStats).indexerCount)} />
-                <StatRow label="Enabled" value={String((stat as ProwlarrStats).enabledIndexers)} />
-                <StatRow label="Grabs (24h)" value={String((stat as ProwlarrStats).grabCount24h)} />
-              </>
-            )}
-
-            {stat.type === 'sabnzbd' && (
-              <>
-                <StatRow label="Queue Items" value={String((stat as SabnzbdStats).queueCount)} />
-                <StatRow label="Speed" value={(stat as SabnzbdStats).speed} />
-                <StatRow label="Queue Size" value={`${(stat as SabnzbdStats).mb} MB`} />
-                <StatRow label="Free Space" value={`${(stat as SabnzbdStats).diskspaceFreeGb} GB`} />
-                <StatRow label="Status" value={(stat as SabnzbdStats).paused ? 'Paused' : 'Active'} />
-              </>
-            )}
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-function StatRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12 }}>
-      <span style={{ color: 'var(--text-secondary)' }}>{label}</span>
-      <span style={{ fontWeight: 500 }}>{value}</span>
-    </div>
-  )
-}
-
 // ── Library tab ───────────────────────────────────────────────────────────────
 
 function LibraryTab() {
@@ -637,10 +546,16 @@ function LibraryTab() {
   const selected = selectedInstanceId ? radarrSonarrInstances.find(i => i.id === selectedInstanceId) : radarrSonarrInstances[0]
   const items = selected?.type === 'radarr' ? (movies[selected.id] ?? []) : (series[selected.id] ?? [])
 
-  const filtered = items.filter((item: any) => {
-    const title = item.title || item.name || ''
-    return title.toLowerCase().includes(search.toLowerCase())
-  })
+  const filtered = items
+    .filter((item: any) => {
+      const title = item.title || item.name || ''
+      return title.toLowerCase().includes(search.toLowerCase())
+    })
+    .sort((a: any, b: any) => {
+      const titleA = (a.title || a.name || '').toLowerCase()
+      const titleB = (b.title || b.name || '').toLowerCase()
+      return titleA.localeCompare(titleB)
+    })
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -880,7 +795,6 @@ export function MediaPage({ showAddForm: showFromParent, onFormClose }: Props) {
       {activeTab === 'library' && <LibraryTab />}
       {activeTab === 'calendar' && <CalendarTab />}
       {activeTab === 'indexers' && <IndexersTab />}
-      {activeTab === 'statistics' && <StatisticsTab />}
       {activeTab === 'discover' && <DiscoverTab />}
     </div>
   )

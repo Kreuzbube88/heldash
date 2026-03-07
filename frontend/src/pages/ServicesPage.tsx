@@ -1,163 +1,317 @@
+import { useState, useEffect } from 'react'
 import type { Service } from '../types'
 import { useStore } from '../store/useStore'
-import { Pencil, Trash2 } from 'lucide-react'
+import { useDashboardStore } from '../store/useDashboardStore'
+import { Pencil, Trash2, Plus, GripVertical } from 'lucide-react'
+import {
+  DndContext,
+  DragEndEvent,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 interface Props {
   onEdit: (service: Service) => void
 }
 
-export function ServicesPage({ onEdit }: Props) {
-  const { services, groups, deleteService, isAdmin } = useStore()
+// Sortable group header component
+function SortableGroupSection({
+  section,
+  onEdit,
+  editMode,
+  isDragging,
+  isAdmin,
+}: {
+  section: { label: string; icon: string | null; services: Service[]; id?: string }
+  onEdit: (service: Service) => void
+  editMode: boolean
+  isDragging: boolean
+  isAdmin: boolean
+}) {
+  const { addItem } = useDashboardStore()
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
+    id: section.id || section.label,
+    disabled: !editMode,
+  })
 
   const handleDelete = (service: Service) => {
     if (confirm(`Delete "${service.name}"?`)) {
+      const { deleteService } = useStore()
       deleteService(service.id)
     }
+  }
+
+  // Sort services A-Z
+  const sortedServices = [...section.services].sort((a, b) => a.name.localeCompare(b.name))
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : 1,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+        {editMode && (
+          <div
+            {...attributes}
+            {...listeners}
+            style={{
+              cursor: 'grab',
+              opacity: 0.5,
+              display: 'flex',
+              alignItems: 'center',
+            }}
+          >
+            <GripVertical size={14} />
+          </div>
+        )}
+        {section.icon && <span style={{ fontSize: 16 }}>{section.icon}</span>}
+        <span
+          style={{
+            fontSize: 12,
+            fontWeight: 600,
+            letterSpacing: '0.5px',
+            textTransform: 'uppercase',
+            color: 'var(--text-muted)',
+          }}
+        >
+          {section.label}
+        </span>
+        <span style={{ fontSize: 11, color: 'var(--text-muted)', opacity: 0.6 }}>({section.services.length})</span>
+      </div>
+      <div className="glass" style={{ borderRadius: 'var(--radius-xl)', overflow: 'hidden' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+          <colgroup>
+            <col style={{ width: '28%' }} />
+            <col style={{ width: isAdmin ? '35%' : '40%' }} />
+            <col style={{ width: '12%' }} />
+            <col style={{ width: '10%' }} />
+            {isAdmin && <col style={{ width: '15%' }} />}
+          </colgroup>
+          <thead>
+            <tr style={{ borderBottom: '1px solid var(--glass-border)' }}>
+              <th style={thStyle}>App</th>
+              <th style={thStyle}>URL</th>
+              <th style={thStyle}>Status</th>
+              <th style={thStyle}>Check</th>
+              {isAdmin && <th style={{ ...thStyle, textAlign: 'right' }}>Actions</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {sortedServices.map((s, i) => (
+              <tr
+                key={s.id}
+                style={{
+                  borderBottom: i < sortedServices.length - 1 ? '1px solid var(--glass-border)' : 'none',
+                  transition: 'background var(--transition-fast)',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'var(--glass-bg)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+              >
+                <td style={tdStyle}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 20, lineHeight: 1 }}>
+                      {s.icon_url ? (
+                        <img src={s.icon_url} alt="" style={{ width: 22, height: 22, objectFit: 'contain', borderRadius: 4 }} />
+                      ) : (
+                        s.icon ?? '🔗'
+                      )}
+                    </span>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: 14 }}>{s.name}</div>
+                      {s.description && (
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{s.description}</div>
+                      )}
+                    </div>
+                  </div>
+                </td>
+                <td style={{ ...tdStyle, overflow: 'hidden' }}>
+                  <a
+                    href={s.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      fontSize: 12,
+                      fontFamily: 'var(--font-mono)',
+                      color: 'var(--accent)',
+                      opacity: 0.8,
+                      textDecoration: 'none',
+                      display: 'block',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {s.url}
+                  </a>
+                </td>
+                <td style={tdStyle}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span className={`service-status ${s.last_status ?? 'unknown'}`} style={{ flexShrink: 0 }} />
+                    {s.last_status && s.last_status !== 'unknown' && (
+                      <span style={{ fontSize: 12, color: 'var(--text-secondary)', textTransform: 'capitalize' }}>
+                        {s.last_status}
+                      </span>
+                    )}
+                  </div>
+                </td>
+                <td style={tdStyle}>
+                  <span
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 600,
+                      padding: '3px 8px',
+                      borderRadius: 'var(--radius-sm)',
+                      background: s.check_enabled ? 'rgba(34,197,94,0.12)' : 'var(--glass-bg)',
+                      color: s.check_enabled ? 'var(--status-online)' : 'var(--text-muted)',
+                      border: `1px solid ${s.check_enabled ? 'rgba(34,197,94,0.25)' : 'var(--glass-border)'}`,
+                    }}
+                  >
+                    {s.check_enabled ? 'On' : 'Off'}
+                  </span>
+                </td>
+                {isAdmin && (
+                  <td style={{ ...tdStyle, textAlign: 'right' }}>
+                    <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
+                      <button
+                        className="btn btn-ghost btn-icon btn-sm"
+                        onClick={() => {
+                          addItem('service', s.id)
+                        }}
+                        data-tooltip="Add to Dashboard"
+                        style={{ padding: '4px', width: 28, height: 28 }}
+                      >
+                        <Plus size={12} />
+                      </button>
+                      <button
+                        className="btn btn-ghost btn-icon btn-sm"
+                        onClick={() => onEdit(s)}
+                        data-tooltip="Edit"
+                        style={{ padding: '4px', width: 28, height: 28 }}
+                      >
+                        <Pencil size={12} />
+                      </button>
+                      <button
+                        className="btn btn-danger btn-icon btn-sm"
+                        onClick={() => handleDelete(s)}
+                        data-tooltip="Delete"
+                        style={{ padding: '4px', width: 28, height: 28 }}
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+export function ServicesPage({ onEdit }: Props) {
+  const { services, groups, isAdmin } = useStore()
+  const [editMode, setEditMode] = useState(false)
+  const [groupOrder, setGroupOrder] = useState<string[]>([])
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      distance: 8,
+    })
+  )
+
+  const { reorderGroups } = useStore()
+
+  useEffect(() => {
+    const sortedGroups = [...groups].sort((a, b) => a.position - b.position)
+    const ids = sortedGroups.map(g => g.id)
+    const ungroupedId = services.some(s => !s.group_id) ? 'ungrouped' : null
+    setGroupOrder([...ids, ...(ungroupedId ? [ungroupedId] : [])])
+  }, [groups, services])
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+
+    const oldIndex = groupOrder.indexOf(String(active.id))
+    const newIndex = groupOrder.indexOf(String(over.id))
+    if (oldIndex === -1 || newIndex === -1) return
+
+    const newOrder = arrayMove(groupOrder, oldIndex, newIndex)
+    setGroupOrder(newOrder)
+
+    // Persist group ordering
+    const orderedGroupIds = newOrder.filter(id => id !== 'ungrouped')
+    await reorderGroups(orderedGroupIds)
   }
 
   if (services.length === 0) {
     return (
       <div className="empty-state">
         <div className="empty-state-icon">⬡</div>
-        <div className="empty-state-text">No apps yet.<br />Add your first app with the button above.</div>
+        <div className="empty-state-text">
+          No apps yet.
+          <br />
+          Add your first app with the button above.
+        </div>
       </div>
     )
   }
 
   // Build sections: one per group (ordered by position), then ungrouped at end
   const sortedGroups = [...groups].sort((a, b) => a.position - b.position)
-  const sections: { label: string; icon: string | null; services: Service[] }[] = []
+  const sections: { label: string; icon: string | null; services: Service[]; id: string }[] = []
 
   for (const group of sortedGroups) {
     const groupServices = services.filter(s => s.group_id === group.id)
     if (groupServices.length > 0) {
-      sections.push({ label: group.name, icon: group.icon, services: groupServices })
+      sections.push({ label: group.name, icon: group.icon, services: groupServices, id: group.id })
     }
   }
 
   const ungrouped = services.filter(s => !s.group_id)
   if (ungrouped.length > 0) {
-    sections.push({ label: 'Ohne Gruppe', icon: null, services: ungrouped })
+    sections.push({ label: 'Ohne Gruppe', icon: null, services: ungrouped, id: 'ungrouped' })
   }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      {sections.map(section => (
-        <div key={section.label}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-            {section.icon && <span style={{ fontSize: 16 }}>{section.icon}</span>}
-            <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-              {section.label}
-            </span>
-            <span style={{ fontSize: 11, color: 'var(--text-muted)', opacity: 0.6 }}>({section.services.length})</span>
-          </div>
-          <div className="glass" style={{ borderRadius: 'var(--radius-xl)', overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
-              <colgroup>
-                <col style={{ width: '28%' }} />
-                <col style={{ width: isAdmin ? '42%' : '48%' }} />
-                <col style={{ width: '12%' }} />
-                <col style={{ width: '10%' }} />
-                {isAdmin && <col style={{ width: '8%' }} />}
-              </colgroup>
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--glass-border)' }}>
-                  <th style={thStyle}>App</th>
-                  <th style={thStyle}>URL</th>
-                  <th style={thStyle}>Status</th>
-                  <th style={thStyle}>Check</th>
-                  {isAdmin && <th style={{ ...thStyle, textAlign: 'right' }}></th>}
-                </tr>
-              </thead>
-              <tbody>
-                {section.services.map((s, i) => (
-                  <tr
-                    key={s.id}
-                    style={{
-                      borderBottom: i < section.services.length - 1 ? '1px solid var(--glass-border)' : 'none',
-                      transition: 'background var(--transition-fast)',
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--glass-bg)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                  >
-                    <td style={tdStyle}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <span style={{ fontSize: 20, lineHeight: 1 }}>
-                          {s.icon_url
-                            ? <img src={s.icon_url} alt="" style={{ width: 22, height: 22, objectFit: 'contain', borderRadius: 4 }} />
-                            : (s.icon ?? '🔗')
-                          }
-                        </span>
-                        <div>
-                          <div style={{ fontWeight: 600, fontSize: 14 }}>{s.name}</div>
-                          {s.description && (
-                            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{s.description}</div>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td style={{ ...tdStyle, overflow: 'hidden' }}>
-                      <a
-                        href={s.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--accent)', opacity: 0.8, textDecoration: 'none', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                      >
-                        {s.url}
-                      </a>
-                    </td>
-                    <td style={tdStyle}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span className={`service-status ${s.last_status ?? 'unknown'}`} style={{ flexShrink: 0 }} />
-                        {s.last_status && s.last_status !== 'unknown' && (
-                          <span style={{ fontSize: 12, color: 'var(--text-secondary)', textTransform: 'capitalize' }}>
-                            {s.last_status}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td style={tdStyle}>
-                      <span style={{
-                        fontSize: 11,
-                        fontWeight: 600,
-                        padding: '3px 8px',
-                        borderRadius: 'var(--radius-sm)',
-                        background: s.check_enabled ? 'rgba(34,197,94,0.12)' : 'var(--glass-bg)',
-                        color: s.check_enabled ? 'var(--status-online)' : 'var(--text-muted)',
-                        border: `1px solid ${s.check_enabled ? 'rgba(34,197,94,0.25)' : 'var(--glass-border)'}`,
-                      }}>
-                        {s.check_enabled ? 'On' : 'Off'}
-                      </span>
-                    </td>
-                    {isAdmin && (
-                      <td style={{ ...tdStyle, textAlign: 'right' }}>
-                        <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
-                          <button
-                            className="btn btn-ghost btn-icon btn-sm"
-                            onClick={() => onEdit(s)}
-                            data-tooltip="Edit"
-                            style={{ padding: '4px', width: 28, height: 28 }}
-                          >
-                            <Pencil size={12} />
-                          </button>
-                          <button
-                            className="btn btn-danger btn-icon btn-sm"
-                            onClick={() => handleDelete(s)}
-                            data-tooltip="Delete"
-                            style={{ padding: '4px', width: 28, height: 28 }}
-                          >
-                            <Trash2 size={12} />
-                          </button>
-                        </div>
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      ))}
+      <button
+        onClick={() => setEditMode(!editMode)}
+        className="btn btn-primary btn-sm"
+        style={{ alignSelf: 'flex-start' }}
+      >
+        {editMode ? 'Done' : 'Edit Groups'}
+      </button>
+
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={groupOrder} strategy={verticalListSortingStrategy}>
+          {sections.map((section, idx) => (
+            <SortableGroupSection
+              key={section.id}
+              section={section}
+              onEdit={onEdit}
+              editMode={editMode}
+              isDragging={false}
+              isAdmin={isAdmin}
+            />
+          ))}
+        </SortableContext>
+      </DndContext>
     </div>
   )
 }

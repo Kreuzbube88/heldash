@@ -50,6 +50,7 @@ Coded by Claude.ai because iam to stupid to code but can wirte prompts lol
 - 🖥️ Server Status — live CPU, RAM, and disk usage with progress bars (Linux hosts)
 - 🛡️ AdGuard Home — DNS query stats, block rate, protection toggle (admin-only)
 - 🐳 Docker Overview — container counts + Start/Stop/Restart dropdown (admin-only)
+- 🔐 Nginx Proxy Manager — active proxies, certificates, expiry monitoring
 - 📊 Widgets can be pinned to the topbar for at-a-glance stats
 - 🔒 Widget credentials stored server-side only — never exposed to the browser
 - 🔒 Docker Overview widget access is controlled per group separately from the Docker page
@@ -78,6 +79,12 @@ Coded by Claude.ai because iam to stupid to code but can wirte prompts lol
 - 💫 **Status Indicators**: Online (dual-pulse ring + border), Offline (breathing), Unknown (static)
 - 📏 **Spacing Grid**: Consistent 8px base (`--spacing-xs` to `--spacing-3xl`)
 - 🌟 **Dark Mode**: Per-accent accent-subtle boost (12% opacity), icon backgrounds (15%)
+
+**Import/Export & Management**
+- 📥 **JSON Import/Export** — backup and restore service configurations
+  - Export all services as JSON file (admin-only)
+  - Import services from JSON with duplicate detection
+  - Perfect for migrations and backups
 
 **General**
 - 💾 SQLite persistence — all data survives container restarts
@@ -211,6 +218,9 @@ Frontend dev server runs on :5173 and proxies `/api`, `/icons`, and `/background
   - [x] Enhanced status indicator animations (dual-pulse)
   - [x] Dark mode accent color optimizations
   - [x] Prefers-reduced-motion accessibility support
+- [x] **Dashboard Groups** — named containers with configurable widths and nested drag-and-drop
+- [x] **Import/Export Services** — JSON backup/restore for migrations
+- [x] **Nginx Proxy Manager Widget** — monitor proxies and certificates
 - [ ] OIDC / SSO via voidauth or Authentik (UI prepared)
-- [ ] Notification webhooks (Gotify / ntfy)
+- [ ] Torrent Client Integration (qBittorrent, Transmission, Deluge)
 - [ ] More integrations (Immich, Jellyfin, ...)

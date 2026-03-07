@@ -79,6 +79,8 @@ heldash/
         │   ├── sonarr.ts       # SonarrClient extends ArrBaseClient (v3)
         │   ├── prowlarr.ts     # ProwlarrClient extends ArrBaseClient (v1)
         │   └── sabnzbd.ts      # SabnzbdClient — own undici client, no inheritance
+        ├── clients/
+        │   └── nginx-pm-client.ts # NginxPMClient: Nginx Proxy Manager API integration
         └── routes/
             ├── services.ts     # CRUD + /check + /check-all + /icon upload
             ├── groups.ts       # CRUD for service groups
@@ -295,6 +297,8 @@ All routes prefixed `/api`. Frontend uses relative paths.
 | POST | /api/services/:id/check | public | Manual health check |
 | POST | /api/services/check-all | public | Check all enabled |
 | POST | /api/services/:id/icon | authenticate | Upload icon (base64 JSON) |
+| GET | /api/services/export | requireAdmin | Export all services as JSON |
+| POST | /api/services/import | requireAdmin | Import services from JSON |
 
 ### Groups / Settings / Auth
 | Method | Path | Auth | Description |
@@ -327,7 +331,7 @@ All routes prefixed `/api`. Frontend uses relative paths.
 | POST | /api/widgets | requireAdmin | Create widget |
 | PATCH | /api/widgets/:id | requireAdmin | Update widget |
 | DELETE | /api/widgets/:id | requireAdmin | Delete + icon file |
-| GET | /api/widgets/:id/stats | public | Live stats (server_status / adguard_home; `{}` for docker_overview) |
+| GET | /api/widgets/:id/stats | public | Live stats (server_status / adguard_home / nginx_pm; `{}` for docker_overview) |
 | POST | /api/widgets/:id/icon | requireAdmin | Upload custom icon |
 | POST | /api/widgets/:id/adguard/protection | requireAdmin | Toggle AdGuard protection |
 

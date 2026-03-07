@@ -265,6 +265,31 @@ Normal:     Hover:         Active:
 
 ---
 
+## Data Export & Import
+
+### Export/Import Buttons
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│   [⬇ Export]             [⬆ Import]     [Edit Groups]       │
+│   (Primary style)        (Primary style) (Ghost style)       │
+└─────────────────────────────────────────────────────────────┘
+    ↓ Click Export: Downloads "services.json"
+    ↓ Click Import: File picker → JSON validation → Results dialog
+```
+
+**Details**:
+- Button layout: Flex row with `gap: var(--spacing-lg)`, right-aligned
+- Both buttons: Primary outline style (accent border + color)
+- Export: Downloads JSON with timestamp in filename (e.g., `services_2026-03-07.json`)
+- Import: Shows file input dialog, validates JSON structure, displays:
+  - Imported count (new services added)
+  - Skipped count (duplicates by URL)
+  - Errors (invalid structure, missing fields)
+- Result display: Toast or modal with clear summary
+
+---
+
 ## Data Display
 
 ### Table / List Item
@@ -308,6 +333,31 @@ Green badge    Red badge      Orange badge
 - Border-radius: `--radius-md` (12px)
 - Font: 12px, semi-bold, uppercase
 - Color: Semantic (green=running, red=stopped, orange=restarting)
+
+### Widget Stat Display
+
+```
+┌────────────────────────────────┐
+│ 🌐 NGINX PROXY MANAGER         │
+├────────────────────────────────┤
+│ Uptime:         42d 03h 15m   │  ← Monospace font
+│ Active Proxies: 12            │  ← Large number
+│ Certificates:                 │
+│   ✓ Valid: 8                  │  ← Green
+│   ✗ Expiring/Expired: 1       │  ← Red
+└────────────────────────────────┘
+```
+
+**Details**:
+- Container: `.glass` card class
+- Layout: Flex column with `gap: var(--spacing-md)`
+- Stat lines: `display: flex`, `justify-content: space-between`
+- Labels: `--text-secondary`, `font-size: 12px`, `font-weight: 600`
+- Values:
+  - Monospace font for uptime (time precision)
+  - Accent color for proxy count
+  - Color-coded for cert status (green/red)
+- Error state: Light red background with icon + message
 
 ---
 

@@ -431,6 +431,13 @@ Dark mode benefits from enhanced accent-subtle colors to prevent washed-out appe
 - Action buttons: Pencil (edit) + Trash (delete) on right, `opacity: 0 → 1`
 - Status dot: Same as dashboard, inline with app name
 
+**Import/Export Controls** (Admin-only):
+- Header buttons layout: `flex`, `gap: var(--spacing-lg)`, `justify-content: space-between`
+- Export button: Primary style, icon + label, triggers JSON file download
+- Import button: Primary style, triggers file picker dialog, shows results (Imported/Skipped/Errors)
+- Both buttons positioned above the service table
+- File operations: Non-blocking, shows count-based feedback dialog
+
 **Service Modal** (Add/Edit):
 - Modal padding: `var(--spacing-3xl)` (32px)
 - Form groups: `gap: var(--spacing-xl)` (20px between groups)
@@ -473,13 +480,22 @@ Dark mode benefits from enhanced accent-subtle colors to prevent washed-out appe
 **Widget Grid**:
 - Same auto-fill grid as services: `minmax(150px, 1fr)`
 - Widget cards: `.glass` with enhanced shadow on hover
-- Config panels: Tabbed interface (Server Status, AdGuard, Docker, etc.)
+- Config panels: Tabbed interface (Server Status, AdGuard, Docker, Nginx PM, etc.)
 
 **Widget Cards** (on Dashboard):
 - Server Status: Progress bars with icon + label + value
 - AdGuard Home: Query stats with blocked percentage large display
 - Docker Overview: Container counts + Start/Stop dropdown
+- Nginx Proxy Manager: Active proxies, certificate count, expiry status
 - Custom buttons: Grid of clickable buttons
+
+**Nginx Proxy Manager Widget**:
+- Display: Three stat lines with color-coded values
+  - Uptime: Formatted as days/hours/minutes (monospace font)
+  - Active Proxies: Large number with subtitle
+  - Certificates: Split into "Valid" (green) and "Expiring/Expired" (red)
+- Error state: Subtle error message if connection fails
+- Styling: Consistent with Server Status widget for uniformity
 
 ### Settings Page
 

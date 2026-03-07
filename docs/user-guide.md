@@ -249,6 +249,26 @@ Als Admin: Oben rechts auf **„Add App"** klicken. Im Formular:
 
 In der Tabelle gibt es rechts pro App zwei Symbole: Stift (bearbeiten) und Mülleimer (löschen). Beim Löschen erscheint eine Bestätigungsabfrage.
 
+### Import & Export von Apps
+
+Oben auf der Apps-Seite gibt es zwei Buttons für die Verwaltung von App-Konfigurationen:
+
+**Export** (Admin):
+- Speichert alle Apps als `services.json` Datei (mit Datum im Namen)
+- Nützlich für Backups oder zum Migrieren auf einen anderen Server
+- Dateiinhalt: Name, URL, Gruppen, Beschreibungen — alles außer Icon-Dateien
+
+**Import** (Admin):
+- Lädt eine `services.json` Datei hoch (z.B. von einem anderen HELDASH)
+- Apps mit gleicher URL werden übersprungen (Duplikate vermieden)
+- Nach dem Upload: Zusammenfassung mit Anzahl importierter / übersprungener / fehlerhafter Apps
+- Ideale für Migrationen oder um Konfigurationen zwischen Instanzen zu teilen
+
+**Workflow-Beispiel:**
+1. `Export` auf System A → `services.json` speichern
+2. System B → `Import` → `services.json` auswählen
+3. Apps erscheinen auf System B
+
 ### Gruppen
 
 Gruppen sind Kategorien, in die Apps einsortiert werden. Sie können unter **Einstellungen → Gruppen** (der App-Gruppen, nicht Benutzer-Gruppen — beides ist unter Einstellungen zu finden) verwaltet werden:
@@ -334,6 +354,7 @@ Widgets zeigen System-Informationen direkt im Dashboard oder in der Topbar.
 | **Server Status** | CPU-Auslastung, RAM-Verbrauch, Festplatten-Belegung des Servers als Fortschrittsbalken |
 | **AdGuard Home** | DNS-Anfragen, geblockte Anfragen, Blockrate, Schutzstatus |
 | **Docker Overview** | Anzahl laufender / gestoppter / neustartender Container; als Admin auch Start/Stop/Restart einzelner Container |
+| **Nginx Proxy Manager** | Aktive Proxies, Zertifikatsstatus, Ablauffristen überwachen |
 
 ### Widget hinzufügen
 
@@ -350,6 +371,10 @@ Je nach Typ erscheinen weitere Felder:
 - **Server Status:** Keine weitere Konfiguration nötig — es werden automatisch die Daten des Hostsystems angezeigt, auf dem HELDASH läuft (CPU, RAM, alle eingebundenen Festplatten/Partitionen)
 - **AdGuard Home:** URL + Benutzername + Passwort der AdGuard-Instanz
 - **Docker Overview:** Keine weitere Konfiguration nötig
+- **Nginx Proxy Manager:**
+  - **URL**: Adresse der NPM-Instanz (z.B. `http://192.168.1.10:81`)
+  - **API Key**: In der NPM-Weboberfläche unter Settings → API zu finden
+  - Das Widget zeigt dann: Laufzeit, aktive Proxies, Zertifikate (gültig vs. ablaufend/abgelaufen)
 
 **Festplatten einrichten (Server Status):** Festplatten werden nicht automatisch erkannt — jede Festplatte muss zuerst in der Docker-Konfiguration als Pfad in den Container eingebunden werden (z.B. `/hdd1`, `/hdd2`). Read-only (`:ro`) reicht dabei vollständig aus. Anschließend wird dieser Pfad im Widget-Formular unter „Festplatten" eingetragen, damit der Speicherzustand (belegt / gesamt) angezeigt wird.
 
@@ -361,7 +386,22 @@ volumes:
 ```
 Im Widget dann `/hdd1` und `/hdd2` als Festplatten-Pfade angeben.
 
-**Hinweis:** Zugangsdaten (AdGuard-Passwort) werden nur auf dem Server gespeichert und **nie** an den Browser übertragen.
+**Hinweis:** Zugangsdaten (AdGuard-Passwort, NPM API Key) werden nur auf dem Server gespeichert und **nie** an den Browser übertragen.
+
+### Nginx Proxy Manager Widget Details
+
+Das NPM-Widget bietet einen schnellen Überblick über die Proxy-Verwaltung:
+
+**Was wird angezeigt:**
+- **Laufzeit (Uptime)**: Wie lange der NPM-Prozess bereits läuft (z.B. 42 Tage, 3 Stunden)
+- **Aktive Proxies**: Aktuelle Anzahl konfigurierter und aktivierter Proxies
+- **Gültige Zertifikate**: Anzahl der Zertifikate, die noch mindestens 30 Tage gültig sind (grün)
+- **Ablaufende/Abgelaufene Zertifikate**: Zertifikate, die in weniger als 30 Tagen ablaufen oder bereits abgelaufen sind (rot)
+
+**Ideal für:**
+- Schnelle Kontrolle der SSL-Zertifikat-Gültigkeiten ohne in NPM-Weboberfläche zu gehen
+- Warnung vor ablaufenden Zertifikaten auf dem Dashboard
+- Monitoring der Proxy-Stabilität
 
 ### Widget in der Topbar
 

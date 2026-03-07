@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useArrStore } from '../store/useArrStore'
 import { useStore } from '../store/useStore'
-import type { ArrStatus, ArrStats, ArrQueueItem, ArrCalendarItem, RadarrCalendarItem, SonarrCalendarItem, ProwlarrIndexer, SabnzbdQueueData, SabnzbdHistoryData, SeerrRequest, ArrHealthIssue } from '../types/arr'
+import type { ArrStatus, ArrStats, ArrQueueItem, ArrCalendarItem, RadarrCalendarItem, SonarrCalendarItem, ProwlarrIndexer, SabnzbdQueueData, SabnzbdHistoryData, SabnzbdWarningItem, SeerrRequest, ArrHealthIssue } from '../types/arr'
 import { ChevronDown, ChevronUp, Check, X, Trash2, AlertTriangle } from 'lucide-react'
 
 // Minimal instance shape — works for both ArrInstance and dashboard partial
@@ -161,6 +161,23 @@ export function SabnzbdQueueList({ queue }: { queue: SabnzbdQueueData }) {
           +{queue.noofslots - queue.slots.length} more items
         </p>
       )}
+    </div>
+  )
+}
+
+export function SabnzbdWarningList({ warnings }: { warnings: SabnzbdWarningItem[] }) {
+  if (warnings.length === 0) return <p style={{ fontSize: 12, color: 'var(--status-online)', padding: '8px 0' }}>No warnings.</p>
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {warnings.map((w, i) => {
+        const color = w.type === 'ERROR' ? 'var(--status-offline)' : '#f59e0b'
+        return (
+          <div key={i} className="glass" style={{ padding: '8px 12px', borderRadius: 'var(--radius-md)', fontSize: 12, display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+            <AlertTriangle size={12} style={{ color, flexShrink: 0, marginTop: 1 }} />
+            <span style={{ color: 'var(--text-secondary)' }}>{w.text}</span>
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -382,7 +399,7 @@ export function SabnzbdCardContent({ instance }: {
   )
   const iconUrl = matchingSvc?.icon_url ?? null
   const iconEmoji = matchingSvc?.icon ?? null
-  const [expanded, setExpanded] = useState<'queue' | 'history' | null>(null)
+  const [expanded, setExpanded] = useState<'queue' | 'history' | 'warnings' | null>(null)
   const [loadingExpand, setLoadingExpand] = useState(false)
 
   const status: ArrStatus | undefined = statuses[instance.id]
@@ -390,7 +407,7 @@ export function SabnzbdCardContent({ instance }: {
   const sabStat = stat?.type === 'sabnzbd' ? stat : undefined
   const online = status?.online ?? null
 
-  const handleExpand = async (section: 'queue' | 'history') => {
+  const handleExpand = async (section: 'queue' | 'history' | 'warnings') => {
     if (expanded === section) { setExpanded(null); return }
     setExpanded(section)
     if (section === 'queue' && !sabQueues[instance.id]) {
@@ -428,13 +445,41 @@ export function SabnzbdCardContent({ instance }: {
           <Stat label="Queue" value={sabStat.queueCount} />
           <Stat label="Left" value={fmtMb(sabStat.mbleft)} />
           <Stat label="Speed" value={sabStat.paused ? 'Paused' : (sabStat.speed || '—')} />
+          {sabStat.queueCount > 0 && sabStat.timeleft && sabStat.timeleft !== '0:00:00' && (
+            <Stat label="ETA" value={sabStat.timeleft} />
+          )}
+          {sabStat.speedlimit && sabStat.speedlimit !== '0' && sabStat.speedlimit !== '100' && (
+            <Stat label="Limit" value={`${sabStat.speedlimit}%`} />
+          )}
           <Stat label="Disk Free" value={`${sabStat.diskspaceFreeGb.toFixed(1)} GB`} />
+          {sabStat.downloadedToday > 0 && (
+            <Stat label="Today" value={fmtBytes(sabStat.downloadedToday)} />
+          )}
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: 6 }}>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
         <ExpandBtn label="Queue" active={expanded === 'queue'} onClick={() => handleExpand('queue')} />
         <ExpandBtn label="History" active={expanded === 'history'} onClick={() => handleExpand('history')} />
+        {sabStat && (
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => handleExpand('warnings')}
+            style={{
+              fontSize: 11, gap: 4, padding: '4px 8px',
+              color: expanded === 'warnings'
+                ? 'var(--accent)'
+                : sabStat.warnings.length > 0
+                  ? (sabStat.warnings.some(w => w.type === 'ERROR') ? 'var(--status-offline)' : '#f59e0b')
+                  : 'var(--text-secondary)',
+              borderColor: expanded === 'warnings' ? 'var(--accent)' : 'transparent',
+            }}
+          >
+            {sabStat.warnings.length > 0 && <AlertTriangle size={10} />}
+            Warnings{sabStat.warnings.length > 0 ? ` (${sabStat.warnings.length})` : ''}
+            {expanded === 'warnings' ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+          </button>
+        )}
       </div>
 
       {expanded && (
@@ -445,7 +490,9 @@ export function SabnzbdCardContent({ instance }: {
               ? <SabnzbdQueueList queue={sabQueues[instance.id]!} />
               : expanded === 'history' && histories[instance.id]
                 ? <SabnzbdHistoryList history={histories[instance.id]!} />
-                : null
+                : expanded === 'warnings' && sabStat
+                  ? <SabnzbdWarningList warnings={sabStat.warnings} />
+                  : null
           }
         </div>
       )}

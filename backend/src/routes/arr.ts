@@ -250,8 +250,13 @@ export async function arrRoutes(app: FastifyInstance) {
         }
       }
       if (row.type === 'sabnzbd') {
+        const client = new SabnzbdClient(row.url, row.api_key)
         // limit=1 to minimise payload; noofslots always reflects total count
-        const { queue } = await new SabnzbdClient(row.url, row.api_key).getQueue(0, 1)
+        const [{ queue }, serverStats, warningsRes] = await Promise.all([
+          client.getQueue(0, 1),
+          client.getServerStats().catch(() => null),
+          client.getWarnings().catch(() => ({ warnings: [] })),
+        ])
         return {
           type: 'sabnzbd',
           speed: queue.speed,
@@ -260,6 +265,13 @@ export async function arrRoutes(app: FastifyInstance) {
           paused: queue.paused,
           queueCount: queue.noofslots,
           diskspaceFreeGb: parseFloat(queue.diskspace1),
+          timeleft: queue.timeleft ?? '',
+          speedlimit: queue.speedlimit ?? '',
+          downloadedToday: serverStats?.day ?? 0,
+          downloadedTotal: serverStats?.total ?? 0,
+          warnings: warningsRes.warnings
+            .filter(w => w.type !== 'INFO')
+            .map(w => ({ type: w.type, text: w.text })),
         }
       }
       if (row.type === 'radarr') {

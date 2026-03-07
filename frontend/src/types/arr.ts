@@ -55,6 +55,11 @@ export interface ProwlarrStats {
   healthIssues: ArrHealthIssue[]
 }
 
+export interface SabnzbdWarningItem {
+  type: string   // "WARNING" | "ERROR"
+  text: string
+}
+
 export interface SabnzbdStats {
   type: 'sabnzbd'
   speed: string         // "1.2 MB/s" — formatted by SABnzbd
@@ -63,6 +68,11 @@ export interface SabnzbdStats {
   paused: boolean
   queueCount: number    // total items (regardless of slot limit)
   diskspaceFreeGb: number
+  timeleft: string      // "H:MM:SS"
+  speedlimit: string    // percentage string, e.g. "50" (empty = unlimited)
+  downloadedToday: number   // bytes
+  downloadedTotal: number   // bytes
+  warnings: SabnzbdWarningItem[]
 }
 
 export interface SeerrStats {

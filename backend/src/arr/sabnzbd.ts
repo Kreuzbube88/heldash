@@ -19,13 +19,16 @@ export interface SabnzbdQueueSlot {
 }
 
 export interface SabnzbdQueueData {
-  speed: string       // "1.2 MB/s"
-  mbleft: string      // float as string
-  mb: string          // float as string
-  diskspace1: string  // GB free on first disk, as string
+  speed: string           // "1.2 MB/s"
+  mbleft: string          // float as string
+  mb: string              // float as string
+  diskspace1: string      // GB free on first disk, as string
   diskspace2: string
   paused: boolean
   noofslots: number
+  timeleft: string        // "H:MM:SS"
+  speedlimit: string      // percentage, e.g. "50"
+  speedlimit_abs: string  // absolute, e.g. "400 K"
   slots: SabnzbdQueueSlot[]
 }
 
@@ -45,6 +48,20 @@ export interface SabnzbdHistorySlot {
 export interface SabnzbdHistoryData {
   noofslots: number
   slots: SabnzbdHistorySlot[]
+}
+
+export interface SabnzbdServerStats {
+  day: number
+  week: number
+  month: number
+  total: number
+  servers: Record<string, unknown>
+}
+
+export interface SabnzbdWarning {
+  text: string
+  type: string   // "WARNING" | "ERROR" | "INFO"
+  time: number   // unix timestamp
 }
 
 export class SabnzbdClient {
@@ -97,5 +114,13 @@ export class SabnzbdClient {
 
   getHistory(start = 0, limit = 10): Promise<{ history: SabnzbdHistoryData }> {
     return this.call('history', { start: String(start), limit: String(limit) })
+  }
+
+  getServerStats(): Promise<SabnzbdServerStats> {
+    return this.call('server_stats')
+  }
+
+  getWarnings(): Promise<{ warnings: SabnzbdWarning[] }> {
+    return this.call('warnings')
   }
 }

@@ -292,6 +292,8 @@ export const useStore = create<AppState>((set, get) => ({
   logout: async () => {
     await api.auth.logout()
     set({ authUser: null, isAuthenticated: false, isAdmin: false })
+    // Auto-refresh page after logout
+    setTimeout(() => window.location.reload(), 100)
   },
 
   setupAdmin: async (data) => {

@@ -55,17 +55,8 @@ export function LoginModal({ onClose }: Props) {
         </button>
 
         {/* Branding */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 28 }}>
-          <svg width="26" height="26" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path
-              d="M11 2L21 19.5H1L11 2Z"
-              stroke="var(--accent)"
-              strokeWidth="1.5"
-              strokeLinejoin="round"
-              fill="var(--accent)"
-              fillOpacity="0.12"
-            />
-          </svg>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
+          <img src="/favicon.png" alt="" style={{ width: 28, height: 28, objectFit: 'contain' }} />
           <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: 2, color: 'var(--text-primary)' }}>
             HELDASH
           </span>

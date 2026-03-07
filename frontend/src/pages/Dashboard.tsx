@@ -478,7 +478,8 @@ function SortableGroup({ group, editMode, onEdit }: {
         transform: CSS.Transform.toString(transform),
         transition,
         opacity: isDragging ? 0.4 : 1,
-        gridColumn: `span ${group.col_span}`,
+        flex: `0 0 calc(${(group.col_span / 12 * 100).toFixed(4)}% - ${((12 - group.col_span) * 20 / 12).toFixed(4)}px)`,
+        maxWidth: `calc(${(group.col_span / 12 * 100).toFixed(4)}% - ${((12 - group.col_span) * 20 / 12).toFixed(4)}px)`,
         position: 'relative',
         minWidth: groupMinWidth,
       }}

@@ -446,7 +446,7 @@ export function SettingsPage() {
             <div className="form-group">
               <label className="form-label">Apps Per Row</label>
               <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16 }}>
-                How many apps should be displayed side-by-side in each row? Widgets are 2×2 the size of apps.
+                How many apps should be displayed side-by-side in each row?
               </p>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 8 }}>
                 {[
@@ -457,8 +457,6 @@ export function SettingsPage() {
                   { apps: 6, label: '6 Apps' },
                   { apps: 7, label: '7 Apps' },
                   { apps: 8, label: '8 Apps' },
-                  { apps: 9, label: '9 Apps' },
-                  { apps: 10, label: '10 Apps' },
                 ].map(({ apps, label }) => (
                   <button
                     key={apps}

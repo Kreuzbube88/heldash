@@ -163,6 +163,19 @@ export interface DashboardWidgetItem {
 
 export type DashboardItem = DashboardServiceItem | DashboardArrItem | DashboardPlaceholderItem | DashboardWidgetItem
 
+export interface DashboardGroup {
+  id: string
+  name: string
+  position: number
+  col_span: number
+  items: DashboardItem[]
+}
+
+export interface DashboardResponse {
+  groups: DashboardGroup[]
+  items: DashboardItem[]
+}
+
 export interface UserGroup {
   id: string
   name: string

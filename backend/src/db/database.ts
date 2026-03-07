@@ -50,6 +50,8 @@ function runMigrations(db: Database.Database): number {
     'ALTER TABLE user_groups ADD COLUMN background_id TEXT',
     // Widget display location: sidebar or topbar (replaces show_in_topbar)
     'ALTER TABLE widgets ADD COLUMN display_location TEXT NOT NULL DEFAULT \'none\'',
+    // Dashboard groups: named containers for dashboard items
+    'ALTER TABLE dashboard_items ADD COLUMN group_id TEXT',
   ]
   for (const sql of migrations) {
     try {
@@ -181,6 +183,18 @@ function applySchema(db: Database.Database) {
       type       TEXT NOT NULL,    -- 'service' | 'arr_instance' | 'placeholder_*' | 'widget'
       ref_id     TEXT,             -- NULL for placeholders
       position   INTEGER NOT NULL DEFAULT 0,
+      group_id   TEXT,             -- FK to dashboard_groups.id (nullable for ungrouped)
+      owner_id   TEXT NOT NULL DEFAULT 'guest',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    -- Dashboard groups — named containers for dashboard items
+    CREATE TABLE IF NOT EXISTS dashboard_groups (
+      id         TEXT PRIMARY KEY,
+      name       TEXT NOT NULL DEFAULT 'Group',
+      owner_id   TEXT NOT NULL DEFAULT 'guest',
+      position   INTEGER NOT NULL DEFAULT 0,
+      col_span   INTEGER NOT NULL DEFAULT 6,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 

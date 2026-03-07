@@ -1,4 +1,4 @@
-import type { Service, Group, Settings, AuthUser, UserRecord, UserGroup, DashboardItem, Widget, WidgetStats, DockerContainer, ContainerStats, Background } from './types'
+import type { Service, Group, Settings, AuthUser, UserRecord, UserGroup, DashboardItem, DashboardGroup, DashboardResponse, Widget, WidgetStats, DockerContainer, ContainerStats, Background } from './types'
 import type { ArrInstance, ArrStatus, ArrStats, ArrQueueResponse, ArrCalendarItem, ProwlarrIndexer, SabnzbdQueueData, SabnzbdHistoryData, SeerrRequest, SeerrRequestsResponse } from './types/arr'
 
 const BASE = '/api'
@@ -166,7 +166,24 @@ export const api = {
   },
 
   dashboard: {
-    list: (asGuest?: boolean) => req<DashboardItem[]>(`/dashboard${asGuest ? '?as=guest' : ''}`),
+    list: (asGuest?: boolean) => req<DashboardResponse>(`/dashboard${asGuest ? '?as=guest' : ''}`),
+    createGroup: (name: string, asGuest?: boolean) =>
+      req<DashboardGroup>(`/dashboard/groups${asGuest ? '?as=guest' : ''}`,
+        { method: 'POST', body: JSON.stringify({ name }) }),
+    updateGroup: (id: string, data: { name?: string; col_span?: number }, asGuest?: boolean) =>
+      req<{ ok: boolean }>(`/dashboard/groups/${id}${asGuest ? '?as=guest' : ''}`,
+        { method: 'PATCH', body: JSON.stringify(data) }),
+    deleteGroup: (id: string, asGuest?: boolean) =>
+      req<void>(`/dashboard/groups/${id}${asGuest ? '?as=guest' : ''}`, { method: 'DELETE' }),
+    reorderGroups: (ids: string[], asGuest?: boolean) =>
+      req<{ ok: boolean }>(`/dashboard/groups/reorder${asGuest ? '?as=guest' : ''}`,
+        { method: 'PATCH', body: JSON.stringify({ ids }) }),
+    moveItemToGroup: (itemId: string, groupId: string | null, asGuest?: boolean) =>
+      req<{ ok: boolean }>(`/dashboard/items/${itemId}/group${asGuest ? '?as=guest' : ''}`,
+        { method: 'PATCH', body: JSON.stringify({ group_id: groupId }) }),
+    reorderGroupItems: (groupId: string, ids: string[], asGuest?: boolean) =>
+      req<{ ok: boolean }>(`/dashboard/groups/${groupId}/reorder-items${asGuest ? '?as=guest' : ''}`,
+        { method: 'PATCH', body: JSON.stringify({ ids }) }),
     addItem: (type: string, ref_id?: string, asGuest?: boolean) =>
       req<{ id: string; type: string; ref_id: string | null; position: number }>(
         `/dashboard/items${asGuest ? '?as=guest' : ''}`, { method: 'POST', body: JSON.stringify({ type, ref_id }) }

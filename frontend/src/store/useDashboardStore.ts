@@ -1,9 +1,10 @@
 import { create } from 'zustand'
 import { api } from '../api'
-import type { DashboardItem } from '../types'
+import type { DashboardItem, DashboardGroup } from '../types'
 
 interface DashboardState {
   items: DashboardItem[]
+  groups: DashboardGroup[]
   editMode: boolean
   guestMode: boolean
   loading: boolean
@@ -20,12 +21,20 @@ interface DashboardState {
   removeByRef: (type: 'service' | 'arr_instance' | 'widget', refId: string) => Promise<void>
   reorder: (orderedIds: string[]) => Promise<void>
 
+  createGroup: (name: string) => Promise<void>
+  updateGroup: (id: string, data: { name?: string; col_span?: number }) => Promise<void>
+  deleteGroup: (id: string) => Promise<void>
+  reorderGroups: (orderedIds: string[]) => Promise<void>
+  moveItemToGroup: (itemId: string, groupId: string | null) => Promise<void>
+  reorderGroupItems: (groupId: string, orderedIds: string[]) => Promise<void>
+
   isOnDashboard: (type: 'service' | 'arr_instance' | 'widget', refId: string) => boolean
   getDashboardItemId: (type: 'service' | 'arr_instance' | 'widget', refId: string) => string | undefined
 }
 
 export const useDashboardStore = create<DashboardState>((set, get) => ({
   items: [],
+  groups: [],
   editMode: false,
   guestMode: false,
   loading: false,
@@ -33,8 +42,8 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   loadDashboard: async () => {
     set({ loading: true })
     try {
-      const items = await api.dashboard.list(get().guestMode)
-      set({ items })
+      const { groups, items } = await api.dashboard.list(get().guestMode)
+      set({ items, groups })
     } finally {
       set({ loading: false })
     }
@@ -44,8 +53,8 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
 
   setGuestMode: async (v) => {
     set({ guestMode: v, editMode: false })
-    const items = await api.dashboard.list(v)
-    set({ items })
+    const { groups, items } = await api.dashboard.list(v)
+    set({ items, groups })
   },
 
   addService: async (refId) => {
@@ -97,11 +106,61 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     await api.dashboard.reorder(orderedIds, get().guestMode)
   },
 
-  isOnDashboard: (type, refId) =>
-    get().items.some(i => i.type === type && 'ref_id' in i && i.ref_id === refId),
+  createGroup: async (name) => {
+    const group = await api.dashboard.createGroup(name, get().guestMode)
+    set(state => ({ groups: [...state.groups, { ...group, items: [] }] }))
+  },
+
+  updateGroup: async (id, data) => {
+    await api.dashboard.updateGroup(id, data, get().guestMode)
+    set(state => ({
+      groups: state.groups.map(g => g.id === id ? { ...g, ...data } : g)
+    }))
+  },
+
+  deleteGroup: async (id) => {
+    const group = get().groups.find(g => g.id === id)
+    await api.dashboard.deleteGroup(id, get().guestMode)
+    set(state => ({
+      groups: state.groups.filter(g => g.id !== id),
+      items: [...state.items, ...(group?.items ?? [])],
+    }))
+  },
+
+  reorderGroups: async (orderedIds) => {
+    set(state => ({
+      groups: orderedIds
+        .map(id => state.groups.find(g => g.id === id)!)
+        .map((g, i) => ({ ...g, position: i }))
+    }))
+    await api.dashboard.reorderGroups(orderedIds, get().guestMode)
+  },
+
+  moveItemToGroup: async (itemId, groupId) => {
+    await api.dashboard.moveItemToGroup(itemId, groupId, get().guestMode)
+    await get().loadDashboard()
+  },
+
+  reorderGroupItems: async (groupId, orderedIds) => {
+    set(state => ({
+      groups: state.groups.map(g => g.id !== groupId ? g : {
+        ...g,
+        items: orderedIds
+          .map(id => g.items.find(i => i.id === id)!)
+          .map((item, i) => ({ ...item, position: i }))
+      })
+    }))
+    await api.dashboard.reorderGroupItems(groupId, orderedIds, get().guestMode)
+  },
+
+  isOnDashboard: (type, refId) => {
+    const allItems = [...get().items, ...get().groups.flatMap(g => g.items)]
+    return allItems.some(i => i.type === type && 'ref_id' in i && i.ref_id === refId)
+  },
 
   getDashboardItemId: (type, refId) => {
-    const item = get().items.find(i => i.type === type && 'ref_id' in i && i.ref_id === refId)
+    const allItems = [...get().items, ...get().groups.flatMap(g => g.items)]
+    const item = allItems.find(i => i.type === type && 'ref_id' in i && i.ref_id === refId)
     return item?.id
   },
 }))

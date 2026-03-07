@@ -6,7 +6,7 @@ import { useWidgetStore } from '../store/useWidgetStore'
 import { ServiceCard } from '../components/ServiceCard'
 import { ArrCardContent, SabnzbdCardContent, SeerrCardContent } from '../components/MediaCard'
 import { AdGuardStatsView, DockerOverviewContent } from './WidgetsPage'
-import type { Service, DashboardItem, DashboardServiceItem, DashboardArrItem, DashboardPlaceholderItem, DashboardWidgetItem, ServerStats, AdGuardStats, AdGuardHomeConfig } from '../types'
+import type { Service, DashboardItem, DashboardServiceItem, DashboardArrItem, DashboardPlaceholderItem, DashboardWidgetItem, DashboardGroup, ServerStats, AdGuardStats, AdGuardHomeConfig } from '../types'
 import { normalizeUrl } from '../utils'
 
 function DashboardWidgetIcon({ widget }: { widget: DashboardWidgetItem['widget'] }) {
@@ -362,6 +362,171 @@ function DashboardPlaceholderCard({ item, editMode }: { item: DashboardPlacehold
   )
 }
 
+// ── Helper to render dashboard items ──────────────────────────────────────────
+function renderDashboardItem(
+  item: DashboardItem,
+  editMode: boolean,
+  onEdit: (s: Service) => void,
+  groups?: DashboardGroup[]
+) {
+  if (item.type === 'service') {
+    return (
+      <DashboardServiceCard
+        key={item.id}
+        item={item as DashboardServiceItem}
+        onEdit={onEdit}
+        editMode={editMode}
+      />
+    )
+  }
+  if (item.type === 'arr_instance') {
+    return (
+      <DashboardArrCard
+        key={item.id}
+        item={item as DashboardArrItem}
+        editMode={editMode}
+      />
+    )
+  }
+  if (item.type === 'widget') {
+    return (
+      <DashboardWidgetCard
+        key={item.id}
+        item={item as DashboardWidgetItem}
+        editMode={editMode}
+      />
+    )
+  }
+  if (item.type === 'placeholder' || item.type === 'placeholder_app' || item.type === 'placeholder_instance' || item.type === 'placeholder_row') {
+    return <DashboardPlaceholderCard key={item.id} item={item as DashboardPlaceholderItem} editMode={editMode} />
+  }
+  return null
+}
+
+// ── Sortable Group ─────────────────────────────────────────────────────────────
+function SortableGroup({ group, editMode, onEdit }: {
+  group: DashboardGroup
+  editMode: boolean
+  onEdit: (s: Service) => void
+}) {
+  const { updateGroup, deleteGroup, reorderGroupItems } = useDashboardStore()
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: group.id, disabled: !editMode,
+  })
+  const [editingName, setEditingName] = useState(false)
+  const [nameVal, setNameVal] = useState(group.name)
+  const [showHandle, setShowHandle] = useState(false)
+
+  const groupSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
+
+  const handleInnerDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const ids = group.items.map(i => i.id)
+    const oldIndex = ids.indexOf(active.id as string)
+    const newIndex = ids.indexOf(over.id as string)
+    if (oldIndex === -1 || newIndex === -1) return
+    reorderGroupItems(group.id, arrayMove(ids, oldIndex, newIndex))
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.4 : 1,
+        gridColumn: `span ${group.col_span}`,
+        position: 'relative',
+      }}
+      onMouseEnter={() => setShowHandle(true)}
+      onMouseLeave={() => setShowHandle(false)}
+    >
+      <div className="glass dashboard-group">
+        {/* Header */}
+        <div className="dashboard-group-header">
+          {editMode && (
+            <div
+              {...attributes}
+              {...listeners}
+              style={{
+                cursor: 'grab',
+                color: showHandle ? 'var(--accent)' : 'var(--text-muted)',
+                opacity: showHandle ? 1 : 0.5,
+                transition: 'opacity 150ms ease, color 150ms ease',
+                display: 'flex',
+                alignItems: 'center',
+              }}
+            >
+              <GripVertical size={14} />
+            </div>
+          )}
+          {editingName ? (
+            <input
+              className="form-input"
+              value={nameVal}
+              onChange={e => setNameVal(e.target.value)}
+              onBlur={() => { updateGroup(group.id, { name: nameVal }); setEditingName(false) }}
+              onKeyDown={e => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+              autoFocus
+              style={{ fontSize: 12, padding: '2px 6px', height: 22, flex: 1 }}
+            />
+          ) : (
+            <span
+              onDoubleClick={() => editMode && setEditingName(true)}
+              title={editMode ? 'Double-click to rename' : undefined}
+              style={{ cursor: editMode ? 'text' : 'default', flex: 1 }}
+            >
+              {group.name}
+            </span>
+          )}
+          {editMode && (
+            <div style={{ display: 'flex', gap: 4, alignItems: 'center', marginLeft: 'auto' }}>
+              <select
+                className="form-input"
+                value={group.col_span}
+                onChange={e => updateGroup(group.id, { col_span: +e.target.value })}
+                style={{ fontSize: 11, padding: '2px 6px', height: 22 }}
+              >
+                <option value={3}>25%</option>
+                <option value={4}>33%</option>
+                <option value={6}>50%</option>
+                <option value={8}>66%</option>
+                <option value={12}>100%</option>
+              </select>
+              <button
+                onClick={() => deleteGroup(group.id)}
+                className="btn btn-ghost"
+                style={{ width: 22, height: 22, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                title="Delete group"
+              >
+                <X size={11} />
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Items inside group */}
+        {group.items.length > 0 || editMode ? (
+          <DndContext sensors={groupSensors} collisionDetection={closestCenter} onDragEnd={handleInnerDragEnd}>
+            <SortableContext items={group.items.map(i => i.id)} strategy={rectSortingStrategy}>
+              <div className="services-grid" style={{ gridAutoFlow: 'dense' }}>
+                {group.items.map(item => renderDashboardItem(item, editMode, onEdit))}
+              </div>
+            </SortableContext>
+          </DndContext>
+        ) : null}
+
+        {group.items.length === 0 && !editMode && (
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '16px 0' }}>
+            Empty group
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 interface Props {
   onEdit: (service: Service) => void
@@ -370,11 +535,12 @@ interface Props {
 export function Dashboard({ onEdit }: Props) {
   const { isAdmin } = useStore()
   const { instances, loadInstances, loadAllStats } = useArrStore()
-  const { items, editMode, guestMode, loading, reorder } = useDashboardStore()
+  const { items, groups, editMode, guestMode, loading, reorder, reorderGroups, createGroup } = useDashboardStore()
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
-  const arrItemCount = items.filter(i => i.type === 'arr_instance').length
+  const arrItemCount = items.filter(i => i.type === 'arr_instance').length +
+    groups.reduce((sum, g) => sum + g.items.filter(i => i.type === 'arr_instance').length, 0)
 
   // Load arr stats when dashboard has arr instances
   useEffect(() => {
@@ -389,11 +555,21 @@ export function Dashboard({ onEdit }: Props) {
   const isPlaceholder = (type: string) =>
     type === 'placeholder' || type === 'placeholder_app' || type === 'placeholder_instance' || type === 'placeholder_row'
 
-  // Placeholders always stay in the DOM to preserve grid layout.
-  // Outside edit mode they render as invisible spacers (visibility:hidden).
-  const realItems = items.filter(i => !isPlaceholder(i.type))
+  // Real items (non-placeholders) in both groups and ungrouped
+  const realGroupItems = groups.filter(g => g.items.some(i => !isPlaceholder(i.type))).length > 0
+  const realUngroupedItems = items.filter(i => !isPlaceholder(i.type)).length
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleGroupDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const ids = groups.map(g => g.id)
+    const oldIndex = ids.indexOf(active.id as string)
+    const newIndex = ids.indexOf(over.id as string)
+    if (oldIndex === -1 || newIndex === -1) return
+    reorderGroups(arrayMove(ids, oldIndex, newIndex))
+  }
+
+  const handleItemDragEnd = (event: DragEndEvent) => {
     const { active, over } = event
     if (!over || active.id === over.id) return
     const ids = items.map(i => i.id)
@@ -403,7 +579,7 @@ export function Dashboard({ onEdit }: Props) {
     reorder(arrayMove(ids, oldIndex, newIndex))
   }
 
-  if (loading && items.length === 0) {
+  if (loading && items.length === 0 && groups.length === 0) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}>
         <div className="spinner" style={{ width: 24, height: 24, borderWidth: 2 }} />
@@ -411,7 +587,7 @@ export function Dashboard({ onEdit }: Props) {
     )
   }
 
-  if (!loading && realItems.length === 0) {
+  if (!loading && !realGroupItems && !realUngroupedItems) {
     return (
       <div className="empty-state">
         <div className="empty-state-icon">⬡</div>
@@ -425,50 +601,42 @@ export function Dashboard({ onEdit }: Props) {
   }
 
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-      <SortableContext items={items.map(i => i.id)} strategy={rectSortingStrategy}>
-        <div style={{ maxWidth: 900, margin: '0 auto' }}>
-          <div
-            className="services-grid"
-            style={{ gridAutoFlow: 'dense' }}
+    <div style={{ maxWidth: 900, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* Groups */}
+      {(realGroupItems || editMode) && (
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleGroupDragEnd}>
+          <SortableContext items={groups.map(g => g.id)} strategy={rectSortingStrategy}>
+            <div className="dashboard-groups">
+              {groups.map(group => (
+                <SortableGroup key={group.id} group={group} editMode={editMode} onEdit={onEdit} />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
+      )}
+
+      {/* Ungrouped items */}
+      {(realUngroupedItems || editMode) && (
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleItemDragEnd}>
+          <SortableContext items={items.map(i => i.id)} strategy={rectSortingStrategy}>
+            <div className="services-grid" style={{ gridAutoFlow: 'dense' }}>
+              {items.map(item => renderDashboardItem(item, editMode, onEdit, groups))}
+            </div>
+          </SortableContext>
+        </DndContext>
+      )}
+
+      {/* Add Group button (edit mode only) */}
+      {editMode && (
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={() => createGroup('Group')}
           >
-            {items.map(item => {
-              if (item.type === 'service') {
-                return (
-                  <DashboardServiceCard
-                    key={item.id}
-                    item={item as DashboardServiceItem}
-                    onEdit={onEdit}
-                    editMode={editMode}
-                  />
-                )
-              }
-              if (item.type === 'arr_instance') {
-                return (
-                  <DashboardArrCard
-                    key={item.id}
-                    item={item as DashboardArrItem}
-                    editMode={editMode}
-                  />
-                )
-              }
-              if (item.type === 'widget') {
-                return (
-                  <DashboardWidgetCard
-                    key={item.id}
-                    item={item as DashboardWidgetItem}
-                    editMode={editMode}
-                  />
-                )
-              }
-              if (isPlaceholder(item.type)) {
-                return <DashboardPlaceholderCard key={item.id} item={item as DashboardPlaceholderItem} editMode={editMode} />
-              }
-              return null
-            })}
-          </div>
+            + Add Group
+          </button>
         </div>
-      </SortableContext>
-    </DndContext>
+      )}
+    </div>
   )
 }

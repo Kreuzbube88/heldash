@@ -158,7 +158,7 @@ function DashboardServiceCard({ item, onEdit, editMode, groups }: {
   return (
     <div
       ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1, position: 'relative' }}
+      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1, position: 'relative', gridColumn: 'span 2' }}
       onMouseEnter={() => setShowHandle(true)}
       onMouseLeave={() => setShowHandle(false)}
     >
@@ -704,7 +704,7 @@ export function Dashboard({ onEdit }: Props) {
   }
 
   return (
-    <div style={{ maxWidth: 900, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       {/* Add Group button (edit mode only) — at top */}
       {editMode && (
         <div style={{ display: 'flex', justifyContent: 'center' }}>

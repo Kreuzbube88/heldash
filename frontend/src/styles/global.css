@@ -675,13 +675,17 @@ h4 { font-size: 15px; line-height: 1.5; }
 
 .dashboard-group {
   border-radius: var(--radius-xl);
-  padding: var(--spacing-2xl);
+  padding: var(--spacing-2xl) var(--spacing-3xl);
   display: flex;
   flex-direction: column;
   gap: var(--spacing-lg);
   min-height: 100px;
   overflow: hidden;
-  transition: all var(--transition-smooth);
+  /* No background — items inside use glass themselves; stacking would darken them */
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transition: border-color var(--transition-smooth);
 }
 
 .dashboard-group:hover {

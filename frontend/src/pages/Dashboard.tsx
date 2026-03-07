@@ -6,7 +6,7 @@ import { useWidgetStore } from '../store/useWidgetStore'
 import { ServiceCard } from '../components/ServiceCard'
 import { ArrCardContent, SabnzbdCardContent, SeerrCardContent } from '../components/MediaCard'
 import { AdGuardStatsView, DockerOverviewContent } from './WidgetsPage'
-import type { Service, DashboardItem, DashboardServiceItem, DashboardArrItem, DashboardPlaceholderItem, DashboardWidgetItem, DashboardGroup, ServerStats, AdGuardStats, NpmStats, AdGuardHomeConfig } from '../types'
+import type { Service, DashboardItem, DashboardServiceItem, DashboardArrItem, DashboardPlaceholderItem, DashboardWidgetItem, DashboardGroup, ServerStats, AdGuardStats, NpmStats, HaEntityState, AdGuardHomeConfig } from '../types'
 import { normalizeUrl } from '../utils'
 
 function DashboardWidgetIcon({ widget }: { widget: DashboardWidgetItem['widget'] }) {
@@ -311,8 +311,41 @@ function DashboardWidgetCard({ item, editMode, groups }: {
           ) : (
             <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Loading…</div>
           )
-        ) : (
-          // server_status
+        ) : item.widget.type === 'home_assistant' ? (
+          s && Array.isArray(s) ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {(s as HaEntityState[]).map(e => (
+                <div key={e.entity_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12 }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>{e.label || e.entity_id}</span>
+                  <span style={{
+                    color: e.state === 'on' ? 'var(--status-online)' : e.state === 'off' ? 'var(--text-muted)' : 'var(--accent)',
+                    fontFamily: 'var(--font-mono)', fontWeight: 500,
+                  }}>
+                    {e.state}{e.unit ? ` ${e.unit}` : ''}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Loading…</div>
+          )
+        ) : item.widget.type === 'pihole' ? (
+          s && 'total_queries' in (s as object) ? (
+            (() => {
+              const p = s as AdGuardStats
+              const fmt = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n)
+              if (p.total_queries === -1) return <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Unreachable</div>
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <DashStatBar label="Queries" value={null} extra={fmt(p.total_queries)} />
+                  <DashStatBar label="Blocked" value={p.blocked_percent} extra={`${p.blocked_percent}%`} />
+                </div>
+              )
+            })()
+          ) : (
+            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Loading…</div>
+          )
+        ) : item.widget.type === 'server_status' ? (
           s ? (
             (() => {
               const ss = s as ServerStats
@@ -331,7 +364,7 @@ function DashboardWidgetCard({ item, editMode, groups }: {
           ) : (
             <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Loading…</div>
           )
-        )}
+        ) : null}
       </div>
       {editMode && (
         <EditOverlay

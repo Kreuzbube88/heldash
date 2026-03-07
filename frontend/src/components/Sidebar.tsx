@@ -37,7 +37,7 @@ export function Sidebar({ page, onNavigate }: Props) {
     if (!sidebarStatsKey) return
     const ids = sidebarStatsKey.split(',')
     ids.forEach(id => loadStats(id).catch(() => {}))
-    const interval = setInterval(() => ids.forEach(id => loadStats(id).catch(() => {})), 15_000)
+    const interval = setInterval(() => ids.forEach(id => loadStats(id).catch(() => {})), 10_000)
     return () => clearInterval(interval)
   }, [sidebarStatsKey])
 
@@ -177,12 +177,13 @@ function SidebarWidget({ widget }: { widget: Widget }) {
         e.state === 'on' ? 'var(--status-online)' : e.state === 'off' ? 'var(--text-muted)' : undefined
       ))}
     </>
-  } else if (widget.type === 'nginx_pm' && 'proxyCount' in (s as object)) {
+  } else if (widget.type === 'nginx_pm' && 'proxy_hosts' in (s as object)) {
     const npm = s as NpmStats
     body = <>
-      {row('Proxies', String(npm.proxyCount))}
-      {row('Certs', String(npm.certificateCount))}
-      {npm.totalExpiredCerts > 0 && row('Expired', String(npm.totalExpiredCerts), 'var(--status-offline)')}
+      {row('Proxies', String(npm.proxy_hosts))}
+      {row('Streams', String(npm.streams))}
+      {row('Certs', String(npm.certificates), npm.cert_expiring_soon > 0 ? '#f59e0b' : undefined)}
+      {npm.cert_expiring_soon > 0 && row('Expiring', String(npm.cert_expiring_soon), '#f59e0b')}
     </>
   } else {
     return null

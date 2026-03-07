@@ -66,7 +66,7 @@ export function Topbar({ page, onAddService, onAddInstance, onAddWidget, onCheck
     ids.forEach(id => loadStats(id).catch(() => {}))
     const interval = setInterval(() => {
       ids.forEach(id => loadStats(id).catch(() => {}))
-    }, 15_000)
+    }, 10_000)
     return () => clearInterval(interval)
   }, [statsWidgetKey])
 
@@ -176,10 +176,12 @@ export function Topbar({ page, onAddService, onAddInstance, onAddWidget, onCheck
             return (
               <div key={w.id} style={pillStyle}>
                 {label('NPM:')}
-                {val(String(npm.proxyCount))} {muted('proxies')}
+                {val(String(npm.proxy_hosts))} {muted('proxies')}
                 {sep}
-                {val(String(npm.certificateCount))} {muted('certs')}
-                {npm.totalExpiredCerts > 0 && <>{sep}{val(String(npm.totalExpiredCerts), 'var(--status-offline)')} {muted('expired')}</>}
+                {val(String(npm.streams))} {muted('streams')}
+                {sep}
+                {val(String(npm.certificates), npm.cert_expiring_soon > 0 ? '#f59e0b' : undefined)} {muted('certs')}
+                {npm.cert_expiring_soon > 0 && <>{sep}{val(String(npm.cert_expiring_soon), '#f59e0b')} {muted('expiring soon')}</>}
               </div>
             )
           }

@@ -21,7 +21,7 @@ function WidgetIcon({ widget, size = 32 }: { widget: Pick<Widget, 'type' | 'conf
   let iconUrl: string | null = null
   let iconEmoji: string | null = null
 
-  if (widget.type === 'adguard_home' || widget.type === 'pihole' || widget.type === 'home_assistant') {
+  if (widget.type === 'adguard_home' || widget.type === 'pihole' || widget.type === 'home_assistant' || widget.type === 'nginx_pm') {
     const cfg = widget.config as { url?: string }
     const widgetUrl = normalizeUrl(cfg.url ?? '')
     const match = widgetUrl
@@ -768,8 +768,7 @@ function WidgetCard({
   useEffect(() => {
     if (widget.type === 'docker_overview' || widget.type === 'custom_button') return
     loadStats(widget.id).catch(() => {})
-    const ms = widget.type === 'home_assistant' ? 10_000 : 30_000
-    const interval = setInterval(() => loadStats(widget.id).catch(() => {}), ms)
+    const interval = setInterval(() => loadStats(widget.id).catch(() => {}), 10_000)
     return () => clearInterval(interval)
   }, [widget.id, widget.type])
 

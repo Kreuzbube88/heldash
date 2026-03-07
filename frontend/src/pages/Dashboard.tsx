@@ -199,13 +199,11 @@ function DashboardArrCard({ item, editMode, groups }: {
         opacity: isDragging ? 0.4 : 1,
         position: 'relative',
         gridColumn: 'span 2',
-        gridRow: 'span 2',
-        aspectRatio: '1',
       }}
       onMouseEnter={() => setShowHandle(true)}
       onMouseLeave={() => setShowHandle(false)}
     >
-      <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 20, display: 'flex', flexDirection: 'column', gap: 14, height: '100%' }}>
+      <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
         {item.instance.type === 'sabnzbd'
           ? <SabnzbdCardContent instance={item.instance} />
           : item.instance.type === 'seerr'
@@ -271,13 +269,11 @@ function DashboardWidgetCard({ item, editMode, groups }: {
         opacity: isDragging ? 0.4 : 1,
         position: 'relative',
         gridColumn: 'span 2',
-        gridRow: 'span 2',
-        aspectRatio: '1',
       }}
       onMouseEnter={() => setShowHandle(true)}
       onMouseLeave={() => setShowHandle(false)}
     >
-      <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 20, display: 'flex', flexDirection: 'column', gap: 12, height: '100%' }}>
+      <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <DashboardWidgetIcon widget={item.widget} />
           <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{item.widget.name}</div>
@@ -378,8 +374,7 @@ function DashboardPlaceholderCard({ item, editMode }: { item: DashboardPlacehold
   const isWidget = item.type === 'placeholder_widget'
   const isRow = item.type === 'placeholder_row'
   const gridColumn = isRow ? '1 / -1' : isWidget ? 'span 2' : 'span 1'
-  const gridRow = isWidget ? 'span 2' : undefined
-  const minHeight = isRow ? 28 : isWidget ? 160 : 80
+  const minHeight = isRow ? 28 : isWidget ? 100 : 80
 
   // Outside edit mode: invisible spacer that still occupies grid space to preserve layout
   if (!editMode) {
@@ -402,7 +397,6 @@ function DashboardPlaceholderCard({ item, editMode }: { item: DashboardPlacehold
         opacity: isDragging ? 0.3 : 1,
         position: 'relative',
         gridColumn,
-        gridRow,
       }}
       onMouseEnter={() => setShowHandle(true)}
       onMouseLeave={() => setShowHandle(false)}
@@ -485,6 +479,8 @@ function SortableGroup({ group, editMode, onEdit }: {
   const { updateGroup, deleteGroup, reorderGroupItems } = useDashboardStore()
   const { settings } = useStore()
   const appsPerRow = settings?.dashboard_grid_size ?? 5
+  // Inner grid columns = fraction of appsPerRow based on group's % of the 12-column outer grid
+  const innerCols = Math.max(1, Math.round(appsPerRow * group.col_span / 12))
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: group.id, disabled: !editMode,
   })
@@ -585,7 +581,7 @@ function SortableGroup({ group, editMode, onEdit }: {
         {group.items.length > 0 || editMode ? (
           <DndContext sensors={groupSensors} collisionDetection={closestCenter} onDragEnd={handleInnerDragEnd}>
             <SortableContext items={group.items.map(i => i.id)} strategy={rectSortingStrategy}>
-              <div className="services-grid" style={{ gridAutoFlow: 'dense', '--app-cols': appsPerRow } as React.CSSProperties}>
+              <div className="services-grid" style={{ gridAutoFlow: 'dense', '--app-cols': innerCols } as React.CSSProperties}>
                 {group.items.map(item => {
                   // For items inside groups, don't show the group selector (already in a group)
                   if (item.type === 'service') {

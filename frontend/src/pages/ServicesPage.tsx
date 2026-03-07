@@ -165,7 +165,9 @@ function SortableGroupSection({
                 <td style={tdStyle}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span className={`service-status ${s.check_enabled ? (s.last_status ?? 'unknown') : 'unknown'}`} style={{ flexShrink: 0 }} />
-                    {s.check_enabled && s.last_status && s.last_status !== 'unknown' && (
+                    {!s.check_enabled ? (
+                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>N/A</span>
+                    ) : s.last_status && s.last_status !== 'unknown' && (
                       <span style={{ fontSize: 12, color: 'var(--text-secondary)', textTransform: 'capitalize' }}>
                         {s.last_status}
                       </span>

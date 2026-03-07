@@ -15,7 +15,7 @@ export function ServiceCard({ service, onEdit, hideAdminActions }: Props) {
   const [showActions, setShowActions] = useState(false)
   const [imgError, setImgError] = useState(false)
 
-  const status = service.last_status ?? 'unknown'
+  const status = service.check_enabled ? (service.last_status ?? 'unknown') : 'unknown'
 
   const handleCheck = async (e: React.MouseEvent) => {
     e.preventDefault()

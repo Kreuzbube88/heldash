@@ -306,20 +306,24 @@ export async function arrRoutes(app: FastifyInstance) {
       }
       // prowlarr
       const client = new ProwlarrClient(row.url, row.api_key)
-      const indexers = await client.getIndexers()
       const now = new Date()
       const yesterday = new Date(now)
       yesterday.setDate(yesterday.getDate() - 1)
-      let grabCount = 0
-      try {
-        const stats = await client.getIndexerStats(yesterday.toISOString(), now.toISOString())
-        grabCount = stats.reduce((a, s) => a + s.numberOfGrabs, 0)
-      } catch { /* indexerstats optional */ }
+      const [indexers, indexerStats, health, indexerStatus] = await Promise.all([
+        client.getIndexers(),
+        client.getIndexerStats(yesterday.toISOString(), now.toISOString()).catch(() => []),
+        client.getHealth().catch(() => []),
+        client.getIndexerStatus().catch(() => []),
+      ])
       return {
         type: 'prowlarr',
         indexerCount: indexers.length,
         enabledIndexers: indexers.filter(i => i.enable).length,
-        grabCount24h: grabCount,
+        grabCount24h: indexerStats.reduce((a, s) => a + s.numberOfGrabs, 0),
+        failingIndexers: indexerStatus.length,
+        healthIssues: health
+          .filter(h => h.type !== 'ok')
+          .map(h => ({ type: h.type, message: h.message })),
       }
     } catch (e: any) {
       return reply.status(502).send({ error: 'Upstream error', detail: e.message })

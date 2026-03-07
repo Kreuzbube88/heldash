@@ -51,6 +51,8 @@ export interface ProwlarrStats {
   indexerCount: number
   enabledIndexers: number
   grabCount24h: number
+  failingIndexers: number
+  healthIssues: ArrHealthIssue[]
 }
 
 export interface SabnzbdStats {

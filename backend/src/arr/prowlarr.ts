@@ -23,6 +23,20 @@ export interface ProwlarrIndexerStatsRow {
   numberOfFailedQueries: number
 }
 
+export interface ProwlarrHealthItem {
+  source: string
+  type: string   // 'ok' | 'notice' | 'warning' | 'error'
+  message: string
+  wikiUrl?: string
+}
+
+export interface ProwlarrIndexerStatusRow {
+  indexerId: number
+  disabledTill?: string
+  mostRecentFailure?: string
+  initialFailure?: string
+}
+
 export class ProwlarrClient extends ArrBaseClient {
   constructor(url: string, apiKey: string) {
     super(url, apiKey, 'v1')
@@ -34,5 +48,13 @@ export class ProwlarrClient extends ArrBaseClient {
 
   getIndexerStats(startDate: string, endDate: string) {
     return this.get<ProwlarrIndexerStatsRow[]>('indexerstats', { startDate, endDate })
+  }
+
+  getHealth() {
+    return this.get<ProwlarrHealthItem[]>('health')
+  }
+
+  getIndexerStatus() {
+    return this.get<ProwlarrIndexerStatusRow[]>('indexerstatus')
   }
 }

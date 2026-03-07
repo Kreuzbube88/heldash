@@ -309,6 +309,7 @@ export function ArrCardContent({ instance }: {
             <>
               <Stat label="Indexers" value={stat.indexerCount} />
               <Stat label="Enabled" value={stat.enabledIndexers} />
+              {stat.failingIndexers > 0 && <Stat label="Failing" value={stat.failingIndexers} />}
               <Stat label="Grabs 24h" value={stat.grabCount24h} />
             </>
           )}
@@ -325,7 +326,7 @@ export function ArrCardContent({ instance }: {
         {instance.type === 'prowlarr' && (
           <ExpandBtn label="Indexers" active={expanded === 'indexers'} onClick={() => handleExpand('indexers')} />
         )}
-        {(instance.type === 'radarr' || instance.type === 'sonarr') && (stat?.type === 'radarr' || stat?.type === 'sonarr') && (
+        {(instance.type === 'radarr' || instance.type === 'sonarr' || instance.type === 'prowlarr') && (stat?.type === 'radarr' || stat?.type === 'sonarr' || stat?.type === 'prowlarr') && (
           <button
             className="btn btn-ghost btn-sm"
             onClick={() => handleExpand('health')}
@@ -358,7 +359,7 @@ export function ArrCardContent({ instance }: {
                 ? <CalendarList items={calendars[instance.id]!} type={instance.type} />
                 : expanded === 'indexers' && indexers[instance.id]
                   ? <IndexerList items={indexers[instance.id]!} />
-                  : expanded === 'health' && (stat?.type === 'radarr' || stat?.type === 'sonarr')
+                  : expanded === 'health' && (stat?.type === 'radarr' || stat?.type === 'sonarr' || stat?.type === 'prowlarr')
                     ? <HealthIssueList issues={stat.healthIssues} />
                     : null
           }

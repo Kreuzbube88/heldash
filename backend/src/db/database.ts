@@ -48,6 +48,8 @@ function runMigrations(db: Database.Database): number {
     'ALTER TABLE user_groups ADD COLUMN docker_widget_access INTEGER NOT NULL DEFAULT 0',
     // Background image assigned to each user group
     'ALTER TABLE user_groups ADD COLUMN background_id TEXT',
+    // Widget display location: sidebar or topbar (replaces show_in_topbar)
+    'ALTER TABLE widgets ADD COLUMN display_location TEXT NOT NULL DEFAULT \'none\'',
   ]
   for (const sql of migrations) {
     try {

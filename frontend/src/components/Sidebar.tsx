@@ -65,6 +65,20 @@ export function Sidebar({ page, onNavigate }: Props) {
         <NavItem icon={<Settings size={16} />} label="Settings" active={page === 'settings'} onClick={() => onNavigate('settings')} />
       )}
       <NavItem icon={<Info size={16} />} label="About" active={page === 'about'} onClick={() => onNavigate('about')} />
+
+      {/* Sidebar widgets */}
+      {widgets.length > 0 && (
+        <>
+          <span className="nav-section-label" style={{ marginTop: 16 }}>Widgets</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '0 4px' }}>
+            {widgets
+              .filter(w => w.display_location === 'sidebar')
+              .map(widget => (
+                <SidebarWidget key={widget.id} widget={widget} />
+              ))}
+          </div>
+        </>
+      )}
     </aside>
   )
 }
@@ -75,5 +89,60 @@ function NavItem({ icon, label, active, onClick }: { icon: React.ReactNode; labe
       {icon}
       <span>{label}</span>
     </button>
+  )
+}
+
+function SidebarWidget({ widget }: { widget: any }) {
+  const { stats } = useWidgetStore()
+  const widgetStats = stats[widget.id]
+
+  if (!widgetStats) return null
+
+  return (
+    <div
+      className="glass"
+      style={{
+        borderRadius: 'var(--radius-md)',
+        padding: '10px 12px',
+        fontSize: 12,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 6,
+      }}
+    >
+      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)' }}>{widget.name}</div>
+
+      {widget.type === 'server_status' && widgetStats && 'cpu' in widgetStats && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>CPU</span>
+            <span style={{ color: 'var(--accent)', fontWeight: 500 }}>{Math.round((widgetStats as any).cpu.load * 10) / 10}%</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>RAM</span>
+            <span style={{ color: 'var(--accent)', fontWeight: 500 }}>
+              {Math.round((((widgetStats as any).ram?.used || 0) / ((widgetStats as any).ram?.total || 1)) * 100)}%
+            </span>
+          </div>
+        </div>
+      )}
+
+      {widget.type === 'adguard_home' && widgetStats && 'total_queries' in widgetStats && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>Queries</span>
+            <span style={{ color: 'var(--accent)', fontWeight: 500 }}>{(widgetStats as any).total_queries}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>Blocked</span>
+            <span style={{ color: 'var(--status-offline)', fontWeight: 500 }}>{(widgetStats as any).blocked_percent}%</span>
+          </div>
+        </div>
+      )}
+
+      {widget.type === 'docker_overview' && (
+        <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>📦 Docker Overview</div>
+      )}
+    </div>
   )
 }

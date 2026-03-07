@@ -131,7 +131,8 @@ export interface Widget {
   name: string
   config: ServerStatusConfig | AdGuardHomeConfig | CustomButtonConfig | HomeAssistantConfig | PiholeConfig | Record<string, never>
   position: number
-  show_in_topbar: boolean
+  show_in_topbar: boolean  // deprecated: use display_location
+  display_location: 'topbar' | 'sidebar' | 'none'
   icon_url: string | null
   created_at: string
   updated_at: string

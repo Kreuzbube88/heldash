@@ -327,7 +327,7 @@ function WidgetForm({
   onCancel,
 }: {
   initial?: Widget
-  onSave: (data: { name: string; type: string; config: object; show_in_topbar: boolean; iconData?: { data: string; contentType: string } | null }) => Promise<void>
+  onSave: (data: { name: string; type: string; config: object; display_location: 'topbar' | 'sidebar' | 'none'; iconData?: { data: string; contentType: string } | null }) => Promise<void>
   onCancel: () => void
 }) {
   const isEdit = !!initial
@@ -336,7 +336,9 @@ function WidgetForm({
     (initial?.type as WidgetFormType) ?? 'server_status'
   )
   const [name, setName] = useState(initial?.name ?? '')
-  const [showTopbar, setShowTopbar] = useState(initial?.show_in_topbar ?? false)
+  const [displayLocation, setDisplayLocation] = useState<'topbar' | 'sidebar' | 'none'>(
+    (initial?.display_location ?? 'none') as 'topbar' | 'sidebar' | 'none'
+  )
 
   // server_status config
   const [disks, setDisks] = useState<{ path: string; name: string }[]>(
@@ -424,7 +426,7 @@ function WidgetForm({
 
     setSaving(true)
     try {
-      await onSave({ name: name.trim(), type, config, show_in_topbar: showTopbar, iconData: pendingIcon ? { data: pendingIcon.data, contentType: pendingIcon.contentType } : null })
+      await onSave({ name: name.trim(), type, config, display_location: displayLocation, iconData: pendingIcon ? { data: pendingIcon.data, contentType: pendingIcon.contentType } : null })
     } catch (e: any) {
       setError(e.message)
     } finally {
@@ -528,16 +530,38 @@ function WidgetForm({
           </div>
         )}
 
-        <div style={{ display: 'flex', gap: 16 }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer', userSelect: 'none' }}>
-            <input
-              type="checkbox"
-              checked={showTopbar}
-              onChange={e => setShowTopbar(e.target.checked)}
-              style={{ accentColor: 'var(--accent)', width: 14, height: 14 }}
-            />
-            Show in Topbar
-          </label>
+        <div>
+          <label className="form-label" style={{ fontSize: 11 }}>Display Location</label>
+          <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: '6px 8px', display: 'flex', gap: 2 }}>
+            {(['topbar', 'sidebar', 'none'] as const).map(loc => (
+              <button
+                key={loc}
+                type="button"
+                onClick={() => setDisplayLocation(loc)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '7px 14px',
+                  borderRadius: 'var(--radius-md)',
+                  fontSize: 13,
+                  fontWeight: displayLocation === loc ? 600 : 400,
+                  background: displayLocation === loc ? 'rgba(var(--accent-rgb), 0.12)' : 'transparent',
+                  color: displayLocation === loc ? 'var(--accent)' : 'var(--text-secondary)',
+                  border: displayLocation === loc ? '1px solid rgba(var(--accent-rgb), 0.25)' : '1px solid transparent',
+                  cursor: 'pointer',
+                  transition: 'all 150ms ease',
+                  textTransform: 'capitalize',
+                  fontFamily: 'var(--font-sans)',
+                }}
+              >
+                {loc === 'topbar' && '📊'}
+                {loc === 'sidebar' && '📌'}
+                {loc === 'none' && '✕'}
+                {' '}{loc}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* server_status config */}
@@ -927,16 +951,16 @@ export function WidgetsPage({ showAddForm, onFormClose }: Props) {
     loadWidgets().catch(() => {})
   }, [])
 
-  const handleCreate = async (data: { name: string; type: string; config: object; show_in_topbar: boolean; iconData?: { data: string; contentType: string } | null }) => {
+  const handleCreate = async (data: { name: string; type: string; config: object; display_location: 'topbar' | 'sidebar' | 'none'; iconData?: { data: string; contentType: string } | null }) => {
     const { iconData, ...widgetData } = data
-    const id = await createWidget(widgetData)
+    const id = await createWidget({ ...widgetData, show_in_topbar: widgetData.display_location === 'topbar' })
     if (iconData) await uploadWidgetIcon(id, iconData.data, iconData.contentType)
     onFormClose()
   }
 
-  const handleUpdate = async (id: string, data: { name: string; type: string; config: object; show_in_topbar: boolean; iconData?: { data: string; contentType: string } | null }) => {
+  const handleUpdate = async (id: string, data: { name: string; type: string; config: object; display_location: 'topbar' | 'sidebar' | 'none'; iconData?: { data: string; contentType: string } | null }) => {
     const { iconData, ...widgetData } = data
-    await updateWidget(id, widgetData)
+    await updateWidget(id, { ...widgetData, show_in_topbar: widgetData.display_location === 'topbar' })
     if (iconData) await uploadWidgetIcon(id, iconData.data, iconData.contentType)
     setEditingId(null)
   }

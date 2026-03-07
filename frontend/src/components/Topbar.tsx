@@ -36,7 +36,7 @@ export function Topbar({ page, onAddService, onAddInstance, onAddWidget, onCheck
   const isGuestUser = !isAdmin && (!authUser?.groupId || authUser.groupId === 'grp_guest')
   const canEditDashboard = isAuthenticated && !isGuestUser
 
-  const topbarWidgets = widgets.filter(w => w.show_in_topbar)
+  const topbarWidgets = widgets.filter(w => w.display_location === 'topbar')
   const hasDockerTopbar = topbarWidgets.some(w => w.type === 'docker_overview')
   const statsWidgetKey = topbarWidgets.filter(w => w.type !== 'docker_overview').map(w => w.id).join(',')
 

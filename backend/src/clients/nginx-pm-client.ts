@@ -78,7 +78,7 @@ export class NginxPMClient {
     if (res.statusCode >= 400) throw new Error('NPM: Auth failed')
 
     const data = JSON.parse(body)
-    this.token = data.token
+    this.token = data.token as string
     // Token gültig für 6 Stunden
     this.tokenExpiry = Date.now() + (6 * 60 * 60 * 1000)
     return this.token

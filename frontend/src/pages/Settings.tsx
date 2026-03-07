@@ -297,6 +297,15 @@ export function SettingsPage() {
   const [groupError, setGroupError] = useState('')
   const [saving, setSaving] = useState(false)
 
+  const [gridSize, setGridSize] = useState(settings?.dashboard_grid_size ?? 130)
+  const [gridSaving, setGridSaving] = useState(false)
+
+  const saveGridSize = async (size: number) => {
+    setGridSaving(true)
+    try { await updateSettings({ dashboard_grid_size: size }) }
+    finally { setGridSaving(false) }
+  }
+
   const [autoTheme, setAutoTheme] = useState(settings?.auto_theme_enabled ?? false)
   const [lightStart, setLightStart] = useState(settings?.auto_theme_light_start ?? '08:00')
   const [darkStart, setDarkStart] = useState(settings?.auto_theme_dark_start ?? '20:00')
@@ -426,6 +435,39 @@ export function SettingsPage() {
                 <input className="form-input" value={title} onChange={e => setTitle(e.target.value)} />
                 <button className="btn btn-primary" onClick={saveTitle} disabled={saving} style={{ flexShrink: 0 }}>
                   {saving ? '...' : 'Save'}
+                </button>
+              </div>
+            </div>
+          </section>
+
+          {/* Dashboard Grid */}
+          <section className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 24 }}>
+            <h3 style={{ marginBottom: 20, fontSize: 15, fontWeight: 600 }}>Dashboard Layout</h3>
+            <div className="form-group">
+              <label className="form-label">Grid Item Width</label>
+              <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
+                Adjust the minimum width of dashboard items. 2 apps = 1 widget width.
+              </p>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                <input
+                  type="range"
+                  min="80"
+                  max="200"
+                  step="5"
+                  value={gridSize}
+                  onChange={e => setGridSize(Number(e.target.value))}
+                  style={{ flex: 1, cursor: 'pointer', accentColor: 'var(--accent)' }}
+                />
+                <span className="glass" style={{ padding: '4px 10px', borderRadius: 'var(--radius-sm)', fontSize: 13, fontFamily: 'var(--font-mono)', minWidth: 50, textAlign: 'center' }}>
+                  {gridSize}px
+                </span>
+                <button
+                  className="btn btn-primary"
+                  onClick={() => saveGridSize(gridSize)}
+                  disabled={gridSaving || gridSize === (settings?.dashboard_grid_size ?? 130)}
+                  style={{ flexShrink: 0 }}
+                >
+                  {gridSaving ? '...' : 'Apply'}
                 </button>
               </div>
             </div>

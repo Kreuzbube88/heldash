@@ -13,13 +13,16 @@ function DashboardWidgetIcon({ widget }: { widget: DashboardWidgetItem['widget']
   const { services } = useStore()
 
   if (widget.type === 'docker_overview') {
-    return <Container size={20} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+    if (widget.icon_url) {
+      return <img src={widget.icon_url} alt="" style={{ width: 32, height: 32, objectFit: 'contain', borderRadius: 6, flexShrink: 0 }} />
+    }
+    return <Container size={26} style={{ color: 'var(--accent)', flexShrink: 0 }} />
   }
 
   let iconUrl: string | null = null
   let iconEmoji: string | null = null
 
-  if (widget.type === 'adguard_home' || widget.type === 'pihole' || widget.type === 'home_assistant') {
+  if (widget.type === 'adguard_home' || widget.type === 'pihole' || widget.type === 'home_assistant' || widget.type === 'nginx_pm') {
     const cfg = widget.config as { url?: string }
     const widgetUrl = normalizeUrl(cfg.url ?? '')
     const match = widgetUrl
@@ -31,8 +34,8 @@ function DashboardWidgetIcon({ widget }: { widget: DashboardWidgetItem['widget']
     iconUrl = widget.icon_url ?? null
   }
 
-  if (iconUrl) return <img src={iconUrl} alt="" style={{ width: 24, height: 24, objectFit: 'contain', borderRadius: 4, flexShrink: 0 }} />
-  if (iconEmoji) return <span style={{ fontSize: 18, lineHeight: 1, flexShrink: 0 }}>{iconEmoji}</span>
+  if (iconUrl) return <img src={iconUrl} alt="" style={{ width: 32, height: 32, objectFit: 'contain', borderRadius: 6, flexShrink: 0 }} />
+  if (iconEmoji) return <span style={{ fontSize: 22, lineHeight: 1, flexShrink: 0 }}>{iconEmoji}</span>
   return null
 }
 import {
@@ -247,8 +250,7 @@ function DashboardWidgetCard({ item, editMode, groups }: {
   useEffect(() => {
     if (item.widget.type === 'docker_overview' || item.widget.type === 'custom_button') return
     loadStats(item.widget.id).catch(() => {})
-    const ms = item.widget.type === 'home_assistant' ? 10_000 : 30_000
-    const interval = setInterval(() => loadStats(item.widget.id).catch(() => {}), ms)
+    const interval = setInterval(() => loadStats(item.widget.id).catch(() => {}), 10_000)
     return () => clearInterval(interval)
   }, [item.widget.id])
 

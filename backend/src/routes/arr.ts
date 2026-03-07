@@ -63,7 +63,7 @@ function calendarRange() {
   const start = new Date()
   start.setDate(start.getDate() - 7)
   const end = new Date()
-  end.setDate(end.getDate() + 60)
+  end.setDate(end.getDate() + 365)
   return {
     start: start.toISOString().slice(0, 10),
     end: end.toISOString().slice(0, 10),

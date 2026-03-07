@@ -64,15 +64,15 @@ Coded by Claude.ai because iam to stupid to code but can wirte prompts lol
 - 🖼️ Background images — upload custom backgrounds (PNG/JPG/SVG/WebP, max 5 MB), assign one per user group
 - 🔐 OIDC/SSO configuration UI prepared (coming in a future release)
 
-**Design & Accessibility**
-- 🎨 Refined glass morphism design with distinctive typography (Geist + Space Mono)
-- ♿ Full accessibility support — prefers-reduced-motion compliance
-- 🌓 Light/Dark mode + 3 accent colors (Cyan, Orange, Magenta)
-- ✨ Strategic micro-interactions with smooth easing curves (cubic-bezier)
-- 🎯 Refined sidebar navigation with glow effects and visual feedback
-- 💫 Enhanced status indicators with dual-pulse animations
-- 📏 Consistent 8px grid system for precise spacing
-- 🌟 Dark mode accent-subtle optimized for better contrast
+**Design & Accessibility** (v2.0 Refined)
+- 🎨 **Typography**: Geist (body) + Space Mono (display) — distinctive, modern
+- ♿ **Full Accessibility**: `prefers-reduced-motion` compliance, WCAG AA+ contrast ratios
+- 🌓 **Themes**: Light/Dark mode + 3 accent colors (Cyan, Orange, Magenta)
+- ✨ **Micro-interactions**: Cubic-bezier easing (smooth, bounce), strategic animations
+- 🎯 **Sidebar**: Gradient hover overlay, active state with glow, 2px translate
+- 💫 **Status Indicators**: Online (dual-pulse ring + border), Offline (breathing), Unknown (static)
+- 📏 **Spacing Grid**: Consistent 8px base (`--spacing-xs` to `--spacing-3xl`)
+- 🌟 **Dark Mode**: Per-accent accent-subtle boost (12% opacity), icon backgrounds (15%)
 
 **General**
 - 💾 SQLite persistence — all data survives container restarts

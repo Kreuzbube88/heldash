@@ -387,6 +387,212 @@ Dark mode benefits from enhanced accent-subtle colors to prevent washed-out appe
 
 ---
 
+## Page-Specific Styling Details
+
+### Dashboard Page
+
+**Grid Layout**:
+- Service cards: `grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: var(--spacing-lg)`
+- Dashboard groups: `grid-template-columns: repeat(12, 1fr); gap: var(--spacing-xl)`
+- Group items inherit same service grid
+
+**Dashboard Groups** (new in Phase 5):
+- `border-radius: var(--radius-xl)` (24px)
+- `padding: var(--spacing-xl)` (20px internal spacing)
+- Hover: Subtle border color change to `hsla(..., 0.25)`
+- Header: Uppercase label with `letter-spacing: 0.5px`
+- Col-span selector: 3, 4, 6, 8, 12 (25%, 33%, 50%, 66%, 100%)
+
+**Service Cards on Dashboard**:
+- Each card: `padding: var(--spacing-lg)` (16px)
+- Icon: 44px × 44px with `border-radius: var(--radius-md)`
+- Status dot: 10px diameter, dual animations for online status
+- Name: `font-size: 15px; font-weight: 600` (Geist)
+- Description: `font-size: 12px; color: var(--text-muted)`
+
+**Edit Mode**:
+- Drag handles appear on cards with `GripVertical` icon
+- Handles: `opacity: 0 → 1` on hover (smooth transition)
+- Remove buttons: Bottom-right with trash icon
+
+### Services/Apps Page
+
+**Table Layout**:
+- Fixed column widths via `<colgroup>`
+- Hover row: Light background with `var(--glass-bg)`
+- Action buttons: Pencil (edit) + Trash (delete) on right, `opacity: 0 → 1`
+- Status dot: Same as dashboard, inline with app name
+
+**Service Modal** (Add/Edit):
+- Modal padding: `var(--spacing-3xl)` (32px)
+- Form groups: `gap: var(--spacing-xl)` (20px between groups)
+- Icon upload: Drag-drop area with dashed border
+- Buttons: Primary (Create/Save) + Ghost (Cancel)
+
+### Media Page
+
+**Media Cards**:
+- Similar to service cards but shows instance type (Radarr, Sonarr, Prowlarr, SABnzbd)
+- Color-coded: Each type has distinct color accent
+- Stats display: Queue count, progress bars with smooth animations
+
+**Queue/Calendar Views**:
+- List items: `padding: var(--spacing-md)` with subtle dividers
+- Progress bars: Accent color with rounded ends
+- Expandable sections: Smooth height transition on expand
+
+### Docker Page
+
+**Container Table**:
+- Headers: Sortable with cursor pointer, hover underline
+- Row hover: `background: var(--glass-bg)` transition
+- Status badges: `padding: var(--spacing-sm) var(--spacing-md)`, `border-radius: var(--radius-md)`
+- Action buttons: Start/Stop/Restart in dropdown (admin only)
+
+**Stats Overview Bar**:
+- Large numbers: `font-size: 24px; font-weight: 700; font-family: var(--font-display)`
+- Labels: Uppercase with `letter-spacing: 0.5px`
+- Pill containers: Subtle glass background with border
+
+**Log Viewer**:
+- Monospace font: `var(--font-mono)`, `font-size: 13px`
+- Dark background: `var(--bg-surface)`
+- Filter input: Standard form input with focus ring
+- Auto-scroll indicator: Subtle animation
+
+### Widgets Page
+
+**Widget Grid**:
+- Same auto-fill grid as services: `minmax(150px, 1fr)`
+- Widget cards: `.glass` with enhanced shadow on hover
+- Config panels: Tabbed interface (Server Status, AdGuard, Docker, etc.)
+
+**Widget Cards** (on Dashboard):
+- Server Status: Progress bars with icon + label + value
+- AdGuard Home: Query stats with blocked percentage large display
+- Docker Overview: Container counts + Start/Stop dropdown
+- Custom buttons: Grid of clickable buttons
+
+### Settings Page
+
+**Tabbed Interface**:
+- Tab buttons: Uppercase labels, active state with accent border-bottom
+- Tab content: Smooth fade transition between tabs (opacity 0→1)
+- Section headers: `h3` style with `font-family: var(--font-display)`
+
+**General Tab**:
+- Theme selector: Radio buttons or dropdown with color swatches
+- Accent preview: Small circle showing current accent color
+- Dashboard title input: Standard form-input with focus ring
+
+**Users Tab**:
+- User table: Similar layout to services table
+- Action buttons: Edit + Delete on right
+- Status badge: Active/Inactive with color coding
+
+**Groups Tab** (Multi-section):
+- Group list: Expandable sections for each group
+- Apps/Media/Widgets tabs per group: Scrollable lists with checkboxes
+- Docker permissions: Toggle switches with labels
+- Background selector: Thumbnail grid for background images
+
+**OIDC Tab** (prepared):
+- Input fields: `form-input` with `--transition-fast` on focus
+- Provider selector: Dropdown with standard styling
+
+### Sidebar Component
+
+**Logo Section**:
+- Icon: 32px × 32px with glow shadow
+- Text: `font-size: 16px; font-weight: 600; letter-spacing: -0.3px`
+- Border-bottom: `1px solid var(--glass-border)`
+
+**Status Pills**:
+- Online/Offline counters: Side-by-side glass pill containers
+- Dot + count: `gap: var(--spacing-xs)` (4px)
+- Hover: No additional effect (informational only)
+- Font: `11px; font-weight: 600; letter-spacing: 0.3px`
+
+**Navigation Items**:
+- Height: ~36px with padding `var(--spacing-sm)`
+- Active state: `hsla(..., 0.15)` background with glow shadow
+- Hover: 2px translate right with gradient overlay
+- Icon: 16px size, flex-shrink: 0
+- Text: Hidden on mobile (< 768px)
+
+**Section Labels**:
+- Font: `10px; font-weight: 600; text-transform: uppercase`
+- Color: `var(--text-muted)`
+- Letter-spacing: `1px`
+
+### Topbar Component
+
+**Time Display** (Center):
+- Font: `var(--font-mono)` for precision
+- Font-size: `13px; font-weight: 500`
+- Server time: Fetched once, ticked every second
+
+**Topbar Widgets** (Center):
+- Compact display of pinned widgets
+- Server Status: CPU/RAM in compact bars
+- AdGuard: Block count or percentage
+- Docker Overview: Running count + quick-access dropdown
+- Gap: `var(--spacing-lg)` between widgets
+
+**Action Buttons** (Right):
+- Theme toggle: Sun/Moon icons
+- Check All: RefreshCw icon, `spinner` during check
+- Add buttons: Plus icon + label, primary style
+- Edit Dashboard: Pencil or text label
+- Guest Mode: (admin only) button style varies
+- Login/Logout: Primary or secondary style
+
+### Modals
+
+**Modal Overlay**:
+- Background: `rgba(0, 0, 0, 0.50)` with `backdrop-filter: blur(8px)`
+- Animation: Fade-in 200ms
+
+**Modal Content**:
+- Background: `.glass` class
+- Padding: `var(--spacing-3xl)` (32px)
+- Border-radius: `var(--radius-xl)` (24px)
+- Animation: Slide-up 200ms from bottom with scale(0.98)
+
+**Modal Title**:
+- Font: `var(--font-display)`, `20px`, `font-weight: 700`
+- Margin-bottom: `var(--spacing-2xl)` (24px)
+
+**Login Modal**:
+- Username/Password inputs: Standard form-input styling
+- Error message: Red background with status-offline color
+- Submit button: Primary style, full width
+
+---
+
+## Responsive Design Notes
+
+### Mobile (< 768px)
+
+- **Sidebar**: Collapses to 60px width (icon-only)
+- **Sidebar text**: Hidden (nav-item span, logo-text, section-labels)
+- **Service grid**: `minmax(120px, 1fr)` (smaller cards)
+- **Dashboard groups**: Still 12-column grid, but wrap more aggressively
+- **Topbar**: Adjusts button sizes, hides some labels
+
+### Tablet (768px - 1024px)
+
+- **Sidebar**: Full width (240px)
+- **Service grid**: `minmax(130px, 1fr)` (standard)
+- **Modal**: `max-width: 480px`
+
+### Desktop (> 1024px)
+
+- All standard spacing and sizing applies
+- No further adjustments
+
+---
+
 ## Implementation Checklist
 
 When adding new components:
@@ -400,8 +606,12 @@ When adding new components:
 - [ ] Add `prefers-reduced-motion` rule if animations are present
 - [ ] Verify contrast ratio (WCAG AA minimum)
 - [ ] Use semantic HTML (button, a, label, etc.)
+- [ ] Test on mobile (< 768px) for responsive behavior
+- [ ] Verify font families: body=Geist, display=Space Mono, mono=JetBrains Mono
+- [ ] Use icon sizes consistently: 16px (topbar), 14px (headers), 12px (buttons)
 
 ---
 
 **Last Updated**: March 2026
-**Design Version**: 2.0+ (Refined Typography + Glass Morphism Enhancements)
+**Design Version**: 2.0+ (Refined Typography + Glass Morphism Enhancements + Dashboard Groups)
+**Pages Updated**: Dashboard, Services, Media, Docker, Widgets, Settings, Sidebar, Topbar, Modals

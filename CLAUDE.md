@@ -512,14 +512,24 @@ All routes prefixed `/api`. Frontend uses relative paths.
   - [x] Geist + Space Mono typography system (modern body + distinctive display)
   - [x] Consistent 8px spacing grid across all components
   - [x] Refined glass morphism (24px blur, 200% saturate)
-  - [x] Sidebar navigation with gradient overlays and glow effects on active state
-  - [x] Enhanced status indicator animations (dual-pulse for online, breathing for offline)
-  - [x] Strategic cubic-bezier easing for smooth, intentional motion
-  - [x] Dark mode accent-subtle optimizations (per-color variants for better contrast)
-  - [x] Full accessibility compliance: `prefers-reduced-motion` media query support
-  - [x] Service card hover effects (lift, icon scale, glow shadow)
-  - [x] Form input focus states with accent ring
-  - [x] Toggle switch with improved visual feedback
+
+**Component-Level Improvements**:
+  - [x] **Sidebar**: Gradient overlay on hover, active state with glow (box-shadow), 2px translate
+  - [x] **Topbar**: Time display in monospace, widget stats with compact layout, elevated height (64px)
+  - [x] **Dashboard**: Grid layout with 12-column system, dashboard groups with col-span selector, group headers with uppercase labels
+  - [x] **Dashboard Groups** (new): Expandable group containers with individual col-span (25%-100%), drag-reorder, nested item DnD
+  - [x] **Service Cards**: Hover lift (4px), icon scale (1.08x), glow shadow, status dots with dual animations
+  - [x] **Media Cards**: Queue progress bars, stats display with accent colors, expandable sections
+  - [x] **Services Page**: Hover row effects, inline status dots, modal with form inputs and icon upload
+  - [x] **Media Page**: Instance cards, queue lists, calendar views with smooth transitions
+  - [x] **Docker Page**: Sortable table, status badges, logs viewer with monospace font, stats bar with large numbers
+  - [x] **Widgets Page**: Grid layout, widget cards with shadow on hover, tabbed config panels, stats display
+  - [x] **Settings Page**: Tabbed interface (General, Users, Groups with sub-tabs, OIDC), theme selector, form inputs with focus states
+  - [x] **Status Indicators**: Online (dual-pulse ring + border), offline (breathing animation), unknown (static)
+  - [x] **Form Elements**: Focus ring with accent color, hover state, improved toggles (350ms smooth animation)
+  - [x] **Modals**: Slide-up animation, glass background, 32px padding, clear title hierarchy
+  - [x] **Dark mode**: Per-accent accent-subtle variants (12% opacity), icon backgrounds (15%), nav active states with reduced glow
+  - [x] **Accessibility**: Full `@media (prefers-reduced-motion: reduce)` support across all animations
 
 ### Phase 6 — Future
 - [ ] OIDC / SSO via voidauth or Authentik

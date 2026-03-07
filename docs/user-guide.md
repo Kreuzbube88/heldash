@@ -83,6 +83,99 @@ Alle Farben passen sich automatisch an das aktuell ausgewählte Theme an:
 
 ---
 
+## Seiten-spezifische Design-Verbesserungen
+
+### Dashboard
+
+Das Dashboard wurde mit mehreren visuellen Verbesserungen ausgestattet:
+
+- **Gruppierung**: Neue Dashboard Groups ermöglichen die Zusammenfassung von Items
+  - Benennbare Gruppen mit anpassbarer Breite (25%, 33%, 50%, 66%, 100%)
+  - Drag & Drop zum Umordnen von Gruppen
+  - Jede Gruppe hat einen eigenen Bereich mit subtiler Glass-Oberfläche
+
+- **Karten-Effekte**:
+  - Beim Hover: Sanfte Hebung (4px nach oben) + Glow-Effekt
+  - Service-Icons skalieren auf 108% beim Hover
+  - Smooth Transition für elegantes Gefühl
+
+- **Status-Punkte**:
+  - 🟢 **Online**: Doppelte Puls-Animation (expandierender Ring + Border-Puls)
+  - 🔴 **Offline**: Sanfte Atemanimation mit Farbpuls
+  - ⚪ **Unbekannt**: Statischer grauer Punkt
+
+### Apps-Seite
+
+- **Tabelle mit besseren Hover-Effekten**
+- Admin-Buttons (Bearbeiten/Löschen) erscheinen sanft beim Hover
+- Karten zeigen Status-Punkt inline mit App-Name
+- Modal-Dialoge mit verbessertem Design und fokussierten Input-Feldern
+
+### Media-Seite
+
+- **Instance-Karten** mit farblich unterschiedlichen Typen
+- **Progress-Balken** mit runden Kanten und Accent-Farbe
+- **Expandierbare Abschnitte** (Queue, Kalender) mit smooth Height-Animation
+- **Statistik-Display** mit großen, lesbaren Zahlen
+
+### Docker-Seite
+
+- **Sortierbare Tabelle** mit Hover-Effekten auf Zeilen
+- **Status-Badges** mit farblicher Kodierung (running/stopped/restarting)
+- **Statistic-Bar** mit großen Zahlen in Display-Font (Space Mono)
+- **Log-Viewer** in Monospace-Font mit dunklem Hintergrund
+- **Action-Dropdown** (Start/Stop/Restart) für schnellen Zugriff
+
+### Widgets-Seite
+
+- **Grid-Layout** mit auto-fill Columns
+- **Widget-Karten** mit Enhanced Shadow auf Hover
+- **Tab-Interface** für unterschiedliche Widget-Typen
+- **Stat-Display** mit aktuellen Werten (CPU, RAM, DNS-Abfragen, etc.)
+
+### Einstellungen-Seite
+
+- **Tabbed Interface** mit Uppercase-Labels
+- **Tab 1 - Allgemein**: Theme-Selector mit Accent-Vorschau
+- **Tab 2 - Benutzer**: Benutzer-Tabelle mit Edit/Delete-Actions
+- **Tab 3 - Gruppen**: Expandable Groups mit Sub-Tabs für Sichtbarkeits-Kontrolle
+  - Apps / Media / Widgets / Docker / Background
+  - Checkboxen zum Aktivieren/Deaktivieren
+- **Tab 4 - OIDC** (vorbereitet): Konfigurationsfelder für Single Sign-On
+
+### Sidebar (Linke Navigation)
+
+- **Logo-Bereich**: Icon mit Glow-Effekt, Text mit Letter-Spacing
+- **Status-Punkte**: Online/Offline Counter als Glass-Pills nebeneinander
+- **Navigation Items**:
+  - Hover: 2px Shift nach rechts + Gradient-Overlay
+  - Aktiv: Leuchtender Hintergrund mit Glow-Shadow
+  - Uppercase-Labels für gute Lesbarkeit
+- **Responsiv**: Auf mobilen Geräten auf Icon-only ausgeblendet
+
+### Topbar (Obere Leiste)
+
+- **Zeit-Display** (Links): In Monospace-Font für Präzision
+- **Widget-Stats** (Mitte):
+  - Server Status: Kompakte CPU/RAM-Balken
+  - AdGuard: Abgefragte Anfragen / Blockrate
+  - Docker Overview: Laufende Container + Dropdown für Kontrolle
+- **Action-Buttons** (Rechts): Smooth Hover-Effekte, Clear Visual Hierarchy
+
+---
+
+## Bewegungs-Einstellungen
+
+Wenn du in deinen Browser-Einstellungen "Bewegung reduzieren" aktiviert hast:
+- ✅ Alle Animationen werden **deaktiviert** (Pulse-Effekte, Hover-Animationen, etc.)
+- ✅ Seiten-Übergänge werden **augenblicklich**
+- ✅ Visuelle Struktur bleibt **vollständig erhalten**
+- ✅ Funktionalität ist **nicht beeinträchtigt**
+
+Dies ist eine wichtige Accessibility-Funktion für Benutzer mit Bewegungsempfindlichkeit.
+
+---
+
 ## Dashboard
 
 Das Dashboard ist die Startseite — eine frei gestaltbare Übersicht der eigenen Apps, Media-Instanzen und Widgets.

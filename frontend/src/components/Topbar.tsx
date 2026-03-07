@@ -247,9 +247,9 @@ export function Topbar({ page, onAddService, onAddInstance, onAddWidget, onCheck
                       <LayoutGrid size={15} />
                       App
                     </button>
-                    <button className="btn btn-ghost" onClick={() => addPlaceholder('instance')} style={{ gap: 6 }}>
+                    <button className="btn btn-ghost" onClick={() => addPlaceholder('widget')} style={{ gap: 6 }}>
                       <LayoutList size={15} />
-                      Instance
+                      Widget
                     </button>
                     <button className="btn btn-ghost" onClick={() => addPlaceholder('row')} style={{ gap: 6 }}>
                       <Minus size={15} />

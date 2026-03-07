@@ -27,7 +27,7 @@ Coded by Claude.ai because iam to stupid to code but can wirte prompts lol
   - Health Check toggle: enable/disable status monitoring
   - Real-time visual feedback (accent colors)
 - 🖱️ Edit mode — drag & drop reordering of all dashboard items and groups
-- 📐 Placeholder cards (App / Instance / Row) — reserve space and structure rows in edit mode
+- 📐 Placeholder cards (App / Widget / Row) — reserve space and structure rows in edit mode
 - 👥 Per-user dashboards — each user arranges their own dashboard; guests share a common layout set by admins
 - 🔗 App cards link directly to the service URL
 - 🔴 Live online/offline status dots on every app card
@@ -156,47 +156,6 @@ On first launch you will be prompted to create an admin account.
 A ready-to-use Community Applications template is included: **`heldash.xml`**
 
 Import it via Community Applications → Import to get a pre-filled container setup with all fields and descriptions.
-
----
-
-## Building
-
-Two GitHub Actions workflows are available (both manual trigger only):
-
-| Workflow | Tags pushed | Use case |
-|---|---|---|
-| **Release Latest** | `:latest` + `:1.0.0` (version input) | Production release |
-| **Build & Push Docker Image** | Custom tag only (e.g. `:test-feature`) | Testing & development builds |
-
----
-
-## Data Structure
-
-All data is stored under `/data` (mount a host path here):
-
-```
-/data
-├── db/
-│   └── heldash.db         ← SQLite database
-├── icons/
-│   └── *.png/jpg/svg      ← Uploaded app and widget icons
-└── backgrounds/
-    └── *.png/jpg/svg/webp ← Uploaded dashboard background images
-```
-
----
-
-## Development
-
-```bash
-# Backend
-cd backend && npm install && npm run dev
-
-# Frontend (separate terminal)
-cd frontend && npm install && npm run dev
-```
-
-Frontend dev server runs on :5173 and proxies `/api`, `/icons`, and `/backgrounds` calls to :8282.
 
 ---
 

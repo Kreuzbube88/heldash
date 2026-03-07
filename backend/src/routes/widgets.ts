@@ -54,6 +54,9 @@ function sanitize(r: WidgetRow) {
   } else if (r.type === 'pihole') {
     const { password: _p, ...safe } = rawConfig as Record<string, unknown>
     config = safe
+  } else if (r.type === 'nginx_pm') {
+    const { api_key: _k, ...safe } = rawConfig as Record<string, unknown>
+    config = safe
   } else {
     config = rawConfig as Record<string, unknown>
   }
@@ -463,6 +466,16 @@ export async function widgetsRoutes(app: FastifyInstance) {
     if (row.type === 'home_assistant') {
       const entities: { entity_id: string; label: string }[] = Array.isArray(config.entities) ? config.entities : []
       return getHaStates(config.url ?? '', config.token ?? '', entities)
+    }
+
+    if (row.type === 'nginx_pm') {
+      const { NginxPMClient } = await import('../clients/nginx-pm-client')
+      const client = new NginxPMClient(config.url ?? '', config.api_key ?? '')
+      try {
+        return await client.getStatus()
+      } catch (err) {
+        return { error: (err as Error).message }
+      }
     }
 
     // server_status (default)

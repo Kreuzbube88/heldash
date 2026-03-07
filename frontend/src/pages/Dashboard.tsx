@@ -6,7 +6,7 @@ import { useWidgetStore } from '../store/useWidgetStore'
 import { ServiceCard } from '../components/ServiceCard'
 import { ArrCardContent, SabnzbdCardContent, SeerrCardContent } from '../components/MediaCard'
 import { AdGuardStatsView, DockerOverviewContent } from './WidgetsPage'
-import type { Service, DashboardItem, DashboardServiceItem, DashboardArrItem, DashboardPlaceholderItem, DashboardWidgetItem, DashboardGroup, ServerStats, AdGuardStats, AdGuardHomeConfig } from '../types'
+import type { Service, DashboardItem, DashboardServiceItem, DashboardArrItem, DashboardPlaceholderItem, DashboardWidgetItem, DashboardGroup, ServerStats, AdGuardStats, NpmStats, AdGuardHomeConfig } from '../types'
 import { normalizeUrl } from '../utils'
 
 function DashboardWidgetIcon({ widget }: { widget: DashboardWidgetItem['widget'] }) {
@@ -246,6 +246,25 @@ function DashboardWidgetCard({ item, editMode }: {
               toggling={toggling}
               onToggle={handleProtectionToggle}
             />
+          ) : (
+            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Loading…</div>
+          )
+        ) : item.widget.type === 'nginx_pm' ? (
+          s ? (
+            (() => {
+              const npm = s as NpmStats | any
+              if (npm.error) {
+                return <div style={{ fontSize: 12, color: 'var(--status-offline)' }}>Error: {npm.error}</div>
+              }
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <DashStatBar label="Active Proxies" value={null} extra={`${npm.proxyCount}`} />
+                  <DashStatBar label="Certificates" value={null} extra={`${npm.certificateCount}`} />
+                  {npm.totalExpiredCerts > 0 && <DashStatBar label="Expired Certs" value={null} extra={String(npm.totalExpiredCerts)} />}
+                  {npm.totalExpiringCertificates > 0 && <DashStatBar label="Expiring Soon" value={null} extra={String(npm.totalExpiringCertificates)} />}
+                </div>
+              )
+            })()
           ) : (
             <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Loading…</div>
           )

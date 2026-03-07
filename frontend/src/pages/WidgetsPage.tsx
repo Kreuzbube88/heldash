@@ -4,7 +4,7 @@ import { useDockerStore } from '../store/useDockerStore'
 import { useDashboardStore } from '../store/useDashboardStore'
 import { useStore } from '../store/useStore'
 import { Trash2, Pencil, X, Check, Plus, Minus, LayoutDashboard, Shield, ShieldOff, Upload, Container, Play, Square, RotateCcw, Zap } from 'lucide-react'
-import type { Widget, ServerStatusConfig, AdGuardHomeConfig, CustomButtonConfig, HomeAssistantConfig, ServerStats, AdGuardStats, HaEntityState } from '../types'
+import type { Widget, ServerStatusConfig, AdGuardHomeConfig, CustomButtonConfig, HomeAssistantConfig, NginxPMConfig, ServerStats, AdGuardStats, HaEntityState } from '../types'
 import { normalizeUrl, containerCounts } from '../utils'
 
 // ── Widget icon — URL-matched service icon or custom icon_url ─────────────────
@@ -331,7 +331,7 @@ function WidgetForm({
   onCancel: () => void
 }) {
   const isEdit = !!initial
-  type WidgetFormType = 'server_status' | 'adguard_home' | 'docker_overview' | 'custom_button' | 'home_assistant' | 'pihole'
+  type WidgetFormType = 'server_status' | 'adguard_home' | 'docker_overview' | 'custom_button' | 'home_assistant' | 'pihole' | 'nginx_pm'
   const [type, setType] = useState<WidgetFormType>(
     (initial?.type as WidgetFormType) ?? 'server_status'
   )
@@ -367,6 +367,11 @@ function WidgetForm({
   const [phUrl, setPhUrl] = useState(existingPihole?.url ?? '')
   const [phPassword, setPhPassword] = useState('')  // blank = keep existing on edit
 
+  // nginx_pm config
+  const existingNpm = initial?.type === 'nginx_pm' ? (initial.config as NginxPMConfig) : null
+  const [npmUrl, setNpmUrl] = useState(existingNpm?.url ?? '')
+  const [npmApiKey, setNpmApiKey] = useState('')  // blank = keep existing on edit
+
   // icon
   const [pendingIcon, setPendingIcon] = useState<{ data: string; contentType: string; preview: string } | null>(null)
   const iconInputRef = useRef<HTMLInputElement>(null)
@@ -392,6 +397,7 @@ function WidgetForm({
     if (t === 'custom_button') return 'Quick Actions'
     if (t === 'home_assistant') return 'Home Assistant'
     if (t === 'pihole') return 'Pi-hole'
+    if (t === 'nginx_pm') return 'Nginx Proxy Manager'
     return 'Server Status'
   }
 
@@ -421,6 +427,10 @@ function WidgetForm({
       if (!phUrl.trim()) return setError('URL is required')
       if (!isEdit && !phPassword) return setError('Password is required')
       config = { url: phUrl.trim(), ...(phPassword ? { password: phPassword } : {}) }
+    } else if (type === 'nginx_pm') {
+      if (!npmUrl.trim()) return setError('URL is required')
+      if (!isEdit && !npmApiKey) return setError('API Key is required')
+      config = { url: npmUrl.trim(), ...(npmApiKey ? { api_key: npmApiKey } : {}) }
     } else {
       if (!agUrl.trim()) return setError('URL is required')
       if (!agUsername.trim()) return setError('Username is required')
@@ -473,6 +483,7 @@ function WidgetForm({
               <option value="custom_button">Custom Buttons</option>
               <option value="docker_overview">Docker Overview</option>
               <option value="home_assistant">Home Assistant</option>
+              <option value="nginx_pm">Nginx Proxy Manager</option>
               <option value="pihole">Pi-hole</option>
               <option value="server_status">Server Status</option>
             </select>
@@ -695,6 +706,23 @@ function WidgetForm({
               <input className="form-input" type="password" value={phPassword} onChange={e => setPhPassword(e.target.value)} placeholder={isEdit ? '••••••••' : 'Pi-hole admin password'} autoComplete="new-password" style={{ fontSize: 13 }} />
             </div>
             <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>Requires Pi-hole v6+</p>
+          </div>
+        )}
+
+        {/* nginx_pm config */}
+        {type === 'nginx_pm' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div>
+              <label className="form-label" style={{ fontSize: 11 }}>Nginx Proxy Manager URL</label>
+              <input className="form-input" value={npmUrl} onChange={e => setNpmUrl(e.target.value)} placeholder="http://192.168.1.1:81" style={{ fontSize: 13 }} />
+            </div>
+            <div>
+              <label className="form-label" style={{ fontSize: 11 }}>
+                API Key{isEdit && <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginLeft: 6 }}>(leave blank to keep existing)</span>}
+              </label>
+              <input className="form-input" type="password" value={npmApiKey} onChange={e => setNpmApiKey(e.target.value)} placeholder={isEdit ? '••••••••' : 'NPM API Key'} autoComplete="new-password" style={{ fontSize: 13 }} />
+            </div>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>Create API key in NPM Settings → API</p>
           </div>
         )}
       </div>

@@ -125,11 +125,17 @@ export interface HaEntityState {
   device_class: string | null
 }
 
+export interface NginxPMConfig {
+  url: string
+  api_key: string
+  // api_key intentionally omitted from frontend — never sent to browser
+}
+
 export interface Widget {
   id: string
-  type: 'server_status' | 'adguard_home' | 'docker_overview' | 'custom_button' | 'home_assistant' | 'pihole'
+  type: 'server_status' | 'adguard_home' | 'docker_overview' | 'custom_button' | 'home_assistant' | 'pihole' | 'nginx_pm'
   name: string
-  config: ServerStatusConfig | AdGuardHomeConfig | CustomButtonConfig | HomeAssistantConfig | PiholeConfig | Record<string, never>
+  config: ServerStatusConfig | AdGuardHomeConfig | CustomButtonConfig | HomeAssistantConfig | PiholeConfig | NginxPMConfig | Record<string, never>
   position: number
   show_in_topbar: boolean  // deprecated: use display_location
   display_location: 'topbar' | 'sidebar' | 'none'
@@ -151,7 +157,15 @@ export interface AdGuardStats {
   protection_enabled: boolean
 }
 
-export type WidgetStats = ServerStats | AdGuardStats | HaEntityState[]
+export interface NpmStats {
+  uptime: number
+  proxyCount: number
+  certificateCount: number
+  totalExpiredCerts: number
+  totalExpiringCertificates: number
+}
+
+export type WidgetStats = ServerStats | AdGuardStats | HaEntityState[] | NpmStats
 
 export interface DashboardWidgetItem {
   id: string

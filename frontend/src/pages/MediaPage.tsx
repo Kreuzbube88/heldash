@@ -1028,7 +1028,7 @@ function LibraryTab() {
 // ── Discover tab (Seerr) ───────────────────────────────────────────────────────
 
 function DiscoverTab() {
-  const { instances, discoverMovies, discoverTv, discoverTrending, discoverSearch, loadDiscoverMovies, loadDiscoverTv, loadDiscoverTrending, loadDiscoverSearch, discoverRequest } = useArrStore()
+  const { instances, discoverMovies, discoverTv, discoverTrending, discoverSearch, seerrRequests, loadDiscoverMovies, loadDiscoverTv, loadDiscoverTrending, loadDiscoverSearch, discoverRequest, loadSeerrRequests } = useArrStore()
   const [loading, setLoading] = useState(false)
   const [tab, setTab] = useState<'trending' | 'movies' | 'tv' | 'search'>('trending')
   const [page, setPage] = useState(1)
@@ -1052,6 +1052,7 @@ function DiscoverTab() {
         loadDiscoverTrending(selected.id),
         loadDiscoverMovies(selected.id, 1, sortBy),
         loadDiscoverTv(selected.id, 1, sortBy),
+        loadSeerrRequests(selected.id, 'all'), // Load all requests to check for already-requested items
       ])
       setLoading(false)
     }
@@ -1107,6 +1108,12 @@ function DiscoverTab() {
   }
 
   const allResults = data?.results ?? []
+
+  // Helper: check if an item is already requested
+  const isAlreadyRequested = (mediaType: 'movie' | 'tv', tmdbId: number) => {
+    const requests = seerrRequests[selected.id]?.results ?? []
+    return requests.some(r => r.media.mediaType === mediaType && r.media.tmdbId === tmdbId)
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20, position: 'relative' }}>
@@ -1233,6 +1240,7 @@ function DiscoverTab() {
           const year = item.releaseDate?.slice(0, 4) || item.firstAirDate?.slice(0, 4) || ''
           const rating = item.voteAverage ? Math.round(item.voteAverage * 10) / 10 : null
           const overview = item.overview?.slice(0, 100) + (item.overview?.length > 100 ? '...' : '') || ''
+          const alreadyRequested = isAlreadyRequested(item.mediaType, item.tmdbId)
 
           return (
             <div
@@ -1292,6 +1300,27 @@ function DiscoverTab() {
                   </div>
                 )}
 
+                {/* Requested Badge */}
+                {alreadyRequested && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      bottom: 8,
+                      right: 8,
+                      background: 'rgba(34, 197, 94, 0.9)',
+                      color: '#fff',
+                      padding: '4px 8px',
+                      borderRadius: 'var(--radius-sm)',
+                      fontSize: 10,
+                      fontWeight: 600,
+                      textTransform: 'uppercase',
+                      backdropFilter: 'blur(8px)',
+                    }}
+                  >
+                    ✓ Requested
+                  </div>
+                )}
+
                 {/* Media Type Badge */}
                 <div
                   style={{
@@ -1329,15 +1358,25 @@ function DiscoverTab() {
 
                 <button
                   onClick={e => {
+                    if (alreadyRequested) return
                     e.stopPropagation()
                     setConfirmRequest({ item, mediaType: item.mediaType, tmdbId: item.tmdbId })
                     setSelectedSeasons(item.mediaType === 'tv' ? [1] : [])
                   }}
-                  disabled={requesting === `${item.mediaType}-${item.id}`}
-                  className="btn btn-primary btn-sm"
-                  style={{ fontSize: 12, padding: '6px 12px', marginTop: 'auto' }}
+                  disabled={requesting === `${item.mediaType}-${item.id}` || alreadyRequested}
+                  className={alreadyRequested ? 'btn btn-ghost btn-sm' : 'btn btn-primary btn-sm'}
+                  style={{
+                    fontSize: 12,
+                    padding: '6px 12px',
+                    marginTop: 'auto',
+                    opacity: alreadyRequested ? 0.6 : 1,
+                  }}
                 >
-                  {requesting === `${item.mediaType}-${item.id}` ? 'Requesting...' : '+ Request'}
+                  {requesting === `${item.mediaType}-${item.id}`
+                    ? 'Requesting...'
+                    : alreadyRequested
+                    ? '✓ Requested'
+                    : '+ Request'}
                 </button>
               </div>
             </div>

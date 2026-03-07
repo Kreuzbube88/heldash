@@ -159,10 +159,12 @@ export function Topbar({ page, onAddService, onAddInstance, onAddWidget, onCheck
                 {entities.map((e, i) => (
                   <React.Fragment key={e.entity_id}>
                     {i > 0 && sep}
-                    {muted(e.label || e.entity_id)}{' '}
+                    {muted(e.label || e.friendly_name || e.entity_id)}{' '}
                     {val(
                       e.state + (e.unit ? ` ${e.unit}` : ''),
-                      e.state === 'on' ? 'var(--status-online)' : e.state === 'off' ? 'var(--text-muted)' : undefined
+                    ['on', 'open', 'unlocked', 'playing', 'home', 'active'].includes(e.state) ? 'var(--status-online)'
+                      : ['off', 'closed', 'locked', 'paused', 'idle', 'standby'].includes(e.state) ? 'var(--text-muted)'
+                      : undefined
                     )}
                   </React.Fragment>
                 ))}

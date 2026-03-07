@@ -286,6 +286,7 @@ interface HaEntity {
   state: string
   unit: string | null
   device_class: string | null
+  friendly_name: string | null
 }
 
 async function getHaStates(url: string, token: string, entities: { entity_id: string; label: string }[]): Promise<HaEntity[]> {
@@ -295,7 +296,7 @@ async function getHaStates(url: string, token: string, entities: { entity_id: st
   try {
     return await Promise.all(entities.map(async e => {
       const res = await fetch(`${base}/api/states/${e.entity_id}`, { headers })
-      if (!res.ok) return { entity_id: e.entity_id, label: e.label, state: 'unavailable', unit: null, device_class: null }
+      if (!res.ok) return { entity_id: e.entity_id, label: e.label, state: 'unavailable', unit: null, device_class: null, friendly_name: null }
       const data = await res.json() as { state: string; attributes: Record<string, unknown> }
       return {
         entity_id: e.entity_id,
@@ -303,6 +304,7 @@ async function getHaStates(url: string, token: string, entities: { entity_id: st
         state: data.state,
         unit: (data.attributes.unit_of_measurement as string | undefined) ?? null,
         device_class: (data.attributes.device_class as string | undefined) ?? null,
+        friendly_name: (data.attributes.friendly_name as string | undefined) ?? null,
       }
     }))
   } catch {

@@ -227,18 +227,26 @@ export function HaStatsView({
     finally { setToggling(null) }
   }
 
-  const toggleableDomains = ['switch', 'light', 'input_boolean', 'automation']
+  const toggleableDomains = ['switch', 'light', 'input_boolean', 'automation', 'fan']
+
+  const stateColor = (state: string): string | undefined => {
+    if (['on', 'open', 'unlocked', 'playing', 'home', 'active'].includes(state)) return 'var(--status-online)'
+    if (['off', 'closed', 'locked', 'paused', 'idle', 'standby'].includes(state)) return 'var(--text-muted)'
+    if (['unavailable', 'unknown'].includes(state)) return 'var(--text-muted)'
+    return undefined
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       {entities.map(e => {
         const domain = e.entity_id.split('.')[0]
-        const isToggleable = toggleableDomains.includes(domain) && (isAdmin || true)
+        const isToggleable = toggleableDomains.includes(domain)
         const isOn = e.state === 'on'
         const isUnavailable = e.state === 'unavailable' || e.state === 'unknown'
+        const displayLabel = e.label || e.friendly_name || e.entity_id
         return (
           <div key={e.entity_id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ flex: 1, fontSize: 12, color: 'var(--text-secondary)' }}>{e.label || e.entity_id}</span>
+            <span style={{ flex: 1, fontSize: 12, color: 'var(--text-secondary)' }}>{displayLabel}</span>
             {isUnavailable ? (
               <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>unavailable</span>
             ) : e.unit ? (
@@ -258,7 +266,7 @@ export function HaStatsView({
                 }
               </button>
             ) : (
-              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{e.state}</span>
+              <span style={{ fontSize: 11, color: stateColor(e.state) ?? 'var(--text-secondary)' }}>{e.state}</span>
             )}
           </div>
         )

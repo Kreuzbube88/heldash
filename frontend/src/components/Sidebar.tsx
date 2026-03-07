@@ -170,11 +170,16 @@ function SidebarWidget({ widget }: { widget: Widget }) {
   } else if (widget.type === 'home_assistant' && Array.isArray(s)) {
     const entities = s as HaEntityState[]
     if (entities.length === 0) return null
+    const haStateColor = (state: string): string | undefined => {
+      if (['on', 'open', 'unlocked', 'playing', 'home', 'active'].includes(state)) return 'var(--status-online)'
+      if (['off', 'closed', 'locked', 'paused', 'idle', 'standby'].includes(state)) return 'var(--text-muted)'
+      return undefined
+    }
     body = <>
       {entities.map(e => row(
-        e.label || e.entity_id,
+        e.label || e.friendly_name || e.entity_id,
         e.state + (e.unit ? ` ${e.unit}` : ''),
-        e.state === 'on' ? 'var(--status-online)' : e.state === 'off' ? 'var(--text-muted)' : undefined
+        haStateColor(e.state)
       ))}
     </>
   } else if (widget.type === 'nginx_pm' && 'proxy_hosts' in (s as object)) {

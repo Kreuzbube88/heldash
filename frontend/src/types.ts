@@ -126,6 +126,7 @@ export interface HaEntityState {
   state: string
   unit: string | null
   device_class: string | null
+  friendly_name: string | null
 }
 
 export interface NginxPMConfig {

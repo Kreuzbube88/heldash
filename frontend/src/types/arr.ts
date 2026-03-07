@@ -19,12 +19,20 @@ export interface ArrStatus {
 }
 
 // ── Stats (type-discriminated) ────────────────────────────────────────────────
+export interface RadarrHealthIssue {
+  type: string   // 'notice' | 'warning' | 'error'
+  message: string
+}
+
 export interface RadarrStats {
   type: 'radarr'
   movieCount: number
   monitored: number
   withFile: number
   sizeOnDisk: number
+  missingCount: number
+  healthIssues: RadarrHealthIssue[]
+  diskspaceFreeBytes: number
 }
 
 export interface SonarrStats {

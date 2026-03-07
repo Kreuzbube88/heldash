@@ -42,6 +42,25 @@ export interface RadarrCalendarItem {
   monitored: boolean
 }
 
+export interface RadarrHealthItem {
+  source: string
+  type: string   // 'ok' | 'notice' | 'warning' | 'error'
+  message: string
+  wikiUrl?: string
+}
+
+export interface RadarrDiskSpace {
+  path: string
+  label: string
+  freeSpace: number
+  totalSpace: number
+}
+
+export interface RadarrWantedResponse {
+  totalRecords: number
+  records: RadarrMovieRow[]
+}
+
 export class RadarrClient extends ArrBaseClient {
   constructor(url: string, apiKey: string) {
     super(url, apiKey, 'v3')
@@ -57,5 +76,17 @@ export class RadarrClient extends ArrBaseClient {
 
   getCalendar(start: string, end: string) {
     return this.get<RadarrCalendarItem[]>('calendar', { start, end, unmonitored: 'false' })
+  }
+
+  getHealth() {
+    return this.get<RadarrHealthItem[]>('health')
+  }
+
+  getDiskSpace() {
+    return this.get<RadarrDiskSpace[]>('diskspace')
+  }
+
+  getWantedMissing() {
+    return this.get<RadarrWantedResponse>('wanted/missing', { pageSize: '1', monitored: 'true' })
   }
 }

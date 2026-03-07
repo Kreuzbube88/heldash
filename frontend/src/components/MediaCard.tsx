@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useArrStore } from '../store/useArrStore'
 import { useStore } from '../store/useStore'
-import type { ArrStatus, ArrStats, ArrQueueItem, ArrCalendarItem, RadarrCalendarItem, SonarrCalendarItem, ProwlarrIndexer, SabnzbdQueueData, SabnzbdHistoryData, SeerrRequest } from '../types/arr'
-import { ChevronDown, ChevronUp, Check, X, Trash2 } from 'lucide-react'
+import type { ArrStatus, ArrStats, ArrQueueItem, ArrCalendarItem, RadarrCalendarItem, SonarrCalendarItem, ProwlarrIndexer, SabnzbdQueueData, SabnzbdHistoryData, SeerrRequest, RadarrHealthIssue } from '../types/arr'
+import { ChevronDown, ChevronUp, Check, X, Trash2, AlertTriangle } from 'lucide-react'
 
 // Minimal instance shape — works for both ArrInstance and dashboard partial
 export interface ArrInstanceBase {
@@ -208,6 +208,23 @@ function InstanceIcon({ iconUrl, iconEmoji }: { iconUrl?: string | null; iconEmo
 
 const normalizeUrl = (u: string) => u.replace(/\/$/, '').toLowerCase()
 
+function HealthIssueList({ issues }: { issues: RadarrHealthIssue[] }) {
+  if (issues.length === 0) return <p style={{ fontSize: 12, color: 'var(--status-online)', padding: '8px 0' }}>No health issues.</p>
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {issues.map((issue, i) => {
+        const color = issue.type === 'error' ? 'var(--status-offline)' : issue.type === 'warning' ? '#f59e0b' : 'var(--text-muted)'
+        return (
+          <div key={i} className="glass" style={{ padding: '8px 12px', borderRadius: 'var(--radius-md)', fontSize: 12, display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+            <AlertTriangle size={12} style={{ color, flexShrink: 0, marginTop: 1 }} />
+            <span style={{ color: 'var(--text-secondary)' }}>{issue.message}</span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export function ArrCardContent({ instance }: {
   instance: ArrInstanceBase
 }) {
@@ -219,14 +236,14 @@ export function ArrCardContent({ instance }: {
   )
   const iconUrl = matchingSvc?.icon_url ?? null
   const iconEmoji = matchingSvc?.icon ?? null
-  const [expanded, setExpanded] = useState<'queue' | 'calendar' | 'indexers' | null>(null)
+  const [expanded, setExpanded] = useState<'queue' | 'calendar' | 'indexers' | 'health' | null>(null)
   const [loadingExpand, setLoadingExpand] = useState(false)
 
   const status: ArrStatus | undefined = statuses[instance.id]
   const stat: ArrStats | undefined = stats[instance.id]
   const online = status?.online ?? null
 
-  const handleExpand = async (section: 'queue' | 'calendar' | 'indexers') => {
+  const handleExpand = async (section: 'queue' | 'calendar' | 'indexers' | 'health') => {
     if (expanded === section) { setExpanded(null); return }
     setExpanded(section)
     if (section === 'queue' && !queues[instance.id]) {
@@ -273,7 +290,9 @@ export function ArrCardContent({ instance }: {
               <Stat label="Movies" value={stat.movieCount} />
               <Stat label="Monitored" value={stat.monitored} />
               <Stat label="On Disk" value={stat.withFile} />
+              {stat.missingCount > 0 && <Stat label="Missing" value={stat.missingCount} />}
               <Stat label="Size" value={fmtBytes(stat.sizeOnDisk)} />
+              {stat.diskspaceFreeBytes > 0 && <Stat label="Disk Free" value={fmtBytes(stat.diskspaceFreeBytes)} />}
             </>
           )}
           {stat.type === 'sonarr' && (
@@ -294,7 +313,7 @@ export function ArrCardContent({ instance }: {
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
         {instance.type !== 'prowlarr' && (
           <>
             <ExpandBtn label="Queue" active={expanded === 'queue'} onClick={() => handleExpand('queue')} />
@@ -303,6 +322,27 @@ export function ArrCardContent({ instance }: {
         )}
         {instance.type === 'prowlarr' && (
           <ExpandBtn label="Indexers" active={expanded === 'indexers'} onClick={() => handleExpand('indexers')} />
+        )}
+        {instance.type === 'radarr' && stat?.type === 'radarr' && (
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => handleExpand('health')}
+            style={{
+              fontSize: 11, gap: 4, padding: '4px 8px',
+              color: expanded === 'health'
+                ? 'var(--accent)'
+                : stat.healthIssues.length > 0
+                  ? (stat.healthIssues.some(h => h.type === 'error') ? 'var(--status-offline)' : '#f59e0b')
+                  : 'var(--text-secondary)',
+              borderColor: expanded === 'health' ? 'var(--accent)' : 'transparent',
+            }}
+          >
+            {stat.healthIssues.length > 0 && (
+              <AlertTriangle size={10} />
+            )}
+            Health{stat.healthIssues.length > 0 ? ` (${stat.healthIssues.length})` : ''}
+            {expanded === 'health' ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+          </button>
         )}
       </div>
 
@@ -316,7 +356,9 @@ export function ArrCardContent({ instance }: {
                 ? <CalendarList items={calendars[instance.id]!} type={instance.type} />
                 : expanded === 'indexers' && indexers[instance.id]
                   ? <IndexerList items={indexers[instance.id]!} />
-                  : null
+                  : expanded === 'health' && stat?.type === 'radarr'
+                    ? <HealthIssueList issues={stat.healthIssues} />
+                    : null
           }
         </div>
       )}

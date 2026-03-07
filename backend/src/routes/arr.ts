@@ -263,13 +263,24 @@ export async function arrRoutes(app: FastifyInstance) {
         }
       }
       if (row.type === 'radarr') {
-        const movies = await new RadarrClient(row.url, row.api_key).getMovies()
+        const client = new RadarrClient(row.url, row.api_key)
+        const [movies, health, diskspace, wanted] = await Promise.all([
+          client.getMovies(),
+          client.getHealth().catch(() => []),
+          client.getDiskSpace().catch(() => []),
+          client.getWantedMissing().catch(() => ({ totalRecords: 0, records: [] })),
+        ])
         return {
           type: 'radarr',
           movieCount: movies.length,
           monitored: movies.filter(m => m.monitored).length,
           withFile: movies.filter(m => m.hasFile).length,
           sizeOnDisk: movies.reduce((a, m) => a + (m.sizeOnDisk ?? 0), 0),
+          missingCount: wanted.totalRecords,
+          healthIssues: health
+            .filter(h => h.type !== 'ok')
+            .map(h => ({ type: h.type, message: h.message })),
+          diskspaceFreeBytes: diskspace.reduce((a, d) => a + (d.freeSpace ?? 0), 0),
         }
       }
       if (row.type === 'sonarr') {

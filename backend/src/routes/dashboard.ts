@@ -126,7 +126,7 @@ function buildItem(
   filterGroupId: string | null,
   db: any
 ): any | null {
-  if (item.type === 'placeholder' || item.type === 'placeholder_app' || item.type === 'placeholder_instance' || item.type === 'placeholder_row') {
+  if (item.type === 'placeholder' || item.type === 'placeholder_app' || item.type === 'placeholder_widget' || item.type === 'placeholder_row') {
     return { id: item.id, type: item.type, position: item.position, group_id: item.group_id }
   }
 
@@ -353,10 +353,10 @@ export async function dashboardRoutes(app: FastifyInstance) {
 
     const { type, ref_id } = req.body as AddItemBody
 
-    if (!['service', 'arr_instance', 'placeholder', 'placeholder_app', 'placeholder_instance', 'placeholder_row', 'widget'].includes(type)) {
+    if (!['service', 'arr_instance', 'placeholder', 'placeholder_app', 'placeholder_widget', 'placeholder_row', 'widget'].includes(type)) {
       return reply.status(400).send({ error: 'Invalid type' })
     }
-    const isPlaceholderType = type === 'placeholder' || type === 'placeholder_app' || type === 'placeholder_instance' || type === 'placeholder_row'
+    const isPlaceholderType = type === 'placeholder' || type === 'placeholder_app' || type === 'placeholder_widget' || type === 'placeholder_row'
     if (!isPlaceholderType && !ref_id) {
       return reply.status(400).send({ error: 'ref_id required for service and arr_instance' })
     }

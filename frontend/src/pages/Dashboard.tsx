@@ -371,10 +371,11 @@ function DashboardPlaceholderCard({ item, editMode }: { item: DashboardPlacehold
   })
   const [showHandle, setShowHandle] = useState(false)
 
-  const isInstance = item.type === 'placeholder_instance'
+  const isWidget = item.type === 'placeholder_widget'
   const isRow = item.type === 'placeholder_row'
-  const gridColumn = isRow ? '1 / -1' : isInstance ? 'span 2' : undefined
-  const minHeight = isRow ? 28 : isInstance ? 100 : 80
+  const gridColumn = isRow ? '1 / -1' : isWidget ? 'span 4' : 'span 2'
+  const gridRow = isWidget ? 'span 2' : undefined
+  const minHeight = isRow ? 28 : isWidget ? 160 : 80
 
   // Outside edit mode: invisible spacer that still occupies grid space to preserve layout
   if (!editMode) {
@@ -386,7 +387,7 @@ function DashboardPlaceholderCard({ item, editMode }: { item: DashboardPlacehold
     )
   }
 
-  const label = isRow ? 'Row' : isInstance ? 'Instance' : 'App'
+  const label = isRow ? 'Row' : isWidget ? 'Widget' : 'App'
 
   return (
     <div
@@ -397,6 +398,7 @@ function DashboardPlaceholderCard({ item, editMode }: { item: DashboardPlacehold
         opacity: isDragging ? 0.3 : 1,
         position: 'relative',
         gridColumn,
+        gridRow,
       }}
       onMouseEnter={() => setShowHandle(true)}
       onMouseLeave={() => setShowHandle(false)}
@@ -404,7 +406,7 @@ function DashboardPlaceholderCard({ item, editMode }: { item: DashboardPlacehold
       <div
         style={{
           border: '1.5px dashed var(--accent)',
-          borderRadius: isRow ? 'var(--radius-sm)' : isInstance ? 'var(--radius-xl)' : 'var(--radius-lg)',
+          borderRadius: isRow ? 'var(--radius-sm)' : isWidget ? 'var(--radius-xl)' : 'var(--radius-lg)',
           background: 'var(--accent-subtle)',
           minHeight,
           display: 'flex',
@@ -464,7 +466,7 @@ function renderDashboardItem(
       />
     )
   }
-  if (item.type === 'placeholder' || item.type === 'placeholder_app' || item.type === 'placeholder_instance' || item.type === 'placeholder_row') {
+  if (item.type === 'placeholder' || item.type === 'placeholder_app' || item.type === 'placeholder_widget' || item.type === 'placeholder_row') {
     return <DashboardPlaceholderCard key={item.id} item={item as DashboardPlaceholderItem} editMode={editMode} />
   }
   return null
@@ -608,7 +610,7 @@ function SortableGroup({ group, editMode, onEdit }: {
                       />
                     )
                   }
-                  if (item.type === 'placeholder' || item.type === 'placeholder_app' || item.type === 'placeholder_instance' || item.type === 'placeholder_row') {
+                  if (item.type === 'placeholder' || item.type === 'placeholder_app' || item.type === 'placeholder_widget' || item.type === 'placeholder_row') {
                     return <DashboardPlaceholderCard key={item.id} item={item as DashboardPlaceholderItem} editMode={editMode} />
                   }
                   return null
@@ -654,7 +656,7 @@ export function Dashboard({ onEdit }: Props) {
   }, [arrItemCount])
 
   const isPlaceholder = (type: string) =>
-    type === 'placeholder' || type === 'placeholder_app' || type === 'placeholder_instance' || type === 'placeholder_row'
+    type === 'placeholder' || type === 'placeholder_app' || type === 'placeholder_widget' || type === 'placeholder_row'
 
   // Real items (non-placeholders) in both groups and ungrouped
   const realGroupItems = groups.filter(g => g.items.some(i => !isPlaceholder(i.type))).length > 0

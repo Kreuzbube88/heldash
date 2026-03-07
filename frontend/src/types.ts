@@ -88,7 +88,7 @@ export interface DashboardArrItem {
 
 export interface DashboardPlaceholderItem {
   id: string
-  type: 'placeholder' | 'placeholder_app' | 'placeholder_instance' | 'placeholder_row'
+  type: 'placeholder' | 'placeholder_app' | 'placeholder_widget' | 'placeholder_row'
   position: number
 }
 

@@ -100,7 +100,7 @@ function EditOverlay({
           title="Move to group"
           style={{
             position: 'absolute', right: 28, bottom: 6,
-            opacity: showHandle ? 0.8 : 0,
+            opacity: showHandle ? 1 : 0,
             transition: 'opacity 150ms ease',
             cursor: 'pointer',
             zIndex: 10,
@@ -108,12 +108,13 @@ function EditOverlay({
             padding: '2px 6px',
             height: 22,
             borderRadius: 4,
-            background: 'var(--glass-bg)',
+            background: 'var(--bg-elevated)',
             border: '1px solid var(--glass-border)',
             color: 'var(--text-primary)',
-          }}
+            colorScheme: 'dark',
+          } as React.CSSProperties}
         >
-          <option value="">Ungrouped</option>
+          <option value="">— Ungrouped —</option>
           {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
         </select>
       )}
@@ -219,6 +220,7 @@ function DashboardArrCard({ item, editMode, groups }: {
           isDragging={isDragging}
           onRemove={() => removeItem(item.id)}
           groups={groups?.map(g => ({ id: g.id, name: g.name }))}
+          itemGroupId={item.group_id ?? undefined}
           onMoveToGroup={(groupId) => moveItemToGroup(item.id, groupId)}
         />
       )}
@@ -323,6 +325,7 @@ function DashboardWidgetCard({ item, editMode, groups }: {
           isDragging={isDragging}
           onRemove={() => removeItem(item.id)}
           groups={groups?.map(g => ({ id: g.id, name: g.name }))}
+          itemGroupId={item.group_id ?? undefined}
           onMoveToGroup={(groupId) => moveItemToGroup(item.id, groupId)}
         />
       )}
@@ -444,7 +447,7 @@ function SortableGroup({ group, editMode, onEdit }: {
   editMode: boolean
   onEdit: (s: Service) => void
 }) {
-  const { updateGroup, deleteGroup, reorderGroupItems } = useDashboardStore()
+  const { updateGroup, deleteGroup, reorderGroupItems, groups: allGroups } = useDashboardStore()
   const { settings } = useStore()
   const appsPerRow = settings?.dashboard_grid_size ?? 5
   // Inner grid columns = fraction of appsPerRow based on group's % of the 12-column outer grid
@@ -559,6 +562,7 @@ function SortableGroup({ group, editMode, onEdit }: {
                         item={item as DashboardServiceItem}
                         onEdit={onEdit}
                         editMode={editMode}
+                        groups={allGroups}
                       />
                     )
                   }
@@ -568,6 +572,7 @@ function SortableGroup({ group, editMode, onEdit }: {
                         key={item.id}
                         item={item as DashboardArrItem}
                         editMode={editMode}
+                        groups={allGroups}
                       />
                     )
                   }
@@ -577,6 +582,7 @@ function SortableGroup({ group, editMode, onEdit }: {
                         key={item.id}
                         item={item as DashboardWidgetItem}
                         editMode={editMode}
+                        groups={allGroups}
                       />
                     )
                   }

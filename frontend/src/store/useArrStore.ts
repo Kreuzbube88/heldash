@@ -35,7 +35,7 @@ interface ArrState {
   loadDiscoverTv: (id: string, page?: number, sortBy?: string) => Promise<void>
   loadDiscoverTrending: (id: string) => Promise<void>
   loadDiscoverSearch: (id: string, query: string) => Promise<void>
-  discoverRequest: (id: string, mediaType: 'movie' | 'tv', tmdbId: number, seasons?: number[]) => Promise<any>
+  discoverRequest: (id: string, mediaType: 'movie' | 'tv', mediaId: number, seasons?: number[]) => Promise<any>
   seerrApprove: (id: string, requestId: number) => Promise<void>
   seerrDecline: (id: string, requestId: number) => Promise<void>
   seerrDelete: (id: string, requestId: number) => Promise<void>
@@ -182,8 +182,14 @@ export const useArrStore = create<ArrState>((set, get) => ({
     } catch { /* keep previous state on error */ }
   },
 
-  discoverRequest: async (id, mediaType, tmdbId, seasons) => {
-    return await api.arr.discoverRequest(id, mediaType, tmdbId, seasons)
+  discoverRequest: async (id, mediaType, mediaId, seasons) => {
+    const result = await api.arr.discoverRequest(id, mediaType, mediaId, seasons)
+    // Refresh requests list so badge updates for newly-requested item
+    try {
+      const updated = await api.arr.seerrRequests(id, 1)
+      set(state => ({ seerrRequests: { ...state.seerrRequests, [id]: updated } }))
+    } catch { /* optional refresh */ }
+    return result
   },
 
   createInstance: async (data) => {

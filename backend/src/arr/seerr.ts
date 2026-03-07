@@ -39,17 +39,28 @@ interface SeerrStatus {
   restartRequired?: boolean
 }
 
-export interface SeerrDiscoverResult {
+export interface SeerrMediaInfo {
   id: number
   mediaType: 'movie' | 'tv'
   tmdbId: number
-  title?: string
-  name?: string
+  tvdbId?: number | null
+  // 1=UNKNOWN, 2=PENDING, 3=PROCESSING, 4=PARTIALLY_AVAILABLE, 5=AVAILABLE, 6=DELETED
+  status: number
+  requests?: { id: number; status: number }[]
+}
+
+export interface SeerrDiscoverResult {
+  id: number  // TMDB ID
+  mediaType: 'movie' | 'tv'
+  title?: string       // movies
+  name?: string        // TV
   posterPath?: string
+  backdropPath?: string
   releaseDate?: string
   firstAirDate?: string
   voteAverage?: number
   overview?: string
+  mediaInfo?: SeerrMediaInfo
 }
 
 export interface SeerrDiscoverResponse {
@@ -122,11 +133,11 @@ export class SeerrClient extends ArrBaseClient {
     return this.get<SeerrDiscoverResponse>('search', { query })
   }
 
-  requestMedia(mediaType: 'movie' | 'tv', tmdbId: number, seasons?: number[]): Promise<any> {
-    const body: any = { mediaType, tmdbId }
+  requestMedia(mediaType: 'movie' | 'tv', mediaId: number, seasons?: number[]): Promise<unknown> {
+    const body: Record<string, unknown> = { mediaType, mediaId }
     if (seasons && seasons.length > 0) {
       body.seasons = seasons
     }
-    return this.post<any>('request', body)
+    return this.post<unknown>('request', body)
   }
 }

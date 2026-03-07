@@ -30,9 +30,12 @@ export class ArrBaseClient {
     })
 
     if (res.statusCode >= 400) {
-      // Drain body before throwing
-      for await (const _ of res.body) { /* drain */ }
-      throw new Error(`HTTP ${res.statusCode} from ${url}`)
+      const errChunks: Buffer[] = []
+      for await (const chunk of res.body) errChunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
+      const errBody = errChunks.length ? Buffer.concat(errChunks).toString('utf-8') : ''
+      let msg = `HTTP ${res.statusCode}`
+      try { const j = JSON.parse(errBody); msg += ': ' + (j.message ?? j.error ?? errBody.slice(0, 200)) } catch { if (errBody) msg += ': ' + errBody.slice(0, 200) }
+      throw new Error(msg)
     }
 
     const chunks: Buffer[] = []
@@ -54,8 +57,12 @@ export class ArrBaseClient {
       dispatcher: agent,
     })
     if (res.statusCode >= 400) {
-      for await (const _ of res.body) { /* drain */ }
-      throw new Error(`HTTP ${res.statusCode} from ${url}`)
+      const errChunks: Buffer[] = []
+      for await (const chunk of res.body) errChunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
+      const errBody = errChunks.length ? Buffer.concat(errChunks).toString('utf-8') : ''
+      let msg = `HTTP ${res.statusCode}`
+      try { const j = JSON.parse(errBody); msg += ': ' + (j.message ?? j.error ?? errBody.slice(0, 200)) } catch { if (errBody) msg += ': ' + errBody.slice(0, 200) }
+      throw new Error(msg)
     }
     const chunks: Buffer[] = []
     for await (const chunk of res.body) {

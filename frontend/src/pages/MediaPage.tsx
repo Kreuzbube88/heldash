@@ -1036,7 +1036,7 @@ function DiscoverTab() {
   const [searchInput, setSearchInput] = useState('')
   const [requesting, setRequesting] = useState<string | null>(null)
   const [sortBy, setSortBy] = useState('popularity.desc')
-  const [confirmRequest, setConfirmRequest] = useState<{ item: any; mediaType: 'movie' | 'tv'; tmdbId: number } | null>(null)
+  const [confirmRequest, setConfirmRequest] = useState<{ item: any; mediaType: 'movie' | 'tv'; mediaId: number } | null>(null)
   const [selectedSeasons, setSelectedSeasons] = useState<number[]>([])
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
@@ -1109,10 +1109,18 @@ function DiscoverTab() {
 
   const allResults = data?.results ?? []
 
-  // Helper: check if an item is already requested
-  const isAlreadyRequested = (mediaType: 'movie' | 'tv', tmdbId: number) => {
+  // Helper: resolve media status from mediaInfo (direct) or requests list (fallback)
+  // Returns: 'available' | 'partial' | 'processing' | 'pending' | null
+  const getItemStatus = (item: any): 'available' | 'partial' | 'processing' | 'pending' | null => {
+    const s = item.mediaInfo?.status as number | undefined
+    if (s === 5) return 'available'
+    if (s === 4) return 'partial'
+    if (s === 3) return 'processing'
+    if (s === 2) return 'pending'
+    // Fallback: check recently-submitted requests (covers items requested this session)
     const requests = seerrRequests[selected.id]?.results ?? []
-    return requests.some(r => r.media.mediaType === mediaType && r.media.tmdbId === tmdbId)
+    if (requests.some(r => r.media.mediaType === item.mediaType && r.media.tmdbId === item.id)) return 'pending'
+    return null
   }
 
   return (
@@ -1240,7 +1248,8 @@ function DiscoverTab() {
           const year = item.releaseDate?.slice(0, 4) || item.firstAirDate?.slice(0, 4) || ''
           const rating = item.voteAverage ? Math.round(item.voteAverage * 10) / 10 : null
           const overview = item.overview?.slice(0, 100) + (item.overview?.length > 100 ? '...' : '') || ''
-          const alreadyRequested = isAlreadyRequested(item.mediaType, item.tmdbId)
+          const itemStatus = getItemStatus(item)
+          const alreadyRequested = itemStatus !== null
 
           return (
             <div
@@ -1300,14 +1309,18 @@ function DiscoverTab() {
                   </div>
                 )}
 
-                {/* Requested Badge */}
-                {alreadyRequested && (
+                {/* Status Badge */}
+                {itemStatus && (
                   <div
                     style={{
                       position: 'absolute',
                       bottom: 8,
                       right: 8,
-                      background: 'rgba(34, 197, 94, 0.9)',
+                      background: itemStatus === 'available' || itemStatus === 'partial'
+                        ? 'rgba(34, 197, 94, 0.9)'
+                        : itemStatus === 'processing'
+                        ? 'rgba(59, 130, 246, 0.9)'
+                        : 'rgba(234, 179, 8, 0.9)',
                       color: '#fff',
                       padding: '4px 8px',
                       borderRadius: 'var(--radius-sm)',
@@ -1317,7 +1330,10 @@ function DiscoverTab() {
                       backdropFilter: 'blur(8px)',
                     }}
                   >
-                    ✓ Requested
+                    {itemStatus === 'available' ? '✓ Available'
+                      : itemStatus === 'partial' ? '◐ Partial'
+                      : itemStatus === 'processing' ? '⟳ Processing'
+                      : '⏳ Requested'}
                   </div>
                 )}
 
@@ -1360,7 +1376,7 @@ function DiscoverTab() {
                   onClick={e => {
                     if (alreadyRequested) return
                     e.stopPropagation()
-                    setConfirmRequest({ item, mediaType: item.mediaType, tmdbId: item.tmdbId })
+                    setConfirmRequest({ item, mediaType: item.mediaType, mediaId: item.id })
                     setSelectedSeasons(item.mediaType === 'tv' ? [1] : [])
                   }}
                   disabled={requesting === `${item.mediaType}-${item.id}` || alreadyRequested}
@@ -1374,8 +1390,10 @@ function DiscoverTab() {
                 >
                   {requesting === `${item.mediaType}-${item.id}`
                     ? 'Requesting...'
-                    : alreadyRequested
-                    ? '✓ Requested'
+                    : itemStatus === 'available' ? '✓ Available'
+                    : itemStatus === 'partial' ? '◐ Partial'
+                    : itemStatus === 'processing' ? '⟳ Processing'
+                    : itemStatus === 'pending' ? '⏳ Requested'
                     : '+ Request'}
                 </button>
               </div>
@@ -1504,7 +1522,7 @@ function DiscoverTab() {
                     await discoverRequest(
                       selected.id,
                       confirmRequest.mediaType,
-                      confirmRequest.tmdbId,
+                      confirmRequest.mediaId,
                       confirmRequest.mediaType === 'tv' ? selectedSeasons : undefined
                     )
                     setNotification({

@@ -19,8 +19,9 @@ function DashboardWidgetIcon({ widget }: { widget: DashboardWidgetItem['widget']
   let iconUrl: string | null = null
   let iconEmoji: string | null = null
 
-  if (widget.type === 'adguard_home') {
-    const widgetUrl = normalizeUrl((widget.config as AdGuardHomeConfig).url ?? '')
+  if (widget.type === 'adguard_home' || widget.type === 'pihole' || widget.type === 'home_assistant') {
+    const cfg = widget.config as { url?: string }
+    const widgetUrl = normalizeUrl(cfg.url ?? '')
     const match = widgetUrl
       ? services.find(s => normalizeUrl(s.url) === widgetUrl || (s.check_url && normalizeUrl(s.check_url) === widgetUrl))
       : undefined

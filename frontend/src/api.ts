@@ -28,6 +28,8 @@ export const api = {
     checkAll: () => req<{ id: string; status: string }[]>('/services/check-all', { method: 'POST', body: JSON.stringify({}) }),
     uploadIcon: (id: string, data: string, contentType: string) =>
       req<{ icon_url: string }>(`/services/${id}/icon`, { method: 'POST', body: JSON.stringify({ data, content_type: contentType }) }),
+    export: () => fetch('/api/services/export', { credentials: 'include' }).then(r => r.blob()),
+    import: (services: any[]) => req<{ imported: number; skipped: number; total: number; errors?: string[] }>('/services/import', { method: 'POST', body: JSON.stringify({ services }) }),
   },
 
   groups: {

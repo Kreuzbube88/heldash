@@ -267,6 +267,119 @@ export async function servicesRoutes(app: FastifyInstance) {
       return { icon_url }
     }
   )
+
+  // GET /api/services/export — admin only, export all services as JSON
+  app.get<{ Querystring: { group_id?: string } }>(
+    '/api/services/export',
+    { onRequest: app.requireAdmin },
+    async (req, reply) => {
+      const groupId = (req.query as Record<string, string>).group_id
+
+      let services: ServiceRow[]
+      if (groupId) {
+        // Export only services in a specific group
+        services = db.prepare('SELECT * FROM services WHERE group_id = ? ORDER BY position_x').all(groupId) as ServiceRow[]
+      } else {
+        // Export all services
+        services = db.prepare('SELECT * FROM services ORDER BY position_y, position_x').all() as ServiceRow[]
+      }
+
+      // Convert to export format (parse tags, exclude icon_url binary path)
+      const exportData = {
+        version: '1.0',
+        exported_at: new Date().toISOString(),
+        services: services.map(s => ({
+          name: s.name,
+          url: s.url,
+          icon: s.icon,
+          description: s.description,
+          tags: JSON.parse(s.tags ?? '[]'),
+          group_id: s.group_id,
+          check_enabled: s.check_enabled === 1,
+          check_url: s.check_url,
+          check_interval: s.check_interval,
+        })),
+      }
+
+      // Send as attachment
+      reply.type('application/json')
+      reply.header('Content-Disposition', `attachment; filename="heldash-services-${new Date().toISOString().split('T')[0]}.json"`)
+      return exportData
+    }
+  )
+
+  // POST /api/services/import — admin only, import services from JSON
+  app.post<{ Body: any }>(
+    '/api/services/import',
+    { onRequest: app.requireAdmin },
+    async (req, reply) => {
+      const { services: importedServices } = req.body as { services: any[] }
+
+      if (!Array.isArray(importedServices)) {
+        return reply.status(400).send({ error: 'Invalid format: expected { services: [...] }' })
+      }
+
+      let imported = 0
+      let skipped = 0
+      const errors: string[] = []
+
+      const insertStmt = db.prepare(`
+        INSERT INTO services (id, name, url, icon, description, tags, group_id, check_enabled, check_url, check_interval, position_x, position_y)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `)
+
+      const importTxn = db.transaction(() => {
+        importedServices.forEach((svc: any, idx: number) => {
+          try {
+            // Validate required fields
+            if (!svc.name || typeof svc.name !== 'string') throw new Error('name required (string)')
+            if (!svc.url || typeof svc.url !== 'string') throw new Error('url required (string)')
+
+            // Check for duplicates by URL
+            const existing = db.prepare('SELECT id FROM services WHERE url = ?').get(svc.url)
+            if (existing) {
+              skipped++
+              return
+            }
+
+            const id = nanoid()
+            const tags = JSON.stringify(Array.isArray(svc.tags) ? svc.tags : [])
+            const checkEnabled = svc.check_enabled === true ? 1 : 0
+            const maxPos = db.prepare('SELECT MAX(position_x) as m FROM services').get() as { m: number | null }
+            const posX = (maxPos.m ?? -1) + 1
+
+            insertStmt.run(
+              id,
+              svc.name,
+              svc.url,
+              svc.icon || null,
+              svc.description || null,
+              tags,
+              svc.group_id || null,
+              checkEnabled,
+              svc.check_url || null,
+              svc.check_interval || 60,
+              posX,
+              0
+            )
+
+            imported++
+          } catch (err) {
+            errors.push(`Service ${idx}: ${(err as Error).message}`)
+          }
+        })
+      })
+
+      importTxn()
+
+      return {
+        imported,
+        skipped,
+        total: importedServices.length,
+        errors: errors.length > 0 ? errors : undefined,
+      }
+    }
+  )
 }
 
 async function pingService(url: string): Promise<string> {

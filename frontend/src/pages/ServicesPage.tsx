@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import type { Service } from '../types'
 import { useStore } from '../store/useStore'
 import { useDashboardStore } from '../store/useDashboardStore'
-import { Pencil, Trash2, Plus, GripVertical } from 'lucide-react'
+import { Pencil, Trash2, Plus, GripVertical, Download, Upload } from 'lucide-react'
+import { api } from '../api'
 import {
   DndContext,
   DragEndEvent,
@@ -288,15 +289,95 @@ export function ServicesPage({ onEdit }: Props) {
     sections.push({ label: 'Ohne Gruppe', icon: null, services: ungrouped, id: 'ungrouped' })
   }
 
+  // Export/Import handlers
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [exporting, setExporting] = useState(false)
+  const [importing, setImporting] = useState(false)
+
+  const handleExport = async () => {
+    setExporting(true)
+    try {
+      const response = await fetch('/api/services/export')
+      if (!response.ok) throw new Error('Export failed')
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = response.headers.get('content-disposition')?.split('filename=')[1]?.replace(/"/g, '') || 'heldash-services.json'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      alert(`Export error: ${err instanceof Error ? err.message : 'Unknown error'}`)
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setImporting(true)
+    try {
+      const text = await file.text()
+      const data = JSON.parse(text)
+
+      if (!data.services || !Array.isArray(data.services)) {
+        throw new Error('Invalid file format: expected { services: [...] }')
+      }
+
+      const result = await api.services.import(data.services)
+      alert(`Imported: ${result.imported}, Skipped: ${result.skipped}${result.errors?.length ? ', Errors: ' + result.errors.length : ''}`)
+      await loadServices()
+    } catch (err) {
+      alert(`Import error: ${err instanceof Error ? err.message : 'Unknown error'}`)
+    } finally {
+      setImporting(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      <button
-        onClick={() => setEditMode(!editMode)}
-        className="btn btn-primary btn-sm"
-        style={{ alignSelf: 'flex-start' }}
-      >
-        {editMode ? 'Done' : 'Edit Groups'}
-      </button>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <button
+          onClick={() => setEditMode(!editMode)}
+          className="btn btn-primary btn-sm"
+        >
+          {editMode ? 'Done' : 'Edit Groups'}
+        </button>
+        {isAdmin && (
+          <>
+            <button
+              onClick={handleExport}
+              disabled={exporting}
+              className="btn btn-ghost btn-sm"
+              title="Export all services as JSON"
+            >
+              <Download size={14} />
+              Export
+            </button>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={importing}
+              className="btn btn-ghost btn-sm"
+              title="Import services from JSON file"
+            >
+              <Upload size={14} />
+              Import
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".json"
+              onChange={handleImport}
+              style={{ display: 'none' }}
+            />
+          </>
+        )}
+      </div>
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={groupOrder} strategy={verticalListSortingStrategy}>

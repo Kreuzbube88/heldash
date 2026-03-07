@@ -267,12 +267,13 @@ function DashboardWidgetCard({ item, editMode, groups }: {
         transition,
         opacity: isDragging ? 0.4 : 1,
         position: 'relative',
-        gridColumn: 'span 2',
+        gridColumn: 'span 4',
+        gridRow: 'span 2',
       }}
       onMouseEnter={() => setShowHandle(true)}
       onMouseLeave={() => setShowHandle(false)}
     >
-      <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 20, display: 'flex', flexDirection: 'column', gap: 12, height: '100%' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <DashboardWidgetIcon widget={item.widget} />
           <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{item.widget.name}</div>

@@ -661,8 +661,9 @@ h4 { font-size: 15px; line-height: 1.5; }
 /* ─── Grid Layout ─────────────────────────────────────────────────────────── */
 .services-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(var(--dashboard-grid-size, 130px), 1fr));
+  grid-template-columns: repeat(20, 1fr);
   gap: var(--spacing-lg);
+  grid-auto-flow: dense;
 }
 
 .dashboard-groups {

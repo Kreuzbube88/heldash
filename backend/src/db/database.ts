@@ -61,6 +61,9 @@ function runMigrations(db: Database.Database): number {
     // TRaSH multi-profile: profile context in sync log and pending previews
     'ALTER TABLE trash_sync_log ADD COLUMN profile_slug TEXT',
     "ALTER TABLE trash_pending_previews ADD COLUMN profile_slug TEXT NOT NULL DEFAULT ''",
+    // TRaSH profile-driven sync: excluded flag + custom format profile link
+    'ALTER TABLE trash_user_overrides ADD COLUMN excluded INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE trash_custom_formats ADD COLUMN profile_slug TEXT',
   ]
   for (const sql of migrations) {
     try {

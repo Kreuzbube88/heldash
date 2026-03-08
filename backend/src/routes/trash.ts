@@ -18,12 +18,20 @@ import {
   isActivelySyncing, acquireSync, releaseSync,
   registerSyncFn, rescheduleInstance,
 } from '../trash/scheduler'
+import { safeJson } from '../db/database'
 import type {
   TrashInstanceConfig, TrashProfileConfig, TrashUserOverride,
   TrashDeprecatedFormat, TrashSyncLog, ArrSnapshot, SyncTrigger,
   TrashWidgetStats, NormalizedCustomFormat, NormalizedQualityProfile,
-  GithubCommitInfo,
+  GithubCommitInfo, UserCustomFormatForSync, FormatSpecification,
 } from '../trash/types'
+
+interface UserCustomFormatDbRow {
+  id: string; instance_id: string; source: string; arr_format_id: number | null
+  name: string; slug: string; score: number; specifications: string
+  enabled: number; profile_slug: string | null
+  created_at: string; updated_at: string
+}
 
 // ── DB row types ──────────────────────────────────────────────────────────────
 
@@ -85,10 +93,23 @@ async function syncOneProfile(
     'SELECT * FROM trash_user_overrides WHERE instance_id = ? AND profile_slug = ?'
   ).all(instanceId, profile_slug) as TrashUserOverride[]
 
+  // Load user custom formats linked to this profile
+  const userCustomRows = db.prepare(
+    'SELECT * FROM trash_custom_formats WHERE instance_id = ? AND profile_slug = ?'
+  ).all(instanceId, profile_slug) as UserCustomFormatDbRow[]
+
+  const userCustomFormats: UserCustomFormatForSync[] = userCustomRows.map(r => ({
+    slug: r.slug,
+    name: r.name,
+    score: r.score,
+    specifications: safeJson<FormatSpecification[]>(r.specifications, []),
+    arrFormatId: r.arr_format_id,
+  }))
+
   // Compute changeset (pure — no external calls)
   let changeset = computeChangeset(
     instanceId, profile_slug, filteredUpstream, allActiveUpstreamSlugs,
-    selectedProfile, snapshot, overrides, deprecatedSlugs,
+    selectedProfile, snapshot, overrides, deprecatedSlugs, userCustomFormats,
   )
 
   // For repair_daily, inject repair scan results
@@ -224,6 +245,11 @@ async function runSync(
     const prof = cachedProfiles.find(p => p.slug === profileCfg.profile_slug)
     if (prof) prof.formatScores.forEach(fs => allActiveUpstreamSlugs.add(fs.formatSlug))
   }
+  // User custom formats are never deprecated regardless of profile state
+  const allUserCustomRows = db.prepare(
+    'SELECT slug FROM trash_custom_formats WHERE instance_id = ?'
+  ).all(instanceId) as { slug: string }[]
+  allUserCustomRows.forEach(r => allActiveUpstreamSlugs.add(r.slug))
 
   // 4. Load live arr snapshot (once for all profiles)
   let snapshot: ArrSnapshot
@@ -531,7 +557,7 @@ export async function trashRoutes(app: FastifyInstance) {
       ).all(req.params.id) as { slug: string }[]
       const deprecatedSet = new Set(deprecated.map(r => r.slug))
 
-      return formats.map(f => {
+      const trashRows = formats.map(f => {
         const override = overrideMap.get(f.slug)
         return {
           slug: f.slug,
@@ -539,10 +565,35 @@ export async function trashRoutes(app: FastifyInstance) {
           recommendedScore: f.recommendedScore,
           score: override?.score ?? f.recommendedScore,
           enabled: override ? override.enabled === 1 : true,
+          excluded: override ? override.excluded === 1 : false,
           deprecated: deprecatedSet.has(f.slug),
           arrFormatId: resolveArrId(req.params.id, f.slug),
+          isUserFormat: false,
         }
       })
+
+      // Include user custom formats for this profile (if a profile was specified)
+      if (requestedProfileSlug) {
+        const userCustomRows = db.prepare(
+          'SELECT * FROM trash_custom_formats WHERE instance_id = ? AND profile_slug = ?'
+        ).all(req.params.id, requestedProfileSlug) as UserCustomFormatDbRow[]
+
+        const userRows = userCustomRows.map(r => ({
+          slug: r.slug,
+          name: r.name,
+          recommendedScore: r.score,
+          score: r.score,
+          enabled: r.enabled === 1,
+          excluded: false,
+          deprecated: false,
+          arrFormatId: r.arr_format_id,
+          isUserFormat: true,
+        }))
+
+        return [...trashRows, ...userRows]
+      }
+
+      return trashRows
     },
   )
 
@@ -562,7 +613,7 @@ export async function trashRoutes(app: FastifyInstance) {
 
   // ── PUT /api/trash/instances/:id/overrides — bulk upsert ──────────────────
 
-  interface OverrideItem { slug: string; score?: number | null; enabled?: boolean }
+  interface OverrideItem { slug: string; score?: number | null; enabled?: boolean; excluded?: boolean }
   interface OverridesBody { profile_slug: string; overrides: OverrideItem[] }
 
   app.put<{ Params: { id: string }; Body: OverridesBody }>(
@@ -574,13 +625,13 @@ export async function trashRoutes(app: FastifyInstance) {
       if (!Array.isArray(overrides)) return reply.status(400).send({ error: 'overrides must be array' })
 
       const upsert = db.prepare(`
-        INSERT INTO trash_user_overrides (id, instance_id, profile_slug, slug, score, enabled, updated_at)
+        INSERT INTO trash_user_overrides (id, instance_id, profile_slug, slug, score, enabled, excluded, updated_at)
         VALUES (
           COALESCE((SELECT id FROM trash_user_overrides WHERE instance_id=? AND profile_slug=? AND slug=?), ?),
-          ?, ?, ?, ?, ?, datetime('now')
+          ?, ?, ?, ?, ?, ?, datetime('now')
         )
         ON CONFLICT(instance_id, profile_slug, slug)
-        DO UPDATE SET score=excluded.score, enabled=excluded.enabled, updated_at=excluded.updated_at
+        DO UPDATE SET score=excluded.score, enabled=excluded.enabled, excluded=excluded.excluded, updated_at=excluded.updated_at
       `)
       db.transaction((items: OverrideItem[]) => {
         for (const item of items) {
@@ -589,6 +640,7 @@ export async function trashRoutes(app: FastifyInstance) {
             req.params.id, profile_slug, item.slug,
             item.score !== undefined ? item.score : null,
             item.enabled !== false ? 1 : 0,
+            item.excluded === true ? 1 : 0,
           )
         }
       })(overrides)
@@ -780,13 +832,13 @@ export async function trashRoutes(app: FastifyInstance) {
 
   // ── POST /api/trash/instances/:id/import-formats ──────────────────────────
 
-  interface ImportFormatsBody { format_ids: number[] }
+  interface ImportFormatsBody { format_ids: number[]; profile_slug?: string }
 
   app.post<{ Params: { id: string }; Body: ImportFormatsBody }>(
     '/api/trash/instances/:id/import-formats',
     { preHandler: [app.requireAdmin] },
     async (req, reply) => {
-      const { format_ids } = req.body
+      const { format_ids, profile_slug } = req.body
       if (!Array.isArray(format_ids) || format_ids.length === 0) {
         return reply.status(400).send({ error: 'format_ids must be non-empty array' })
       }
@@ -802,9 +854,9 @@ export async function trashRoutes(app: FastifyInstance) {
           const slug = toSlug(fmt.name)
           db.prepare(`
             INSERT OR IGNORE INTO trash_custom_formats
-              (id, instance_id, source, arr_format_id, name, slug, score, specifications, enabled)
-            VALUES (?, ?, 'imported', ?, ?, ?, 0, ?, 1)
-          `).run(nanoid(), req.params.id, fmt.id, fmt.name, slug, JSON.stringify(fmt.specifications))
+              (id, instance_id, source, arr_format_id, name, slug, score, specifications, enabled, profile_slug)
+            VALUES (?, ?, 'imported', ?, ?, ?, 0, ?, 1, ?)
+          `).run(nanoid(), req.params.id, fmt.id, fmt.name, slug, JSON.stringify(fmt.specifications), profile_slug ?? null)
           imported++
         } catch { /* skip individual failures */ }
       }

@@ -43,8 +43,10 @@ export interface TrashFormatRow {
   recommendedScore: number
   score: number
   enabled: boolean
+  excluded: boolean       // true = completely skipped during sync (not created in arr)
   deprecated: boolean
   arrFormatId: number | null
+  isUserFormat?: boolean  // true = user-imported custom format (conditions never overwritten)
 }
 
 export interface TrashUserOverride {

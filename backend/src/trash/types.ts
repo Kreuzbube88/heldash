@@ -16,7 +16,7 @@ export interface NormalizedCustomFormat {
   conditions: FormatSpecification[]
   conditionsHash: string        // SHA-256 of sorted conditions JSON (first 16 hex chars)
   recommendedScore: number
-  source: 'trash'
+  source: 'trash' | 'user'     // 'user' = imported custom format; conditions must never be overwritten
   schemaVersion: number
   trashId: string               // original trash_id UUID (kept for profile reference resolution only)
   filePath: string              // relative path in TRaSH repo
@@ -243,7 +243,17 @@ export interface TrashUserOverride {
   slug: string
   score: number | null
   enabled: number
+  excluded: number   // 1 = completely skip this format from sync (not created in arr)
   updated_at: string
+}
+
+// User custom format as passed to the merge engine
+export interface UserCustomFormatForSync {
+  slug: string
+  name: string
+  score: number
+  specifications: FormatSpecification[]
+  arrFormatId: number | null
 }
 
 export interface TrashDeprecatedFormat {

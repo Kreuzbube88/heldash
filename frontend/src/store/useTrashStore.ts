@@ -48,9 +48,9 @@ interface TrashState {
 
   triggerSync: (instanceId: string, profileSlug?: string) => Promise<void>
   applyPreview: (instanceId: string, previewId: string, profileSlug: string) => Promise<void>
-  saveOverrides: (instanceId: string, profileSlug: string, overrides: Array<{ slug: string; score?: number | null; enabled?: boolean }>) => Promise<void>
+  saveOverrides: (instanceId: string, profileSlug: string, overrides: Array<{ slug: string; score?: number | null; enabled?: boolean; excluded?: boolean }>) => Promise<void>
   deleteDeprecated: (instanceId: string, slug: string) => Promise<void>
-  importFormats: (instanceId: string, formatIds: number[]) => Promise<{ imported: number }>
+  importFormats: (instanceId: string, formatIds: number[], profileSlug?: string) => Promise<{ imported: number }>
   forceFetchGithub: () => Promise<{ sha: string; filesUpdated: number; formatsUpdated: number }>
 }
 
@@ -152,8 +152,8 @@ export const useTrashStore = create<TrashState>((set, get) => ({
     await get().loadDeprecated(instanceId)
   },
 
-  importFormats: async (instanceId, formatIds) => {
-    return api.trash.instances.doImportFormats(instanceId, formatIds)
+  importFormats: async (instanceId, formatIds, profileSlug) => {
+    return api.trash.instances.doImportFormats(instanceId, formatIds, profileSlug)
   },
 
   forceFetchGithub: async () => {

@@ -271,7 +271,7 @@ export const api = {
         req<TrashFormatRow[]>(`/trash/instances/${instanceId}/custom-formats${profileSlug ? `?profile_slug=${encodeURIComponent(profileSlug)}` : ''}`),
       overrides: (instanceId: string, profileSlug: string) =>
         req<TrashUserOverride[]>(`/trash/instances/${instanceId}/overrides?profile_slug=${encodeURIComponent(profileSlug)}`),
-      saveOverrides: (instanceId: string, profileSlug: string, overrides: Array<{ slug: string; score?: number | null; enabled?: boolean }>) =>
+      saveOverrides: (instanceId: string, profileSlug: string, overrides: Array<{ slug: string; score?: number | null; enabled?: boolean; excluded?: boolean }>) =>
         req<{ ok: boolean }>(`/trash/instances/${instanceId}/overrides`, { method: 'PUT', body: JSON.stringify({ profile_slug: profileSlug, overrides }) }),
       sync: (instanceId: string, profileSlug?: string) =>
         req<{ ok: boolean }>(`/trash/instances/${instanceId}/sync${profileSlug ? `?profile_slug=${encodeURIComponent(profileSlug)}` : ''}`, { method: 'POST', body: JSON.stringify({}) }),
@@ -285,8 +285,8 @@ export const api = {
       deleteDeprecated: (instanceId: string, slug: string) =>
         req<{ ok: boolean }>(`/trash/instances/${instanceId}/deprecated/${encodeURIComponent(slug)}`, { method: 'DELETE' }),
       importFormats: (instanceId: string) => req<TrashImportableFormat[]>(`/trash/instances/${instanceId}/import-formats`),
-      doImportFormats: (instanceId: string, formatIds: number[]) =>
-        req<{ imported: number }>(`/trash/instances/${instanceId}/import-formats`, { method: 'POST', body: JSON.stringify({ format_ids: formatIds }) }),
+      doImportFormats: (instanceId: string, formatIds: number[], profileSlug?: string) =>
+        req<{ imported: number }>(`/trash/instances/${instanceId}/import-formats`, { method: 'POST', body: JSON.stringify({ format_ids: formatIds, profile_slug: profileSlug }) }),
     },
     github: {
       forceFetch: () => req<{ sha: string; filesUpdated: number; formatsUpdated: number }>('/trash/github/fetch', { method: 'POST', body: JSON.stringify({}) }),

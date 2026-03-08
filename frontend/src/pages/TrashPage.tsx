@@ -299,12 +299,14 @@ function PreviewModal({ instanceId, preview, onApply, onClose }: PreviewModalPro
 interface ImportModalProps {
   instanceId: string
   formats: TrashImportableFormat[]
+  profileSlugs: string[]   // available profile slugs for linking
   onClose: () => void
 }
 
-function ImportModal({ instanceId, formats, onClose }: ImportModalProps) {
+function ImportModal({ instanceId, formats, profileSlugs, onClose }: ImportModalProps) {
   const { importFormats } = useTrashStore()
   const [selected, setSelected] = useState<Set<number>>(new Set())
+  const [profileSlug, setProfileSlug] = useState(profileSlugs[0] ?? '')
   const [importing, setImporting] = useState(false)
   const [result, setResult] = useState<{ imported: number } | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -321,7 +323,7 @@ function ImportModal({ instanceId, formats, onClose }: ImportModalProps) {
     if (selected.size === 0) return
     setImporting(true); setError(null)
     try {
-      const res = await importFormats(instanceId, Array.from(selected))
+      const res = await importFormats(instanceId, Array.from(selected), profileSlug || undefined)
       setResult(res)
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Import failed')
@@ -361,6 +363,18 @@ function ImportModal({ instanceId, formats, onClose }: ImportModalProps) {
               <h2 style={{ fontSize: 22, fontWeight: 600, marginBottom: 4, color: 'var(--text-primary)' }}>Import Formats from Arr</h2>
               <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Select existing custom formats to import into TRaSH tracking.</p>
             </div>
+            {profileSlugs.length > 0 && (
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label" style={{ fontSize: 12 }}>Link to profile (optional)</label>
+                <select className="form-input" value={profileSlug} onChange={e => setProfileSlug(e.target.value)} style={{ fontSize: 13, padding: '8px 10px' }}>
+                  <option value="">— No profile (unlinked) —</option>
+                  {profileSlugs.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+                <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+                  Linked formats will be synced with that profile and never overwritten by TRaSH.
+                </p>
+              </div>
+            )}
             <div style={{ display: 'flex', gap: 8 }}>
               <input className="form-input" placeholder="Search formats…" value={search} onChange={e => setSearch(e.target.value)} style={{ flex: 1, fontSize: 14, padding: '10px 12px' }} autoFocus />
               <button className="btn btn-ghost" onClick={toggleAll} style={{ whiteSpace: 'nowrap', fontSize: 13 }}>
@@ -416,50 +430,56 @@ interface FormatsModalProps {
 
 function FormatsModal({ instanceId, profileSlug, formats, onClose }: FormatsModalProps) {
   const { saveOverrides } = useTrashStore()
-  const [edits, setEdits] = useState<Record<string, { score: string; enabled: boolean }>>({})
+  const [edits, setEdits] = useState<Record<string, { score: string; enabled: boolean; excluded: boolean }>>({})
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [search, setSearch] = useState('')
-  const [filter, setFilter] = useState<'all' | 'enabled' | 'overridden'>('all')
+  const [filter, setFilter] = useState<'all' | 'enabled' | 'excluded' | 'overridden'>('all')
 
   const isDirty = Object.keys(edits).length > 0
 
   const displayed = formats.filter(f => {
     if (search && !f.name.toLowerCase().includes(search.toLowerCase()) && !f.slug.toLowerCase().includes(search.toLowerCase())) return false
-    if (filter === 'enabled') return f.enabled
-    if (filter === 'overridden') return f.score !== f.recommendedScore
+    if (filter === 'enabled') return f.enabled && !f.excluded
+    if (filter === 'excluded') return f.excluded || (edits[f.slug]?.excluded ?? false)
+    if (filter === 'overridden') return f.score !== f.recommendedScore || f.excluded
     return true
   })
 
   function getRow(f: TrashFormatRow) {
-    return edits[f.slug] ?? { score: String(f.score), enabled: f.enabled }
+    return edits[f.slug] ?? { score: String(f.score), enabled: f.enabled, excluded: f.excluded }
+  }
+
+  function isClean(next: { score: string; enabled: boolean; excluded: boolean }, original: TrashFormatRow) {
+    return next.score === String(original.score) && next.enabled === original.enabled && next.excluded === original.excluded
   }
 
   function setScore(slug: string, value: string, original: TrashFormatRow) {
-    const cur = edits[slug] ?? { score: String(original.score), enabled: original.enabled }
+    const cur = edits[slug] ?? { score: String(original.score), enabled: original.enabled, excluded: original.excluded }
     const next = { ...cur, score: value }
-    if (next.score === String(original.score) && next.enabled === original.enabled) {
-      const e = { ...edits }; delete e[slug]; setEdits(e)
-    } else {
-      setEdits(e => ({ ...e, [slug]: next }))
-    }
+    if (isClean(next, original)) { const e = { ...edits }; delete e[slug]; setEdits(e) }
+    else setEdits(e => ({ ...e, [slug]: next }))
   }
 
   function setEnabled(slug: string, enabled: boolean, original: TrashFormatRow) {
-    const cur = edits[slug] ?? { score: String(original.score), enabled: original.enabled }
+    const cur = edits[slug] ?? { score: String(original.score), enabled: original.enabled, excluded: original.excluded }
     const next = { ...cur, enabled }
-    if (next.score === String(original.score) && next.enabled === original.enabled) {
-      const e = { ...edits }; delete e[slug]; setEdits(e)
-    } else {
-      setEdits(e => ({ ...e, [slug]: next }))
-    }
+    if (isClean(next, original)) { const e = { ...edits }; delete e[slug]; setEdits(e) }
+    else setEdits(e => ({ ...e, [slug]: next }))
+  }
+
+  function setExcluded(slug: string, excluded: boolean, original: TrashFormatRow) {
+    const cur = edits[slug] ?? { score: String(original.score), enabled: original.enabled, excluded: original.excluded }
+    const next = { ...cur, excluded }
+    if (isClean(next, original)) { const e = { ...edits }; delete e[slug]; setEdits(e) }
+    else setEdits(e => ({ ...e, [slug]: next }))
   }
 
   async function saveAll() {
     setSaving(true)
     try {
       const overrides = Object.entries(edits).map(([slug, e]) => ({
-        slug, score: parseInt(e.score) || 0, enabled: e.enabled,
+        slug, score: parseInt(e.score) || 0, enabled: e.enabled, excluded: e.excluded,
       }))
       await saveOverrides(instanceId, profileSlug, overrides)
       setEdits({})
@@ -499,6 +519,7 @@ function FormatsModal({ instanceId, profileSlug, formats, onClose }: FormatsModa
           <select className="form-input" value={filter} onChange={e => setFilter(e.target.value as typeof filter)} style={{ width: 140 }}>
             <option value="all">All</option>
             <option value="enabled">Enabled</option>
+            <option value="excluded">Excluded</option>
             <option value="overridden">Overridden</option>
           </select>
           {isDirty && (
@@ -518,31 +539,60 @@ function FormatsModal({ instanceId, profileSlug, formats, onClose }: FormatsModa
           {displayed.map(f => {
             const row = getRow(f)
             const isEdited = !!edits[f.slug]
+            const isExcludedNow = row.excluded
             return (
               <div key={f.slug} style={{
                 display: 'flex', alignItems: 'center', gap: 12,
                 padding: '8px 12px', borderRadius: 8,
+                opacity: isExcludedNow ? 0.5 : 1,
                 background: isEdited ? 'rgba(var(--accent-rgb),0.06)' : 'var(--glass-bg)',
                 border: `1px solid ${isEdited ? 'rgba(var(--accent-rgb),0.25)' : 'var(--border)'}`,
               }}>
-                <label className="form-toggle" style={{ flexShrink: 0, transform: 'scale(0.8)', transformOrigin: 'left center' }}>
-                  <input type="checkbox" checked={row.enabled} onChange={e => setEnabled(f.slug, e.target.checked, f)} />
-                </label>
+                {/* Enabled toggle — hidden for user custom formats (they're always synced as-is) */}
+                {!f.isUserFormat && (
+                  <label className="form-toggle" style={{ flexShrink: 0, transform: 'scale(0.8)', transformOrigin: 'left center' }} title="Enable in quality profile">
+                    <input type="checkbox" checked={row.enabled && !isExcludedNow} disabled={isExcludedNow} onChange={e => setEnabled(f.slug, e.target.checked, f)} />
+                  </label>
+                )}
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</div>
+                  <div style={{
+                    fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    color: isExcludedNow ? 'var(--text-muted)' : 'var(--text-primary)',
+                    textDecoration: isExcludedNow ? 'line-through' : 'none',
+                  }}>{f.name}</div>
                   <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{f.slug}</div>
                 </div>
-                {f.deprecated && <span style={{ fontSize: 11, padding: '2px 6px', borderRadius: 4, background: '#f59e0b22', color: '#f59e0b' }}>deprecated</span>}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>rec: {f.recommendedScore}</span>
-                  <input
-                    type="number"
-                    className="form-input"
-                    value={row.score}
-                    onChange={e => setScore(f.slug, e.target.value, f)}
-                    style={{ width: 72, padding: '4px 8px', fontSize: 13, textAlign: 'right' }}
-                  />
-                </div>
+                {f.isUserFormat && (
+                  <span style={{ fontSize: 11, padding: '2px 6px', borderRadius: 4, background: 'rgba(var(--accent-rgb),0.12)', color: 'var(--accent)', flexShrink: 0 }}>custom</span>
+                )}
+                {f.deprecated && <span style={{ fontSize: 11, padding: '2px 6px', borderRadius: 4, background: '#f59e0b22', color: '#f59e0b', flexShrink: 0 }}>deprecated</span>}
+                {!f.isUserFormat && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>rec: {f.recommendedScore}</span>
+                    <input
+                      type="number"
+                      className="form-input"
+                      value={row.score}
+                      disabled={isExcludedNow}
+                      onChange={e => setScore(f.slug, e.target.value, f)}
+                      style={{ width: 72, padding: '4px 8px', fontSize: 13, textAlign: 'right' }}
+                    />
+                    {/* Exclude toggle: removes format from sync entirely */}
+                    <button
+                      title={isExcludedNow ? 'Click to include in sync' : 'Click to exclude from sync (format will not be created in arr)'}
+                      onClick={() => setExcluded(f.slug, !isExcludedNow, f)}
+                      style={{
+                        padding: '4px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                        border: `1px solid ${isExcludedNow ? '#f8717155' : 'var(--border)'}`,
+                        background: isExcludedNow ? '#f8717122' : 'transparent',
+                        color: isExcludedNow ? '#f87171' : 'var(--text-muted)',
+                        transition: 'all var(--transition-fast)',
+                      }}
+                    >
+                      {isExcludedNow ? 'excluded' : 'skip'}
+                    </button>
+                  </div>
+                )}
               </div>
             )
           })}
@@ -940,7 +990,7 @@ function InstancePanel({ config, instanceName, isAdmin }: InstancePanelProps) {
         />
       )}
       {showImport && (
-        <ImportModal instanceId={id} formats={myImportable} onClose={() => setShowImport(false)} />
+        <ImportModal instanceId={id} formats={myImportable} profileSlugs={profileConfigs.map(p => p.profile_slug)} onClose={() => setShowImport(false)} />
       )}
     </div>
   )

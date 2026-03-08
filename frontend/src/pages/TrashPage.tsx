@@ -455,7 +455,7 @@ function ProfileEditor({ instanceId, profileCfg, profileName, isSyncing, isAdmin
   const {
     formats, preview, syncLogs, deprecated, importable,
     loadFormats, loadPreview, loadSyncLog, loadDeprecated, loadImportable,
-    saveOverrides, triggerSync,
+    saveOverrides, triggerSync, updateProfileConfig,
   } = useTrashStore()
 
   const profileSlug = profileCfg.profile_slug
@@ -463,6 +463,7 @@ function ProfileEditor({ instanceId, profileCfg, profileName, isSyncing, isAdmin
   const myFormats = formats[profileKey] ?? []
   const myPreview = preview[profileKey]
   const myLogs = syncLogs[instanceId] ?? []
+  const lastProfileLog = myLogs.find(l => l.profile_slug === profileSlug) ?? null
   const myDeprecated = deprecated[instanceId] ?? []
   const myImportable = importable[instanceId] ?? []
 
@@ -490,6 +491,7 @@ function ProfileEditor({ instanceId, profileCfg, profileName, isSyncing, isAdmin
     Promise.all([
       loadFormats(instanceId, profileSlug),
       loadPreview(instanceId, profileSlug),
+      loadSyncLog(instanceId),
     ]).catch(() => {}).finally(() => setLoadingFormats(false))
   }, [instanceId, profileSlug])
 
@@ -553,6 +555,8 @@ function ProfileEditor({ instanceId, profileCfg, profileName, isSyncing, isAdmin
     try {
       await triggerSync(instanceId, profileSlug)
       await loadPreview(instanceId, profileSlug)
+      setBottomTab('log')
+      loadSyncLog(instanceId).catch(() => {})
     } catch { /* ignore */ }
     finally { setSyncing(false) }
   }
@@ -609,6 +613,7 @@ function ProfileEditor({ instanceId, profileCfg, profileName, isSyncing, isAdmin
           <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
             Last sync: {fmtDate(profileCfg.last_sync_at)}
           </span>
+          {lastProfileLog && syncStatusBadge(lastProfileLog.status)}
           <span style={{ fontSize: 11, padding: '2px 6px', borderRadius: 4, background: 'rgba(var(--accent-rgb),0.08)', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
             {profileCfg.sync_mode}
           </span>
@@ -637,6 +642,16 @@ function ProfileEditor({ instanceId, profileCfg, profileName, isSyncing, isAdmin
 
         {/* Action buttons */}
         <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+          {isAdmin && (
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => updateProfileConfig(instanceId, profileSlug, { enabled: !profileCfg.enabled })}
+              title={profileCfg.enabled ? 'Disable sync for this profile' : 'Enable sync for this profile'}
+              style={{ fontSize: 11, color: profileCfg.enabled ? '#10b981' : 'var(--text-muted)' }}
+            >
+              {profileCfg.enabled ? 'Enabled' : 'Disabled'}
+            </button>
+          )}
           {isAdmin && (
             <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setEditProfileCfg(true)} title="Profile settings">
               <Settings2 size={13} />
@@ -873,7 +888,7 @@ interface InstanceEditorProps {
 }
 
 function InstanceEditor({ config, instanceName, isAdmin }: InstanceEditorProps) {
-  const { profiles, loadProfiles, triggerSync } = useTrashStore()
+  const { profiles, loadProfiles, triggerSync, configure, deleteProfileConfig } = useTrashStore()
 
   const id = config.instance_id
   const profileConfigs = config.profileConfigs ?? []
@@ -883,6 +898,8 @@ function InstanceEditor({ config, instanceName, isAdmin }: InstanceEditorProps) 
   const [selectedSlug, setSelectedSlug] = useState<string | null>(profileConfigs[0]?.profile_slug ?? null)
   const [showAddProfile, setShowAddProfile] = useState(false)
   const [syncing, setSyncing] = useState(false)
+  const [toggling, setToggling] = useState(false)
+  const [deleteSlug, setDeleteSlug] = useState<string | null>(null)
 
   // Keep selectedSlug in sync when configs change (e.g. a profile was added/removed)
   const slugSet = profileConfigs.map(p => p.profile_slug).join(',')
@@ -937,6 +954,21 @@ function InstanceEditor({ config, instanceName, isAdmin }: InstanceEditorProps) 
           </div>
         </div>
 
+        {isAdmin && (
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={async () => {
+              setToggling(true)
+              try { await configure(id, { enabled: !config.enabled }) } catch { /* ignore */ }
+              finally { setToggling(false) }
+            }}
+            disabled={toggling}
+            title={config.enabled ? 'Disable TRaSH sync for this instance' : 'Enable TRaSH sync for this instance'}
+            style={{ color: config.enabled ? '#10b981' : 'var(--text-muted)' }}
+          >
+            {toggling ? <Loader size={13} className="spin" /> : config.enabled ? 'Enabled' : 'Enable'}
+          </button>
+        )}
         {isAdmin && profileConfigs.length > 0 && (
           <button className="btn btn-ghost btn-sm" onClick={syncAll} disabled={syncing || config.isSyncing} title="Sync all profiles">
             {syncing || config.isSyncing ? <Loader size={13} className="spin" /> : <RefreshCw size={13} />}
@@ -967,6 +999,15 @@ function InstanceEditor({ config, instanceName, isAdmin }: InstanceEditorProps) 
             >
               {!pcfg.enabled && <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#f87171', display: 'inline-block', flexShrink: 0 }} />}
               {name}
+              {isAdmin && (
+                <span
+                  onClick={e => { e.stopPropagation(); setDeleteSlug(pcfg.profile_slug) }}
+                  title="Remove this profile"
+                  style={{ marginLeft: 4, color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', opacity: 0.6, cursor: 'pointer' }}
+                >
+                  <X size={10} />
+                </span>
+              )}
             </button>
           )
         })}
@@ -981,6 +1022,21 @@ function InstanceEditor({ config, instanceName, isAdmin }: InstanceEditorProps) 
           </button>
         )}
       </div>
+
+      {/* ── Delete profile confirmation ─── */}
+      {deleteSlug && (
+        <div style={{ padding: '10px 16px', background: '#f8717111', border: '1px solid #f8717133', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <AlertTriangle size={13} style={{ color: '#f87171', flexShrink: 0 }} />
+          <span style={{ flex: 1, fontSize: 13, color: '#f87171' }}>
+            Remove profile &ldquo;{myProfiles.find(p => p.slug === deleteSlug)?.name ?? deleteSlug}&rdquo;? This deletes all saved overrides and previews.
+          </span>
+          <button className="btn btn-danger btn-sm" onClick={async () => {
+            await deleteProfileConfig(id, deleteSlug).catch(() => {})
+            setDeleteSlug(null)
+          }}>Remove</button>
+          <button className="btn btn-ghost btn-sm" onClick={() => setDeleteSlug(null)}>Cancel</button>
+        </div>
+      )}
 
       {/* ── Profile editor (or empty state) ─── */}
       {selectedCfg ? (

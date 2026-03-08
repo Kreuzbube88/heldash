@@ -54,6 +54,15 @@ Coded by Claude.ai because iam to stupid to code but can wirte prompts lol
 - ▶️ Start / Stop / Restart containers directly from the dashboard (admin-only)
 - 🔒 Per-group Docker page access — disabled by default, enabled per group by an admin
 
+**Home Assistant**
+- 🏠 Dedicated **Home Assistant** page — multi-instance support (add/edit/delete/test)
+- 🔍 Entity browser — loads all states from HA, grouped by domain with search filter
+- 🃏 Panel grid — entity cards with live state polling (30s), drag-and-drop reorder
+- 🔘 Toggle support — light, switch, input_boolean, automation, fan, media_player
+- 📡 State colors — on/open/unlocked/playing/home/active = green; off/closed/locked/… = gray
+- 🔒 Long-Lived Access Tokens stored server-side only — never exposed to the browser
+- 🏷️ Custom labels per panel — falls back to HA `friendly_name` → `entity_id`
+
 **Widgets**
 - 🖥️ Server Status — live CPU, RAM, and disk usage with progress bars (Linux hosts)
 - 🛡️ AdGuard Home — DNS query stats, block rate, protection toggle (admin-only)
@@ -62,6 +71,7 @@ Coded by Claude.ai because iam to stupid to code but can wirte prompts lol
   - Token-based authentication (username + password)
   - Monitors proxy host status and SSL certificate health
   - Alerts for expired and soon-to-expire certificates
+- 🏠 **Home Assistant Widget** — entity states in topbar/sidebar/dashboard
 - 📊 Widgets can be pinned to the topbar for at-a-glance stats
 - 🔒 Widget credentials stored server-side only — never exposed to the browser
 - 🔒 Docker Overview widget access is controlled per group separately from the Docker page
@@ -191,6 +201,7 @@ Import it via Community Applications → Import to get a pre-filled container se
 - [x] **Nginx Proxy Manager Widget** — monitor proxies, certificates, expiry alerts
 - [x] **Smart Dashboard Grid** — 20-column layout, 10 apps per row, widgets 2×2 sized
 - [x] **Services Page Toggles** — one-click dashboard add/remove and health check toggle
+- [x] **Home Assistant Integration** — multi-instance, entity browser, panel grid, live polling, toggle support
 - [ ] OIDC / SSO via voidauth or Authentik (UI prepared)
 - [ ] Torrent Client Integration (qBittorrent, Transmission, Deluge)
-- [ ] More integrations (Immich, Jellyfin, Emby, Home Assistant, Pi-hole, etc.)
+- [ ] More integrations (Immich, Jellyfin, Emby, Pi-hole, etc.)

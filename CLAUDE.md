@@ -1,6 +1,6 @@
 # CLAUDE.md — HELDASH
 
-Personal homelab dashboard. Shows service tiles with live status indicators, groups them into categories, and lets the user drag-and-drop the layout. Includes a Media section for Radarr/Sonarr/Prowlarr/SABnzbd, a Docker page for live container management, and a Widget system for at-a-glance system stats. Designed for self-hosting on Unraid behind nginx-proxy-manager.
+Personal homelab dashboard. Shows service tiles with live status indicators, groups them into categories, and lets the user drag-and-drop the layout. Includes a Media section for Radarr/Sonarr/Prowlarr/SABnzbd, a Docker page for live container management, a Widget system for at-a-glance system stats, and a dedicated Home Assistant page for multi-instance entity monitoring and control. Designed for self-hosting on Unraid behind nginx-proxy-manager.
 
 ---
 
@@ -9,7 +9,7 @@ Personal homelab dashboard. Shows service tiles with live status indicators, gro
 | Layer | Technology |
 |---|---|
 | Frontend | React 18, TypeScript (strict), Vite 5 |
-| State | Zustand (useStore + useArrStore + useDockerStore + useWidgetStore + useDashboardStore) |
+| State | Zustand (useStore + useArrStore + useDockerStore + useWidgetStore + useDashboardStore + useHaStore) |
 | Drag & Drop | @dnd-kit/core + @dnd-kit/sortable + @dnd-kit/utilities |
 | Icons | lucide-react |
 | Styling | Vanilla CSS (CSS custom properties, glass morphism) |
@@ -45,12 +45,13 @@ heldash/
 │       │   ├── useArrStore.ts     # Media store: instances, statuses, stats, queues, histories
 │       │   ├── useDockerStore.ts  # Docker store: containers, stats, control
 │       │   ├── useWidgetStore.ts  # Widget store: widgets, stats, AdGuard toggle
-│       │   └── useDashboardStore.ts # Dashboard item store
+│       │   ├── useDashboardStore.ts # Dashboard item store
+│       │   └── useHaStore.ts      # Home Assistant store: instances, panels, stateMap
 │       ├── utils.ts               # Shared utilities: normalizeUrl, containerCounts
 │       ├── styles/
 │       │   └── global.css      # All CSS: variables, glass, layout, components
 │       ├── components/
-│       │   ├── Sidebar.tsx     # Left nav (Dashboard / Apps / Media / Docker / Widgets / Settings / About)
+│       │   ├── Sidebar.tsx     # Left nav (Dashboard / Apps / Media / Docker / Widgets / Home Assistant / Settings / About)
 │       │   ├── Topbar.tsx      # Date, theme controls, Add buttons, auth, topbar widget stats
 │       │   ├── ServiceCard.tsx # Tile: icon, status dot, hover actions
 │       │   ├── ServiceModal.tsx # Add/edit service form with icon upload
@@ -62,6 +63,7 @@ heldash/
 │       │   ├── MediaPage.tsx   # Arr/media instances (flat DnD grid)
 │       │   ├── DockerPage.tsx  # Docker containers: overview bar, sortable table, log viewer
 │       │   ├── WidgetsPage.tsx # Widget management + DockerOverviewContent (exported, reused by Dashboard)
+│       │   ├── HaPage.tsx      # Home Assistant: multi-instance mgmt, entity browser modal, DnD panel grid
 │       │   └── SetupPage.tsx   # First-launch admin account creation
 │       └── types/
 │           └── arr.ts          # ArrInstance, ArrStats union, SabnzbdStats, queue/history types
@@ -91,7 +93,8 @@ heldash/
             ├── widgets.ts      # Widget CRUD + stats endpoints + icon upload
             ├── dashboard.ts    # Dashboard item management (ordered list, per-owner)
             ├── docker.ts       # Docker Engine API proxy (containers, stats, logs SSE, control)
-            └── backgrounds.ts  # Background image CRUD + assign to user group
+            ├── backgrounds.ts  # Background image CRUD + assign to user group
+            └── ha.ts           # Home Assistant: instance CRUD + HA proxy (states, service calls) + panel CRUD
 ```
 
 ---
@@ -145,6 +148,7 @@ Four widget types: `server_status`, `adguard_home`, `docker_overview`, `nginx_pm
 - `useDockerStore` — Docker (containers list, stats map, control action)
 - `useWidgetStore` — widgets (widget list, stats cache, AdGuard toggle)
 - `useDashboardStore` — dashboard items (ordered list, add/remove/reorder)
+- `useHaStore` — Home Assistant (instances, panels, stateMap per instance)
 
 ### CSS custom properties, no Tailwind
 Full design system via CSS variables (`--glass-bg`, `--accent`, `--text-primary`, etc.). Theme switching works by changing `data-theme` and `data-accent` on `<html>`. No framework overhead.
@@ -286,6 +290,29 @@ Sparse junction tables: presence of a row means the item is **hidden** for that 
 | col_span | INTEGER NOT NULL | Width on 20-column grid (1-20, default 10). Each app = 2 cols, widget = 4 cols |
 | created_at | TEXT NOT NULL | |
 
+### ha_instances
+| Column | Type | Notes |
+|---|---|---|
+| id | TEXT PK | nanoid() |
+| name | TEXT NOT NULL | Display name |
+| url | TEXT NOT NULL | HA base URL (trailing slash stripped) |
+| token | TEXT NOT NULL | Long-Lived Access Token — **never returned to frontend** |
+| enabled | INTEGER | 0/1 |
+| position | INTEGER | Sort order |
+| created_at / updated_at | TEXT | |
+
+### ha_panels
+| Column | Type | Notes |
+|---|---|---|
+| id | TEXT PK | nanoid() |
+| instance_id | TEXT NOT NULL | FK → ha_instances.id (cascaded on delete) |
+| entity_id | TEXT NOT NULL | HA entity_id (e.g. `light.living_room`) |
+| label | TEXT | Custom display label (null → falls back to friendly_name → entity_id) |
+| panel_type | TEXT | `'auto'` (default) or explicit type hint |
+| position | INTEGER | Sort order within owner's panel grid |
+| owner_id | TEXT | user sub — panels are per-user |
+| created_at | TEXT | |
+
 ### settings
 Key-value table. Values stored as JSON strings. Keys: `theme_mode`, `theme_accent`, `dashboard_title`, `auth_enabled`, `auth_mode`.
 
@@ -379,6 +406,22 @@ All routes prefixed `/api`. Frontend uses relative paths.
 | POST | /api/backgrounds | requireAdmin | Upload background (base64 JSON, max 5 MB, png/jpg/svg/webp) |
 | DELETE | /api/backgrounds/:id | requireAdmin | Delete background + file, clears all group assignments |
 
+### Home Assistant
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | /api/ha/instances | optional | List instances (token stripped; non-admin sees enabled only; unauth gets `[]`) |
+| POST | /api/ha/instances | requireAdmin | Create instance |
+| PATCH | /api/ha/instances/:id | requireAdmin | Update (empty token = keep existing) |
+| DELETE | /api/ha/instances/:id | requireAdmin | Delete + cascade all panels |
+| POST | /api/ha/instances/:id/test | requireAdmin | Test HA connection (`{ ok, error? }`) |
+| GET | /api/ha/instances/:id/states | authenticate | Proxy `GET /api/states` from HA (all entities) |
+| POST | /api/ha/instances/:id/call | authenticate | Proxy `POST /api/services/:domain/:service` to HA |
+| GET | /api/ha/panels | optional | List caller's panels (owner_id = sub or 'guest') |
+| POST | /api/ha/panels | authenticate | Add panel (409 if duplicate) |
+| PATCH | /api/ha/panels/reorder | authenticate | Reorder panels (registered before `:id` route) |
+| PATCH | /api/ha/panels/:id | authenticate | Update panel label / panel_type |
+| DELETE | /api/ha/panels/:id | authenticate | Remove panel |
+
 ### Misc
 | Method | Path | Description |
 |---|---|---|
@@ -411,6 +454,10 @@ All routes prefixed `/api`. Frontend uses relative paths.
 - **Logging** — pino-pretty is always active (not just in `NODE_ENV=development`). `LOG_FORMAT=json` disables it for raw JSON output. `/api/health` and `/api/time` use `logLevel: 'silent'` (polled every 30s each — would flood logs otherwise). Auth failures, service status changes, and Docker control actions all emit structured log entries with context fields (`username`, `id`, `name`, etc.). Sensitive headers (`authorization`, `cookie`) are redacted via Pino `redact` option. Graceful shutdown handled via `process.on('SIGTERM'/'SIGINT')` with `await app.close()` before `process.exit(0)`.
 - **Fastify route log silencing** — Use `{ logLevel: 'silent' }` as route option, NOT `{ disableRequestLogging: true }`. `disableRequestLogging` is not present in Fastify 4's `RouteShorthandOptions` TypeScript types — causes `tsc` build failure with `strict: true`.
 - **pino-pretty is a runtime dependency** — Must be listed in `backend/package.json` `dependencies`. It is referenced only as a string transport target (`target: 'pino-pretty'`) so `tsc` won't catch the missing package — but the container crashes on startup with "Cannot find package 'pino-pretty'" if it's absent.
+- **HA token never in response** — `sanitizeInstance()` in `ha.ts` destructures `token` out before returning. PATCH preserves existing token when the incoming field is empty/blank (`token = req.body.token?.trim() || row.token`).
+- **HA panels reorder route ordering** — `PATCH /api/ha/panels/reorder` must be registered BEFORE `PATCH /api/ha/panels/:id`. Fastify static routes take priority over parameterized ones regardless of registration order, but registering first is the safe explicit approach.
+- **HA state polling** — `HaPage` polls states every 30s (not 10s like widgets). Polling key is `instanceIds.join(',')` — a stable string from unique instance IDs referenced by current panels. State is stored in `stateMap: Record<instanceId, Record<entity_id, HaEntityFull>>`.
+- **HA panel label** — Stored `null` by default (not the HA friendly_name). Frontend resolves: `panel.label || entity?.attributes.friendly_name || panel.entity_id`. Never pre-fill with friendly_name so it stays current if HA renames the entity.
 
 ---
 
@@ -570,9 +617,19 @@ All routes prefixed `/api`. Frontend uses relative paths.
 - [x] **Services Page Toggles** — Dashboard toggle (add/remove) + Health Check toggle (enable/disable)
 - [x] **Settings Update** — "Apps Per Row" selector (2-10 instead of pixel widths)
 
-### Phase 7 — Future
+### Phase 7 — Home Assistant ✓
+- [x] **Home Assistant integration page** — multi-instance management (admin CRUD + test connection)
+- [x] Entity browser modal — loads all HA states, grouped by domain, collapsible, with search
+- [x] Panel grid — DnD sortable entity cards with 30s live polling, toggle support
+- [x] Toggle domains: light, switch, input_boolean, automation, fan, media_player
+- [x] Label fallback chain: custom label → HA `friendly_name` → `entity_id`
+- [x] HA tokens stored server-side only — never exposed to the frontend
+- [x] Home Assistant Widget (widget system) — entity states in topbar/sidebar/dashboard
+
+### Phase 8 — Future
 - [ ] OIDC / SSO via voidauth or Authentik
 - [ ] Notification webhooks (Gotify / ntfy) on status change
 - [ ] Custom check intervals per service (backend scheduler)
 - [ ] Torrent Client Integration (qBittorrent, Transmission, Deluge)
-- [ ] More integrations (Immich, Jellyfin, Home Assistant, Pi-hole, etc.)
+- [ ] More integrations (Immich, Jellyfin, Pi-hole, etc.)
+- [ ] HA WebSocket for real-time state updates (replaces 30s polling)

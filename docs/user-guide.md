@@ -9,9 +9,10 @@
 5. [Media](#media)
 6. [Docker](#docker)
 7. [Widgets](#widgets)
-8. [Einstellungen](#einstellungen)
-9. [Design anpassen](#design-anpassen)
-10. [Benutzer-Account](#benutzer-account)
+8. [Home Assistant](#home-assistant)
+9. [Einstellungen](#einstellungen)
+10. [Design anpassen](#design-anpassen)
+11. [Benutzer-Account](#benutzer-account)
 
 ---
 
@@ -451,6 +452,56 @@ Wenn „In Topbar anzeigen" aktiv ist, erscheint das Widget als kleines Panel in
 ### Docker Overview — Container steuern
 
 Admins können direkt im Widget einen Container aus dem Dropdown auswählen und ihn starten, stoppen oder neu starten — ohne die Docker-Seite öffnen zu müssen.
+
+---
+
+---
+
+## Home Assistant
+
+Die **Home Assistant**-Seite bindet eine oder mehrere HA-Instanzen ein und zeigt Entity-Zustände als Karten an — direkt steuerbar über die Oberfläche.
+
+> Diese Seite ist nur für eingeloggte Benutzer sichtbar.
+
+### Instanzen einrichten (Admin)
+
+Als Admin: Oben rechts auf **„Add Instance"** klicken.
+
+| Feld | Beschreibung |
+|---|---|
+| **Name** | Frei wählbarer Anzeigename (z.B. „Homelab HA") |
+| **URL** | Adresse der HA-Instanz (z.B. `http://homeassistant.local:8123`) |
+| **Token** | Long-Lived Access Token — in HA unter **Profil → Sicherheit → Langlebige Zugriffstoken** erstellen |
+| **Enabled** | Instanz aktivieren/deaktivieren |
+
+Nach dem Speichern kann die Verbindung mit **„Test Connection"** geprüft werden. Der Token wird ausschließlich auf dem Server gespeichert und **nie** an den Browser übertragen.
+
+### Panel Grid — Entities anzeigen
+
+Über **„Add Panel"** öffnet sich der Entity Browser:
+
+1. Instanz auswählen (falls mehrere vorhanden)
+2. Nach Entity suchen oder Domains auf-/zuklappen
+3. Auf **+** klicken, um eine Entity als Karte hinzuzufügen
+
+Jede Karte zeigt:
+- **Domain** (z.B. Light, Sensor, Switch)
+- **Name** (HA Friendly Name oder eigenes Label)
+- **Aktueller Zustand** mit Einheit (z.B. `23.4 °C`, `on`)
+- **Toggle-Button** für steuerbare Entities (Light, Switch, Automation, Fan, …)
+- Zeitstempel der letzten Aktualisierung
+
+**Farben:**
+- 🟢 Grün: on / open / unlocked / playing / home / active
+- ⚪ Grau: off / closed / locked / paused / idle / standby / unavailable
+
+### Panels verwalten
+
+- **Verschieben**: Drag & Drop (Gripper-Symbol oben links auf Hover)
+- **Label ändern**: Hover → Stift-Icon → eigenes Label eingeben (leer lassen = HA Friendly Name)
+- **Entfernen**: Hover → Papierkorb-Icon
+
+Die Zustände werden alle **30 Sekunden automatisch aktualisiert**.
 
 ---
 

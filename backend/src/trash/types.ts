@@ -123,6 +123,7 @@ export interface ChangeRepair {
 
 export interface Changeset {
   instanceId: string
+  profileSlug: string          // which profile this changeset belongs to
   generatedAt: string
   githubSha: string
   add: ChangeAdd[]
@@ -149,6 +150,7 @@ export interface SyncError {
 export interface SyncReport {
   syncId: string
   instanceId: string
+  profileSlug: string
   trigger: SyncTrigger
   status: SyncStatus
   githubSha: string | null
@@ -207,7 +209,7 @@ export interface TrashInstanceConfig {
   id: string
   instance_id: string
   arr_type: string
-  profile_slug: string | null
+  profile_slug: string | null    // legacy — kept for backward compat; use TrashProfileConfig instead
   sync_mode: 'auto' | 'manual' | 'notify'
   sync_interval_hours: number
   last_sync_at: string | null
@@ -218,9 +220,26 @@ export interface TrashInstanceConfig {
   updated_at: string
 }
 
+export interface TrashProfileConfig {
+  id: string
+  instance_id: string
+  arr_type: string
+  profile_slug: string
+  sync_mode: 'auto' | 'manual' | 'notify'
+  sync_interval_hours: number
+  last_sync_at: string | null
+  last_sync_sha: string | null
+  last_repair_daily_at: string | null
+  enabled: number
+  position: number
+  created_at: string
+  updated_at: string
+}
+
 export interface TrashUserOverride {
   id: string
   instance_id: string
+  profile_slug: string
   slug: string
   score: number | null
   enabled: number
@@ -250,6 +269,7 @@ export interface TrashSyncCheckpoint {
 export interface TrashSyncLog {
   id: string
   instance_id: string
+  profile_slug: string | null
   trigger: SyncTrigger
   status: SyncStatus
   github_sha: string | null
@@ -284,15 +304,19 @@ export interface GithubCommitInfo {
 
 // ── Widget stats ──────────────────────────────────────────────────────────────
 
-export interface TrashInstanceSummary {
-  instanceId: string
-  instanceName: string
-  arrType: 'radarr' | 'sonarr'
-  profileSlug: string | null
+export interface TrashProfileSyncStatus {
+  profileSlug: string
   syncMode: 'auto' | 'manual' | 'notify'
   lastSyncAt: string | null
   lastSyncStatus: SyncStatus | null
   pendingReview: boolean
+}
+
+export interface TrashInstanceSummary {
+  instanceId: string
+  instanceName: string
+  arrType: 'radarr' | 'sonarr'
+  profiles: TrashProfileSyncStatus[]
   formatsActive: number
   formatsDeprecated: number
   isCurrentlySyncing: boolean

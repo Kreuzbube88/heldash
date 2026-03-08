@@ -58,6 +58,9 @@ function runMigrations(db: Database.Database): number {
     'ALTER TABLE widgets ADD COLUMN display_location TEXT NOT NULL DEFAULT \'none\'',
     // Dashboard groups: named containers for dashboard items
     'ALTER TABLE dashboard_items ADD COLUMN group_id TEXT',
+    // TRaSH multi-profile: profile context in sync log and pending previews
+    'ALTER TABLE trash_sync_log ADD COLUMN profile_slug TEXT',
+    "ALTER TABLE trash_pending_previews ADD COLUMN profile_slug TEXT NOT NULL DEFAULT ''",
   ]
   for (const sql of migrations) {
     try {
@@ -67,6 +70,81 @@ function runMigrations(db: Database.Database): number {
       // Column already exists – ignore
     }
   }
+
+  // ── TRaSH: recreate trash_user_overrides with profile_slug column ────────────
+  // Old schema has UNIQUE(instance_id, slug); new needs UNIQUE(instance_id, profile_slug, slug).
+  // SQLite cannot drop UNIQUE constraints via ALTER TABLE, so we recreate the table.
+  const overrideCols = (db.prepare(
+    'PRAGMA table_info(trash_user_overrides)'
+  ).all() as Array<{ name: string }>).map(c => c.name)
+  if (!overrideCols.includes('profile_slug')) {
+    db.transaction(() => {
+      db.prepare('ALTER TABLE trash_user_overrides RENAME TO trash_user_overrides_old').run()
+      db.prepare(`
+        CREATE TABLE trash_user_overrides (
+          id            TEXT PRIMARY KEY,
+          instance_id   TEXT NOT NULL,
+          profile_slug  TEXT NOT NULL,
+          slug          TEXT NOT NULL,
+          score         INTEGER,
+          enabled       INTEGER NOT NULL DEFAULT 1,
+          updated_at    TEXT NOT NULL DEFAULT (datetime('now')),
+          UNIQUE(instance_id, profile_slug, slug)
+        )
+      `).run()
+      db.prepare(`
+        INSERT INTO trash_user_overrides
+          (id, instance_id, profile_slug, slug, score, enabled, updated_at)
+        SELECT o.id, o.instance_id, COALESCE(c.profile_slug, ''), o.slug, o.score, o.enabled, o.updated_at
+        FROM trash_user_overrides_old o
+        LEFT JOIN trash_instance_configs c ON c.instance_id = o.instance_id
+      `).run()
+      db.prepare('DROP TABLE trash_user_overrides_old').run()
+    })()
+    applied++
+  }
+
+  // ── TRaSH: migrate existing profile_slug from instance_configs → profile_configs ─
+  try {
+    const needsMigration = (db.prepare(`
+      SELECT COUNT(*) as cnt FROM trash_instance_configs c
+      LEFT JOIN trash_profile_configs p ON p.instance_id = c.instance_id
+      WHERE c.profile_slug IS NOT NULL AND p.id IS NULL
+    `).get() as { cnt: number }).cnt > 0
+    if (needsMigration) {
+      const rows = db.prepare(
+        'SELECT * FROM trash_instance_configs WHERE profile_slug IS NOT NULL'
+      ).all() as Array<{
+        instance_id: string; arr_type: string; profile_slug: string;
+        sync_mode: string; sync_interval_hours: number;
+        last_sync_at: string | null; last_sync_sha: string | null;
+        last_repair_daily_at: string | null; enabled: number;
+      }>
+      const ins = db.prepare(`
+        INSERT OR IGNORE INTO trash_profile_configs
+          (id, instance_id, arr_type, profile_slug, sync_mode, sync_interval_hours,
+           last_sync_at, last_sync_sha, last_repair_daily_at, enabled, position)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+      `)
+      db.transaction(() => {
+        for (const r of rows) {
+          const stableId = ('mig_' + r.instance_id + '_' + r.profile_slug).substring(0, 64)
+          ins.run(stableId, r.instance_id, r.arr_type, r.profile_slug,
+            r.sync_mode, r.sync_interval_hours,
+            r.last_sync_at, r.last_sync_sha, r.last_repair_daily_at, r.enabled)
+        }
+      })()
+      applied++
+    }
+  } catch { /* trash_profile_configs not yet created — applySchema runs after */ }
+
+  // ── TRaSH: unique index on pending previews per (instance, profile) ──────────
+  try {
+    db.prepare(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_pending_previews_profile
+      ON trash_pending_previews(instance_id, profile_slug)
+    `).run()
+  } catch { /* already exists */ }
 
   // Ensure default system user groups exist
   db.prepare(`
@@ -319,15 +397,34 @@ function applySchema(db: Database.Database) {
       updated_at            TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
-    -- ── TRaSH Guides: user score + enabled overrides ─────────────────────────
+    -- ── TRaSH Guides: per-instance profile configurations (multi-profile) ──────
+    CREATE TABLE IF NOT EXISTS trash_profile_configs (
+      id                    TEXT PRIMARY KEY,
+      instance_id           TEXT NOT NULL,
+      arr_type              TEXT NOT NULL,
+      profile_slug          TEXT NOT NULL,
+      sync_mode             TEXT NOT NULL DEFAULT 'notify',
+      sync_interval_hours   INTEGER NOT NULL DEFAULT 24,
+      last_sync_at          TEXT,
+      last_sync_sha         TEXT,
+      last_repair_daily_at  TEXT,
+      enabled               INTEGER NOT NULL DEFAULT 1,
+      position              INTEGER NOT NULL DEFAULT 0,
+      created_at            TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at            TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(instance_id, profile_slug)
+    );
+
+    -- ── TRaSH Guides: user score + enabled overrides (profile-scoped) ─────────
     CREATE TABLE IF NOT EXISTS trash_user_overrides (
       id            TEXT PRIMARY KEY,
       instance_id   TEXT NOT NULL,
+      profile_slug  TEXT NOT NULL,
       slug          TEXT NOT NULL,
       score         INTEGER,
       enabled       INTEGER NOT NULL DEFAULT 1,
       updated_at    TEXT NOT NULL DEFAULT (datetime('now')),
-      UNIQUE(instance_id, slug)
+      UNIQUE(instance_id, profile_slug, slug)
     );
 
     -- ── TRaSH Guides: user-created and imported custom formats ───────────────

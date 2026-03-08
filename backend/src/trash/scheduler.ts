@@ -1,15 +1,15 @@
 // ── State-based scheduler ─────────────────────────────────────────────────────
 // Per-instance timers. No drift on restart: compares now vs last_sync_at.
 // Daily repair job runs independently of sync schedule.
+// Multi-profile: timers are keyed by instanceId; runSync iterates all profiles internally.
 
 import { getDb } from '../db/database'
-import { getInterruptedCheckpoints, isDailyRepairDue, markDailyRepairRun } from './repair-engine'
+import { getInterruptedCheckpoints, isDailyRepairDue } from './repair-engine'
 import { runParserMigrations } from './migration-runner'
-import type { TrashInstanceConfig } from './types'
+import type { TrashInstanceConfig, TrashProfileConfig } from './types'
 import type { FastifyBaseLogger } from 'fastify'
 
 // ── Per-instance sync callback ────────────────────────────────────────────────
-// Set by the route module so the scheduler can trigger syncs without circular deps.
 type SyncFn = (instanceId: string, trigger: 'auto' | 'repair_daily') => Promise<void>
 
 let syncFn: SyncFn | null = null
@@ -71,10 +71,28 @@ async function triggerSync(instanceId: string, trigger: 'auto' | 'repair_daily')
     const cfg = db.prepare(
       'SELECT * FROM trash_instance_configs WHERE instance_id = ?'
     ).get(instanceId) as TrashInstanceConfig | undefined
-    if (cfg?.enabled && cfg.sync_mode === 'auto') {
-      scheduleNext(instanceId, cfg.sync_interval_hours * 3_600_000)
+    if (cfg?.enabled) {
+      const nextMs = getMinIntervalMs(instanceId)
+      if (nextMs !== null) scheduleNext(instanceId, nextMs)
     }
   }
+}
+
+// ── Compute minimum sync interval across all enabled profile configs ──────────
+function getMinIntervalMs(instanceId: string): number | null {
+  const db = getDb()
+  const profiles = db.prepare(
+    'SELECT sync_interval_hours FROM trash_profile_configs WHERE instance_id = ? AND enabled = 1'
+  ).all(instanceId) as Array<{ sync_interval_hours: number }>
+  if (profiles.length === 0) {
+    // Fallback to instance config if no profiles yet
+    const cfg = db.prepare(
+      'SELECT sync_interval_hours FROM trash_instance_configs WHERE instance_id = ?'
+    ).get(instanceId) as { sync_interval_hours: number } | undefined
+    return cfg ? cfg.sync_interval_hours * 3_600_000 : null
+  }
+  const min = Math.min(...profiles.map(p => p.sync_interval_hours))
+  return min * 3_600_000
 }
 
 // ── Initialize scheduler on startup ──────────────────────────────────────────
@@ -86,7 +104,7 @@ export function initScheduler(log: FastifyBaseLogger) {
   const migrated = runParserMigrations()
   if (migrated > 0) log.info({ migrated }, 'trash: schema migration applied')
 
-  // 2. Recover interrupted checkpoints (log warning — repair will clean up on next sync)
+  // 2. Recover interrupted checkpoints
   const interrupted = getInterruptedCheckpoints()
   for (const chk of interrupted) {
     log.warn({
@@ -97,32 +115,50 @@ export function initScheduler(log: FastifyBaseLogger) {
     }, 'trash: found interrupted sync checkpoint — repair will run on next sync')
   }
 
-  // 3. Schedule per-instance syncs with stagger to avoid simultaneous GitHub hits
-  const configs = db.prepare(
-    `SELECT * FROM trash_instance_configs WHERE enabled = 1`
-  ).all() as TrashInstanceConfig[]
+  // 3. Schedule per-instance syncs based on profile configs
+  // Get all distinct enabled instances that have at least one enabled profile
+  const instanceIds = (db.prepare(`
+    SELECT DISTINCT p.instance_id
+    FROM trash_profile_configs p
+    JOIN trash_instance_configs c ON c.instance_id = p.instance_id
+    WHERE p.enabled = 1 AND c.enabled = 1
+  `).all() as Array<{ instance_id: string }>).map(r => r.instance_id)
+
+  // Also include instances with no profile_configs but with a configured profile_slug
+  // (backward compat — they will get synced even if profile_configs is empty)
+  const legacyInstances = (db.prepare(`
+    SELECT instance_id FROM trash_instance_configs
+    WHERE enabled = 1 AND profile_slug IS NOT NULL
+    AND instance_id NOT IN (SELECT instance_id FROM trash_profile_configs)
+  `).all() as Array<{ instance_id: string }>).map(r => r.instance_id)
+
+  const allInstanceIds = [...new Set([...instanceIds, ...legacyInstances])]
 
   let staggerMs = 0
 
-  for (const cfg of configs) {
-    const intervalMs = cfg.sync_interval_hours * 3_600_000
-    const lastSyncMs = cfg.last_sync_at ? new Date(cfg.last_sync_at).getTime() : 0
+  for (const instanceId of allInstanceIds) {
+    // Use the earliest last_sync_at across all profiles to decide if a catch-up is needed
+    const earliest = db.prepare(`
+      SELECT MIN(last_sync_at) as min_sync FROM trash_profile_configs
+      WHERE instance_id = ? AND enabled = 1
+    `).get(instanceId) as { min_sync: string | null } | undefined
+
+    const intervalMs = getMinIntervalMs(instanceId) ?? 24 * 3_600_000
+    const lastSyncMs = earliest?.min_sync ? new Date(earliest.min_sync).getTime() : 0
     const elapsed = Date.now() - lastSyncMs
 
-    if (elapsed >= intervalMs || !cfg.last_sync_at) {
-      // Missed window — catch-up with stagger
-      setTimeout(() => triggerSync(cfg.instance_id, 'auto').catch(() => {}), staggerMs)
+    if (elapsed >= intervalMs || !earliest?.min_sync) {
+      setTimeout(() => triggerSync(instanceId, 'auto').catch(() => {}), staggerMs)
       staggerMs += 2_000
     } else {
-      // Schedule for remaining time in interval
       const remaining = intervalMs - elapsed
-      scheduleNext(cfg.instance_id, remaining)
-      log.debug({ instanceId: cfg.instance_id, nextSyncInMs: remaining }, 'trash: scheduled next sync')
+      scheduleNext(instanceId, remaining)
+      log.debug({ instanceId, nextSyncInMs: remaining }, 'trash: scheduled next sync')
     }
 
-    // Schedule daily repair if due (independent of sync)
-    if (isDailyRepairDue(cfg.instance_id)) {
-      setTimeout(() => triggerSync(cfg.instance_id, 'repair_daily').catch(() => {}), staggerMs + 5_000)
+    // Schedule daily repair if due
+    if (isDailyRepairDue(instanceId)) {
+      setTimeout(() => triggerSync(instanceId, 'repair_daily').catch(() => {}), staggerMs + 5_000)
     }
   }
 }
@@ -135,11 +171,23 @@ export function rescheduleInstance(instanceId: string) {
   const cfg = db.prepare(
     'SELECT * FROM trash_instance_configs WHERE instance_id = ?'
   ).get(instanceId) as TrashInstanceConfig | undefined
+  if (!cfg?.enabled) return
 
-  if (!cfg?.enabled || cfg.sync_mode !== 'auto') return
+  const hasAutoProfile = (db.prepare(
+    "SELECT 1 FROM trash_profile_configs WHERE instance_id = ? AND enabled = 1 AND sync_mode = 'auto'"
+  ).get(instanceId)) !== undefined
 
-  const intervalMs = cfg.sync_interval_hours * 3_600_000
-  const lastSyncMs = cfg.last_sync_at ? new Date(cfg.last_sync_at).getTime() : 0
+  if (!hasAutoProfile) return
+
+  const intervalMs = getMinIntervalMs(instanceId)
+  if (!intervalMs) return
+
+  const earliest = db.prepare(`
+    SELECT MIN(last_sync_at) as min_sync FROM trash_profile_configs
+    WHERE instance_id = ? AND enabled = 1
+  `).get(instanceId) as { min_sync: string | null } | undefined
+
+  const lastSyncMs = earliest?.min_sync ? new Date(earliest.min_sync).getTime() : 0
   const elapsed = Date.now() - lastSyncMs
 
   if (elapsed >= intervalMs) {

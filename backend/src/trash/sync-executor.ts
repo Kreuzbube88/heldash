@@ -97,10 +97,12 @@ export async function executeSyncChangeset(
   const errors: SyncError[] = []
   const { instanceId } = changeset
 
+  const { profileSlug } = changeset
+
   if (changeset.isNoOp) {
     const endTime = new Date().toISOString()
     const report: SyncReport = {
-      syncId, instanceId, trigger,
+      syncId, instanceId, profileSlug, trigger,
       status: 'no_op',
       githubSha: changeset.githubSha,
       githubCommitDate,
@@ -264,7 +266,7 @@ export async function executeSyncChangeset(
   finishCheckpoint(instanceId, status === 'error' ? 'failed' : 'completed')
 
   const report: SyncReport = {
-    syncId, instanceId, trigger, status,
+    syncId, instanceId, profileSlug, trigger, status,
     githubSha: changeset.githubSha, githubCommitDate,
     startTime, endTime, durationMs,
     formatsCreated, conditionsUpdated, scoresUpdated,
@@ -279,23 +281,18 @@ export async function executeSyncChangeset(
 function writeSyncLog(db: ReturnType<typeof getDb>, syncId: string, report: SyncReport) {
   db.prepare(`
     INSERT INTO trash_sync_log
-      (id, instance_id, trigger, status, github_sha, github_commit_date,
+      (id, instance_id, profile_slug, trigger, status, github_sha, github_commit_date,
        formats_created, conditions_updated, scores_updated, formats_deprecated,
        profiles_updated, repaired_items, error_message, started_at, finished_at, duration_ms)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
-    syncId, report.instanceId, report.trigger, report.status,
+    syncId, report.instanceId, report.profileSlug, report.trigger, report.status,
     report.githubSha, report.githubCommitDate,
     report.formatsCreated, report.conditionsUpdated, report.scoresUpdated,
     report.formatsDeprecated, report.profilesUpdated, report.repairedItems,
     report.errors.length > 0 ? report.errors.map(e => `${e.phase}:${e.slug}: ${e.message}`).join('; ') : null,
     report.startTime, report.endTime, report.durationMs,
   )
-
-  // Update instance last_sync_at
-  db.prepare(`
-    UPDATE trash_instance_configs
-    SET last_sync_at = ?, last_sync_sha = ?, updated_at = datetime('now')
-    WHERE instance_id = ?
-  `).run(report.endTime, report.githubSha, report.instanceId)
+  // Note: trash_profile_configs.last_sync_at is updated by the caller (routes/trash.ts)
+  // after executeSyncChangeset returns, not here.
 }

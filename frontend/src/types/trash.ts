@@ -6,13 +6,29 @@ export interface TrashInstanceConfig {
   id: string
   instance_id: string
   arr_type: 'radarr' | 'sonarr'
-  profile_slug: string | null
-  sync_mode: TrashSyncMode
+  profile_slug: string | null   // legacy field — use profileConfigs instead
+  sync_mode: TrashSyncMode      // instance-level default
   sync_interval_hours: number
   last_sync_at: string | null
   last_sync_sha: string | null
   enabled: boolean
   isSyncing: boolean
+  profileConfigs: TrashProfileConfig[]
+}
+
+export interface TrashProfileConfig {
+  id: string
+  instance_id: string
+  arr_type: 'radarr' | 'sonarr'
+  profile_slug: string
+  sync_mode: TrashSyncMode
+  sync_interval_hours: number
+  last_sync_at: string | null
+  last_sync_sha: string | null
+  enabled: boolean
+  position: number
+  created_at: string
+  updated_at: string
 }
 
 export interface TrashProfileSummary {
@@ -34,6 +50,7 @@ export interface TrashFormatRow {
 export interface TrashUserOverride {
   id: string
   instance_id: string
+  profile_slug: string
   slug: string
   score: number | null
   enabled: number
@@ -60,6 +77,7 @@ export interface TrashPreviewChange {
 export interface TrashPreview {
   id: string
   instanceId: string
+  profileSlug: string
   previewBaseSha: string
   createdAt: string
   expiresAt: string
@@ -77,6 +95,7 @@ export interface TrashPreview {
 export interface TrashSyncLogEntry {
   id: string
   instance_id: string
+  profile_slug: string | null
   trigger: TrashSyncTrigger
   status: TrashSyncStatus
   github_sha: string | null
@@ -93,15 +112,19 @@ export interface TrashSyncLogEntry {
   duration_ms: number | null
 }
 
-export interface TrashInstanceSummary {
-  instanceId: string
-  instanceName: string
-  arrType: 'radarr' | 'sonarr'
-  profileSlug: string | null
+export interface TrashProfileSyncStatus {
+  profileSlug: string
   syncMode: TrashSyncMode
   lastSyncAt: string | null
   lastSyncStatus: TrashSyncStatus | null
   pendingReview: boolean
+}
+
+export interface TrashInstanceSummary {
+  instanceId: string
+  instanceName: string
+  arrType: 'radarr' | 'sonarr'
+  profiles: TrashProfileSyncStatus[]
   formatsActive: number
   formatsDeprecated: number
   isCurrentlySyncing: boolean

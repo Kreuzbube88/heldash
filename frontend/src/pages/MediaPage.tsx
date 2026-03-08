@@ -1632,6 +1632,7 @@ interface Props {
 
 export function MediaPage({ showAddForm: showFromParent, onFormClose }: Props) {
   const { instances } = useArrStore()
+  const { isAdmin } = useStore()
   const [activeTab, setActiveTab] = useState<MediaTab>('instances')
 
   // When Topbar "Add Instance" fires, switch to Instances tab
@@ -1658,7 +1659,7 @@ export function MediaPage({ showAddForm: showFromParent, onFormClose }: Props) {
       {activeTab === 'calendar' && <CalendarTab />}
       {activeTab === 'indexers' && <IndexersTab />}
       {activeTab === 'discover' && <DiscoverTab />}
-      {activeTab === 'trash' && <TrashPage embedded />}
+      {activeTab === 'trash' && <TrashPage embedded isAdmin={isAdmin} />}
     </div>
   )
 }

@@ -1,6 +1,6 @@
 import type { Service, Group, Settings, AuthUser, UserRecord, UserGroup, DashboardItem, DashboardGroup, DashboardResponse, Widget, WidgetStats, DockerContainer, ContainerStats, Background, HaInstance, HaPanel, HaEntityFull } from './types'
 import type { ArrInstance, ArrStatus, ArrStats, ArrQueueResponse, ArrCalendarItem, ProwlarrIndexer, SabnzbdQueueData, SabnzbdHistoryData, SeerrRequest, SeerrRequestsResponse } from './types/arr'
-import type { TrashInstanceConfig, TrashProfileSummary, TrashFormatRow, TrashPreview, TrashSyncLogEntry, TrashDeprecatedFormat, TrashImportableFormat } from './types/trash'
+import type { TrashInstanceConfig, TrashProfileConfig, TrashProfileSummary, TrashFormatRow, TrashPreview, TrashSyncLogEntry, TrashDeprecatedFormat, TrashImportableFormat, TrashUserOverride } from './types/trash'
 
 const BASE = '/api'
 
@@ -247,20 +247,40 @@ export const api = {
     instances: {
       list: () => req<TrashInstanceConfig[]>('/trash/instances'),
       configure: (instanceId: string, data: {
-        profile_slug?: string | null
         sync_mode?: 'auto' | 'manual' | 'notify'
         sync_interval_hours?: number
         enabled?: boolean
       }) => req<{ ok: boolean }>(`/trash/instances/${instanceId}/configure`, { method: 'POST', body: JSON.stringify(data) }),
+      profileConfigs: (instanceId: string) =>
+        req<TrashProfileConfig[]>(`/trash/instances/${instanceId}/profile-configs`),
+      addProfileConfig: (instanceId: string, data: {
+        profile_slug: string
+        sync_mode?: 'auto' | 'manual' | 'notify'
+        sync_interval_hours?: number
+        enabled?: boolean
+      }) => req<{ id: string; ok: boolean }>(`/trash/instances/${instanceId}/profile-configs`, { method: 'POST', body: JSON.stringify(data) }),
+      updateProfileConfig: (instanceId: string, profileSlug: string, data: {
+        sync_mode?: 'auto' | 'manual' | 'notify'
+        sync_interval_hours?: number
+        enabled?: boolean
+      }) => req<{ ok: boolean }>(`/trash/instances/${instanceId}/profile-configs/${encodeURIComponent(profileSlug)}`, { method: 'PATCH', body: JSON.stringify(data) }),
+      deleteProfileConfig: (instanceId: string, profileSlug: string) =>
+        req<void>(`/trash/instances/${instanceId}/profile-configs/${encodeURIComponent(profileSlug)}`, { method: 'DELETE' }),
       profiles: (instanceId: string) => req<TrashProfileSummary[]>(`/trash/instances/${instanceId}/profiles`),
-      customFormats: (instanceId: string) => req<TrashFormatRow[]>(`/trash/instances/${instanceId}/custom-formats`),
-      saveOverrides: (instanceId: string, overrides: Array<{ slug: string; score?: number | null; enabled?: boolean }>) =>
-        req<{ ok: boolean }>(`/trash/instances/${instanceId}/overrides`, { method: 'PUT', body: JSON.stringify({ overrides }) }),
-      sync: (instanceId: string) => req<{ ok: boolean }>(`/trash/instances/${instanceId}/sync`, { method: 'POST', body: JSON.stringify({}) }),
-      preview: (instanceId: string) => req<TrashPreview>(`/trash/instances/${instanceId}/preview`),
+      customFormats: (instanceId: string, profileSlug?: string) =>
+        req<TrashFormatRow[]>(`/trash/instances/${instanceId}/custom-formats${profileSlug ? `?profile_slug=${encodeURIComponent(profileSlug)}` : ''}`),
+      overrides: (instanceId: string, profileSlug: string) =>
+        req<TrashUserOverride[]>(`/trash/instances/${instanceId}/overrides?profile_slug=${encodeURIComponent(profileSlug)}`),
+      saveOverrides: (instanceId: string, profileSlug: string, overrides: Array<{ slug: string; score?: number | null; enabled?: boolean }>) =>
+        req<{ ok: boolean }>(`/trash/instances/${instanceId}/overrides`, { method: 'PUT', body: JSON.stringify({ profile_slug: profileSlug, overrides }) }),
+      sync: (instanceId: string, profileSlug?: string) =>
+        req<{ ok: boolean }>(`/trash/instances/${instanceId}/sync${profileSlug ? `?profile_slug=${encodeURIComponent(profileSlug)}` : ''}`, { method: 'POST', body: JSON.stringify({}) }),
+      preview: (instanceId: string, profileSlug?: string) =>
+        req<TrashPreview>(`/trash/instances/${instanceId}/preview${profileSlug ? `?profile_slug=${encodeURIComponent(profileSlug)}` : ''}`),
       applyPreview: (instanceId: string, previewId: string) =>
         req<{ ok: boolean }>(`/trash/instances/${instanceId}/apply/${previewId}`, { method: 'POST', body: JSON.stringify({}) }),
-      log: (instanceId: string) => req<TrashSyncLogEntry[]>(`/trash/instances/${instanceId}/log`),
+      log: (instanceId: string, profileSlug?: string) =>
+        req<TrashSyncLogEntry[]>(`/trash/instances/${instanceId}/log${profileSlug ? `?profile_slug=${encodeURIComponent(profileSlug)}` : ''}`),
       deprecated: (instanceId: string) => req<TrashDeprecatedFormat[]>(`/trash/instances/${instanceId}/deprecated`),
       deleteDeprecated: (instanceId: string, slug: string) =>
         req<{ ok: boolean }>(`/trash/instances/${instanceId}/deprecated/${encodeURIComponent(slug)}`, { method: 'DELETE' }),

@@ -65,10 +65,18 @@ function buildProfileChanges(
 }
 
 // ── Main compute function ─────────────────────────────────────────────────────
+//
+// upstream:             Only the TRaSH formats in this specific profile (pre-filtered by caller)
+// allActiveUpstreamSlugs: Union of ALL format slugs across all enabled profiles for this instance.
+//                       Used for deprecation: only deprecate a mapped format if it is absent
+//                       from ALL active profiles, not just the current one.
+// profileSlug:          The profile being synced — stored in the returned Changeset.
 
 export function computeChangeset(
   instanceId: string,
+  profileSlug: string,
   upstream: NormalizedCustomFormat[],
+  allActiveUpstreamSlugs: Set<string>,
   selectedProfile: NormalizedQualityProfile | null,
   snapshot: ArrSnapshot,
   overrides: TrashUserOverride[],
@@ -80,8 +88,6 @@ export function computeChangeset(
   // Build override map for O(1) access
   const overrideMap = new Map<string, TrashUserOverride>(overrides.map(o => [o.slug, o]))
 
-  // Build live snapshot by name-derived slug for recovery only
-  // (Primary resolution is always via FormatIdResolver)
   const upstreamSlugs = new Set(upstream.map(f => f.slug))
 
   const add: ChangeAdd[] = []
@@ -99,7 +105,7 @@ export function computeChangeset(
     const arrId = resolveArrId(instanceId, format.slug)
 
     if (arrId === null) {
-      // Format not in arr and not in mapping → add it
+      // Format not in mapping → check if it exists by name in arr
       const liveByName = snapshot.formats.find(f => f.name === format.name)
       if (liveByName) {
         // Exists in arr but no mapping — treat as repair (will re-register mapping)
@@ -117,10 +123,9 @@ export function computeChangeset(
       continue
     }
 
-    // Format is mapped — check conditions and score
+    // Format is mapped — check conditions hash
     const lastHash = getLastConditionsHash(instanceId, format.slug)
     if (lastHash !== format.conditionsHash) {
-      // Conditions changed upstream — always update (user cannot override conditions)
       updateConditions.push({
         slug: format.slug,
         arrFormatId: arrId,
@@ -129,40 +134,33 @@ export function computeChangeset(
       })
     }
 
-    // Score drift check (against live profile, handled in profile diff below)
-    // Direct format-level score is only tracked if not part of a profile
+    // Score drift is handled in profile diff (Phase C)
     if (!selectedProfile) {
-      const liveFormat = snapshot.byId.get(arrId)
-      // (score is on the profile, not the format itself in arr — nothing to do here without a profile)
-      void liveFormat
+      void snapshot.byId.get(arrId)  // no-op without a profile
     }
   }
 
-  // ── Step 2: deprecate formats removed from upstream ──────────────────────────
-  for (const liveFormat of snapshot.formats) {
-    // Derive slug from name (best-effort for new deprecation detection)
-    const candidateSlug = upstream.find(f => f.name === liveFormat.name)?.slug
-    if (candidateSlug) continue  // Still in upstream
-    if (!candidateSlug) {
-      // Check if we have a mapping for this format (could be TRaSH-managed)
-      // Only deprecate if we have a record of this being a TRaSH format
-      // (user formats are never in our upstream list, skip them)
-    }
-  }
-
-  // Deprecate by checking which slugs we have mapped but are no longer in upstream
+  // ── Step 2: deprecate formats no longer in ANY active profile ────────────────
+  // A format is a deprecation candidate only if:
+  //   - It has a mapping for this instance (we manage it)
+  //   - It is absent from allActiveUpstreamSlugs (removed from all active profiles)
+  //   - It is not already in the deprecated set
   const { getAllMappings } = require('./format-id-resolver') as typeof import('./format-id-resolver')
   const allMappings = getAllMappings(instanceId)
   for (const mapping of allMappings) {
-    if (upstreamSlugs.has(mapping.slug)) continue          // Still in upstream
-    if (deprecatedSlugs.has(mapping.slug)) continue        // Already deprecated
-    const liveFormat = snapshot.byId.get(mapping.arr_format_id)
-    if (!liveFormat) continue  // Already gone from arr — nothing to deprecate
-    deprecate.push({
-      slug: mapping.slug,
-      arrFormatId: mapping.arr_format_id,
-      name: liveFormat.name,
-    })
+    if (allActiveUpstreamSlugs.has(mapping.slug)) continue   // still in some active profile
+    if (deprecatedSlugs.has(mapping.slug)) continue          // already deprecated
+    if (!upstreamSlugs.has(mapping.slug) && !allActiveUpstreamSlugs.has(mapping.slug)) {
+      // Only emit deprecation on the first profile sync that detects it
+      // (the slug is not in THIS profile's upstream either)
+      const liveFormat = snapshot.byId.get(mapping.arr_format_id)
+      if (!liveFormat) continue  // already gone from arr
+      deprecate.push({
+        slug: mapping.slug,
+        arrFormatId: mapping.arr_format_id,
+        name: liveFormat.name,
+      })
+    }
   }
 
   // ── Step 3: profile score diff ────────────────────────────────────────────────
@@ -182,6 +180,7 @@ export function computeChangeset(
 
   return {
     instanceId,
+    profileSlug,
     generatedAt: now,
     githubSha,
     add,

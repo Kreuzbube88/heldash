@@ -10,6 +10,7 @@ interface HaStore {
   loadInstances: () => Promise<void>
   loadPanels: () => Promise<void>
   loadStates: (instanceId: string) => Promise<void>
+  updateEntityState: (instanceId: string, entityId: string, newState: HaEntityFull) => void
   callService: (instanceId: string, domain: string, service: string, entityId: string) => Promise<void>
   addPanel: (instanceId: string, entityId: string, label?: string, panelType?: string) => Promise<void>
   updatePanel: (panelId: string, data: { label?: string; panel_type?: string }) => Promise<void>
@@ -40,6 +41,18 @@ export const useHaStore = create<HaStore>((set, get) => ({
     const map: Record<string, HaEntityFull> = {}
     for (const s of states) map[s.entity_id] = s
     set(prev => ({ stateMap: { ...prev.stateMap, [instanceId]: map } }))
+  },
+
+  updateEntityState: (instanceId: string, entityId: string, newState: HaEntityFull) => {
+    set(prev => ({
+      stateMap: {
+        ...prev.stateMap,
+        [instanceId]: {
+          ...prev.stateMap[instanceId],
+          [entityId]: newState,
+        },
+      },
+    }))
   },
 
   callService: async (instanceId, domain, service, entityId) => {

@@ -2,6 +2,7 @@ import { FastifyInstance, FastifyRequest } from 'fastify'
 import { nanoid } from 'nanoid'
 import { getDb } from '../db/database'
 import { isValidHttpUrl } from './_helpers'
+import { getHaWsClient, invalidateHaWsClient } from '../clients/ha-ws-manager'
 
 // ── DB row types ──────────────────────────────────────────────────────────────
 
@@ -152,6 +153,8 @@ export async function haRoutes(app: FastifyInstance) {
     db.prepare(`
       UPDATE ha_instances SET name=?, url=?, token=?, enabled=?, updated_at=datetime('now') WHERE id=?
     `).run(name, url, token, enabled, row.id)
+    // Invalidate WS client so it reconnects with updated credentials/URL
+    invalidateHaWsClient(row.id)
     const updated = db.prepare('SELECT * FROM ha_instances WHERE id = ?').get(row.id) as HaInstanceRow
     return sanitizeInstance(updated)
   })
@@ -164,6 +167,7 @@ export async function haRoutes(app: FastifyInstance) {
     if (!row) return reply.status(404).send({ error: 'Not found' })
     db.prepare('DELETE FROM ha_panels WHERE instance_id = ?').run(req.params.id)
     db.prepare('DELETE FROM ha_instances WHERE id = ?').run(req.params.id)
+    invalidateHaWsClient(req.params.id)
     return reply.status(204).send()
   })
 
@@ -199,6 +203,34 @@ export async function haRoutes(app: FastifyInstance) {
       const msg = err instanceof Error ? err.message : 'Connection failed'
       return reply.status(502).send({ error: msg })
     }
+  })
+
+  // GET /api/ha/instances/:id/stream — SSE stream of state_changed events via HA WebSocket
+  app.get<{ Params: { id: string } }>('/api/ha/instances/:id/stream', {
+    preHandler: [app.authenticate],
+  }, async (req, reply) => {
+    const row = db.prepare('SELECT * FROM ha_instances WHERE id = ?').get(req.params.id) as HaInstanceRow | undefined
+    if (!row) return reply.status(404).send({ error: 'Not found' })
+    if (!row.enabled) return reply.status(400).send({ error: 'Instance disabled' })
+
+    reply.hijack()
+    reply.raw.setHeader('Content-Type', 'text/event-stream')
+    reply.raw.setHeader('Cache-Control', 'no-cache')
+    reply.raw.setHeader('Connection', 'keep-alive')
+    reply.raw.setHeader('X-Accel-Buffering', 'no')
+    reply.raw.flushHeaders()
+
+    const unsubscribe = getHaWsClient(row.id, row.url, row.token).subscribe((entityId, newState) => {
+      if (reply.raw.destroyed) return
+      try {
+        reply.raw.write(`data: ${JSON.stringify({ entity_id: entityId, state: newState })}\n\n`)
+      } catch { /* client gone */ }
+    })
+
+    req.raw.on('close', () => {
+      unsubscribe()
+      if (!reply.raw.destroyed) reply.raw.end()
+    })
   })
 
   // POST /api/ha/instances/:id/call — proxy a HA service call

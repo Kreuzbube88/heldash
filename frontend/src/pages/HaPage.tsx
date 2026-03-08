@@ -507,7 +507,7 @@ function PanelCard({ panel, entity, onRemove, onEdit, onToggle, toggling }: Pane
 export function HaPage() {
   const {
     instances, panels, stateMap,
-    loadInstances, loadPanels, loadStates,
+    loadInstances, loadPanels, loadStates, updateEntityState,
     addPanel, removePanel, reorderPanels, callService,
     deleteInstance,
   } = useHaStore()
@@ -525,16 +525,36 @@ export function HaPage() {
     loadPanels().catch(() => {})
   }, [])
 
-  // Poll states for all instances referenced in panels (30s)
+  // Subscribe to real-time state updates for all instances referenced in panels.
+  // On mount: fetch initial bulk state snapshot, then open SSE stream from the
+  // backend HA WebSocket bridge. Cleans up EventSources on unmount / panel change.
   const instanceIds = [...new Set(panels.map(p => p.instance_id))]
   const instanceIdsKey = instanceIds.join(',')
 
   useEffect(() => {
     if (!instanceIdsKey) return
     const ids = instanceIdsKey.split(',')
+    const sources: EventSource[] = []
+
+    // Initial bulk load so cards aren't empty while WS connects
     ids.forEach(id => loadStates(id).catch(() => {}))
-    const interval = setInterval(() => ids.forEach(id => loadStates(id).catch(() => {})), 30_000)
-    return () => clearInterval(interval)
+
+    // Open SSE stream per instance (backend bridges HA WebSocket → SSE)
+    for (const instanceId of ids) {
+      const es = new EventSource(`/api/ha/instances/${instanceId}/stream`)
+      es.onmessage = (e: MessageEvent) => {
+        try {
+          const { entity_id, state } = JSON.parse(e.data as string) as {
+            entity_id: string
+            state: HaEntityFull
+          }
+          updateEntityState(instanceId, entity_id, state)
+        } catch { /* ignore malformed event */ }
+      }
+      sources.push(es)
+    }
+
+    return () => sources.forEach(es => es.close())
   }, [instanceIdsKey])
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }))

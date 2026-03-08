@@ -17,6 +17,7 @@ interface TrashState {
   syncLogs: Record<string, TrashSyncLogEntry[]>             // instanceId → logs (all profiles)
   deprecated: Record<string, TrashDeprecatedFormat[]>       // instanceId → deprecated
   importable: Record<string, TrashImportableFormat[]>       // instanceId → importable
+  allFormats: Record<string, TrashFormatRow[]>              // instanceId → all formats (no profile filter)
 
   loadConfigs: () => Promise<void>
   configure: (instanceId: string, data: {
@@ -45,6 +46,7 @@ interface TrashState {
   loadSyncLog: (instanceId: string, profileSlug?: string) => Promise<void>
   loadDeprecated: (instanceId: string) => Promise<void>
   loadImportable: (instanceId: string) => Promise<void>
+  loadAllFormats: (instanceId: string) => Promise<void>
 
   triggerSync: (instanceId: string, profileSlug?: string) => Promise<void>
   applyPreview: (instanceId: string, previewId: string, profileSlug: string) => Promise<void>
@@ -62,6 +64,7 @@ export const useTrashStore = create<TrashState>((set, get) => ({
   syncLogs: {},
   deprecated: {},
   importable: {},
+  allFormats: {},
 
   loadConfigs: async () => {
     const configs = await api.trash.instances.list()
@@ -129,6 +132,11 @@ export const useTrashStore = create<TrashState>((set, get) => ({
   loadImportable: async (instanceId) => {
     const rows = await api.trash.instances.importFormats(instanceId)
     set(s => ({ importable: { ...s.importable, [instanceId]: rows } }))
+  },
+
+  loadAllFormats: async (instanceId) => {
+    const formats = await api.trash.instances.customFormats(instanceId)
+    set(s => ({ allFormats: { ...s.allFormats, [instanceId]: formats } }))
   },
 
   triggerSync: async (instanceId, profileSlug) => {

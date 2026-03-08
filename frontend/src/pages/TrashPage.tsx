@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import {
   RefreshCw, Settings2, Check, X, Loader,
   AlertTriangle, Trash2, Download, GitCommit, CheckCircle,
-  XCircle, Info, Play, Plus, Save, ChevronDown,
+  XCircle, Info, Play, Plus, Save, ChevronDown, Search,
 } from 'lucide-react'
 import { useTrashStore } from '../store/useTrashStore'
 import { useArrStore } from '../store/useArrStore'
@@ -819,8 +819,11 @@ function ProfileEditor({ instanceId, profileCfg, profileName, isSyncing, isAdmin
         )}
 
         {totalVisible === 0 && (
-          <div style={{ color: 'var(--text-muted)', fontSize: 13, textAlign: 'center', padding: 48 }}>
-            {search || filter !== 'all' ? 'No formats match your filter.' : 'No formats loaded.'}
+          <div style={{ color: 'var(--text-muted)', fontSize: 13, textAlign: 'center', padding: 48, lineHeight: 1.6 }}>
+            {search || filter !== 'all'
+              ? 'No formats match your filter.'
+              : <>No formats found for this profile.<br />If TRaSH data hasn&rsquo;t been loaded yet, use &ldquo;Refresh from GitHub&rdquo; above or click &ldquo;Browse Formats&rdquo; to check what&rsquo;s available.</>
+            }
           </div>
         )}
       </div>
@@ -877,6 +880,165 @@ function ProfileEditor({ instanceId, profileCfg, profileName, isSyncing, isAdmin
   )
 }
 
+// ── Browse Formats Modal ──────────────────────────────────────────────────────
+//
+// Read-only view of ALL TRaSH custom formats for this instance's arr type.
+
+interface BrowseFormatsModalProps {
+  instanceId: string
+  onClose: () => void
+}
+
+function BrowseFormatsModal({ instanceId, onClose }: BrowseFormatsModalProps) {
+  const { allFormats, loadAllFormats } = useTrashStore()
+  const [search, setSearch] = useState('')
+  const [filterType, setFilterType] = useState<'all' | 'trash' | 'custom'>('all')
+  const [loading, setLoading] = useState(false)
+
+  const formats = allFormats[instanceId] ?? []
+
+  useEffect(() => {
+    if (!allFormats[instanceId]) {
+      setLoading(true)
+      loadAllFormats(instanceId).catch(() => {}).finally(() => setLoading(false))
+    }
+  }, [instanceId])
+
+  const trashFormats = formats.filter(f => !f.isUserFormat)
+  const userFormats = formats.filter(f => f.isUserFormat)
+
+  function matchesSearch(f: TrashFormatRow): boolean {
+    if (!search) return true
+    const q = search.toLowerCase()
+    return f.name.toLowerCase().includes(q) || f.slug.toLowerCase().includes(q)
+  }
+
+  const visibleTrash = filterType !== 'custom' ? trashFormats.filter(matchesSearch) : []
+  const visibleUser = filterType !== 'trash' ? userFormats.filter(matchesSearch) : []
+
+  return createPortal(
+    <div className="modal-overlay" onClick={onClose}>
+      <div
+        className="glass"
+        onClick={e => e.stopPropagation()}
+        style={{
+          width: '100%', maxWidth: 680, maxHeight: '85vh',
+          borderRadius: 'var(--radius-xl)', padding: '32px',
+          animation: 'slide-up var(--transition-base)', position: 'relative',
+          display: 'flex', flexDirection: 'column', gap: 16,
+        }}
+      >
+        <button className="btn btn-ghost btn-icon" onClick={onClose} style={{ position: 'absolute', top: 16, right: 16 }}>
+          <X size={16} />
+        </button>
+
+        <div>
+          <h2 style={{ fontSize: 22, fontWeight: 600, marginBottom: 4, color: 'var(--text-primary)' }}>Browse Formats</h2>
+          <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0 }}>
+            All custom formats available for this instance. Edit scores and overrides within a profile tab.
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ flex: 1, position: 'relative' }}>
+            <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+            <input
+              className="form-input"
+              placeholder="Search by name or slug…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              style={{ width: '100%', padding: '9px 10px 9px 30px', fontSize: 13 }}
+              autoFocus
+            />
+          </div>
+          <select
+            className="form-input"
+            value={filterType}
+            onChange={e => setFilterType(e.target.value as typeof filterType)}
+            style={{ width: 180, padding: '9px 10px', fontSize: 13 }}
+          >
+            <option value="all">All ({formats.length})</option>
+            <option value="trash">TRaSH formats ({trashFormats.length})</option>
+            <option value="custom">User custom ({userFormats.length})</option>
+          </select>
+        </div>
+
+        <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+          {loading ? (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: 64 }}>
+              <Loader size={20} className="spin" style={{ color: 'var(--text-muted)' }} />
+            </div>
+          ) : formats.length === 0 ? (
+            <div style={{ color: 'var(--text-muted)', fontSize: 13, textAlign: 'center', padding: 48 }}>
+              No formats cached. Use &ldquo;Refresh from GitHub&rdquo; to populate.
+            </div>
+          ) : (
+            <>
+              {filterType !== 'custom' && (
+                <div>
+                  <div style={{ padding: '8px 16px 4px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', background: 'var(--glass-bg)', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, zIndex: 1 }}>
+                    TRaSH formats · {visibleTrash.length}
+                  </div>
+                  {visibleTrash.length === 0 ? (
+                    <div style={{ padding: '24px', fontSize: 13, color: 'var(--text-muted)', textAlign: 'center' }}>No TRaSH formats match your search.</div>
+                  ) : visibleTrash.map(f => (
+                    <div key={f.slug} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 16px', borderBottom: '1px solid var(--border)' }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{f.slug}</div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                        {f.deprecated && <span style={{ fontSize: 11, padding: '2px 6px', borderRadius: 4, background: '#f59e0b22', color: '#f59e0b' }}>deprecated</span>}
+                        <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: 'var(--glass-bg)', border: '1px solid var(--border)', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}>
+                          rec: {f.recommendedScore}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {filterType !== 'trash' && userFormats.length > 0 && (
+                <div>
+                  <div style={{ padding: '8px 16px 4px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', background: 'var(--glass-bg)', borderBottom: '1px solid var(--border)', borderTop: filterType === 'all' && trashFormats.length > 0 ? '2px solid var(--border)' : undefined, position: 'sticky', top: 0, zIndex: 1 }}>
+                    User custom formats · {visibleUser.length}
+                  </div>
+                  {visibleUser.length === 0 ? (
+                    <div style={{ padding: '24px', fontSize: 13, color: 'var(--text-muted)', textAlign: 'center' }}>No custom formats match your search.</div>
+                  ) : visibleUser.map(f => (
+                    <div key={f.slug} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 16px', borderBottom: '1px solid var(--border)' }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{f.slug}</div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                        {f.deprecated && <span style={{ fontSize: 11, padding: '2px 6px', borderRadius: 4, background: '#f59e0b22', color: '#f59e0b' }}>deprecated</span>}
+                        <span style={{ fontSize: 11, padding: '2px 6px', borderRadius: 4, background: 'rgba(var(--accent-rgb),0.12)', color: 'var(--accent)', fontWeight: 600 }}>custom</span>
+                        <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: 'var(--glass-bg)', border: '1px solid var(--border)', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}>
+                          rec: {f.recommendedScore}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {filterType === 'custom' && userFormats.length === 0 && (
+                <div style={{ color: 'var(--text-muted)', fontSize: 13, textAlign: 'center', padding: 48 }}>No user custom formats imported yet.</div>
+              )}
+            </>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <button className="btn btn-ghost" onClick={onClose} style={{ padding: '10px 24px', fontSize: 14 }}>Close</button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  )
+}
+
 // ── Instance Editor ───────────────────────────────────────────────────────────
 //
 // Shows one configured instance: a profile tab bar + the selected profile's editor.
@@ -888,7 +1050,7 @@ interface InstanceEditorProps {
 }
 
 function InstanceEditor({ config, instanceName, isAdmin }: InstanceEditorProps) {
-  const { profiles, loadProfiles, triggerSync, configure, deleteProfileConfig } = useTrashStore()
+  const { profiles, loadProfiles, triggerSync, configure, deleteProfileConfig, forceFetchGithub, loadAllFormats, allFormats } = useTrashStore()
 
   const id = config.instance_id
   const profileConfigs = config.profileConfigs ?? []
@@ -900,6 +1062,9 @@ function InstanceEditor({ config, instanceName, isAdmin }: InstanceEditorProps) 
   const [syncing, setSyncing] = useState(false)
   const [toggling, setToggling] = useState(false)
   const [deleteSlug, setDeleteSlug] = useState<string | null>(null)
+  const [fetching, setFetching] = useState(false)
+  const [profilesLoaded, setProfilesLoaded] = useState(false)
+  const [showBrowse, setShowBrowse] = useState(false)
 
   // Keep selectedSlug in sync when configs change (e.g. a profile was added/removed)
   const slugSet = profileConfigs.map(p => p.profile_slug).join(',')
@@ -913,8 +1078,17 @@ function InstanceEditor({ config, instanceName, isAdmin }: InstanceEditorProps) 
   }, [slugSet])
 
   useEffect(() => {
-    loadProfiles(id).catch(() => {})
+    loadProfiles(id).catch(() => {}).finally(() => setProfilesLoaded(true))
   }, [id])
+
+  async function fetchAndReload() {
+    setFetching(true)
+    try {
+      await forceFetchGithub()
+      await loadProfiles(id)
+    } catch { /* ignore */ }
+    finally { setFetching(false) }
+  }
 
   async function syncAll() {
     setSyncing(true)
@@ -969,6 +1143,16 @@ function InstanceEditor({ config, instanceName, isAdmin }: InstanceEditorProps) 
             {toggling ? <Loader size={13} className="spin" /> : config.enabled ? 'Enabled' : 'Enable'}
           </button>
         )}
+        {isAdmin && myProfiles.length > 0 && (
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => { setShowBrowse(true); if (!allFormats[id]) loadAllFormats(id).catch(() => {}) }}
+            title="Browse all available TRaSH formats for this instance"
+          >
+            <Search size={13} />
+            Browse Formats
+          </button>
+        )}
         {isAdmin && profileConfigs.length > 0 && (
           <button className="btn btn-ghost btn-sm" onClick={syncAll} disabled={syncing || config.isSyncing} title="Sync all profiles">
             {syncing || config.isSyncing ? <Loader size={13} className="spin" /> : <RefreshCw size={13} />}
@@ -976,6 +1160,25 @@ function InstanceEditor({ config, instanceName, isAdmin }: InstanceEditorProps) 
           </button>
         )}
       </div>
+
+      {/* ── No TRaSH data banner ─── */}
+      {profilesLoaded && myProfiles.length === 0 && isAdmin && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '10px 16px', background: '#f59e0b11', borderBottom: '1px solid #f59e0b33' }}>
+          <AlertTriangle size={14} style={{ color: '#f59e0b', flexShrink: 0 }} />
+          <span style={{ flex: 1, fontSize: 13, color: '#f59e0b' }}>
+            No TRaSH Guides data found for this instance. Fetch from GitHub to load available profiles and formats.
+          </span>
+          <button
+            className="btn btn-sm"
+            onClick={fetchAndReload}
+            disabled={fetching}
+            style={{ background: '#f59e0b22', border: '1px solid #f59e0b55', color: '#f59e0b', fontWeight: 600, fontSize: 12, display: 'flex', alignItems: 'center', gap: 5 }}
+          >
+            {fetching ? <Loader size={12} className="spin" /> : <GitCommit size={12} />}
+            Fetch from GitHub
+          </button>
+        </div>
+      )}
 
       {/* ── Profile tab bar ─── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 0, background: 'var(--glass-bg)', borderBottom: '1px solid var(--border)', overflowX: 'auto', padding: '0 8px' }}>
@@ -985,7 +1188,7 @@ function InstanceEditor({ config, instanceName, isAdmin }: InstanceEditorProps) 
           return (
             <button
               key={pcfg.profile_slug}
-              onClick={() => setSelectedSlug(pcfg.profile_slug)}
+              onClick={() => { setSelectedSlug(pcfg.profile_slug); setShowBrowse(false) }}
               style={{
                 padding: '10px 16px', fontSize: 13, fontWeight: isActive ? 600 : 400, whiteSpace: 'nowrap',
                 borderBottom: isActive ? '2px solid var(--accent)' : '2px solid transparent',
@@ -1067,6 +1270,9 @@ function InstanceEditor({ config, instanceName, isAdmin }: InstanceEditorProps) 
           alreadyConfiguredSlugs={configuredSlugs}
           onClose={() => setShowAddProfile(false)}
         />
+      )}
+      {showBrowse && (
+        <BrowseFormatsModal instanceId={id} onClose={() => setShowBrowse(false)} />
       )}
     </div>
   )

@@ -577,8 +577,8 @@ function FormatsTab({ instanceId, formats }: FormatsTabProps) {
           <option value="overridden">Overridden</option>
         </select>
         {isDirty && (
-          <button className="btn-primary" onClick={saveAll} disabled={saving} style={{ whiteSpace: 'nowrap' }}>
-            {saving ? <Loader size={14} className="spin" /> : saved ? <Check size={14} /> : <Check size={14} />}
+          <button className="btn btn-primary btn-sm" onClick={saveAll} disabled={saving}>
+            {saving ? <Loader size={13} className="spin" /> : <Check size={13} />}
             Save overrides
           </button>
         )}
@@ -679,8 +679,7 @@ function DeprecatedTab({ instanceId, deprecated }: DeprecatedTabProps) {
             </div>
           </div>
           <button
-            className="btn-secondary"
-            style={{ padding: '4px 8px' }}
+            className="btn btn-danger btn-sm btn-icon"
             onClick={() => remove(f.slug)}
             disabled={deleting === f.slug}
             title="Remove from deprecated list"
@@ -807,29 +806,20 @@ function InstancePanel({ config, instanceName }: InstancePanelProps) {
 
         <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
           {hasPendingPreview && (
-            <button
-              className="btn-primary"
-              style={{ padding: '6px 10px', fontSize: 12 }}
-              onClick={() => setShowPreview(true)}
-            >
-              <Eye size={12} /> Review
+            <button className="btn btn-primary btn-sm" onClick={() => setShowPreview(true)}>
+              <Eye size={13} /> Review
             </button>
           )}
           <button
-            className="btn-secondary"
-            style={{ padding: '6px 10px', fontSize: 12 }}
+            className="btn btn-ghost btn-sm"
             onClick={doSync}
             disabled={syncing || config.isSyncing}
           >
-            {syncing || config.isSyncing ? <Loader size={12} className="spin" /> : <RefreshCw size={12} />}
+            {syncing || config.isSyncing ? <Loader size={13} className="spin" /> : <RefreshCw size={13} />}
             Sync
           </button>
-          <button
-            className="btn-secondary"
-            style={{ padding: '6px 10px', fontSize: 12 }}
-            onClick={() => setShowConfigure(true)}
-          >
-            <Settings2 size={12} /> Configure
+          <button className="btn btn-ghost btn-sm" onClick={() => setShowConfigure(true)}>
+            <Settings2 size={13} /> Configure
           </button>
         </div>
       </div>
@@ -866,8 +856,8 @@ function InstancePanel({ config, instanceName }: InstancePanelProps) {
             ))}
             <div style={{ flex: 1 }} />
             {tab === 'formats' && (
-              <button className="btn-secondary" style={{ padding: '5px 10px', fontSize: 12 }} onClick={openImport}>
-                <Download size={12} /> Import from Arr
+              <button className="btn btn-ghost btn-sm" onClick={openImport}>
+                <Download size={13} /> Import from Arr
               </button>
             )}
           </div>
@@ -952,7 +942,7 @@ export default function TrashPage({ embedded }: { embedded?: boolean }) {
             </p>
           </div>
           <button
-            className="btn-secondary"
+            className="btn btn-ghost"
             onClick={doForceFetch}
             disabled={fetching}
             title="Force-fetch latest TRaSH Guides data from GitHub"
@@ -967,7 +957,7 @@ export default function TrashPage({ embedded }: { embedded?: boolean }) {
       {embedded && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
           <button
-            className="btn-secondary"
+            className="btn btn-ghost"
             onClick={doForceFetch}
             disabled={fetching}
             title="Force-fetch latest TRaSH Guides data from GitHub"
@@ -1091,8 +1081,8 @@ function UnconfiguredRow({ instanceId, instanceName, arrType }: UnconfiguredRowP
           {arrType}
         </span>
       </div>
-      <button className="btn-secondary" onClick={enable} disabled={enabling} style={{ fontSize: 12 }}>
-        {enabling ? <Loader size={12} className="spin" /> : <Play size={12} />}
+      <button className="btn btn-primary btn-sm" onClick={enable} disabled={enabling}>
+        {enabling ? <Loader size={13} className="spin" /> : <Play size={13} />}
         Enable TRaSH sync
       </button>
     </div>

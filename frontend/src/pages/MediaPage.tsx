@@ -7,13 +7,14 @@ import type { DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, rectSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Pencil, Trash2, Check, X, RefreshCw, GripVertical, LayoutGrid, CalendarDays, Search, Compass, Database, AlertTriangle } from 'lucide-react'
+import { Pencil, Trash2, Check, X, RefreshCw, GripVertical, LayoutGrid, CalendarDays, Search, Compass, Database, AlertTriangle, BookMarked } from 'lucide-react'
 import type { ArrInstance, ArrCalendarItem, RadarrCalendarItem, SonarrCalendarItem, ProwlarrStats } from '../types/arr'
 import { ArrCardContent, SabnzbdCardContent, SeerrCardContent } from '../components/MediaCard'
+import TrashPage from './TrashPage'
 
 // ── Tab type ──────────────────────────────────────────────────────────────────
 
-type MediaTab = 'instances' | 'library' | 'calendar' | 'indexers' | 'discover'
+type MediaTab = 'instances' | 'library' | 'calendar' | 'indexers' | 'discover' | 'trash'
 
 // ── Tab bar ───────────────────────────────────────────────────────────────────
 
@@ -24,6 +25,7 @@ function TabBar({ active, onChange, showDiscover }: { active: MediaTab; onChange
     { id: 'calendar',   label: 'Calendar',   icon: <CalendarDays size={13} /> },
     { id: 'indexers',   label: 'Indexers',   icon: <Search size={13} /> },
     ...(showDiscover ? [{ id: 'discover' as MediaTab, label: 'Discover', icon: <Compass size={13} /> }] : []),
+    { id: 'trash',      label: 'TRaSH Guides', icon: <BookMarked size={13} /> },
   ]
   return (
     <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: '6px 8px', display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -1656,6 +1658,7 @@ export function MediaPage({ showAddForm: showFromParent, onFormClose }: Props) {
       {activeTab === 'calendar' && <CalendarTab />}
       {activeTab === 'indexers' && <IndexersTab />}
       {activeTab === 'discover' && <DiscoverTab />}
+      {activeTab === 'trash' && <TrashPage embedded />}
     </div>
   )
 }

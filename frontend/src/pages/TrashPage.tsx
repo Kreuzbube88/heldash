@@ -800,11 +800,13 @@ function InstancePanel({ config, instanceName }: InstancePanelProps) {
                 key={t}
                 onClick={() => setTab(t)}
                 style={{
-                  padding: '6px 14px', borderRadius: 8, fontSize: 13, fontWeight: tab === t ? 600 : 400,
-                  background: tab === t ? 'var(--accent)22' : 'transparent',
-                  color: tab === t ? 'var(--accent)' : 'var(--text-muted)',
-                  border: `1px solid ${tab === t ? 'var(--accent)44' : 'transparent'}`,
-                  cursor: 'pointer',
+                  padding: '7px 14px', borderRadius: 'var(--radius-md)', fontSize: 13,
+                  fontWeight: tab === t ? 600 : 400,
+                  background: tab === t ? 'rgba(var(--accent-rgb), 0.12)' : 'transparent',
+                  color: tab === t ? 'var(--accent)' : 'var(--text-secondary)',
+                  border: tab === t ? '1px solid rgba(var(--accent-rgb), 0.25)' : '1px solid transparent',
+                  cursor: 'pointer', transition: 'all 150ms ease',
+                  fontFamily: 'var(--font-sans)',
                 }}
               >
                 {t === 'formats' && `Formats (${myFormats.length})`}
@@ -855,7 +857,7 @@ function InstancePanel({ config, instanceName }: InstancePanelProps) {
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
-export default function TrashPage() {
+export default function TrashPage({ embedded }: { embedded?: boolean }) {
   const { configs, loadConfigs, forceFetchGithub } = useTrashStore()
   const { instances: arrInstances } = useArrStore()
   const [loading, setLoading] = useState(true)
@@ -886,28 +888,45 @@ export default function TrashPage() {
     }
   }
 
-  return (
-    <div className="content-inner">
-      {/* Page header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
-        <div style={{ flex: 1 }}>
-          <h1 style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-primary)', margin: 0, fontFamily: 'var(--font-display)' }}>
-            TRaSH Guides Sync
-          </h1>
-          <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '4px 0 0' }}>
-            Sync custom formats and quality profiles from the TRaSH Guides.
-          </p>
+  const inner = (
+    <>
+      {/* Page header — hidden when embedded as a tab */}
+      {!embedded && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
+          <div style={{ flex: 1 }}>
+            <h1 style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-primary)', margin: 0, fontFamily: 'var(--font-display)' }}>
+              TRaSH Guides Sync
+            </h1>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '4px 0 0' }}>
+              Sync custom formats and quality profiles from the TRaSH Guides.
+            </p>
+          </div>
+          <button
+            className="btn-secondary"
+            onClick={doForceFetch}
+            disabled={fetching}
+            title="Force-fetch latest TRaSH Guides data from GitHub"
+          >
+            {fetching ? <Loader size={14} className="spin" /> : <GitCommit size={14} />}
+            Refresh from GitHub
+          </button>
         </div>
-        <button
-          className="btn-secondary"
-          onClick={doForceFetch}
-          disabled={fetching}
-          title="Force-fetch latest TRaSH Guides data from GitHub"
-        >
-          {fetching ? <Loader size={14} className="spin" /> : <GitCommit size={14} />}
-          Refresh from GitHub
-        </button>
-      </div>
+      )}
+
+      {/* GitHub refresh button row — shown only when embedded */}
+      {embedded && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+          <button
+            className="btn-secondary"
+            onClick={doForceFetch}
+            disabled={fetching}
+            title="Force-fetch latest TRaSH Guides data from GitHub"
+          >
+            {fetching ? <Loader size={14} className="spin" /> : <GitCommit size={14} />}
+            Refresh from GitHub
+          </button>
+        </div>
+      )}
 
       {fetchResult && (
         <div style={{
@@ -973,14 +992,16 @@ export default function TrashPage() {
                 No Radarr or Sonarr instances
               </div>
               <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                Add a Radarr or Sonarr instance in the Media section to use TRaSH Guides sync.
+                Add a Radarr or Sonarr instance on the Instances tab to use TRaSH Guides sync.
               </div>
             </div>
           )}
         </>
       )}
-    </div>
+    </>
   )
+
+  return embedded ? inner : <div className="content-inner">{inner}</div>
 }
 
 // ── Unconfigured Row ──────────────────────────────────────────────────────────

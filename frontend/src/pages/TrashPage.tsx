@@ -87,12 +87,12 @@ function ProfileConfigModal({ instanceId, existing, availableProfiles, alreadyCo
     setError(null)
     setLoadingFormats(true)
     try {
-      // fetch TRaSH formats for this profile + all user custom formats for the instance
-      const [profileRows, allRows] = await Promise.all([
-        api.trash.instances.customFormats(instanceId, profileSlug),
-        api.trash.instances.customFormats(instanceId),
-      ])
-      const trashOnly = profileRows.filter(f => !f.isUserFormat)
+      // fetch all formats for the instance (TRaSH + user custom)
+      // Note: we intentionally do NOT filter by profile_slug here because the
+      // profile-based filtering can return 0 if the cache was partially rebuilt
+      // by an incremental GitHub fetch. Showing all TRaSH formats is more robust.
+      const allRows = await api.trash.instances.customFormats(instanceId)
+      const trashOnly = allRows.filter(f => !f.isUserFormat)
       const userOnly = allRows.filter(f => f.isUserFormat)
       setSetupFormats(trashOnly)
       setAllUserFormats(userOnly)
@@ -899,8 +899,9 @@ function ProfileEditor({ instanceId, profileCfg, profileName, isSyncing, isAdmin
             </button>
           )}
           {isAdmin && (
-            <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setEditProfileCfg(true)} title="Profile settings">
+            <button className="btn btn-ghost btn-sm" onClick={() => setEditProfileCfg(true)} title="Edit sync settings" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <Settings2 size={13} />
+              Edit
             </button>
           )}
           {isDirty && isAdmin && (
@@ -1176,8 +1177,10 @@ interface BrowseFormatsModalProps {
 }
 
 function BrowseFormatsModal({ instanceId, profileSlugs, onClose }: BrowseFormatsModalProps) {
-  const { allFormats, loadAllFormats, assignUserFormat } = useTrashStore()
+  const { allFormats, loadAllFormats, assignUserFormat, removeUserFormat } = useTrashStore()
   const [assigning, setAssigning] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState<string | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [filterType, setFilterType] = useState<'all' | 'trash' | 'custom'>('all')
   const [loading, setLoading] = useState(false)
@@ -1293,32 +1296,63 @@ function BrowseFormatsModal({ instanceId, profileSlugs, onClose }: BrowseFormats
                   {visibleUser.length === 0 ? (
                     <div style={{ padding: '24px', fontSize: 13, color: 'var(--text-muted)', textAlign: 'center' }}>No custom formats match your search.</div>
                   ) : visibleUser.map(f => (
-                    <div key={f.slug} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 16px', borderBottom: '1px solid var(--border)' }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</div>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{f.slug}</div>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                        {f.deprecated && <span style={{ fontSize: 11, padding: '2px 6px', borderRadius: 4, background: '#f59e0b22', color: '#f59e0b' }}>deprecated</span>}
-                        <span style={{ fontSize: 11, padding: '2px 6px', borderRadius: 4, background: 'rgba(var(--accent-rgb),0.12)', color: 'var(--accent)', fontWeight: 600 }}>custom</span>
-                        {profileSlugs.length > 0 && (
-                          <select
-                            className="form-input"
-                            value={f.userProfileSlug ?? ''}
-                            disabled={assigning === f.slug}
-                            onChange={async e => {
-                              const val = e.target.value || null
-                              setAssigning(f.slug)
-                              try { await assignUserFormat(instanceId, f.slug, val) }
-                              finally { setAssigning(null) }
+                    <div key={f.slug} style={{ borderBottom: '1px solid var(--border)' }}>
+                      {confirmDelete === f.slug ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', background: 'rgba(248,113,113,0.06)' }}>
+                          <span style={{ flex: 1, fontSize: 13, color: '#f87171' }}>Delete «{f.name}» permanently?</span>
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            disabled={deleting === f.slug}
+                            style={{ color: '#f87171', borderColor: '#f8717144' }}
+                            onClick={async () => {
+                              setDeleting(f.slug)
+                              try {
+                                await removeUserFormat(instanceId, f.slug)
+                                await loadAllFormats(instanceId)
+                              } finally { setDeleting(null); setConfirmDelete(null) }
                             }}
-                            style={{ fontSize: 11, padding: '3px 6px', minWidth: 130 }}
                           >
-                            <option value="">— unlinked —</option>
-                            {profileSlugs.map(s => <option key={s} value={s}>{s}</option>)}
-                          </select>
-                        )}
-                      </div>
+                            {deleting === f.slug ? <Loader size={12} className="spin" /> : 'Delete'}
+                          </button>
+                          <button className="btn btn-ghost btn-sm" onClick={() => setConfirmDelete(null)}>Cancel</button>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 16px' }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</div>
+                            <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{f.slug}</div>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                            {f.deprecated && <span style={{ fontSize: 11, padding: '2px 6px', borderRadius: 4, background: '#f59e0b22', color: '#f59e0b' }}>deprecated</span>}
+                            <span style={{ fontSize: 11, padding: '2px 6px', borderRadius: 4, background: 'rgba(var(--accent-rgb),0.12)', color: 'var(--accent)', fontWeight: 600 }}>custom</span>
+                            {profileSlugs.length > 0 && (
+                              <select
+                                className="form-input"
+                                value={f.userProfileSlug ?? ''}
+                                disabled={assigning === f.slug}
+                                onChange={async e => {
+                                  const val = e.target.value || null
+                                  setAssigning(f.slug)
+                                  try { await assignUserFormat(instanceId, f.slug, val) }
+                                  finally { setAssigning(null) }
+                                }}
+                                style={{ fontSize: 11, padding: '3px 6px', minWidth: 130 }}
+                              >
+                                <option value="">— unlinked —</option>
+                                {profileSlugs.map(s => <option key={s} value={s}>{s}</option>)}
+                              </select>
+                            )}
+                            <button
+                              className="btn btn-ghost btn-icon"
+                              title="Delete this user custom format"
+                              style={{ padding: 4, color: 'var(--text-muted)', flexShrink: 0 }}
+                              onClick={() => setConfirmDelete(f.slug)}
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

@@ -1,4 +1,4 @@
-import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
+import { FastifyInstance, FastifyReply } from 'fastify'
 import { nanoid } from 'nanoid'
 import { getDb } from '../db/database'
 import { fetchTrashData, getTrashCacheInfo } from '../trash/github-fetcher'

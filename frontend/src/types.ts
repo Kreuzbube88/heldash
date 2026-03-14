@@ -138,9 +138,34 @@ export interface NginxPMConfig {
   // password intentionally omitted — never sent to frontend
 }
 
+export interface HomeAssistantEnergyConfig {
+  instance_id: string
+  period: 'day' | 'week' | 'month'
+}
+
+export interface EnergyData {
+  configured: boolean
+  period?: string
+  grid_consumption?: number
+  solar_production?: number
+  battery_charge?: number
+  grid_return?: number
+  gas_consumption?: number
+  self_sufficiency?: number
+  chart_data?: {
+    labels: string[]
+    consumption: number[]
+    solar: number[]
+    battery: number[]
+    grid_return: number[]
+  }
+  period_label?: string
+  error?: string
+}
+
 export interface Widget {
   id: string
-  type: 'server_status' | 'adguard_home' | 'docker_overview' | 'custom_button' | 'home_assistant' | 'pihole' | 'nginx_pm'
+  type: 'server_status' | 'adguard_home' | 'docker_overview' | 'custom_button' | 'home_assistant' | 'pihole' | 'nginx_pm' | 'home_assistant_energy'
   name: string
   config: ServerStatusConfig | AdGuardHomeConfig | CustomButtonConfig | HomeAssistantConfig | PiholeConfig | NginxPMConfig | Record<string, never>
   position: number

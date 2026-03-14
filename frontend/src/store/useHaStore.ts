@@ -1,15 +1,18 @@
 import { create } from 'zustand'
 import { api } from '../api'
-import type { HaInstance, HaPanel, HaEntityFull } from '../types'
+import type { HaInstance, HaPanel, HaEntityFull, EnergyData } from '../types'
 
 interface HaStore {
   instances: HaInstance[]
   panels: HaPanel[]
   // stateMap: instanceId → (entity_id → HaEntityFull)
   stateMap: Record<string, Record<string, HaEntityFull>>
+  // energyData: 'instanceId:period' → EnergyData
+  energyData: Record<string, EnergyData>
   loadInstances: () => Promise<void>
   loadPanels: () => Promise<void>
   loadStates: (instanceId: string) => Promise<void>
+  loadEnergy: (instanceId: string, period: string) => Promise<void>
   updateEntityState: (instanceId: string, entityId: string, newState: HaEntityFull) => void
   callService: (instanceId: string, domain: string, service: string, entityId: string, serviceData?: Record<string, unknown>) => Promise<void>
   addPanel: (instanceId: string, entityId: string, label?: string, panelType?: string) => Promise<void>
@@ -25,6 +28,7 @@ export const useHaStore = create<HaStore>((set, get) => ({
   instances: [],
   panels: [],
   stateMap: {},
+  energyData: {},
 
   loadInstances: async () => {
     const instances = await api.ha.instances.list()
@@ -41,6 +45,11 @@ export const useHaStore = create<HaStore>((set, get) => ({
     const map: Record<string, HaEntityFull> = {}
     for (const s of states) map[s.entity_id] = s
     set(prev => ({ stateMap: { ...prev.stateMap, [instanceId]: map } }))
+  },
+
+  loadEnergy: async (instanceId: string, period: string) => {
+    const data = await api.ha.energy(instanceId, period)
+    set(prev => ({ energyData: { ...prev.energyData, [`${instanceId}:${period}`]: data } }))
   },
 
   updateEntityState: (instanceId: string, entityId: string, newState: HaEntityFull) => {

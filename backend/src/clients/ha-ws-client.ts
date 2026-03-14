@@ -12,10 +12,17 @@ export interface HaEntityState {
 
 type StateListener = (entityId: string, newState: HaEntityState) => void
 
+interface PendingCommand {
+  resolve: (v: unknown) => void
+  reject: (e: Error) => void
+}
+
 // ── HA WebSocket Client ───────────────────────────────────────────────────────
 // Manages a single persistent WebSocket connection to one HA instance.
 // Subscribes to `state_changed` events and fans them out to registered listeners.
-// Auto-reconnects with exponential backoff. Stops when all listeners unsubscribe.
+// Also supports one-shot request/response via sendCommand().
+// Auto-reconnects with exponential backoff. Stops when all listeners unsubscribe
+// and no commands are pending.
 
 export class HaWsClient {
   private ws: WebSocket | null = null
@@ -24,6 +31,9 @@ export class HaWsClient {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
   private reconnectDelay = 5_000
   private destroyed = false
+  private isAuthed = false
+  private pendingCommands = new Map<number, PendingCommand>()
+  private commandQueue: { id: number; msg: string }[] = []
 
   constructor(
     private readonly url: string,
@@ -36,7 +46,38 @@ export class HaWsClient {
     if (!this.ws) this.connect()
     return () => {
       this.listeners.delete(listener)
-      if (this.listeners.size === 0 && !this.destroyed) this.disconnect()
+      this.maybeDisconnect()
+    }
+  }
+
+  /** Send a one-shot WS command and await its result. Rejects after 10s. */
+  sendCommand(type: string, payload?: object): Promise<unknown> {
+    return new Promise((resolve, reject) => {
+      if (this.destroyed) { reject(new Error('Client destroyed')); return }
+      const id = this.msgId++
+      const msg = JSON.stringify({ id, type, ...payload })
+      const timer = setTimeout(() => {
+        if (this.pendingCommands.delete(id)) {
+          this.maybeDisconnect()
+          reject(new Error('Command timeout'))
+        }
+      }, 10_000)
+      this.pendingCommands.set(id, {
+        resolve: (v) => { clearTimeout(timer); resolve(v); this.maybeDisconnect() },
+        reject: (e) => { clearTimeout(timer); reject(e); this.maybeDisconnect() },
+      })
+      if (this.isAuthed && this.ws) {
+        this.ws.send(msg)
+      } else {
+        this.commandQueue.push({ id, msg })
+        if (!this.ws) this.connect()
+      }
+    })
+  }
+
+  private maybeDisconnect(): void {
+    if (!this.destroyed && this.listeners.size === 0 && this.pendingCommands.size === 0 && this.commandQueue.length === 0) {
+      this.disconnect()
     }
   }
 
@@ -62,7 +103,15 @@ export class HaWsClient {
 
     this.ws.onclose = () => {
       this.ws = null
-      if (!this.destroyed && this.listeners.size > 0) this.scheduleReconnect()
+      this.isAuthed = false
+      // Reject pending commands — connection lost before we got their response
+      for (const [, { reject }] of this.pendingCommands) {
+        reject(new Error('Connection closed'))
+      }
+      this.pendingCommands.clear()
+      if (!this.destroyed && (this.listeners.size > 0 || this.commandQueue.length > 0)) {
+        this.scheduleReconnect()
+      }
     }
   }
 
@@ -73,8 +122,13 @@ export class HaWsClient {
         break
 
       case 'auth_ok':
-        // Reset backoff on successful connection
         this.reconnectDelay = 5_000
+        this.isAuthed = true
+        // Flush queued commands now that we're authenticated
+        for (const { msg: m } of this.commandQueue) {
+          this.ws?.send(m)
+        }
+        this.commandQueue = []
         // Subscribe to state_changed events
         this.ws?.send(JSON.stringify({
           id: this.msgId++,
@@ -84,10 +138,38 @@ export class HaWsClient {
         break
 
       case 'auth_invalid':
-        // Bad token — stop retrying to avoid log spam
         this.destroyed = true
+        // Reject queued (not yet sent) commands
+        for (const { id } of this.commandQueue) {
+          const pending = this.pendingCommands.get(id)
+          if (pending) {
+            this.pendingCommands.delete(id)
+            pending.reject(new Error('auth_invalid'))
+          }
+        }
+        this.commandQueue = []
+        // Reject already-sent pending commands
+        for (const [, { reject }] of this.pendingCommands) {
+          reject(new Error('auth_invalid'))
+        }
+        this.pendingCommands.clear()
         this.ws?.close()
         break
+
+      case 'result': {
+        const id = msg.id as number
+        const pending = this.pendingCommands.get(id)
+        if (pending) {
+          this.pendingCommands.delete(id)
+          if (msg.success) {
+            pending.resolve(msg.result)
+          } else {
+            const error = msg.error as Record<string, unknown> | undefined
+            pending.reject(new Error((error?.message as string) ?? 'Command failed'))
+          }
+        }
+        break
+      }
 
       case 'event': {
         const ev = msg.event as Record<string, unknown> | undefined
@@ -109,7 +191,9 @@ export class HaWsClient {
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null
       this.reconnectDelay = Math.min(this.reconnectDelay * 2, 60_000)
-      if (!this.destroyed && this.listeners.size > 0) this.connect()
+      if (!this.destroyed && (this.listeners.size > 0 || this.commandQueue.length > 0)) {
+        this.connect()
+      }
     }, this.reconnectDelay)
   }
 
@@ -120,11 +204,17 @@ export class HaWsClient {
     }
     this.ws?.close()
     this.ws = null
+    this.isAuthed = false
   }
 
   destroy(): void {
     this.destroyed = true
     this.listeners.clear()
+    for (const [, { reject }] of this.pendingCommands) {
+      reject(new Error('Client destroyed'))
+    }
+    this.pendingCommands.clear()
+    this.commandQueue = []
     this.disconnect()
   }
 }

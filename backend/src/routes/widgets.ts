@@ -354,7 +354,7 @@ export async function widgetsRoutes(app: FastifyInstance) {
   // POST /api/widgets — create (admin only)
   app.post('/api/widgets', { preHandler: [app.requireAdmin] }, async (req, reply) => {
     const { type, name, config = {}, show_in_topbar = false, display_location = 'none' } = req.body as CreateWidgetBody
-    if (!['server_status', 'adguard_home', 'docker_overview', 'custom_button', 'home_assistant', 'pihole', 'nginx_pm'].includes(type)) {
+    if (!['server_status', 'adguard_home', 'docker_overview', 'custom_button', 'home_assistant', 'pihole', 'nginx_pm', 'home_assistant_energy'].includes(type)) {
       return reply.status(400).send({ error: 'Invalid widget type' })
     }
     if (!name?.trim()) return reply.status(400).send({ error: 'name is required' })
@@ -504,6 +504,25 @@ export async function widgetsRoutes(app: FastifyInstance) {
         return await client.getStats()
       } catch (err) {
         return { error: (err as Error).message }
+      }
+    }
+
+    if (row.type === 'home_assistant_energy') {
+      const instanceId = typeof config.instance_id === 'string' ? config.instance_id : ''
+      const period = ['day', 'week', 'month'].includes(config.period as string) ? (config.period as string) : 'day'
+      if (!instanceId) return { configured: false, error: 'No HA instance configured' }
+      interface HaRow { id: string; url: string; token: string; enabled: number }
+      const haRow = db.prepare('SELECT id, url, token, enabled FROM ha_instances WHERE id = ?').get(instanceId) as HaRow | undefined
+      if (!haRow || !haRow.enabled) return { configured: false, error: 'HA instance not found or disabled' }
+      const { getHaWsClient } = await import('../clients/ha-ws-manager')
+      const { fetchEnergyData } = await import('./ha')
+      const client = getHaWsClient(haRow.id, haRow.url, haRow.token)
+      try {
+        const data = await fetchEnergyData(client, period)
+        const periodLabel = period === 'day' ? 'Today' : period === 'week' ? 'This week' : 'This month'
+        return { ...data, period_label: periodLabel }
+      } catch (err) {
+        return { configured: false, error: (err as Error).message }
       }
     }
 

@@ -3,9 +3,78 @@ import { useWidgetStore } from '../store/useWidgetStore'
 import { useDockerStore } from '../store/useDockerStore'
 import { useDashboardStore } from '../store/useDashboardStore'
 import { useStore } from '../store/useStore'
-import { Trash2, Pencil, X, Check, Plus, Minus, LayoutDashboard, Shield, ShieldOff, Upload, Container, Play, Square, RotateCcw, Zap } from 'lucide-react'
-import type { Widget, ServerStatusConfig, AdGuardHomeConfig, CustomButtonConfig, HomeAssistantConfig, NginxPMConfig, ServerStats, AdGuardStats, HaEntityState, NpmStats } from '../types'
+import { useHaStore } from '../store/useHaStore'
+import { Trash2, Pencil, X, Check, Plus, Minus, LayoutDashboard, Shield, ShieldOff, Upload, Container, Play, Square, RotateCcw, Zap, Sun, ZapOff, Flame, BatteryCharging } from 'lucide-react'
+import type { Widget, ServerStatusConfig, AdGuardHomeConfig, CustomButtonConfig, HomeAssistantConfig, NginxPMConfig, HomeAssistantEnergyConfig, ServerStats, AdGuardStats, HaEntityState, NpmStats, EnergyData } from '../types'
 import { normalizeUrl, containerCounts } from '../utils'
+
+// ── Energy Widget compact view ─────────────────────────────────────────────────
+
+function SmallCircularGauge({ value, size = 36 }: { value: number; size?: number }) {
+  const r = size * 0.38
+  const circumference = 2 * Math.PI * r
+  const dash = Math.max(0, Math.min(1, value / 100)) * circumference
+  const cx = size / 2, cy = size / 2
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--glass-border)" strokeWidth={size * 0.09} />
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke="#10b981" strokeWidth={size * 0.09}
+        strokeDasharray={`${dash} ${circumference}`}
+        strokeDashoffset={circumference / 4}
+        strokeLinecap="round" />
+      <text x={cx} y={cy + size * 0.09} textAnchor="middle" fontSize={size * 0.22} fontWeight="bold"
+        fill="var(--text-primary)">{value}%</text>
+    </svg>
+  )
+}
+
+export function HaEnergyWidgetView({ stats }: { stats: EnergyData }) {
+  if (stats.error && !stats.configured) {
+    return <div style={{ fontSize: 12, color: 'var(--status-offline)' }}>{stats.error}</div>
+  }
+  if (!stats.configured) {
+    return <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Energy not configured in Home Assistant</div>
+  }
+  const hasSolar = (stats.solar_production ?? 0) > 0
+  const hasReturn = (stats.grid_return ?? 0) > 0
+  const hasGas = (stats.gas_consumption ?? 0) > 0
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {hasSolar && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Sun size={13} style={{ color: '#f59e0b', flexShrink: 0 }} />
+          <span style={{ fontSize: 18, fontWeight: 700, color: '#f59e0b' }}>
+            {(stats.solar_production ?? 0).toFixed(1)}
+          </span>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>kWh solar</span>
+        </div>
+      )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <Zap size={13} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+        <span style={{ fontSize: 14, fontWeight: 600 }}>{(stats.grid_consumption ?? 0).toFixed(1)}</span>
+        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>kWh grid</span>
+      </div>
+      {hasReturn && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <ZapOff size={13} style={{ color: '#10b981', flexShrink: 0 }} />
+          <span style={{ fontSize: 13, fontWeight: 600, color: '#10b981' }}>{(stats.grid_return ?? 0).toFixed(1)}</span>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>kWh return</span>
+        </div>
+      )}
+      {hasGas && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Flame size={13} style={{ color: '#f87171', flexShrink: 0 }} />
+          <span style={{ fontSize: 13, fontWeight: 600, color: '#f87171' }}>{(stats.gas_consumption ?? 0).toFixed(3)}</span>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>m³ gas</span>
+        </div>
+      )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <SmallCircularGauge value={stats.self_sufficiency ?? 0} size={36} />
+        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{stats.period_label ?? 'Today'}</span>
+      </div>
+    </div>
+  )
+}
 
 // ── Widget icon — URL-matched service icon or custom icon_url ─────────────────
 function WidgetIcon({ widget, size = 32 }: { widget: Pick<Widget, 'type' | 'config' | 'icon_url'>; size?: number }) {
@@ -339,10 +408,11 @@ function WidgetForm({
   onCancel: () => void
 }) {
   const isEdit = !!initial
-  type WidgetFormType = 'server_status' | 'adguard_home' | 'docker_overview' | 'custom_button' | 'home_assistant' | 'pihole' | 'nginx_pm'
+  type WidgetFormType = 'server_status' | 'adguard_home' | 'docker_overview' | 'custom_button' | 'home_assistant' | 'pihole' | 'nginx_pm' | 'home_assistant_energy'
   const [type, setType] = useState<WidgetFormType>(
     (initial?.type as WidgetFormType) ?? 'server_status'
   )
+  const { instances: haInstances, loadInstances: loadHaInstances } = useHaStore()
   const [name, setName] = useState(initial?.name ?? '')
   const [displayLocation, setDisplayLocation] = useState<'topbar' | 'sidebar' | 'none'>(
     (initial?.display_location ?? 'none') as 'topbar' | 'sidebar' | 'none'
@@ -381,6 +451,11 @@ function WidgetForm({
   const [npmUsername, setNpmUsername] = useState(existingNpm?.username ?? '')
   const [npmPassword, setNpmPassword] = useState('')  // blank = keep existing on edit
 
+  // home_assistant_energy config
+  const existingEnergy = initial?.type === 'home_assistant_energy' ? (initial.config as HomeAssistantEnergyConfig) : null
+  const [energyInstanceId, setEnergyInstanceId] = useState(existingEnergy?.instance_id ?? '')
+  const [energyPeriod, setEnergyPeriod] = useState<'day' | 'week' | 'month'>(existingEnergy?.period ?? 'day')
+
   // icon
   const [pendingIcon, setPendingIcon] = useState<{ data: string; contentType: string; preview: string } | null>(null)
   const iconInputRef = useRef<HTMLInputElement>(null)
@@ -399,6 +474,11 @@ function WidgetForm({
     reader.readAsDataURL(file)
   }
 
+  // Load HA instances when energy type is selected
+  useEffect(() => {
+    if (type === 'home_assistant_energy') loadHaInstances().catch(() => {})
+  }, [type])
+
   // Update default name when type changes (only on create)
   const getDefaultNameForType = (t: WidgetFormType): string => {
     if (t === 'adguard_home') return 'AdGuard Home'
@@ -407,6 +487,7 @@ function WidgetForm({
     if (t === 'home_assistant') return 'Home Assistant'
     if (t === 'pihole') return 'Pi-hole'
     if (t === 'nginx_pm') return 'Nginx Proxy Manager'
+    if (t === 'home_assistant_energy') return 'HA Energy'
     return 'Server Status'
   }
 
@@ -441,6 +522,9 @@ function WidgetForm({
       if (!npmUsername.trim()) return setError('Username is required')
       if (!isEdit && !npmPassword) return setError('Password is required')
       config = { url: npmUrl.trim(), username: npmUsername.trim(), ...(npmPassword ? { password: npmPassword } : {}) }
+    } else if (type === 'home_assistant_energy') {
+      if (!energyInstanceId) return setError('HA Instance is required')
+      config = { instance_id: energyInstanceId, period: energyPeriod }
     } else {
       if (!agUrl.trim()) return setError('URL is required')
       if (!agUsername.trim()) return setError('Username is required')
@@ -493,6 +577,7 @@ function WidgetForm({
               <option value="custom_button">Custom Buttons</option>
               <option value="docker_overview">Docker Overview</option>
               <option value="home_assistant">Home Assistant</option>
+              <option value="home_assistant_energy">HA Energy</option>
               <option value="nginx_pm">Nginx Proxy Manager</option>
               <option value="pihole">Pi-hole</option>
               <option value="server_status">Server Status</option>
@@ -719,6 +804,29 @@ function WidgetForm({
           </div>
         )}
 
+        {/* home_assistant_energy config */}
+        {type === 'home_assistant_energy' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div>
+              <label className="form-label" style={{ fontSize: 11 }}>HA Instance</label>
+              <select className="form-input" value={energyInstanceId} onChange={e => setEnergyInstanceId(e.target.value)} style={{ fontSize: 13 }}>
+                <option value="">— Select instance —</option>
+                {haInstances.filter(i => i.enabled).map(i => (
+                  <option key={i.id} value={i.id}>{i.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="form-label" style={{ fontSize: 11 }}>Default Period</label>
+              <select className="form-input" value={energyPeriod} onChange={e => setEnergyPeriod(e.target.value as 'day' | 'week' | 'month')} style={{ fontSize: 13 }}>
+                <option value="day">Today</option>
+                <option value="week">This Week</option>
+                <option value="month">This Month</option>
+              </select>
+            </div>
+          </div>
+        )}
+
         {/* nginx_pm config */}
         {type === 'nginx_pm' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -810,7 +918,7 @@ function WidgetCard({
           <div>
             <div style={{ fontWeight: 600, fontSize: 14 }}>{widget.name}</div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, display: 'flex', gap: 8 }}>
-              <span>{{ adguard_home: 'AdGuard Home', docker_overview: 'Docker Overview', custom_button: 'Custom Buttons', home_assistant: 'Home Assistant', pihole: 'Pi-hole', nginx_pm: 'Nginx Proxy Manager' }[widget.type] ?? 'Server Status'}</span>
+              <span>{{ adguard_home: 'AdGuard Home', docker_overview: 'Docker Overview', custom_button: 'Custom Buttons', home_assistant: 'Home Assistant', home_assistant_energy: 'HA Energy', pihole: 'Pi-hole', nginx_pm: 'Nginx Proxy Manager' }[widget.type] ?? 'Server Status'}</span>
               {widget.display_location === 'topbar' && <span style={{ color: 'var(--accent)' }}>· Topbar</span>}
               {widget.display_location === 'sidebar' && <span style={{ color: 'var(--accent)' }}>· Sidebar</span>}
             </div>
@@ -872,6 +980,12 @@ function WidgetCard({
       ) : widget.type === 'nginx_pm' ? (
         s ? (
           <NginxPMStatsView stats={s as NpmStats & { error?: string }} />
+        ) : (
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '8px 0' }}>Loading stats…</div>
+        )
+      ) : widget.type === 'home_assistant_energy' ? (
+        s ? (
+          <HaEnergyWidgetView stats={s as EnergyData} />
         ) : (
           <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '8px 0' }}>Loading stats…</div>
         )

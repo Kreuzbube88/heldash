@@ -3,6 +3,7 @@ import { nanoid } from 'nanoid'
 import { getDb } from '../db/database'
 import { isValidHttpUrl } from './_helpers'
 import { getHaWsClient, invalidateHaWsClient } from '../clients/ha-ws-manager'
+import type { HaWsClient } from '../clients/ha-ws-client'
 
 // ── DB row types ──────────────────────────────────────────────────────────────
 
@@ -334,4 +335,182 @@ export async function haRoutes(app: FastifyInstance) {
     db.prepare('DELETE FROM ha_panels WHERE id = ?').run(req.params.id)
     return reply.status(204).send()
   })
+
+  // GET /api/ha/instances/:id/energy — energy dashboard data via HA WebSocket
+  app.get<{ Params: { id: string }; Querystring: { period?: string } }>('/api/ha/instances/:id/energy', {
+    preHandler: [app.authenticate],
+  }, async (req, reply) => {
+    const row = db.prepare('SELECT * FROM ha_instances WHERE id = ?').get(req.params.id) as HaInstanceRow | undefined
+    if (!row) return reply.status(404).send({ error: 'Not found' })
+    if (!row.enabled) return reply.status(400).send({ error: 'Instance disabled' })
+    const period = ['week', 'month'].includes(req.query.period ?? '') ? req.query.period! : 'day'
+    try {
+      const client = getHaWsClient(row.id, row.url, row.token)
+      return await fetchEnergyData(client, period)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Energy fetch failed'
+      return reply.status(502).send({ error: msg })
+    }
+  })
+}
+
+// ── Energy data helper ─────────────────────────────────────────────────────────
+
+interface EnergySource {
+  type: 'grid' | 'solar' | 'battery' | 'gas'
+  flow_from?: Array<{ stat_energy_from: string }>
+  flow_to?: Array<{ stat_energy_to: string }>
+  stat_energy_from?: string
+  stat_energy_to?: string
+}
+
+interface EnergyPrefs {
+  energy_sources?: EnergySource[]
+}
+
+interface StatEntry {
+  start: string
+  sum?: number | null
+}
+
+type StatsResult = Record<string, StatEntry[]>
+
+function sumSeries(entries: StatEntry[] | undefined): number {
+  if (!entries || entries.length < 2) return 0
+  return Math.max(0, (entries[entries.length - 1].sum ?? 0) - (entries[0].sum ?? 0))
+}
+
+function chartSeries(entries: StatEntry[] | undefined): number[] {
+  if (!entries || entries.length < 2) return []
+  const result: number[] = []
+  for (let i = 1; i < entries.length; i++) {
+    result.push(Math.max(0, (entries[i].sum ?? 0) - (entries[i - 1].sum ?? 0)))
+  }
+  return result
+}
+
+function buildLabels(period: string, count: number): string[] {
+  const labels: string[] = []
+  const now = new Date()
+  if (period === 'day') {
+    for (let h = 0; h < count; h++) labels.push(`${h}h`)
+  } else if (period === 'week') {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+    for (let d = count - 1; d >= 0; d--) {
+      const date = new Date(now)
+      date.setDate(now.getDate() - d)
+      labels.push(days[date.getDay()])
+    }
+  } else {
+    for (let d = 1; d <= count; d++) labels.push(String(d))
+  }
+  return labels
+}
+
+export async function fetchEnergyData(client: HaWsClient, period: string): Promise<Record<string, unknown>> {
+  // Step 1: Get energy prefs
+  let prefs: EnergyPrefs
+  try {
+    prefs = await client.sendCommand('energy/get_prefs') as EnergyPrefs
+  } catch {
+    return { configured: false }
+  }
+  if (!prefs?.energy_sources?.length) return { configured: false }
+
+  // Extract statistic IDs per category
+  let gridConsumptionIds: string[] = []
+  let gridReturnIds: string[] = []
+  let solarIds: string[] = []
+  let batteryChargeIds: string[] = []
+  let gasIds: string[] = []
+
+  for (const src of prefs.energy_sources) {
+    if (src.type === 'grid') {
+      gridConsumptionIds = (src.flow_from ?? []).map(f => f.stat_energy_from).filter(Boolean)
+      gridReturnIds = (src.flow_to ?? []).map(f => f.stat_energy_to).filter(Boolean)
+    } else if (src.type === 'solar' && src.stat_energy_from) {
+      solarIds.push(src.stat_energy_from)
+    } else if (src.type === 'battery' && src.stat_energy_from) {
+      batteryChargeIds.push(src.stat_energy_from)
+    } else if (src.type === 'gas' && src.stat_energy_from) {
+      gasIds.push(src.stat_energy_from)
+    }
+  }
+
+  const allIds = [...gridConsumptionIds, ...gridReturnIds, ...solarIds, ...batteryChargeIds, ...gasIds]
+  if (allIds.length === 0) return { configured: false }
+
+  // Step 2: Build time range
+  const now = new Date()
+  const end_time = now.toISOString()
+  const haStatPeriod = period === 'day' ? 'hour' : 'day'
+  let start_time: string
+
+  if (period === 'day') {
+    const s = new Date(now)
+    s.setHours(0, 0, 0, 0)
+    s.setHours(s.getHours() - 1) // extra hour as baseline for diff
+    start_time = s.toISOString()
+  } else if (period === 'week') {
+    const s = new Date(now)
+    s.setDate(s.getDate() - 7)
+    s.setHours(0, 0, 0, 0)
+    s.setDate(s.getDate() - 1) // extra day as baseline
+    start_time = s.toISOString()
+  } else {
+    const s = new Date(now.getFullYear(), now.getMonth(), 0) // last day of prev month (baseline)
+    s.setHours(0, 0, 0, 0)
+    start_time = s.toISOString()
+  }
+
+  // Step 3: Fetch statistics
+  let stats: StatsResult
+  try {
+    stats = await client.sendCommand('history/statistics_during_period', {
+      start_time,
+      end_time,
+      statistic_ids: allIds,
+      period: haStatPeriod,
+      types: ['sum'],
+    }) as StatsResult
+  } catch (err: unknown) {
+    throw new Error(err instanceof Error ? err.message : 'Statistics fetch failed')
+  }
+
+  // Step 4: Aggregate
+  const sumMultiple = (ids: string[]) => ids.reduce((acc, id) => acc + sumSeries(stats[id]), 0)
+  const grid_consumption = sumMultiple(gridConsumptionIds)
+  const grid_return = sumMultiple(gridReturnIds)
+  const solar_production = sumMultiple(solarIds)
+  const battery_charge = sumMultiple(batteryChargeIds)
+  const gas_consumption = sumMultiple(gasIds)
+
+  const self_sufficiency = grid_consumption > 0
+    ? Math.min(100, Math.max(0, Math.round(((solar_production - grid_return) / grid_consumption) * 100)))
+    : solar_production > 0 ? 100 : 0
+
+  // Chart: use primary IDs for each series
+  const consumptionSeries = chartSeries(gridConsumptionIds[0] ? stats[gridConsumptionIds[0]] : undefined)
+  const solarSeries = chartSeries(solarIds[0] ? stats[solarIds[0]] : undefined)
+  const batterySeries = chartSeries(batteryChargeIds[0] ? stats[batteryChargeIds[0]] : undefined)
+  const gridReturnSeries = chartSeries(gridReturnIds[0] ? stats[gridReturnIds[0]] : undefined)
+  const chartCount = consumptionSeries.length || solarSeries.length
+
+  return {
+    configured: true,
+    period,
+    grid_consumption: Math.round(grid_consumption * 100) / 100,
+    solar_production: Math.round(solar_production * 100) / 100,
+    battery_charge: Math.round(battery_charge * 100) / 100,
+    grid_return: Math.round(grid_return * 100) / 100,
+    gas_consumption: Math.round(gas_consumption * 1000) / 1000,
+    self_sufficiency,
+    chart_data: {
+      labels: buildLabels(period, chartCount),
+      consumption: consumptionSeries,
+      solar: solarSeries,
+      battery: batterySeries,
+      grid_return: gridReturnSeries,
+    },
+  }
 }

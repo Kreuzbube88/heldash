@@ -1,4 +1,4 @@
-import type { Service, Group, Settings, AuthUser, UserRecord, UserGroup, DashboardItem, DashboardGroup, DashboardResponse, Widget, WidgetStats, DockerContainer, ContainerStats, Background, HaInstance, HaPanel, HaEntityFull } from './types'
+import type { Service, Group, Settings, AuthUser, UserRecord, UserGroup, DashboardItem, DashboardGroup, DashboardResponse, Widget, WidgetStats, DockerContainer, ContainerStats, Background, HaInstance, HaPanel, HaEntityFull, EnergyData } from './types'
 import type { ArrInstance, ArrStatus, ArrStats, ArrQueueResponse, ArrCalendarItem, ProwlarrIndexer, SabnzbdQueueData, SabnzbdHistoryData, SeerrRequest, SeerrRequestsResponse, RadarrMovie, SonarrSeries } from './types/arr'
 import type { TmdbPage, TmdbGenre, TmdbProvider, TmdbTvDetail, TmdbDiscoverFilters } from './types/tmdb'
 import type { TRaSHProfile, TrashInstanceConfig, TrashFormatListEntry, TrashChangeset, TrashApplyResult } from './types/trash'
@@ -256,6 +256,8 @@ export const api = {
       call: (id: string, domain: string, service: string, entity_id: string, service_data?: Record<string, unknown>) =>
         req<{ ok: boolean }>(`/ha/instances/${id}/call`, { method: 'POST', body: JSON.stringify({ domain, service, entity_id, service_data }) }),
     },
+    energy: (instanceId: string, period: string) =>
+      req<EnergyData>(`/ha/instances/${instanceId}/energy?period=${period}`),
     panels: {
       list: () => req<HaPanel[]>('/ha/panels'),
       add: (data: { instance_id: string; entity_id: string; label?: string; panel_type?: string }) =>

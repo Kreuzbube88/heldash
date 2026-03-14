@@ -61,6 +61,18 @@ export interface RadarrWantedResponse {
   records: RadarrMovieRow[]
 }
 
+export interface ArrCustomFormat {
+  id: number
+  name: string
+  specifications: object[]
+}
+
+export interface ArrQualityProfile {
+  id: number
+  name: string
+  formatItems: { format: number; score: number; name: string }[]
+}
+
 export class RadarrClient extends ArrBaseClient {
   constructor(url: string, apiKey: string) {
     super(url, apiKey, 'v3')
@@ -88,6 +100,30 @@ export class RadarrClient extends ArrBaseClient {
 
   getWantedMissing() {
     return this.get<RadarrWantedResponse>('wanted/missing', { pageSize: '1', monitored: 'true' })
+  }
+
+  getCustomFormats() {
+    return this.get<ArrCustomFormat[]>('customformat')
+  }
+
+  createCustomFormat(cf: { name: string; specifications: object[] }) {
+    return this.post<ArrCustomFormat>('customformat', cf)
+  }
+
+  updateCustomFormat(id: number, cf: { name: string; specifications: object[] }) {
+    return this.put<ArrCustomFormat>(`customformat/${id}`, cf)
+  }
+
+  deleteCustomFormat(id: number) {
+    return this.del(`customformat/${id}`)
+  }
+
+  getQualityProfiles() {
+    return this.get<ArrQualityProfile[]>('qualityprofile')
+  }
+
+  updateQualityProfile(id: number, profile: ArrQualityProfile) {
+    return this.put<ArrQualityProfile>(`qualityprofile/${id}`, profile)
   }
 
 }

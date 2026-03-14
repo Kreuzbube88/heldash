@@ -3,18 +3,19 @@ import { useStore } from '../store/useStore'
 import { useArrStore } from '../store/useArrStore'
 import { useTmdbStore } from '../store/useTmdbStore'
 import { useDashboardStore } from '../store/useDashboardStore'
+import { useTrashStore } from '../store/useTrashStore'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import type { DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, rectSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Pencil, Trash2, Check, X, RefreshCw, GripVertical, LayoutGrid, CalendarDays, Search, Compass, Database, AlertTriangle } from 'lucide-react'
+import { Pencil, Trash2, Check, X, RefreshCw, GripVertical, LayoutGrid, CalendarDays, Search, Compass, Database, AlertTriangle, Sliders, ChevronDown, ChevronRight, Plus } from 'lucide-react'
 import type { ArrInstance, ArrCalendarItem, RadarrCalendarItem, SonarrCalendarItem, ProwlarrStats } from '../types/arr'
 import type { TmdbResult, TmdbFilters, TmdbDiscoverFilters } from '../types/tmdb'
 import { ArrCardContent, SabnzbdCardContent, SeerrCardContent } from '../components/MediaCard'
 // ── Tab type ──────────────────────────────────────────────────────────────────
 
-type MediaTab = 'instances' | 'library' | 'calendar' | 'indexers' | 'discover'
+type MediaTab = 'instances' | 'library' | 'calendar' | 'indexers' | 'discover' | 'trash'
 
 // ── Tab bar ───────────────────────────────────────────────────────────────────
 
@@ -25,6 +26,7 @@ function TabBar({ active, onChange, showDiscover }: { active: MediaTab; onChange
     { id: 'calendar',   label: 'Calendar',   icon: <CalendarDays size={13} /> },
     { id: 'indexers',   label: 'Indexers',   icon: <Search size={13} /> },
     ...(showDiscover ? [{ id: 'discover' as MediaTab, label: 'Discover', icon: <Compass size={13} /> }] : []),
+    { id: 'trash' as MediaTab, label: 'TRaSH', icon: <Sliders size={13} /> },
   ]
   return (
     <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: '6px 8px', display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -1891,6 +1893,656 @@ function DiscoverTab() {
   )
 }
 
+// ── TRaSH Guides tab ──────────────────────────────────────────────────────────
+
+function TRaSHTab() {
+  const { isAdmin } = useStore()
+  const { instances } = useArrStore()
+  const {
+    profiles, configs, formatLists, previews, loading, applying, cacheInfo,
+    loadProfiles, loadConfig, loadFormatList, loadCustomFormats,
+    saveProfileSlug, saveOverrides, createCustomFormat, updateCustomFormat,
+    deleteCustomFormat, loadPreview, applyChangeset, refreshGithub, loadCacheInfo,
+    customFormats,
+  } = useTrashStore()
+
+  const radarrSonarrInstances = instances.filter(i => (i.type === 'radarr' || i.type === 'sonarr') && i.enabled)
+
+  const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(
+    radarrSonarrInstances[0]?.id ?? null
+  )
+  const [refreshing, setRefreshing] = useState(false)
+  const [savingProfile, setSavingProfile] = useState(false)
+  const [localProfileSlug, setLocalProfileSlug] = useState<string>('')
+  const [showCustomModal, setShowCustomModal] = useState(false)
+  const [editingCF, setEditingCF] = useState<{ id: string; name: string; specifications: string } | null>(null)
+  const [cfName, setCfName] = useState('')
+  const [cfSpecs, setCfSpecs] = useState('[]')
+  const [cfError, setCfError] = useState('')
+  const [savingCF, setSavingCF] = useState(false)
+  const [localOverrides, setLocalOverrides] = useState<Record<string, { score: string; excluded: boolean }>>({})
+  const [overridesDirty, setOverridesDirty] = useState(false)
+  const [savingOverrides, setSavingOverrides] = useState(false)
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [trashUpdatesOpen, setTrashUpdatesOpen] = useState(false)
+  const [changesetOpen, setChangesetOpen] = useState(false)
+  const [applyError, setApplyError] = useState('')
+
+  const instanceId = selectedInstanceId
+
+  useEffect(() => {
+    loadCacheInfo().catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    if (!instanceId) return
+    loadProfiles(instanceId).catch(() => {})
+    loadConfig(instanceId).catch(() => {})
+    loadFormatList(instanceId).catch(() => {})
+    loadCustomFormats(instanceId).catch(() => {})
+  }, [instanceId])
+
+  useEffect(() => {
+    if (!instanceId) return
+    const config = configs[instanceId]
+    setLocalProfileSlug(config?.profile_slug ?? '')
+  }, [instanceId, configs])
+
+  useEffect(() => {
+    if (!instanceId) return
+    const list = formatLists[instanceId] ?? []
+    const overrides: Record<string, { score: string; excluded: boolean }> = {}
+    for (const entry of list) {
+      if (entry.source === 'trash') {
+        overrides[entry.slug] = {
+          score: entry.scoreOverride !== null ? String(entry.scoreOverride) : '',
+          excluded: entry.excluded,
+        }
+      }
+    }
+    setLocalOverrides(overrides)
+    setOverridesDirty(false)
+  }, [instanceId, formatLists])
+
+  const handleRefreshGithub = async () => {
+    setRefreshing(true)
+    try {
+      await refreshGithub()
+      if (instanceId) {
+        await loadProfiles(instanceId)
+        await loadFormatList(instanceId)
+      }
+    } catch (e: unknown) {
+      // ignore
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
+  const handleSaveProfile = async () => {
+    if (!instanceId) return
+    setSavingProfile(true)
+    try {
+      await saveProfileSlug(instanceId, localProfileSlug || null)
+      await loadFormatList(instanceId)
+    } finally {
+      setSavingProfile(false)
+    }
+  }
+
+  const handleSaveOverrides = async () => {
+    if (!instanceId) return
+    setSavingOverrides(true)
+    try {
+      const overrides = Object.entries(localOverrides).map(([slug, v]) => ({
+        format_slug: slug,
+        score_override: v.score !== '' ? parseInt(v.score, 10) : null,
+        excluded: v.excluded,
+      }))
+      await saveOverrides(instanceId, overrides)
+      setOverridesDirty(false)
+    } finally {
+      setSavingOverrides(false)
+    }
+  }
+
+  const handleOpenAddCF = () => {
+    setEditingCF(null)
+    setCfName('')
+    setCfSpecs('[]')
+    setCfError('')
+    setShowCustomModal(true)
+  }
+
+  const handleOpenEditCF = (cf: { id: string; name: string; specifications: object[] }) => {
+    setEditingCF({ id: cf.id, name: cf.name, specifications: JSON.stringify(cf.specifications, null, 2) })
+    setCfName(cf.name)
+    setCfSpecs(JSON.stringify(cf.specifications, null, 2))
+    setCfError('')
+    setShowCustomModal(true)
+  }
+
+  const handleSaveCF = async () => {
+    if (!instanceId) return
+    if (!cfName.trim()) { setCfError('Name required'); return }
+    let specs: object[]
+    try {
+      specs = JSON.parse(cfSpecs) as object[]
+    } catch {
+      setCfError('Invalid JSON in specifications')
+      return
+    }
+    setSavingCF(true)
+    setCfError('')
+    try {
+      if (editingCF) {
+        await updateCustomFormat(instanceId, editingCF.id, cfName.trim(), specs)
+      } else {
+        await createCustomFormat(instanceId, cfName.trim(), specs)
+      }
+      setShowCustomModal(false)
+    } catch (e: unknown) {
+      setCfError(e instanceof Error ? e.message : 'Save failed')
+    } finally {
+      setSavingCF(false)
+    }
+  }
+
+  const handlePreview = async () => {
+    if (!instanceId) return
+    setApplyError('')
+    try {
+      await loadPreview(instanceId)
+      setPreviewOpen(true)
+      setTrashUpdatesOpen(false)
+      setChangesetOpen(false)
+    } catch (e: unknown) {
+      setApplyError(e instanceof Error ? e.message : 'Preview failed')
+    }
+  }
+
+  const handleApply = async () => {
+    if (!instanceId) return
+    if (!confirm('Apply TRaSH Guides changes to Arr? This will create/update custom formats and quality profile scores.')) return
+    setApplyError('')
+    try {
+      const result = await applyChangeset(instanceId)
+      const msg = `Applied: ${result.created} created, ${result.updated} updated, ${result.scoresUpdated} scores updated.`
+      if (result.errors.length > 0) {
+        setApplyError(`${msg} Errors: ${result.errors.slice(0, 3).join('; ')}`)
+      } else {
+        alert(msg)
+      }
+      // Reload format list after apply
+      await loadFormatList(instanceId)
+    } catch (e: unknown) {
+      setApplyError(e instanceof Error ? e.message : 'Apply failed')
+    }
+  }
+
+  const formatRelativeTime = (isoStr: string | null): string => {
+    if (!isoStr) return 'Never'
+    const diff = Date.now() - new Date(isoStr).getTime()
+    const mins = Math.floor(diff / 60000)
+    if (mins < 1) return 'Just now'
+    if (mins < 60) return `${mins}m ago`
+    const hours = Math.floor(mins / 60)
+    if (hours < 24) return `${hours}h ago`
+    return `${Math.floor(hours / 24)}d ago`
+  }
+
+  const instanceProfiles = instanceId ? (profiles[instanceId] ?? []) : []
+  const formatList = instanceId ? (formatLists[instanceId] ?? []) : []
+  const preview = instanceId ? previews[instanceId] : undefined
+  const instanceCFs = instanceId ? (customFormats[instanceId] ?? []) : []
+  const isLoadingFormats = instanceId ? !!loading[`formats_${instanceId}`] : false
+  const isLoadingPreview = instanceId ? !!loading[`preview_${instanceId}`] : false
+  const isApplying = instanceId ? !!applying[instanceId] : false
+
+  const hasChanges = preview
+    ? (preview.toCreate.length + preview.toUpdate.length + preview.toUpdateScores.length +
+       preview.customToCreate.length + preview.customToUpdate.length) > 0
+    : false
+
+  if (radarrSonarrInstances.length === 0) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
+        <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No Radarr or Sonarr instances configured.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* Top bar: GitHub refresh + cache info */}
+      {isAdmin && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={handleRefreshGithub}
+            disabled={refreshing}
+            style={{ fontSize: 12, gap: 6 }}
+          >
+            {refreshing
+              ? <div className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} />
+              : <RefreshCw size={12} />
+            }
+            Refresh TRaSH data from GitHub
+          </button>
+          {cacheInfo?.fetchedAt && (
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+              Last fetched: {formatRelativeTime(cacheInfo.fetchedAt)}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Instance selector */}
+      {radarrSonarrInstances.length > 1 && (
+        <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: '6px 8px', display: 'flex', gap: 2, alignSelf: 'flex-start' }}>
+          {radarrSonarrInstances.map(i => (
+            <button
+              key={i.id}
+              onClick={() => setSelectedInstanceId(i.id)}
+              style={{
+                padding: '7px 14px', borderRadius: 'var(--radius-md)', fontSize: 13,
+                fontWeight: selectedInstanceId === i.id ? 600 : 400,
+                background: selectedInstanceId === i.id ? 'rgba(var(--accent-rgb), 0.12)' : 'transparent',
+                color: selectedInstanceId === i.id ? 'var(--accent)' : 'var(--text-secondary)',
+                border: selectedInstanceId === i.id ? '1px solid rgba(var(--accent-rgb), 0.25)' : '1px solid transparent',
+                cursor: 'pointer', transition: 'all 150ms ease', fontFamily: 'var(--font-sans)',
+              }}
+            >
+              {i.name}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {instanceId && (
+        <>
+          {/* Section A — Configuration */}
+          <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <h4 style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>Configuration</h4>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              <select
+                className="form-input"
+                value={localProfileSlug}
+                onChange={e => setLocalProfileSlug(e.target.value)}
+                style={{ fontSize: 13, padding: '6px 10px', flex: 1, minWidth: 200 }}
+                disabled={!isAdmin}
+              >
+                <option value="">— Select quality profile —</option>
+                {instanceProfiles.map(p => (
+                  <option key={p.slug} value={p.slug}>{p.name}</option>
+                ))}
+              </select>
+              {isAdmin && (
+                <button
+                  className="btn btn-primary btn-sm"
+                  onClick={handleSaveProfile}
+                  disabled={savingProfile}
+                  style={{ fontSize: 12, gap: 4 }}
+                >
+                  <Check size={12} />
+                  {savingProfile ? 'Saving…' : 'Save'}
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Section B — Format customization */}
+          <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <h4 style={{ fontSize: 14, fontWeight: 600, margin: 0, flex: 1 }}>Format Customization</h4>
+              {isAdmin && overridesDirty && (
+                <button
+                  className="btn btn-primary btn-sm"
+                  onClick={handleSaveOverrides}
+                  disabled={savingOverrides}
+                  style={{ fontSize: 12, gap: 4 }}
+                >
+                  <Check size={12} />
+                  {savingOverrides ? 'Saving…' : 'Save overrides'}
+                </button>
+              )}
+              {isAdmin && (
+                <button
+                  className="btn btn-ghost btn-sm"
+                  onClick={handleOpenAddCF}
+                  style={{ fontSize: 12, gap: 4 }}
+                >
+                  <Plus size={12} />
+                  Add custom format
+                </button>
+              )}
+            </div>
+
+            {isLoadingFormats ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />
+                <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Loading formats…</span>
+              </div>
+            ) : formatList.length === 0 ? (
+              <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                {configs[instanceId]?.profile_slug
+                  ? 'No formats found. Try refreshing TRaSH data from GitHub.'
+                  : 'Select a quality profile above to see formats.'}
+              </p>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                      <th style={{ textAlign: 'left', padding: '6px 8px', color: 'var(--text-muted)', fontWeight: 500 }}>Name</th>
+                      <th style={{ textAlign: 'left', padding: '6px 8px', color: 'var(--text-muted)', fontWeight: 500 }}>Source</th>
+                      <th style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--text-muted)', fontWeight: 500 }}>Default Score</th>
+                      <th style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--text-muted)', fontWeight: 500 }}>Your Score</th>
+                      <th style={{ textAlign: 'center', padding: '6px 8px', color: 'var(--text-muted)', fontWeight: 500 }}>Excluded</th>
+                      {isAdmin && <th style={{ padding: '6px 8px' }}></th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {formatList.map(entry => {
+                      const overrideVal = localOverrides[entry.slug]
+                      const isOverridden = entry.source === 'trash' && (
+                        (overrideVal?.score !== undefined && overrideVal.score !== '') ||
+                        overrideVal?.excluded
+                      )
+                      const rowBg = isOverridden ? 'var(--accent-ghost)' : 'transparent'
+                      return (
+                        <tr
+                          key={entry.slug}
+                          style={{
+                            background: rowBg,
+                            borderBottom: '1px solid rgba(var(--text-rgb), 0.06)',
+                          }}
+                        >
+                          <td style={{ padding: '7px 8px', color: 'var(--text-primary)' }}>{entry.name}</td>
+                          <td style={{ padding: '7px 8px' }}>
+                            {entry.source === 'trash'
+                              ? <span className="badge badge-neutral" style={{ fontSize: 10 }}>TRaSH</span>
+                              : <span className="badge badge-accent" style={{ fontSize: 10 }}>Custom</span>
+                            }
+                          </td>
+                          <td style={{ padding: '7px 8px', textAlign: 'right', color: 'var(--text-secondary)' }}>
+                            {entry.defaultScore !== 0 ? entry.defaultScore : '—'}
+                          </td>
+                          <td style={{ padding: '7px 8px', textAlign: 'right' }}>
+                            {entry.source === 'trash' ? (
+                              <input
+                                type="number"
+                                value={overrideVal?.score ?? ''}
+                                onChange={e => {
+                                  if (!isAdmin) return
+                                  setLocalOverrides(prev => ({
+                                    ...prev,
+                                    [entry.slug]: { ...prev[entry.slug], score: e.target.value },
+                                  }))
+                                  setOverridesDirty(true)
+                                }}
+                                placeholder="default"
+                                disabled={!isAdmin}
+                                style={{
+                                  width: 70, textAlign: 'right',
+                                  background: 'rgba(var(--text-rgb), 0.06)',
+                                  border: '1px solid var(--border)',
+                                  borderRadius: 'var(--radius-sm)',
+                                  padding: '3px 6px', fontSize: 12,
+                                  color: 'var(--text-primary)',
+                                }}
+                              />
+                            ) : '—'}
+                          </td>
+                          <td style={{ padding: '7px 8px', textAlign: 'center' }}>
+                            {entry.source === 'trash' ? (
+                              <input
+                                type="checkbox"
+                                checked={overrideVal?.excluded ?? false}
+                                onChange={e => {
+                                  if (!isAdmin) return
+                                  setLocalOverrides(prev => ({
+                                    ...prev,
+                                    [entry.slug]: { ...prev[entry.slug], excluded: e.target.checked },
+                                  }))
+                                  setOverridesDirty(true)
+                                }}
+                                disabled={!isAdmin}
+                              />
+                            ) : '—'}
+                          </td>
+                          {isAdmin && (
+                            <td style={{ padding: '7px 8px' }}>
+                              {entry.source === 'custom' && (
+                                <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
+                                  <button
+                                    className="btn btn-ghost btn-icon btn-sm"
+                                    onClick={() => {
+                                      const cf = instanceCFs.find(c => c.id === entry.slug)
+                                      if (cf) handleOpenEditCF(cf)
+                                    }}
+                                    style={{ width: 24, height: 24, padding: 3 }}
+                                  >
+                                    <Pencil size={10} />
+                                  </button>
+                                  <button
+                                    className="btn btn-danger btn-icon btn-sm"
+                                    onClick={() => {
+                                      if (confirm(`Delete custom format "${entry.name}"?`)) {
+                                        deleteCustomFormat(instanceId, entry.slug).catch(() => {})
+                                      }
+                                    }}
+                                    style={{ width: 24, height: 24, padding: 3 }}
+                                  >
+                                    <Trash2 size={10} />
+                                  </button>
+                                </div>
+                              )}
+                            </td>
+                          )}
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Section C — Preview */}
+          <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <h4 style={{ fontSize: 14, fontWeight: 600, margin: 0, flex: 1 }}>Preview</h4>
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={handlePreview}
+                disabled={isLoadingPreview || !configs[instanceId]?.profile_slug}
+                style={{ fontSize: 12, gap: 4 }}
+              >
+                {isLoadingPreview
+                  ? <div className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} />
+                  : <RefreshCw size={12} />
+                }
+                Preview changes
+              </button>
+            </div>
+
+            {applyError && (
+              <div style={{ fontSize: 12, color: 'var(--status-offline)', padding: '8px 12px', background: 'rgba(239,68,68,0.1)', borderRadius: 'var(--radius-md)' }}>
+                {applyError}
+              </div>
+            )}
+
+            {preview && previewOpen && (
+              <>
+                {/* TRaSH updates section */}
+                {(preview.trashUpdates.newFormats.length > 0 ||
+                  preview.trashUpdates.updatedFormats.length > 0 ||
+                  preview.trashUpdates.removedFromTRaSH.length > 0) && (
+                  <div>
+                    <button
+                      onClick={() => setTrashUpdatesOpen(v => !v)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 500, cursor: 'pointer', background: 'none', border: 'none', color: 'var(--text-primary)', padding: 0 }}
+                    >
+                      {trashUpdatesOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                      TRaSH Guide changes
+                    </button>
+                    {trashUpdatesOpen && (
+                      <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8, paddingLeft: 20 }}>
+                        {preview.trashUpdates.newFormats.length > 0 && (
+                          <div>
+                            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>New formats</div>
+                            {preview.trashUpdates.newFormats.map(f => (
+                              <div key={f.slug} style={{ fontSize: 12, color: '#10b981' }}>+ {f.name}</div>
+                            ))}
+                          </div>
+                        )}
+                        {preview.trashUpdates.updatedFormats.length > 0 && (
+                          <div>
+                            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Updated formats</div>
+                            {preview.trashUpdates.updatedFormats.map(f => (
+                              <div key={f.slug} style={{ fontSize: 12, color: '#f59e0b' }}>~ {f.name}</div>
+                            ))}
+                          </div>
+                        )}
+                        {preview.trashUpdates.removedFromTRaSH.length > 0 && (
+                          <div>
+                            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                              Removed from TRaSH <span className="badge badge-warning" style={{ fontSize: 10 }}>stays in Arr unless manually deleted</span>
+                            </div>
+                            {preview.trashUpdates.removedFromTRaSH.map(f => (
+                              <div key={f.slug} style={{ fontSize: 12, color: '#f87171' }}>- {f.name}</div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Changeset section */}
+                <div>
+                  <button
+                    onClick={() => setChangesetOpen(v => !v)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 500, cursor: 'pointer', background: 'none', border: 'none', color: 'var(--text-primary)', padding: 0 }}
+                  >
+                    {changesetOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                    Changeset ({preview.toCreate.length + preview.toUpdate.length + preview.toUpdateScores.length} changes, {preview.noChange} unchanged, {preview.excluded} excluded)
+                  </button>
+                  {changesetOpen && (
+                    <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8, paddingLeft: 20, fontSize: 12 }}>
+                      {preview.toCreate.length > 0 && (
+                        <div>
+                          <div style={{ color: 'var(--text-muted)', marginBottom: 4 }}>To create ({preview.toCreate.length})</div>
+                          {preview.toCreate.map(f => <div key={f.slug} style={{ color: '#10b981' }}>+ {f.name}</div>)}
+                        </div>
+                      )}
+                      {preview.toUpdate.length > 0 && (
+                        <div>
+                          <div style={{ color: 'var(--text-muted)', marginBottom: 4 }}>To update ({preview.toUpdate.length})</div>
+                          {preview.toUpdate.map(f => <div key={f.slug} style={{ color: '#f59e0b' }}>~ {f.name} — {f.changeDescription}</div>)}
+                        </div>
+                      )}
+                      {preview.toUpdateScores.length > 0 && (
+                        <div>
+                          <div style={{ color: 'var(--text-muted)', marginBottom: 4 }}>Score changes ({preview.toUpdateScores.length})</div>
+                          {preview.toUpdateScores.map(f => (
+                            <div key={f.slug} style={{ color: '#60a5fa' }}>
+                              {f.name}: {f.oldScore} → {f.newScore}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {(preview.customToCreate.length > 0 || preview.customToUpdate.length > 0) && (
+                        <div>
+                          <div style={{ color: 'var(--text-muted)', marginBottom: 4 }}>Custom formats ({preview.customToCreate.length + preview.customToUpdate.length})</div>
+                          {preview.customToCreate.map(f => <div key={f.slug} style={{ color: '#10b981' }}>+ {f.name}</div>)}
+                          {preview.customToUpdate.map(f => <div key={f.slug} style={{ color: '#f59e0b' }}>~ {f.name}</div>)}
+                        </div>
+                      )}
+                      <div style={{ color: 'var(--text-muted)' }}>No change: {preview.noChange} · Excluded: {preview.excluded}</div>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Section D — Apply */}
+          {isAdmin && (
+            <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <h4 style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>Apply</h4>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <button
+                  className="btn btn-primary btn-sm"
+                  onClick={handleApply}
+                  disabled={isApplying || !preview || !hasChanges}
+                  style={{ fontSize: 12, gap: 4 }}
+                >
+                  {isApplying
+                    ? <div className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} />
+                    : <Check size={12} />
+                  }
+                  {isApplying ? 'Applying…' : 'Apply changes'}
+                </button>
+                {!preview && (
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Run preview first</span>
+                )}
+                {preview && !hasChanges && (
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Nothing to apply</span>
+                )}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Custom format modal */}
+      {showCustomModal && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 1000,
+          background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          backdropFilter: 'blur(4px)',
+        }}>
+          <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 24, width: '90%', maxWidth: 520, display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <h4 style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>
+              {editingCF ? 'Edit custom format' : 'Add custom format'}
+            </h4>
+            <input
+              className="form-input"
+              placeholder="Name *"
+              value={cfName}
+              onChange={e => setCfName(e.target.value)}
+            />
+            <div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>
+                Specifications (use Radarr/Sonarr custom format JSON spec format)
+              </div>
+              <textarea
+                className="form-input"
+                value={cfSpecs}
+                onChange={e => setCfSpecs(e.target.value)}
+                rows={8}
+                style={{ fontFamily: 'var(--font-mono)', fontSize: 11, resize: 'vertical' }}
+                placeholder="[]"
+              />
+            </div>
+            {cfError && <div style={{ fontSize: 12, color: 'var(--status-offline)' }}>{cfError}</div>}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-primary btn-sm" onClick={handleSaveCF} disabled={savingCF} style={{ fontSize: 12, gap: 4 }}>
+                <Check size={12} /> {savingCF ? 'Saving…' : 'Save'}
+              </button>
+              <button className="btn btn-ghost btn-sm" onClick={() => setShowCustomModal(false)} style={{ fontSize: 12, gap: 4 }}>
+                <X size={12} /> Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Stub tab ──────────────────────────────────────────────────────────────────
 
 function ComingSoonTab({ label }: { label: string }) {
@@ -1936,6 +2588,7 @@ export function MediaPage({ showAddForm: showFromParent, onFormClose }: Props) {
       {activeTab === 'calendar' && <CalendarTab />}
       {activeTab === 'indexers' && <IndexersTab />}
       {activeTab === 'discover' && <DiscoverTab />}
+      {activeTab === 'trash' && <TRaSHTab />}
     </div>
   )
 }

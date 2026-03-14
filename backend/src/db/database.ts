@@ -258,6 +258,40 @@ function applySchema(db: Database.Database) {
       created_at  TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    -- TRaSH Guides cache (one row, id='main')
+    CREATE TABLE IF NOT EXISTS trash_cache (
+      id         TEXT PRIMARY KEY,
+      data       TEXT NOT NULL,
+      tree_sha   TEXT,
+      fetched_at TEXT NOT NULL
+    );
+
+    -- TRaSH per-instance config (selected profile)
+    CREATE TABLE IF NOT EXISTS trash_instance_config (
+      instance_id TEXT PRIMARY KEY,
+      profile_slug TEXT,
+      updated_at   TEXT DEFAULT (datetime('now'))
+    );
+
+    -- User-defined custom formats per instance
+    CREATE TABLE IF NOT EXISTS trash_custom_formats (
+      id           TEXT PRIMARY KEY,
+      instance_id  TEXT NOT NULL,
+      name         TEXT NOT NULL,
+      specifications TEXT DEFAULT '[]',
+      created_at   TEXT,
+      updated_at   TEXT
+    );
+
+    -- Score overrides / exclusions per instance
+    CREATE TABLE IF NOT EXISTS trash_format_overrides (
+      instance_id  TEXT NOT NULL,
+      format_slug  TEXT NOT NULL,
+      score_override INTEGER,
+      excluded     INTEGER DEFAULT 0,
+      PRIMARY KEY (instance_id, format_slug)
+    );
+
     -- Insert default settings if not exist
     INSERT OR IGNORE INTO settings (key, value) VALUES
       ('theme_mode', '"dark"'),

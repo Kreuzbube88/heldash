@@ -304,7 +304,122 @@ export interface GithubFile {
   sizeBytes: number
   content: string    // raw JSON string
   arrType: 'radarr' | 'sonarr'
-  category: 'custom_formats' | 'quality_profiles'
+  category: 'custom_formats' | 'quality_profiles' | 'naming' | 'quality_size' | 'cf_groups'
+}
+
+// ── New: Naming Schemes ───────────────────────────────────────────────────────
+
+export interface NamingVariants {
+  [key: string]: string
+}
+
+export interface NormalizedNamingScheme {
+  slug: string
+  name: string
+  arrType: 'radarr' | 'sonarr'
+  folderVariants: NamingVariants
+  fileVariants: NamingVariants
+  seasonVariants: NamingVariants
+  seriesVariants: NamingVariants
+  episodeStandardVariants: NamingVariants
+  episodeDailyVariants: NamingVariants
+  episodeAnimeVariants: NamingVariants
+  filePath: string
+  fileSha: string
+  githubSha: string
+  githubCommitDate: string
+  schemaVersion: number
+}
+
+// ── New: Quality Size ─────────────────────────────────────────────────────────
+
+export interface NormalizedQualitySizeItem {
+  quality: string
+  min: number
+  preferred: number
+  max: number
+}
+
+export interface NormalizedQualitySize {
+  slug: string
+  name: string
+  trashId: string
+  arrType: 'radarr' | 'sonarr'
+  items: NormalizedQualitySizeItem[]
+  filePath: string
+  fileSha: string
+  githubSha: string
+  githubCommitDate: string
+  schemaVersion: number
+}
+
+// ── New: CF Groups ────────────────────────────────────────────────────────────
+
+export interface NormalizedCfGroupItem {
+  slug: string
+  trashId: string
+  name: string
+  required: boolean
+}
+
+export interface NormalizedCfGroup {
+  slug: string
+  name: string
+  description: string
+  arrType: 'radarr' | 'sonarr'
+  items: NormalizedCfGroupItem[]
+  filePath: string
+  fileSha: string
+  githubSha: string
+  githubCommitDate: string
+  schemaVersion: number
+}
+
+// ── New: Arr API types for naming + quality definitions ───────────────────────
+
+export interface ArrNamingConfig {
+  id?: number
+  [key: string]: unknown
+}
+
+export interface ArrQualityDefinitionQuality {
+  id: number
+  name: string
+  source?: string
+  resolution?: number
+}
+
+export interface ArrQualityDefinition {
+  id?: number
+  quality: ArrQualityDefinitionQuality
+  title: string
+  minSize: number
+  maxSize: number
+  preferredSize: number
+}
+
+// ── New: DB row types for naming + quality size instance configs ──────────────
+
+export interface TrashInstanceNamingConfig {
+  id: string
+  instance_id: string
+  folder_variant: string | null
+  file_variant: string | null
+  series_variant: string | null
+  season_variant: string | null
+  episode_standard_variant: string | null
+  episode_daily_variant: string | null
+  episode_anime_variant: string | null
+  last_synced_at: string | null
+  updated_at: string
+}
+
+export interface TrashInstanceQualitySizeConfig {
+  id: string
+  instance_id: string
+  quality_size_slug: string | null
+  last_synced_at: string | null
+  updated_at: string
 }
 
 export interface GithubCommitInfo {

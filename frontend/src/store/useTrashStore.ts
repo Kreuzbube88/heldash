@@ -4,6 +4,9 @@ import type {
   TrashInstanceConfig, TrashProfileConfig, TrashProfileSummary,
   TrashFormatRow, TrashPreview, TrashSyncLogEntry,
   TrashDeprecatedFormat, TrashImportableFormat,
+  TrashNamingScheme, TrashInstanceNamingConfig,
+  TrashQualitySize, TrashInstanceQualitySizeConfig,
+  TrashCfGroup,
 } from '../types/trash'
 
 // Profile-scoped store key: "instanceId:profileSlug"
@@ -18,6 +21,11 @@ interface TrashState {
   deprecated: Record<string, TrashDeprecatedFormat[]>       // instanceId → deprecated
   importable: Record<string, TrashImportableFormat[]>       // instanceId → importable
   allFormats: Record<string, TrashFormatRow[]>              // instanceId → all formats (no profile filter)
+  namingSchemes: Record<string, TrashNamingScheme[]>        // instanceId → naming schemes
+  namingConfigs: Record<string, TrashInstanceNamingConfig | null>  // instanceId → naming config
+  qualitySizes: Record<string, TrashQualitySize[]>          // instanceId → quality size presets
+  qualitySizeConfigs: Record<string, TrashInstanceQualitySizeConfig | null>  // instanceId → quality size config
+  cfGroups: Record<string, TrashCfGroup[]>                  // instanceId → cf groups
 
   loadConfigs: () => Promise<void>
   configure: (instanceId: string, data: {
@@ -56,6 +64,21 @@ interface TrashState {
   removeUserFormat: (instanceId: string, slug: string, profileSlug?: string) => Promise<void>
   assignUserFormat: (instanceId: string, slug: string, profileSlug: string | null) => Promise<void>
   forceFetchGithub: () => Promise<{ sha: string; filesUpdated: number; formatsUpdated: number }>
+
+  // Naming scheme actions
+  loadNamingSchemes: (instanceId: string) => Promise<void>
+  loadNamingConfig: (instanceId: string) => Promise<void>
+  setNamingConfig: (instanceId: string, data: Partial<TrashInstanceNamingConfig>) => Promise<void>
+  syncNaming: (instanceId: string) => Promise<void>
+
+  // Quality size actions
+  loadQualitySizes: (instanceId: string) => Promise<void>
+  loadQualitySizeConfig: (instanceId: string) => Promise<void>
+  setQualitySizeConfig: (instanceId: string, slug: string | null) => Promise<void>
+  syncQualitySize: (instanceId: string) => Promise<{ updated: number }>
+
+  // CF group actions
+  loadCfGroups: (instanceId: string) => Promise<void>
 }
 
 export const useTrashStore = create<TrashState>((set, get) => ({
@@ -67,6 +90,11 @@ export const useTrashStore = create<TrashState>((set, get) => ({
   deprecated: {},
   importable: {},
   allFormats: {},
+  namingSchemes: {},
+  namingConfigs: {},
+  qualitySizes: {},
+  qualitySizeConfigs: {},
+  cfGroups: {},
 
   loadConfigs: async () => {
     const configs = await api.trash.instances.list()
@@ -184,5 +212,51 @@ export const useTrashStore = create<TrashState>((set, get) => ({
 
   forceFetchGithub: async () => {
     return api.trash.github.forceFetch()
+  },
+
+  loadNamingSchemes: async (instanceId) => {
+    const schemes = await api.trash.instances.namingSchemes(instanceId)
+    set(s => ({ namingSchemes: { ...s.namingSchemes, [instanceId]: schemes } }))
+  },
+
+  loadNamingConfig: async (instanceId) => {
+    const cfg = await api.trash.instances.namingConfig(instanceId)
+    set(s => ({ namingConfigs: { ...s.namingConfigs, [instanceId]: cfg } }))
+  },
+
+  setNamingConfig: async (instanceId, data) => {
+    await api.trash.instances.setNamingConfig(instanceId, data)
+    await get().loadNamingConfig(instanceId)
+  },
+
+  syncNaming: async (instanceId) => {
+    await api.trash.instances.syncNaming(instanceId)
+    await get().loadNamingConfig(instanceId)
+  },
+
+  loadQualitySizes: async (instanceId) => {
+    const sizes = await api.trash.instances.qualitySizes(instanceId)
+    set(s => ({ qualitySizes: { ...s.qualitySizes, [instanceId]: sizes } }))
+  },
+
+  loadQualitySizeConfig: async (instanceId) => {
+    const cfg = await api.trash.instances.qualitySizeConfig(instanceId)
+    set(s => ({ qualitySizeConfigs: { ...s.qualitySizeConfigs, [instanceId]: cfg } }))
+  },
+
+  setQualitySizeConfig: async (instanceId, slug) => {
+    await api.trash.instances.setQualitySizeConfig(instanceId, { quality_size_slug: slug })
+    await get().loadQualitySizeConfig(instanceId)
+  },
+
+  syncQualitySize: async (instanceId) => {
+    const result = await api.trash.instances.syncQualitySize(instanceId)
+    await get().loadQualitySizeConfig(instanceId)
+    return { updated: result.updated }
+  },
+
+  loadCfGroups: async (instanceId) => {
+    const groups = await api.trash.instances.cfGroups(instanceId)
+    set(s => ({ cfGroups: { ...s.cfGroups, [instanceId]: groups } }))
   },
 }))

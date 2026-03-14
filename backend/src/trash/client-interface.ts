@@ -2,7 +2,7 @@
 // Both RadarrClient and SonarrClient implement this interface.
 // The sync executor depends only on this interface — not on the concrete clients.
 
-import type { ArrCustomFormat, ArrQualityProfile, FormatSpecification } from './types'
+import type { ArrCustomFormat, ArrQualityProfile, FormatSpecification, ArrNamingConfig, ArrQualityDefinition } from './types'
 
 export interface CreateCustomFormatBody {
   name: string
@@ -19,4 +19,8 @@ export interface TrashArrClient {
   getQualityProfiles(): Promise<ArrQualityProfile[]>
   getQualityProfile(id: number): Promise<ArrQualityProfile>
   putQualityProfile(id: number, body: ArrQualityProfile): Promise<ArrQualityProfile>
+  getNamingConfig(): Promise<ArrNamingConfig>
+  putNamingConfig(body: ArrNamingConfig): Promise<ArrNamingConfig>
+  getQualityDefinitions(): Promise<ArrQualityDefinition[]>
+  putQualityDefinitions(body: ArrQualityDefinition[]): Promise<ArrQualityDefinition[]>
 }

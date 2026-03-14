@@ -7,6 +7,9 @@ import { fetchLatestCommit, fetchChangedFiles } from '../trash/github-fetcher'
 import {
   parseCustomFormats, parseQualityProfiles, persistToCache,
   loadCachedFormats, loadCachedProfiles,
+  parseNamingSchemes, persistNamingSchemes, loadCachedNamingSchemes,
+  parseQualitySizes, persistQualitySizes, loadCachedQualitySizes,
+  parseCfGroups, persistCfGroups, loadCachedCfGroups,
 } from '../trash/trash-parser'
 import { computeChangeset } from '../trash/merge-engine'
 import { executeSyncChangeset } from '../trash/sync-executor'
@@ -24,6 +27,7 @@ import type {
   TrashDeprecatedFormat, TrashSyncLog, ArrSnapshot, SyncTrigger,
   TrashWidgetStats, NormalizedCustomFormat, NormalizedQualityProfile,
   GithubCommitInfo, UserCustomFormatForSync, FormatSpecification,
+  TrashInstanceNamingConfig, TrashInstanceQualitySizeConfig,
 } from '../trash/types'
 
 interface UserCustomFormatDbRow {
@@ -235,7 +239,17 @@ async function runSync(
         }
         const profiles = parseQualityProfiles(changed, trashIdToSlug, commitInfo.sha, commitInfo.commitDate)
         persistToCache(formats, profiles, arrType)
-        app.log.info({ instanceId, formatsUpdated: formats.length, profilesUpdated: profiles.length }, 'trash: cache updated')
+        const namingSchemes = parseNamingSchemes(changed, commitInfo.sha, commitInfo.commitDate)
+        if (namingSchemes.length > 0) persistNamingSchemes(namingSchemes)
+        const qualitySizes = parseQualitySizes(changed, commitInfo.sha, commitInfo.commitDate)
+        if (qualitySizes.length > 0) persistQualitySizes(qualitySizes)
+        const cfGroups = parseCfGroups(changed, commitInfo.sha, commitInfo.commitDate)
+        if (cfGroups.length > 0) persistCfGroups(cfGroups)
+        app.log.info({
+          instanceId, formatsUpdated: formats.length, profilesUpdated: profiles.length,
+          namingUpdated: namingSchemes.length, qualitySizesUpdated: qualitySizes.length,
+          cfGroupsUpdated: cfGroups.length,
+        }, 'trash: cache updated')
       }
     }
   }
@@ -973,6 +987,9 @@ export async function trashRoutes(app: FastifyInstance) {
       db.prepare('DELETE FROM trash_guides_file_index').run()
       const changed = await fetchChangedFiles(commitInfo)
       let totalFormats = 0
+      let totalNaming = 0
+      let totalQualitySizes = 0
+      let totalCfGroups = 0
       for (const arrType of ['radarr', 'sonarr'] as const) {
         const typeFiles = changed.filter(f => f.arrType === arrType)
         if (typeFiles.length === 0) continue
@@ -980,11 +997,290 @@ export async function trashRoutes(app: FastifyInstance) {
         const profiles = parseQualityProfiles(typeFiles, trashIdToSlug, commitInfo.sha, commitInfo.commitDate)
         persistToCache(formats, profiles, arrType)
         totalFormats += formats.length
+        const namingSchemes = parseNamingSchemes(typeFiles, commitInfo.sha, commitInfo.commitDate)
+        if (namingSchemes.length > 0) { persistNamingSchemes(namingSchemes); totalNaming += namingSchemes.length }
+        const qualitySizes = parseQualitySizes(typeFiles, commitInfo.sha, commitInfo.commitDate)
+        if (qualitySizes.length > 0) { persistQualitySizes(qualitySizes); totalQualitySizes += qualitySizes.length }
+        const cfGroups = parseCfGroups(typeFiles, commitInfo.sha, commitInfo.commitDate)
+        if (cfGroups.length > 0) { persistCfGroups(cfGroups); totalCfGroups += cfGroups.length }
       }
-      return { ok: true, sha: commitInfo.sha, filesUpdated: changed.length, formatsUpdated: totalFormats }
+      return {
+        ok: true, sha: commitInfo.sha, filesUpdated: changed.length,
+        formatsUpdated: totalFormats, namingUpdated: totalNaming,
+        qualitySizesUpdated: totalQualitySizes, cfGroupsUpdated: totalCfGroups,
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Fetch failed'
       return reply.status(502).send({ error: msg })
     }
   })
+
+  // ── GET /api/trash/instances/:id/cf-groups ─────────────────────────────────
+
+  app.get<{ Params: { id: string } }>(
+    '/api/trash/instances/:id/cf-groups',
+    { preHandler: [app.authenticate] },
+    async (req, reply) => {
+      const cfg = db.prepare(
+        'SELECT arr_type FROM trash_instance_configs WHERE instance_id = ?'
+      ).get(req.params.id) as { arr_type: string } | undefined
+      if (!cfg) return reply.status(404).send({ error: 'Not configured' })
+      return loadCachedCfGroups(cfg.arr_type as 'radarr' | 'sonarr')
+    },
+  )
+
+  // ── GET /api/trash/instances/:id/naming-schemes ────────────────────────────
+
+  app.get<{ Params: { id: string } }>(
+    '/api/trash/instances/:id/naming-schemes',
+    { preHandler: [app.authenticate] },
+    async (req, reply) => {
+      const cfg = db.prepare(
+        'SELECT arr_type FROM trash_instance_configs WHERE instance_id = ?'
+      ).get(req.params.id) as { arr_type: string } | undefined
+      if (!cfg) return reply.status(404).send({ error: 'Not configured' })
+      return loadCachedNamingSchemes(cfg.arr_type as 'radarr' | 'sonarr')
+    },
+  )
+
+  // ── GET /api/trash/instances/:id/naming-config ─────────────────────────────
+
+  app.get<{ Params: { id: string } }>(
+    '/api/trash/instances/:id/naming-config',
+    { preHandler: [app.authenticate] },
+    async (req) => {
+      return (db.prepare(
+        'SELECT * FROM trash_instance_naming_configs WHERE instance_id = ?'
+      ).get(req.params.id) as TrashInstanceNamingConfig | undefined) ?? null
+    },
+  )
+
+  // ── PUT /api/trash/instances/:id/naming-config ─────────────────────────────
+
+  interface NamingConfigBody {
+    folder_variant?: string | null
+    file_variant?: string | null
+    series_variant?: string | null
+    season_variant?: string | null
+    episode_standard_variant?: string | null
+    episode_daily_variant?: string | null
+    episode_anime_variant?: string | null
+  }
+
+  app.put<{ Params: { id: string }; Body: NamingConfigBody }>(
+    '/api/trash/instances/:id/naming-config',
+    { preHandler: [app.requireAdmin] },
+    async (req, reply) => {
+      const arrRow = db.prepare(
+        'SELECT id FROM arr_instances WHERE id = ? AND (type = ? OR type = ?)'
+      ).get(req.params.id, 'radarr', 'sonarr')
+      if (!arrRow) return reply.status(404).send({ error: 'Arr instance not found or unsupported type' })
+
+      const existing = db.prepare(
+        'SELECT id FROM trash_instance_naming_configs WHERE instance_id = ?'
+      ).get(req.params.id)
+
+      const {
+        folder_variant, file_variant, series_variant, season_variant,
+        episode_standard_variant, episode_daily_variant, episode_anime_variant,
+      } = req.body
+
+      if (existing) {
+        const sets: string[] = ["updated_at = datetime('now')"]
+        const vals: unknown[] = []
+        if (folder_variant !== undefined) { sets.push('folder_variant = ?'); vals.push(folder_variant) }
+        if (file_variant !== undefined) { sets.push('file_variant = ?'); vals.push(file_variant) }
+        if (series_variant !== undefined) { sets.push('series_variant = ?'); vals.push(series_variant) }
+        if (season_variant !== undefined) { sets.push('season_variant = ?'); vals.push(season_variant) }
+        if (episode_standard_variant !== undefined) { sets.push('episode_standard_variant = ?'); vals.push(episode_standard_variant) }
+        if (episode_daily_variant !== undefined) { sets.push('episode_daily_variant = ?'); vals.push(episode_daily_variant) }
+        if (episode_anime_variant !== undefined) { sets.push('episode_anime_variant = ?'); vals.push(episode_anime_variant) }
+        vals.push(req.params.id)
+        db.prepare(`UPDATE trash_instance_naming_configs SET ${sets.join(', ')} WHERE instance_id = ?`).run(...vals)
+      } else {
+        db.prepare(`
+          INSERT INTO trash_instance_naming_configs
+            (id, instance_id, folder_variant, file_variant, series_variant, season_variant,
+             episode_standard_variant, episode_daily_variant, episode_anime_variant)
+          VALUES (lower(hex(randomblob(8))), ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          req.params.id,
+          folder_variant ?? null, file_variant ?? null,
+          series_variant ?? null, season_variant ?? null,
+          episode_standard_variant ?? null, episode_daily_variant ?? null, episode_anime_variant ?? null,
+        )
+      }
+      return { ok: true }
+    },
+  )
+
+  // ── POST /api/trash/instances/:id/sync-naming — apply naming config to arr ──
+
+  app.post<{ Params: { id: string } }>(
+    '/api/trash/instances/:id/sync-naming',
+    { preHandler: [app.requireAdmin] },
+    async (req, reply) => {
+      const arrRow = db.prepare('SELECT * FROM arr_instances WHERE id = ?').get(req.params.id) as ArrInstanceRow | undefined
+      if (!arrRow) return reply.status(404).send({ error: 'Arr instance not found' })
+
+      const namingCfg = db.prepare(
+        'SELECT * FROM trash_instance_naming_configs WHERE instance_id = ?'
+      ).get(req.params.id) as TrashInstanceNamingConfig | undefined
+      if (!namingCfg) return reply.status(404).send({ error: 'No naming config saved — select variants first' })
+
+      const schemes = loadCachedNamingSchemes(arrRow.type as 'radarr' | 'sonarr')
+      if (schemes.length === 0) return reply.status(404).send({ error: 'No naming schemes in cache — run GitHub fetch first' })
+
+      const scheme = schemes[0]  // there is only one naming scheme file per arr type
+      const client = makeTrashClient(arrRow)
+
+      try {
+        const current = await client.getNamingConfig()
+        const patch: Record<string, unknown> = { ...current }
+
+        if (arrRow.type === 'radarr') {
+          if (namingCfg.folder_variant && scheme.folderVariants[namingCfg.folder_variant]) {
+            patch['movieFolderFormat'] = scheme.folderVariants[namingCfg.folder_variant]
+          }
+          if (namingCfg.file_variant && scheme.fileVariants[namingCfg.file_variant]) {
+            patch['standardMovieFormat'] = scheme.fileVariants[namingCfg.file_variant]
+          }
+        } else {
+          if (namingCfg.series_variant && scheme.seriesVariants[namingCfg.series_variant]) {
+            patch['seriesFolderFormat'] = scheme.seriesVariants[namingCfg.series_variant]
+          }
+          if (namingCfg.season_variant && scheme.seasonVariants[namingCfg.season_variant]) {
+            patch['seasonFolderFormat'] = scheme.seasonVariants[namingCfg.season_variant]
+          }
+          if (namingCfg.episode_standard_variant && scheme.episodeStandardVariants[namingCfg.episode_standard_variant]) {
+            patch['standardEpisodeFormat'] = scheme.episodeStandardVariants[namingCfg.episode_standard_variant]
+          }
+          if (namingCfg.episode_daily_variant && scheme.episodeDailyVariants[namingCfg.episode_daily_variant]) {
+            patch['dailyEpisodeFormat'] = scheme.episodeDailyVariants[namingCfg.episode_daily_variant]
+          }
+          if (namingCfg.episode_anime_variant && scheme.episodeAnimeVariants[namingCfg.episode_anime_variant]) {
+            patch['animeEpisodeFormat'] = scheme.episodeAnimeVariants[namingCfg.episode_anime_variant]
+          }
+        }
+
+        await client.putNamingConfig(patch)
+        db.prepare(
+          "UPDATE trash_instance_naming_configs SET last_synced_at = datetime('now'), updated_at = datetime('now') WHERE instance_id = ?"
+        ).run(req.params.id)
+        return { ok: true }
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Arr API error'
+        return reply.status(502).send({ error: msg })
+      }
+    },
+  )
+
+  // ── GET /api/trash/instances/:id/quality-sizes ─────────────────────────────
+
+  app.get<{ Params: { id: string } }>(
+    '/api/trash/instances/:id/quality-sizes',
+    { preHandler: [app.authenticate] },
+    async (req, reply) => {
+      const cfg = db.prepare(
+        'SELECT arr_type FROM trash_instance_configs WHERE instance_id = ?'
+      ).get(req.params.id) as { arr_type: string } | undefined
+      if (!cfg) return reply.status(404).send({ error: 'Not configured' })
+      return loadCachedQualitySizes(cfg.arr_type as 'radarr' | 'sonarr')
+    },
+  )
+
+  // ── GET /api/trash/instances/:id/quality-size-config ──────────────────────
+
+  app.get<{ Params: { id: string } }>(
+    '/api/trash/instances/:id/quality-size-config',
+    { preHandler: [app.authenticate] },
+    async (req) => {
+      return (db.prepare(
+        'SELECT * FROM trash_instance_quality_size_configs WHERE instance_id = ?'
+      ).get(req.params.id) as TrashInstanceQualitySizeConfig | undefined) ?? null
+    },
+  )
+
+  // ── PUT /api/trash/instances/:id/quality-size-config ──────────────────────
+
+  interface QualitySizeConfigBody { quality_size_slug: string | null }
+
+  app.put<{ Params: { id: string }; Body: QualitySizeConfigBody }>(
+    '/api/trash/instances/:id/quality-size-config',
+    { preHandler: [app.requireAdmin] },
+    async (req, reply) => {
+      const arrRow = db.prepare(
+        'SELECT id FROM arr_instances WHERE id = ? AND (type = ? OR type = ?)'
+      ).get(req.params.id, 'radarr', 'sonarr')
+      if (!arrRow) return reply.status(404).send({ error: 'Arr instance not found or unsupported type' })
+
+      const { quality_size_slug } = req.body
+      const existing = db.prepare(
+        'SELECT id FROM trash_instance_quality_size_configs WHERE instance_id = ?'
+      ).get(req.params.id)
+
+      if (existing) {
+        db.prepare(`
+          UPDATE trash_instance_quality_size_configs
+          SET quality_size_slug = ?, updated_at = datetime('now')
+          WHERE instance_id = ?
+        `).run(quality_size_slug ?? null, req.params.id)
+      } else {
+        db.prepare(`
+          INSERT INTO trash_instance_quality_size_configs (id, instance_id, quality_size_slug)
+          VALUES (lower(hex(randomblob(8))), ?, ?)
+        `).run(req.params.id, quality_size_slug ?? null)
+      }
+      return { ok: true }
+    },
+  )
+
+  // ── POST /api/trash/instances/:id/sync-quality-size ───────────────────────
+
+  app.post<{ Params: { id: string } }>(
+    '/api/trash/instances/:id/sync-quality-size',
+    { preHandler: [app.requireAdmin] },
+    async (req, reply) => {
+      const arrRow = db.prepare('SELECT * FROM arr_instances WHERE id = ?').get(req.params.id) as ArrInstanceRow | undefined
+      if (!arrRow) return reply.status(404).send({ error: 'Arr instance not found' })
+
+      const sizeCfg = db.prepare(
+        'SELECT * FROM trash_instance_quality_size_configs WHERE instance_id = ?'
+      ).get(req.params.id) as TrashInstanceQualitySizeConfig | undefined
+      if (!sizeCfg?.quality_size_slug) return reply.status(404).send({ error: 'No quality size preset selected' })
+
+      const presets = loadCachedQualitySizes(arrRow.type as 'radarr' | 'sonarr')
+      const preset = presets.find(p => p.slug === sizeCfg.quality_size_slug)
+      if (!preset) return reply.status(404).send({ error: `Preset "${sizeCfg.quality_size_slug}" not found in cache` })
+
+      const client = makeTrashClient(arrRow)
+      try {
+        const current = await client.getQualityDefinitions()
+
+        // Build a lookup: normalize quality name for matching
+        const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
+        const presetMap = new Map(preset.items.map(i => [normalize(i.quality), i]))
+
+        const updated = current.map(def => {
+          const match = presetMap.get(normalize(def.quality.name))
+          if (!match) return def
+          return {
+            ...def,
+            minSize: match.min,
+            preferredSize: match.preferred,
+            maxSize: match.max,
+          }
+        })
+
+        await client.putQualityDefinitions(updated)
+        db.prepare(
+          "UPDATE trash_instance_quality_size_configs SET last_synced_at = datetime('now'), updated_at = datetime('now') WHERE instance_id = ?"
+        ).run(req.params.id)
+        return { ok: true, updated: updated.filter((u, i) => u !== current[i]).length }
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Arr API error'
+        return reply.status(502).send({ error: msg })
+      }
+    },
+  )
 }

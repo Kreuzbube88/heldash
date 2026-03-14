@@ -3,6 +3,9 @@ import { getDb } from '../db/database'
 import type {
   NormalizedCustomFormat, NormalizedQualityProfile,
   FormatSpecification, NormalizedFormatScore, GithubFile, TrashGuidesCache,
+  NormalizedNamingScheme, NamingVariants,
+  NormalizedQualitySize, NormalizedQualitySizeItem,
+  NormalizedCfGroup, NormalizedCfGroupItem,
 } from './types'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -370,4 +373,226 @@ export function loadCachedProfiles(arrType: 'radarr' | 'sonarr'): NormalizedQual
     `SELECT normalized_data FROM trash_guides_cache WHERE arr_type = ? AND category = 'quality_profiles'`
   ).all(arrType) as { normalized_data: string }[]
   return rows.map(r => JSON.parse(r.normalized_data) as NormalizedQualityProfile)
+}
+
+// ── Naming Scheme parsing ─────────────────────────────────────────────────────
+
+export function parseNamingSchemes(
+  files: GithubFile[],
+  githubSha: string,
+  githubCommitDate: string,
+): NormalizedNamingScheme[] {
+  const namingFiles = files.filter(f => f.category === 'naming')
+  const result: NormalizedNamingScheme[] = []
+
+  for (const file of namingFiles) {
+    let raw: Record<string, unknown>
+    try { raw = JSON.parse(file.content) as Record<string, unknown> }
+    catch { console.warn(`[trash:parser] JSON parse failed (naming): ${file.path}`); continue }
+
+    const arrType = file.arrType
+    const slug = arrType === 'radarr' ? 'radarr-naming' : 'sonarr-naming'
+    const name = arrType === 'radarr' ? 'Radarr Naming' : 'Sonarr Naming'
+
+    function toVariants(obj: unknown): NamingVariants {
+      if (obj === null || typeof obj !== 'object' || Array.isArray(obj)) return {}
+      const r: NamingVariants = {}
+      for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+        if (typeof v === 'string') r[k] = v
+      }
+      return r
+    }
+
+    const episodes = raw.episodes !== null && typeof raw.episodes === 'object' && !Array.isArray(raw.episodes)
+      ? raw.episodes as Record<string, unknown>
+      : {}
+
+    result.push({
+      slug, name, arrType,
+      folderVariants: toVariants(raw.folder),
+      fileVariants: toVariants(raw.file),
+      seasonVariants: toVariants(raw.season),
+      seriesVariants: toVariants(raw.series),
+      episodeStandardVariants: toVariants(episodes.standard),
+      episodeDailyVariants: toVariants(episodes.daily),
+      episodeAnimeVariants: toVariants(episodes.anime),
+      filePath: file.path, fileSha: file.sha,
+      githubSha, githubCommitDate, schemaVersion: PARSER_SCHEMA_VERSION,
+    })
+  }
+  return result
+}
+
+export function persistNamingSchemes(schemes: NormalizedNamingScheme[]): void {
+  if (schemes.length === 0) return
+  const db = getDb()
+  const upsert = db.prepare(`
+    INSERT OR REPLACE INTO trash_guides_cache
+      (id, arr_type, category, slug, name, file_path, file_sha,
+       raw_data, normalized_data, conditions_hash, github_sha, github_commit_date,
+       schema_version, fetched_at)
+    VALUES (
+      COALESCE((SELECT id FROM trash_guides_cache WHERE arr_type=? AND category='naming' AND slug=?), lower(hex(randomblob(8)))),
+      ?, 'naming', ?, ?, ?, ?, '', ?, '', ?, ?, ?, datetime('now'))
+  `)
+  const tx = db.transaction((list: NormalizedNamingScheme[]) => {
+    for (const s of list) {
+      upsert.run(s.arrType, s.slug, s.arrType, s.slug, s.name, s.filePath, s.fileSha,
+        JSON.stringify(s), s.githubSha, s.githubCommitDate, s.schemaVersion)
+    }
+  })
+  tx(schemes)
+}
+
+export function loadCachedNamingSchemes(arrType: 'radarr' | 'sonarr'): NormalizedNamingScheme[] {
+  const db = getDb()
+  const rows = db.prepare(
+    `SELECT normalized_data FROM trash_guides_cache WHERE arr_type = ? AND category = 'naming'`
+  ).all(arrType) as { normalized_data: string }[]
+  return rows.map(r => JSON.parse(r.normalized_data) as NormalizedNamingScheme)
+}
+
+// ── Quality Size parsing ──────────────────────────────────────────────────────
+
+export function parseQualitySizes(
+  files: GithubFile[],
+  githubSha: string,
+  githubCommitDate: string,
+): NormalizedQualitySize[] {
+  const qsFiles = files.filter(f => f.category === 'quality_size')
+  const result: NormalizedQualitySize[] = []
+
+  for (const file of qsFiles) {
+    let raw: Record<string, unknown>
+    try { raw = JSON.parse(file.content) as Record<string, unknown> }
+    catch { console.warn(`[trash:parser] JSON parse failed (quality-size): ${file.path}`); continue }
+
+    const trashId = typeof raw.trash_id === 'string' ? raw.trash_id : ''
+    const type = typeof raw.type === 'string' ? raw.type : ''
+    if (!type) { console.warn(`[trash:parser] Quality size missing type field: ${file.path}`); continue }
+
+    const name = type.charAt(0).toUpperCase() + type.slice(1)
+    const slug = type.toLowerCase()
+
+    const rawItems = Array.isArray(raw.qualities) ? raw.qualities : []
+    const items: NormalizedQualitySizeItem[] = rawItems.flatMap((ri: unknown) => {
+      if (ri === null || typeof ri !== 'object' || Array.isArray(ri)) return []
+      const r = ri as Record<string, unknown>
+      if (typeof r.quality !== 'string') return []
+      return [{
+        quality: r.quality,
+        min: typeof r.min === 'number' ? r.min : 0,
+        preferred: typeof r.preferred === 'number' ? r.preferred : -1,
+        max: typeof r.max === 'number' ? r.max : -1,
+      }]
+    })
+    if (items.length === 0) continue
+
+    result.push({
+      slug, name, trashId, arrType: file.arrType, items,
+      filePath: file.path, fileSha: file.sha,
+      githubSha, githubCommitDate, schemaVersion: PARSER_SCHEMA_VERSION,
+    })
+  }
+  return result
+}
+
+export function persistQualitySizes(sizes: NormalizedQualitySize[]): void {
+  if (sizes.length === 0) return
+  const db = getDb()
+  const upsert = db.prepare(`
+    INSERT OR REPLACE INTO trash_guides_cache
+      (id, arr_type, category, slug, name, file_path, file_sha,
+       raw_data, normalized_data, conditions_hash, github_sha, github_commit_date,
+       schema_version, fetched_at)
+    VALUES (
+      COALESCE((SELECT id FROM trash_guides_cache WHERE arr_type=? AND category='quality_size' AND slug=?), lower(hex(randomblob(8)))),
+      ?, 'quality_size', ?, ?, ?, ?, '', ?, '', ?, ?, ?, datetime('now'))
+  `)
+  const tx = db.transaction((list: NormalizedQualitySize[]) => {
+    for (const s of list) {
+      upsert.run(s.arrType, s.slug, s.arrType, s.slug, s.name, s.filePath, s.fileSha,
+        JSON.stringify(s), s.githubSha, s.githubCommitDate, s.schemaVersion)
+    }
+  })
+  tx(sizes)
+}
+
+export function loadCachedQualitySizes(arrType: 'radarr' | 'sonarr'): NormalizedQualitySize[] {
+  const db = getDb()
+  const rows = db.prepare(
+    `SELECT normalized_data FROM trash_guides_cache WHERE arr_type = ? AND category = 'quality_size'`
+  ).all(arrType) as { normalized_data: string }[]
+  return rows.map(r => JSON.parse(r.normalized_data) as NormalizedQualitySize)
+}
+
+// ── CF Groups parsing ─────────────────────────────────────────────────────────
+
+export function parseCfGroups(
+  files: GithubFile[],
+  githubSha: string,
+  githubCommitDate: string,
+): NormalizedCfGroup[] {
+  const groupFiles = files.filter(f => f.category === 'cf_groups')
+  const result: NormalizedCfGroup[] = []
+
+  for (const file of groupFiles) {
+    let raw: Record<string, unknown>
+    try { raw = JSON.parse(file.content) as Record<string, unknown> }
+    catch { console.warn(`[trash:parser] JSON parse failed (cf-groups): ${file.path}`); continue }
+
+    const name = typeof raw.name === 'string' ? raw.name.trim() : ''
+    if (!name) continue
+    const slug = toSlug(name)
+    const description = typeof raw.trash_description === 'string' ? raw.trash_description : ''
+
+    const rawCFs = Array.isArray(raw.custom_formats) ? raw.custom_formats : []
+    const items: NormalizedCfGroupItem[] = rawCFs.flatMap((cf: unknown) => {
+      if (cf === null || typeof cf !== 'object' || Array.isArray(cf)) return []
+      const c = cf as Record<string, unknown>
+      if (typeof c.trash_id !== 'string' || typeof c.name !== 'string') return []
+      return [{
+        trashId: c.trash_id,
+        slug: toSlug(c.name as string),
+        name: c.name as string,
+        required: c.required === true,
+      }]
+    })
+
+    result.push({
+      slug, name, description, arrType: file.arrType, items,
+      filePath: file.path, fileSha: file.sha,
+      githubSha, githubCommitDate, schemaVersion: PARSER_SCHEMA_VERSION,
+    })
+  }
+  return result
+}
+
+export function persistCfGroups(groups: NormalizedCfGroup[]): void {
+  if (groups.length === 0) return
+  const db = getDb()
+  const upsert = db.prepare(`
+    INSERT OR REPLACE INTO trash_guides_cache
+      (id, arr_type, category, slug, name, file_path, file_sha,
+       raw_data, normalized_data, conditions_hash, github_sha, github_commit_date,
+       schema_version, fetched_at)
+    VALUES (
+      COALESCE((SELECT id FROM trash_guides_cache WHERE arr_type=? AND category='cf_groups' AND slug=?), lower(hex(randomblob(8)))),
+      ?, 'cf_groups', ?, ?, ?, ?, '', ?, '', ?, ?, ?, datetime('now'))
+  `)
+  const tx = db.transaction((list: NormalizedCfGroup[]) => {
+    for (const g of list) {
+      upsert.run(g.arrType, g.slug, g.arrType, g.slug, g.name, g.filePath, g.fileSha,
+        JSON.stringify(g), g.githubSha, g.githubCommitDate, g.schemaVersion)
+    }
+  })
+  tx(groups)
+}
+
+export function loadCachedCfGroups(arrType: 'radarr' | 'sonarr'): NormalizedCfGroup[] {
+  const db = getDb()
+  const rows = db.prepare(
+    `SELECT normalized_data FROM trash_guides_cache WHERE arr_type = ? AND category = 'cf_groups'`
+  ).all(arrType) as { normalized_data: string }[]
+  return rows.map(r => JSON.parse(r.normalized_data) as NormalizedCfGroup)
 }

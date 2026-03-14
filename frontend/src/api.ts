@@ -1,6 +1,6 @@
 import type { Service, Group, Settings, AuthUser, UserRecord, UserGroup, DashboardItem, DashboardGroup, DashboardResponse, Widget, WidgetStats, DockerContainer, ContainerStats, Background, HaInstance, HaPanel, HaEntityFull } from './types'
 import type { ArrInstance, ArrStatus, ArrStats, ArrQueueResponse, ArrCalendarItem, ProwlarrIndexer, SabnzbdQueueData, SabnzbdHistoryData, SeerrRequest, SeerrRequestsResponse } from './types/arr'
-import type { TrashInstanceConfig, TrashProfileConfig, TrashProfileSummary, TrashFormatRow, TrashPreview, TrashSyncLogEntry, TrashDeprecatedFormat, TrashImportableFormat, TrashUserOverride } from './types/trash'
+import type { TrashInstanceConfig, TrashProfileConfig, TrashProfileSummary, TrashFormatRow, TrashPreview, TrashSyncLogEntry, TrashDeprecatedFormat, TrashImportableFormat, TrashUserOverride, TrashNamingScheme, TrashInstanceNamingConfig, TrashQualitySize, TrashInstanceQualitySizeConfig, TrashCfGroup } from './types/trash'
 
 const BASE = '/api'
 
@@ -293,6 +293,19 @@ export const api = {
       },
       patchUserFormat: (instanceId: string, slug: string, data: { profile_slug?: string | null; score?: number; enabled?: boolean }) =>
         req<void>(`/trash/instances/${instanceId}/user-formats/${encodeURIComponent(slug)}`, { method: 'PATCH', body: JSON.stringify(data) }),
+      cfGroups: (instanceId: string) => req<TrashCfGroup[]>(`/trash/instances/${instanceId}/cf-groups`),
+      namingSchemes: (instanceId: string) => req<TrashNamingScheme[]>(`/trash/instances/${instanceId}/naming-schemes`),
+      namingConfig: (instanceId: string) => req<TrashInstanceNamingConfig | null>(`/trash/instances/${instanceId}/naming-config`),
+      setNamingConfig: (instanceId: string, data: Partial<TrashInstanceNamingConfig>) =>
+        req<{ ok: boolean }>(`/trash/instances/${instanceId}/naming-config`, { method: 'PUT', body: JSON.stringify(data) }),
+      syncNaming: (instanceId: string) =>
+        req<{ ok: boolean }>(`/trash/instances/${instanceId}/sync-naming`, { method: 'POST', body: JSON.stringify({}) }),
+      qualitySizes: (instanceId: string) => req<TrashQualitySize[]>(`/trash/instances/${instanceId}/quality-sizes`),
+      qualitySizeConfig: (instanceId: string) => req<TrashInstanceQualitySizeConfig | null>(`/trash/instances/${instanceId}/quality-size-config`),
+      setQualitySizeConfig: (instanceId: string, data: { quality_size_slug: string | null }) =>
+        req<{ ok: boolean }>(`/trash/instances/${instanceId}/quality-size-config`, { method: 'PUT', body: JSON.stringify(data) }),
+      syncQualitySize: (instanceId: string) =>
+        req<{ ok: boolean; updated: number }>(`/trash/instances/${instanceId}/sync-quality-size`, { method: 'POST', body: JSON.stringify({}) }),
     },
     github: {
       forceFetch: () => req<{ sha: string; filesUpdated: number; formatsUpdated: number }>('/trash/github/fetch', { method: 'POST', body: JSON.stringify({}) }),

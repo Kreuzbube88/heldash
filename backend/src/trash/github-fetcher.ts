@@ -9,9 +9,21 @@ const RAW_BASE   = 'https://raw.githubusercontent.com'
 const OWNER      = 'TRaSH-Guides'
 const REPO       = 'Guides'
 
-const JSON_DIRS: Record<'radarr' | 'sonarr', { cf: string; qp: string }> = {
-  radarr: { cf: 'docs/json/radarr/cf', qp: 'docs/json/radarr/quality-profiles' },
-  sonarr: { cf: 'docs/json/sonarr/cf', qp: 'docs/json/sonarr/quality-profiles' },
+const JSON_DIRS: Record<'radarr' | 'sonarr', { cf: string; qp: string; naming: string; qualitySize: string; cfGroups: string }> = {
+  radarr: {
+    cf: 'docs/json/radarr/cf',
+    qp: 'docs/json/radarr/quality-profiles',
+    naming: 'docs/json/radarr/naming',
+    qualitySize: 'docs/json/radarr/quality-size',
+    cfGroups: 'docs/json/radarr/cf-groups',
+  },
+  sonarr: {
+    cf: 'docs/json/sonarr/cf',
+    qp: 'docs/json/sonarr/quality-profiles',
+    naming: 'docs/json/sonarr/naming',
+    qualitySize: 'docs/json/sonarr/quality-size',
+    cfGroups: 'docs/json/sonarr/cf-groups',
+  },
 }
 
 const MAX_FILE_SIZE_BYTES = 512_000   // 500 KB per file
@@ -136,10 +148,13 @@ async function fetchTree(commitSha: string): Promise<TreeEntry[]> {
 
 // ── Determine which files need fetching ───────────────────────────────────────
 
-function isTrackedPath(p: string): { arrType: 'radarr' | 'sonarr'; category: 'custom_formats' | 'quality_profiles' } | null {
-  for (const [type, dirs] of Object.entries(JSON_DIRS) as Array<['radarr' | 'sonarr', { cf: string; qp: string }]>) {
+function isTrackedPath(p: string): { arrType: 'radarr' | 'sonarr'; category: 'custom_formats' | 'quality_profiles' | 'naming' | 'quality_size' | 'cf_groups' } | null {
+  for (const [type, dirs] of Object.entries(JSON_DIRS) as Array<['radarr' | 'sonarr', typeof JSON_DIRS['radarr']]>) {
     if (p.startsWith(dirs.cf + '/') && p.endsWith('.json')) return { arrType: type, category: 'custom_formats' }
     if (p.startsWith(dirs.qp + '/') && p.endsWith('.json')) return { arrType: type, category: 'quality_profiles' }
+    if (p.startsWith(dirs.naming + '/') && p.endsWith('.json')) return { arrType: type, category: 'naming' }
+    if (p.startsWith(dirs.qualitySize + '/') && p.endsWith('.json')) return { arrType: type, category: 'quality_size' }
+    if (p.startsWith(dirs.cfGroups + '/') && p.endsWith('.json')) return { arrType: type, category: 'cf_groups' }
   }
   return null
 }
@@ -157,7 +172,7 @@ export async function fetchChangedFiles(commitInfo: GithubCommitInfo): Promise<G
   const tree = await fetchTree(commitInfo.sha)
 
   // Determine which tracked JSON files changed
-  const toFetch: Array<{ entry: TreeEntry; arrType: 'radarr' | 'sonarr'; category: 'custom_formats' | 'quality_profiles' }> = []
+  const toFetch: Array<{ entry: TreeEntry; arrType: 'radarr' | 'sonarr'; category: 'custom_formats' | 'quality_profiles' | 'naming' | 'quality_size' | 'cf_groups' }> = []
 
   // Sort alphabetically for deterministic slug assignment in parser
   const sorted = [...tree].sort((a, b) => a.path.localeCompare(b.path))

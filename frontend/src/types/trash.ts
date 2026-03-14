@@ -143,3 +143,68 @@ export interface TrashImportableFormat {
   name: string
   specsCount: number
 }
+
+export interface TrashNamingVariants {
+  [key: string]: string
+}
+
+export interface TrashNamingScheme {
+  slug: string
+  name: string
+  arrType: 'radarr' | 'sonarr'
+  folderVariants: TrashNamingVariants
+  fileVariants: TrashNamingVariants
+  seasonVariants: TrashNamingVariants
+  seriesVariants: TrashNamingVariants
+  episodeStandardVariants: TrashNamingVariants
+  episodeDailyVariants: TrashNamingVariants
+  episodeAnimeVariants: TrashNamingVariants
+}
+
+export interface TrashInstanceNamingConfig {
+  instance_id: string
+  folder_variant: string | null
+  file_variant: string | null
+  series_variant: string | null
+  season_variant: string | null
+  episode_standard_variant: string | null
+  episode_daily_variant: string | null
+  episode_anime_variant: string | null
+  last_synced_at: string | null
+}
+
+export interface TrashQualitySizeItem {
+  quality: string
+  min: number
+  preferred: number
+  max: number
+}
+
+export interface TrashQualitySize {
+  slug: string
+  name: string
+  trashId: string
+  arrType: 'radarr' | 'sonarr'
+  items: TrashQualitySizeItem[]
+}
+
+export interface TrashInstanceQualitySizeConfig {
+  instance_id: string
+  quality_size_slug: string | null
+  last_synced_at: string | null
+}
+
+export interface TrashCfGroupItem {
+  slug: string
+  trashId: string
+  name: string
+  required: boolean
+}
+
+export interface TrashCfGroup {
+  slug: string
+  name: string
+  description: string
+  arrType: 'radarr' | 'sonarr'
+  items: TrashCfGroupItem[]
+}

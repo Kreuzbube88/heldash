@@ -107,4 +107,15 @@ export class RadarrClient extends ArrBaseClient {
   putQualityProfile(id: number, body: import('../trash/types').ArrQualityProfile) {
     return this.put<import('../trash/types').ArrQualityProfile>(`qualityprofile/${id}`, body)
   }
+
+  // ── TRaSH Sync: Naming + Quality Size ────────────────────────────────────────
+  getNamingConfig() { return this.get<import('../trash/types').ArrNamingConfig>('config/naming') }
+  putNamingConfig(body: import('../trash/types').ArrNamingConfig) {
+    return this.put<import('../trash/types').ArrNamingConfig>('config/naming', body)
+  }
+  getQualityDefinitions() { return this.get<import('../trash/types').ArrQualityDefinition[]>('qualitydefinition') }
+  putQualityDefinitions(body: import('../trash/types').ArrQualityDefinition[]) {
+    // Radarr uses /qualitydefinition/update for bulk update
+    return this.put<import('../trash/types').ArrQualityDefinition[]>('qualitydefinition/update', body)
+  }
 }

@@ -1639,7 +1639,12 @@ interface InstanceEditorProps {
 }
 
 function InstanceEditor({ config, instanceName, isAdmin }: InstanceEditorProps) {
-  const { profiles, loadProfiles, triggerSync, configure, deleteProfileConfig, forceFetchGithub, loadAllFormats, allFormats } = useTrashStore()
+  const {
+    profiles, loadProfiles, triggerSync, configure, deleteProfileConfig, forceFetchGithub, loadAllFormats, allFormats,
+    namingSchemes, namingConfigs, loadNamingSchemes, loadNamingConfig, setNamingConfig, syncNaming,
+    qualitySizes, qualitySizeConfigs, loadQualitySizes, loadQualitySizeConfig, setQualitySizeConfig, syncQualitySize,
+    cfGroups, loadCfGroups,
+  } = useTrashStore()
 
   const id = config.instance_id
   const profileConfigs = config.profileConfigs ?? []
@@ -1654,6 +1659,11 @@ function InstanceEditor({ config, instanceName, isAdmin }: InstanceEditorProps) 
   const [fetching, setFetching] = useState(false)
   const [profilesLoaded, setProfilesLoaded] = useState(false)
   const [showBrowse, setShowBrowse] = useState(false)
+  const [topTab, setTopTab] = useState<'profiles' | 'naming' | 'quality_size' | 'cf_groups'>('profiles')
+  const [namingApplying, setNamingApplying] = useState(false)
+  const [namingApplyMsg, setNamingApplyMsg] = useState<string | null>(null)
+  const [qualitySizeApplying, setQualitySizeApplying] = useState(false)
+  const [qualitySizeApplyMsg, setQualitySizeApplyMsg] = useState<string | null>(null)
 
   // Keep selectedSlug in sync when configs change (e.g. a profile was added/removed)
   const slugSet = profileConfigs.map(p => p.profile_slug).join(',')
@@ -1669,6 +1679,18 @@ function InstanceEditor({ config, instanceName, isAdmin }: InstanceEditorProps) 
   useEffect(() => {
     loadProfiles(id).catch(() => {}).finally(() => setProfilesLoaded(true))
   }, [id])
+
+  useEffect(() => {
+    if (topTab === 'naming') {
+      loadNamingSchemes(id).catch(() => {})
+      loadNamingConfig(id).catch(() => {})
+    } else if (topTab === 'quality_size') {
+      loadQualitySizes(id).catch(() => {})
+      loadQualitySizeConfig(id).catch(() => {})
+    } else if (topTab === 'cf_groups') {
+      loadCfGroups(id).catch(() => {})
+    }
+  }, [topTab, id])
 
   async function fetchAndReload() {
     setFetching(true)
@@ -1769,8 +1791,30 @@ function InstanceEditor({ config, instanceName, isAdmin }: InstanceEditorProps) 
         </div>
       )}
 
+      {/* ── Top-level section tab bar ─── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 0, background: 'rgba(0,0,0,0.15)', borderBottom: '1px solid var(--border)', padding: '0 8px' }}>
+        {(['profiles', 'naming', 'quality_size', 'cf_groups'] as const).map(tab => {
+          const label = tab === 'profiles' ? 'Profiles' : tab === 'naming' ? 'Naming' : tab === 'quality_size' ? 'Quality Size' : 'CF Groups'
+          const isActive = topTab === tab
+          return (
+            <button
+              key={tab}
+              onClick={() => setTopTab(tab)}
+              style={{
+                padding: '8px 14px', fontSize: 12, fontWeight: isActive ? 600 : 400,
+                color: isActive ? 'var(--accent)' : 'var(--text-muted)',
+                background: 'transparent', border: 'none', borderBottom: `2px solid ${isActive ? 'var(--accent)' : 'transparent'}`,
+                cursor: 'pointer', fontFamily: 'var(--font-sans)', whiteSpace: 'nowrap', transition: 'color 100ms',
+              }}
+            >
+              {label}
+            </button>
+          )
+        })}
+      </div>
+
       {/* ── Profile tab bar ─── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 0, background: 'var(--glass-bg)', borderBottom: '1px solid var(--border)', overflowX: 'auto', padding: '0 8px' }}>
+      {topTab === 'profiles' && <div style={{ display: 'flex', alignItems: 'center', gap: 0, background: 'var(--glass-bg)', borderBottom: '1px solid var(--border)', overflowX: 'auto', padding: '0 8px' }}>
         {profileConfigs.map(pcfg => {
           const name = myProfiles.find(p => p.slug === pcfg.profile_slug)?.name ?? pcfg.profile_slug
           const isActive = selectedSlug === pcfg.profile_slug
@@ -1813,10 +1857,10 @@ function InstanceEditor({ config, instanceName, isAdmin }: InstanceEditorProps) 
             <Plus size={13} /> Add Profile
           </button>
         )}
-      </div>
+      </div>}
 
       {/* ── Delete profile confirmation ─── */}
-      {deleteSlug && (
+      {topTab === 'profiles' && deleteSlug && (
         <div style={{ padding: '10px 16px', background: '#f8717111', border: '1px solid #f8717133', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <AlertTriangle size={13} style={{ color: '#f87171', flexShrink: 0 }} />
           <span style={{ flex: 1, fontSize: 13, color: '#f87171' }}>
@@ -1831,7 +1875,7 @@ function InstanceEditor({ config, instanceName, isAdmin }: InstanceEditorProps) 
       )}
 
       {/* ── Profile editor (or empty state) ─── */}
-      {selectedCfg ? (
+      {topTab === 'profiles' && (selectedCfg ? (
         <ProfileEditor
           instanceId={id}
           profileCfg={selectedCfg}
@@ -1849,7 +1893,228 @@ function InstanceEditor({ config, instanceName, isAdmin }: InstanceEditorProps) 
             : 'Select a profile tab above to view and edit its formats.'
           }
         </div>
-      )}
+      ))}
+
+      {/* ── Naming section ─── */}
+      {topTab === 'naming' && (() => {
+        const schemes = namingSchemes[id] ?? []
+        const cfg = namingConfigs[id] ?? null
+        const scheme = schemes[0] ?? null
+        const arrType = config.arr_type
+
+        const variantSelect = (label: string, field: string, variants: Record<string, string>) => {
+          const keys = Object.keys(variants ?? {})
+          if (keys.length === 0) return null
+          return (
+            <div key={field} style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6, fontWeight: 600 }}>{label}</div>
+              <select
+                value={(cfg as Record<string, string | null> | null)?.[field] ?? ''}
+                onChange={async e => {
+                  const val = e.target.value || null
+                  await setNamingConfig(id, { [field]: val } as Partial<import('../types/trash').TrashInstanceNamingConfig>)
+                }}
+                style={{ width: '100%', background: 'var(--glass-bg)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 10px', fontSize: 13, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', cursor: 'pointer' }}
+              >
+                <option value="">— not set —</option>
+                {keys.map(k => <option key={k} value={k}>{k}</option>)}
+              </select>
+              {(cfg as Record<string, string | null> | null)?.[field] && variants[(cfg as Record<string, string | null>)[field]!] && (
+                <div style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', padding: '6px 8px', background: 'var(--glass-bg)', borderRadius: 6, wordBreak: 'break-all' }}>
+                  {variants[(cfg as Record<string, string | null>)[field]!]}
+                </div>
+              )}
+            </div>
+          )
+        }
+
+        return (
+          <div style={{ padding: 20 }}>
+            {!scheme ? (
+              <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 13, padding: '32px 0' }}>
+                No naming schemes in cache. Run "Fetch from GitHub" to load them.
+              </div>
+            ) : (
+              <>
+                <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20 }}>
+                  Select naming format variants for each field. Changes are saved immediately. Click <strong>Apply to Arr</strong> to push to the instance.
+                </div>
+                {arrType === 'radarr' ? (
+                  <>
+                    {variantSelect('Movie Folder Format', 'folder_variant', scheme.folderVariants)}
+                    {variantSelect('Standard Movie Format', 'file_variant', scheme.fileVariants)}
+                  </>
+                ) : (
+                  <>
+                    {variantSelect('Series Folder Format', 'series_variant', scheme.seriesVariants)}
+                    {variantSelect('Season Folder Format', 'season_variant', scheme.seasonVariants)}
+                    {variantSelect('Standard Episode Format', 'episode_standard_variant', scheme.episodeStandardVariants)}
+                    {variantSelect('Daily Episode Format', 'episode_daily_variant', scheme.episodeDailyVariants)}
+                    {variantSelect('Anime Episode Format', 'episode_anime_variant', scheme.episodeAnimeVariants)}
+                  </>
+                )}
+                {isAdmin && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
+                    <button
+                      className="btn btn-primary btn-sm"
+                      disabled={namingApplying}
+                      onClick={async () => {
+                        setNamingApplying(true)
+                        setNamingApplyMsg(null)
+                        try {
+                          await syncNaming(id)
+                          setNamingApplyMsg('Applied successfully')
+                        } catch (e) {
+                          setNamingApplyMsg(e instanceof Error ? e.message : 'Failed')
+                        } finally { setNamingApplying(false) }
+                      }}
+                    >
+                      {namingApplying ? <Loader size={12} className="spin" /> : <Check size={12} />}
+                      Apply to Arr
+                    </button>
+                    {namingApplyMsg && (
+                      <span style={{ fontSize: 12, color: namingApplyMsg.startsWith('Applied') ? '#10b981' : '#f87171' }}>
+                        {namingApplyMsg}
+                      </span>
+                    )}
+                    {cfg?.last_synced_at && (
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 'auto' }}>
+                        Last applied: {new Date(cfg.last_synced_at).toLocaleString()}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )
+      })()}
+
+      {/* ── Quality Size section ─── */}
+      {topTab === 'quality_size' && (() => {
+        const presets = qualitySizes[id] ?? []
+        const cfg = qualitySizeConfigs[id] ?? null
+
+        return (
+          <div style={{ padding: 20 }}>
+            {presets.length === 0 ? (
+              <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 13, padding: '32px 0' }}>
+                No quality size presets in cache. Run "Fetch from GitHub" to load them.
+              </div>
+            ) : (
+              <>
+                <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>
+                  Select a quality size preset and click <strong>Apply to Arr</strong> to update quality definitions.
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
+                  {presets.map(preset => {
+                    const isSelected = cfg?.quality_size_slug === preset.slug
+                    return (
+                      <div
+                        key={preset.slug}
+                        style={{
+                          padding: '12px 16px', borderRadius: 10, cursor: 'pointer',
+                          border: `1px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
+                          background: isSelected ? 'rgba(var(--accent-rgb),0.08)' : 'var(--glass-bg)',
+                          transition: 'all 150ms',
+                        }}
+                        onClick={() => isAdmin && setQualitySizeConfig(id, isSelected ? null : preset.slug).catch(() => {})}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div style={{ width: 14, height: 14, borderRadius: '50%', border: `2px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`, background: isSelected ? 'var(--accent)' : 'transparent', flexShrink: 0 }} />
+                          <span style={{ fontSize: 14, fontWeight: isSelected ? 600 : 400, color: isSelected ? 'var(--accent)' : 'var(--text-primary)' }}>{preset.name}</span>
+                          <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 'auto' }}>{preset.items.length} qualities</span>
+                        </div>
+                        {isSelected && preset.items.length > 0 && (
+                          <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                            {preset.items.slice(0, 8).map(item => (
+                              <span key={item.quality} style={{ fontSize: 11, padding: '2px 6px', borderRadius: 4, background: 'rgba(var(--accent-rgb),0.12)', color: 'var(--accent)' }}>
+                                {item.quality}: {item.min}–{item.max}
+                              </span>
+                            ))}
+                            {preset.items.length > 8 && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>+{preset.items.length - 8} more</span>}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+                {isAdmin && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <button
+                      className="btn btn-primary btn-sm"
+                      disabled={qualitySizeApplying || !cfg?.quality_size_slug}
+                      onClick={async () => {
+                        setQualitySizeApplying(true)
+                        setQualitySizeApplyMsg(null)
+                        try {
+                          const { updated } = await syncQualitySize(id)
+                          setQualitySizeApplyMsg(`Applied — ${updated} qualities updated`)
+                        } catch (e) {
+                          setQualitySizeApplyMsg(e instanceof Error ? e.message : 'Failed')
+                        } finally { setQualitySizeApplying(false) }
+                      }}
+                    >
+                      {qualitySizeApplying ? <Loader size={12} className="spin" /> : <Check size={12} />}
+                      Apply to Arr
+                    </button>
+                    {qualitySizeApplyMsg && (
+                      <span style={{ fontSize: 12, color: qualitySizeApplyMsg.startsWith('Applied') ? '#10b981' : '#f87171' }}>
+                        {qualitySizeApplyMsg}
+                      </span>
+                    )}
+                    {cfg?.last_synced_at && (
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 'auto' }}>
+                        Last applied: {new Date(cfg.last_synced_at).toLocaleString()}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )
+      })()}
+
+      {/* ── CF Groups section ─── */}
+      {topTab === 'cf_groups' && (() => {
+        const groups = cfGroups[id] ?? []
+        return (
+          <div style={{ padding: 20 }}>
+            {groups.length === 0 ? (
+              <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 13, padding: '32px 0' }}>
+                No CF groups in cache. Run "Fetch from GitHub" to load them.
+              </div>
+            ) : (
+              <>
+                <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>
+                  Custom Format groups from TRaSH Guides. These are informational — use them as reference when configuring your quality profiles.
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {groups.map(group => (
+                    <div key={group.slug} style={{ padding: '12px 16px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--glass-bg)' }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: group.description ? 6 : 0 }}>
+                        <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>{group.name}</span>
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 'auto', flexShrink: 0 }}>{group.items.length} formats</span>
+                      </div>
+                      {group.description && (
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>{group.description}</div>
+                      )}
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                        {group.items.map(item => (
+                          <span key={item.slug} style={{ fontSize: 11, padding: '2px 6px', borderRadius: 4, background: item.required ? 'rgba(16,185,129,0.12)' : 'var(--glass-bg)', border: '1px solid var(--border)', color: item.required ? '#10b981' : 'var(--text-muted)' }}>
+                            {item.name}{item.required ? ' *' : ''}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )
+      })()}
 
       {/* ── Modals ─── */}
       {showAddProfile && (

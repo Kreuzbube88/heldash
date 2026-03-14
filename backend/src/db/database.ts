@@ -480,6 +480,30 @@ function applySchema(db: Database.Database) {
       updated_at       TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    -- ── TRaSH Guides: naming scheme variant selection per instance ──────────
+    CREATE TABLE IF NOT EXISTS trash_instance_naming_configs (
+      id                          TEXT PRIMARY KEY,
+      instance_id                 TEXT NOT NULL UNIQUE,
+      folder_variant              TEXT,
+      file_variant                TEXT,
+      series_variant              TEXT,
+      season_variant              TEXT,
+      episode_standard_variant    TEXT,
+      episode_daily_variant       TEXT,
+      episode_anime_variant       TEXT,
+      last_synced_at              TEXT,
+      updated_at                  TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    -- ── TRaSH Guides: quality size preset selection per instance ─────────────
+    CREATE TABLE IF NOT EXISTS trash_instance_quality_size_configs (
+      id                   TEXT PRIMARY KEY,
+      instance_id          TEXT NOT NULL UNIQUE,
+      quality_size_slug    TEXT,
+      last_synced_at       TEXT,
+      updated_at           TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     -- ── TRaSH Guides: sync audit log ─────────────────────────────────────────
     CREATE TABLE IF NOT EXISTS trash_sync_log (
       id                   TEXT PRIMARY KEY,

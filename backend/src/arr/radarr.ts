@@ -90,32 +90,4 @@ export class RadarrClient extends ArrBaseClient {
     return this.get<RadarrWantedResponse>('wanted/missing', { pageSize: '1', monitored: 'true' })
   }
 
-  // ── TRaSH Sync: Custom Formats ───────────────────────────────────────────────
-  getCustomFormats() { return this.get<import('../trash/types').ArrCustomFormat[]>('customformat') }
-  getCustomFormat(id: number) { return this.get<import('../trash/types').ArrCustomFormat>(`customformat/${id}`) }
-  postCustomFormat(body: import('../trash/client-interface').CreateCustomFormatBody) {
-    return this.post<import('../trash/types').ArrCustomFormat>('customformat', body)
-  }
-  putCustomFormat(id: number, body: import('../trash/types').ArrCustomFormat) {
-    return this.put<import('../trash/types').ArrCustomFormat>(`customformat/${id}`, body)
-  }
-  deleteCustomFormat(id: number) { return this.del(`customformat/${id}`) }
-
-  // ── TRaSH Sync: Quality Profiles ─────────────────────────────────────────────
-  getQualityProfiles() { return this.get<import('../trash/types').ArrQualityProfile[]>('qualityprofile') }
-  getQualityProfile(id: number) { return this.get<import('../trash/types').ArrQualityProfile>(`qualityprofile/${id}`) }
-  putQualityProfile(id: number, body: import('../trash/types').ArrQualityProfile) {
-    return this.put<import('../trash/types').ArrQualityProfile>(`qualityprofile/${id}`, body)
-  }
-
-  // ── TRaSH Sync: Naming + Quality Size ────────────────────────────────────────
-  getNamingConfig() { return this.get<import('../trash/types').ArrNamingConfig>('config/naming') }
-  putNamingConfig(body: import('../trash/types').ArrNamingConfig) {
-    return this.put<import('../trash/types').ArrNamingConfig>('config/naming', body)
-  }
-  getQualityDefinitions() { return this.get<import('../trash/types').ArrQualityDefinition[]>('qualitydefinition') }
-  putQualityDefinitions(body: import('../trash/types').ArrQualityDefinition[]) {
-    // Radarr uses /qualitydefinition/update for bulk update
-    return this.put<import('../trash/types').ArrQualityDefinition[]>('qualitydefinition/update', body)
-  }
 }

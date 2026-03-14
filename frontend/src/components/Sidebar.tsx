@@ -1,5 +1,8 @@
-import React, { useEffect } from 'react'
-import { LayoutDashboard, Settings, AppWindow, Info, Tv2, BarChart2, Container, Home } from 'lucide-react'
+import React, { useEffect, useLayoutEffect, useState } from 'react'
+import {
+  LayoutDashboard, Settings, AppWindow, Info, Tv2, BarChart2, Container, Home,
+  ChevronLeft, ChevronRight,
+} from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { useArrStore } from '../store/useArrStore'
 import { useWidgetStore } from '../store/useWidgetStore'
@@ -33,6 +36,25 @@ export function Sidebar({ page, onNavigate }: Props) {
     .map(w => w.id)
     .join(',')
 
+  // ── Collapse state ──────────────────────────────────────────────────────────
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return localStorage.getItem('sidebar_collapsed') === 'true' } catch { return false }
+  })
+
+  // Keep --sidebar-width CSS variable on :root in sync (useLayoutEffect avoids flash)
+  useLayoutEffect(() => {
+    document.documentElement.style.setProperty('--sidebar-width', collapsed ? '64px' : '240px')
+  }, [collapsed])
+
+  const toggleCollapse = () => {
+    setCollapsed(prev => {
+      const next = !prev
+      try { localStorage.setItem('sidebar_collapsed', String(next)) } catch {}
+      return next
+    })
+  }
+
+  // ── Widget polling ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (!sidebarStatsKey) return
     const ids = sidebarStatsKey.split(',')
@@ -49,75 +71,145 @@ export function Sidebar({ page, onNavigate }: Props) {
   }, [hasSidebarDocker])
 
   return (
-    <aside className="sidebar">
-      <div className="sidebar-logo">
-        <img src="/favicon.png" alt="" className="sidebar-logo-icon" style={{ width: 22, height: 22, objectFit: 'contain' }} />
-        <span className="sidebar-logo-text">{title}</span>
-      </div>
-
-      {/* Online / Offline counter */}
-      {services.length > 0 && (
-        <div className="sidebar-status">
-          <div className="sidebar-status-pill online">
-            <span className="sidebar-status-dot" />
-            <span>{onlineCount} Online</span>
-          </div>
-          <div className="sidebar-status-pill offline">
-            <span className="sidebar-status-dot" />
-            <span>{offlineCount} Offline</span>
-          </div>
+    <>
+      <aside className={`sidebar${collapsed ? ' sidebar-collapsed' : ''}`}>
+        {/* Logo */}
+        <div className="sidebar-logo">
+          <img src="/favicon.png" alt="" className="sidebar-logo-icon" style={{ width: 22, height: 22, objectFit: 'contain' }} />
+          {!collapsed && <span className="sidebar-logo-text">{title}</span>}
         </div>
-      )}
 
-      <span className="nav-section-label">Navigation</span>
-
-      <NavItem icon={<LayoutDashboard size={16} />} label="Dashboard" active={page === 'dashboard'} onClick={() => onNavigate('dashboard')} />
-
-      {isAuthenticated && (
-        <>
-          <NavItem icon={<AppWindow size={16} />} label="Apps" active={page === 'services'} onClick={() => onNavigate('services')} />
-          {(isAdmin || instances.length > 0) && (
-            <NavItem icon={<Tv2 size={16} />} label="Media" active={page === 'media'} onClick={() => onNavigate('media')} />
-          )}
-          {(isAdmin || widgets.length > 0) && (
-            <NavItem icon={<BarChart2 size={16} />} label="Widgets" active={page === 'widgets'} onClick={() => onNavigate('widgets')} />
-          )}
-          {canSeeDocker && (
-            <NavItem icon={<Container size={16} />} label="Docker" active={page === 'docker'} onClick={() => onNavigate('docker')} />
-          )}
-          <NavItem icon={<Home size={16} />} label="Home Assistant" active={page === 'home_assistant'} onClick={() => onNavigate('home_assistant')} />
-        </>
-      )}
-
-      <span className="nav-section-label" style={{ marginTop: 8 }}>System</span>
-      {isAdmin && (
-        <NavItem icon={<Settings size={16} />} label="Settings" active={page === 'settings'} onClick={() => onNavigate('settings')} />
-      )}
-      <NavItem icon={<Info size={16} />} label="About" active={page === 'about'} onClick={() => onNavigate('about')} />
-
-      {/* Sidebar widgets */}
-      {sidebarWidgets.length > 0 && (
-        <>
-          <span className="nav-section-label" style={{ marginTop: 16 }}>Widgets</span>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '0 4px' }}>
-            {sidebarWidgets.map(widget => (
-              <SidebarWidget key={widget.id} widget={widget} />
-            ))}
+        {/* Online / Offline counter */}
+        {services.length > 0 && (
+          <div className="sidebar-status">
+            <div className="sidebar-status-pill online">
+              <span className="sidebar-status-dot" />
+              {!collapsed && <span>{onlineCount} Online</span>}
+            </div>
+            {!collapsed && (
+              <div className="sidebar-status-pill offline">
+                <span className="sidebar-status-dot" />
+                <span>{offlineCount} Offline</span>
+              </div>
+            )}
           </div>
-        </>
-      )}
-    </aside>
+        )}
+
+        {!collapsed && <span className="nav-section-label">Navigation</span>}
+
+        <NavItem icon={<LayoutDashboard size={16} />} label="Dashboard" active={page === 'dashboard'} onClick={() => onNavigate('dashboard')} collapsed={collapsed} />
+
+        {isAuthenticated && (
+          <>
+            <NavItem icon={<AppWindow size={16} />} label="Apps" active={page === 'services'} onClick={() => onNavigate('services')} collapsed={collapsed} />
+            {(isAdmin || instances.length > 0) && (
+              <NavItem icon={<Tv2 size={16} />} label="Media" active={page === 'media'} onClick={() => onNavigate('media')} collapsed={collapsed} />
+            )}
+            {(isAdmin || widgets.length > 0) && (
+              <NavItem icon={<BarChart2 size={16} />} label="Widgets" active={page === 'widgets'} onClick={() => onNavigate('widgets')} collapsed={collapsed} />
+            )}
+            {canSeeDocker && (
+              <NavItem icon={<Container size={16} />} label="Docker" active={page === 'docker'} onClick={() => onNavigate('docker')} collapsed={collapsed} />
+            )}
+            <NavItem icon={<Home size={16} />} label="Home Assistant" active={page === 'home_assistant'} onClick={() => onNavigate('home_assistant')} collapsed={collapsed} />
+          </>
+        )}
+
+        {!collapsed && <span className="nav-section-label" style={{ marginTop: 8 }}>System</span>}
+        {isAdmin && (
+          <NavItem icon={<Settings size={16} />} label="Settings" active={page === 'settings'} onClick={() => onNavigate('settings')} collapsed={collapsed} />
+        )}
+        <NavItem icon={<Info size={16} />} label="About" active={page === 'about'} onClick={() => onNavigate('about')} collapsed={collapsed} />
+
+        {/* Sidebar widgets (hidden when collapsed) */}
+        {!collapsed && sidebarWidgets.length > 0 && (
+          <div className="sidebar-widgets-section">
+            <span className="nav-section-label" style={{ marginTop: 16 }}>Widgets</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '0 4px' }}>
+              {sidebarWidgets.map(widget => (
+                <SidebarWidget key={widget.id} widget={widget} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Collapse toggle at bottom */}
+        <div style={{ marginTop: 'auto', paddingTop: 12, borderTop: '1px solid var(--glass-border)' }}>
+          <button
+            className="nav-item sidebar-collapse-btn"
+            onClick={toggleCollapse}
+            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            style={{ width: '100%', background: 'none', justifyContent: collapsed ? 'center' : 'flex-end', paddingRight: collapsed ? undefined : 14 }}
+          >
+            {collapsed ? <ChevronRight size={16} /> : <><span style={{ fontSize: 12, marginRight: 4 }}>Collapse</span><ChevronLeft size={16} /></>}
+          </button>
+        </div>
+      </aside>
+
+      {/* Mobile bottom navigation */}
+      <BottomNavBar page={page} onNavigate={onNavigate} />
+    </>
   )
 }
 
-function NavItem({ icon, label, active, onClick }: { icon: React.ReactNode; label: string; active: boolean; onClick: () => void }) {
+// ── NavItem ───────────────────────────────────────────────────────────────────
+
+function NavItem({ icon, label, active, onClick, collapsed }: {
+  icon: React.ReactNode; label: string; active: boolean; onClick: () => void; collapsed?: boolean
+}) {
   return (
-    <button className={`nav-item ${active ? 'active' : ''}`} onClick={onClick} style={{ width: '100%', textAlign: 'left', background: 'none', fontFamily: 'var(--font-sans)' }}>
+    <button
+      className={`nav-item ${active ? 'active' : ''}`}
+      onClick={onClick}
+      title={collapsed ? label : undefined}
+      style={{
+        width: '100%',
+        textAlign: 'left',
+        background: 'none',
+        fontFamily: 'var(--font-sans)',
+        justifyContent: collapsed ? 'center' : undefined,
+      }}
+    >
       {icon}
-      <span>{label}</span>
+      {!collapsed && <span>{label}</span>}
     </button>
   )
 }
+
+// ── Bottom navigation bar (mobile only) ────────────────────────────────────────
+
+function BottomNavBar({ page, onNavigate }: { page: string; onNavigate: (p: string) => void }) {
+  const { isAdmin, isAuthenticated, authUser, userGroups } = useStore()
+  const { instances } = useArrStore()
+  const userGroupData = userGroups.find(g => g.id === authUser?.groupId)
+  const canSeeDocker = isAdmin || (userGroupData?.docker_access ?? false)
+
+  const items: { icon: React.ReactNode; label: string; target: string; show: boolean }[] = [
+    { icon: <LayoutDashboard size={20} />, label: 'Dashboard', target: 'dashboard', show: true },
+    { icon: <AppWindow size={20} />, label: 'Apps', target: 'services', show: isAuthenticated },
+    { icon: <Tv2 size={20} />, label: 'Media', target: 'media', show: isAuthenticated && (isAdmin || instances.length > 0) },
+    { icon: <Container size={20} />, label: 'Docker', target: 'docker', show: canSeeDocker },
+    { icon: <Home size={20} />, label: 'Home', target: 'home_assistant', show: isAuthenticated },
+    { icon: <Settings size={20} />, label: 'Settings', target: 'settings', show: isAdmin },
+  ]
+
+  return (
+    <nav className="bottom-nav" aria-label="Mobile navigation">
+      {items.filter(i => i.show).map(item => (
+        <button
+          key={item.target}
+          className={`bottom-nav-item${page === item.target ? ' active' : ''}`}
+          onClick={() => onNavigate(item.target)}
+        >
+          {item.icon}
+          <span>{item.label}</span>
+        </button>
+      ))}
+    </nav>
+  )
+}
+
+// ── SidebarWidget ─────────────────────────────────────────────────────────────
 
 function SidebarWidget({ widget }: { widget: Widget }) {
   const { stats } = useWidgetStore()

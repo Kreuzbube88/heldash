@@ -270,7 +270,7 @@ export function Topbar({ page, onAddService, onAddInstance, onAddWidget, onCheck
         </button>
 
         <button
-          className="btn btn-ghost btn-icon"
+          className="btn btn-ghost btn-icon topbar-mobile-hide"
           data-tooltip="Check all apps"
           onClick={onCheckAll}
           disabled={checking}
@@ -287,7 +287,7 @@ export function Topbar({ page, onAddService, onAddInstance, onAddWidget, onCheck
             {/* Guest Mode toggle — admin only, always visible even when in guest mode */}
             {isAdmin && (
               <button
-                className={guestMode ? 'btn btn-primary' : 'btn btn-ghost'}
+                className={`${guestMode ? 'btn btn-primary' : 'btn btn-ghost'} topbar-mobile-hide`}
                 data-tooltip={guestMode ? 'Exit guest mode' : 'Edit guest dashboard'}
                 onClick={() => setGuestMode(!guestMode)}
                 style={{ gap: 6 }}
@@ -302,22 +302,22 @@ export function Topbar({ page, onAddService, onAddInstance, onAddWidget, onCheck
               <>
                 {editMode && (
                   <>
-                    <button className="btn btn-ghost" onClick={() => addPlaceholder('app')} style={{ gap: 6 }}>
+                    <button className="btn btn-ghost topbar-mobile-hide" onClick={() => addPlaceholder('app')} style={{ gap: 6 }}>
                       <LayoutGrid size={15} />
                       App
                     </button>
-                    <button className="btn btn-ghost" onClick={() => addPlaceholder('widget')} style={{ gap: 6 }}>
+                    <button className="btn btn-ghost topbar-mobile-hide" onClick={() => addPlaceholder('widget')} style={{ gap: 6 }}>
                       <LayoutList size={15} />
                       Widget
                     </button>
-                    <button className="btn btn-ghost" onClick={() => addPlaceholder('row')} style={{ gap: 6 }}>
+                    <button className="btn btn-ghost topbar-mobile-hide" onClick={() => addPlaceholder('row')} style={{ gap: 6 }}>
                       <Minus size={15} />
                       Row
                     </button>
                   </>
                 )}
                 <button
-                  className={editMode ? 'btn btn-primary' : 'btn btn-ghost'}
+                  className={`${editMode ? 'btn btn-primary' : 'btn btn-ghost'} topbar-mobile-hide`}
                   onClick={() => setEditMode(!editMode)}
                   style={{ gap: 6 }}
                 >
@@ -330,19 +330,19 @@ export function Topbar({ page, onAddService, onAddInstance, onAddWidget, onCheck
         )}
 
         {isAdmin && page === 'media' && (
-          <button className="btn btn-primary" onClick={onAddInstance} style={{ gap: 6 }}>
+          <button className="btn btn-primary topbar-mobile-hide" onClick={onAddInstance} style={{ gap: 6 }}>
             <Plus size={16} />
             Add Instance
           </button>
         )}
         {isAdmin && page === 'widgets' && (
-          <button className="btn btn-primary" onClick={onAddWidget} style={{ gap: 6 }}>
+          <button className="btn btn-primary topbar-mobile-hide" onClick={onAddWidget} style={{ gap: 6 }}>
             <Plus size={16} />
             Add Widget
           </button>
         )}
         {isAdmin && page === 'services' && (
-          <button className="btn btn-primary" onClick={onAddService} style={{ gap: 6 }}>
+          <button className="btn btn-primary topbar-mobile-hide" onClick={onAddService} style={{ gap: 6 }}>
             <Plus size={16} />
             Add App
           </button>

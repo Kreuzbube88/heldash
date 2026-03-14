@@ -11,7 +11,7 @@ interface HaStore {
   loadPanels: () => Promise<void>
   loadStates: (instanceId: string) => Promise<void>
   updateEntityState: (instanceId: string, entityId: string, newState: HaEntityFull) => void
-  callService: (instanceId: string, domain: string, service: string, entityId: string) => Promise<void>
+  callService: (instanceId: string, domain: string, service: string, entityId: string, serviceData?: Record<string, unknown>) => Promise<void>
   addPanel: (instanceId: string, entityId: string, label?: string, panelType?: string) => Promise<void>
   updatePanel: (panelId: string, data: { label?: string; panel_type?: string }) => Promise<void>
   removePanel: (panelId: string) => Promise<void>
@@ -55,8 +55,8 @@ export const useHaStore = create<HaStore>((set, get) => ({
     }))
   },
 
-  callService: async (instanceId, domain, service, entityId) => {
-    await api.ha.instances.call(instanceId, domain, service, entityId)
+  callService: async (instanceId, domain, service, entityId, serviceData) => {
+    await api.ha.instances.call(instanceId, domain, service, entityId, serviceData)
     // Reload states for this instance after call
     await get().loadStates(instanceId)
   },

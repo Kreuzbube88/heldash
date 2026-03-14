@@ -64,6 +64,7 @@ interface CallServiceBody {
   domain: string
   service: string
   entity_id: string
+  service_data?: Record<string, unknown>
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -239,14 +240,15 @@ export async function haRoutes(app: FastifyInstance) {
   }, async (req, reply) => {
     const row = db.prepare('SELECT * FROM ha_instances WHERE id = ?').get(req.params.id) as HaInstanceRow | undefined
     if (!row) return reply.status(404).send({ error: 'Not found' })
-    const { domain, service, entity_id } = req.body
+    const { domain, service, entity_id, service_data } = req.body
     if (!domain || !service || !entity_id) {
       return reply.status(400).send({ error: 'domain, service, entity_id are required' })
     }
     try {
+      const haBody = { entity_id, ...(service_data ?? {}) }
       const res = await haFetch(row.url, row.token, `/api/services/${domain}/${service}`, {
         method: 'POST',
-        body: JSON.stringify({ entity_id }),
+        body: JSON.stringify(haBody),
       })
       if (!res.ok) return reply.status(502).send({ error: `HA returned HTTP ${res.status}` })
       return { ok: true }

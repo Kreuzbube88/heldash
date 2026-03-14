@@ -40,6 +40,9 @@
   --radius-lg: 16px;
   --radius-xl: 24px;
   --radius-2xl: 32px;
+
+  /* Sidebar width — overridden by JS based on collapsed state */
+  --sidebar-width: 240px;
 }
 
 /* ─── Dark Theme (Default) ────────────────────────────────────────────────── */
@@ -274,7 +277,7 @@ h4 { font-size: 15px; line-height: 1.5; }
 }
 
 .sidebar {
-  width: 240px;
+  width: var(--sidebar-width, 240px);
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -285,7 +288,9 @@ h4 { font-size: 15px; line-height: 1.5; }
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
   overflow-y: auto;
+  overflow-x: hidden;
   z-index: 10;
+  transition: width 200ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .main-area {
@@ -1176,4 +1181,182 @@ select.form-input option {
 
 .spin {
   animation: spin 1s linear infinite;
+}
+
+/* ── HA panel card controls ─────────────────────────────────────────────────── */
+.ha-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--transition-fast);
+}
+
+.ha-tab-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.ha-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--glass-border);
+  outline: none;
+  cursor: pointer;
+}
+
+.ha-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  box-shadow: 0 0 6px hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.4);
+}
+
+.ha-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 0 6px hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.4);
+}
+
+.ha-media-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.ha-climate-temp {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.ha-cover-buttons {
+  display: flex;
+  gap: 4px;
+}
+
+/* ── Collapsible sidebar ─────────────────────────────────────────────────────── */
+.sidebar-collapsed {
+  padding: var(--spacing-2xl) var(--spacing-xs);
+}
+
+.sidebar-collapsed .sidebar-logo {
+  justify-content: center;
+  padding: 8px 0 16px;
+}
+
+.sidebar-collapsed .nav-section-label {
+  display: none;
+}
+
+.sidebar-collapsed .nav-item {
+  justify-content: center;
+  padding: var(--spacing-sm);
+}
+
+.sidebar-collapsed .nav-item:hover {
+  transform: none;
+}
+
+/* Collapsed status: show dots only, stacked */
+.sidebar-collapsed .sidebar-status {
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 0;
+  gap: 4px;
+}
+
+.sidebar-collapsed .sidebar-status-pill {
+  width: 32px;
+  flex: none;
+  padding: 4px;
+  justify-content: center;
+}
+
+/* ── Bottom navigation (mobile < 768px) ──────────────────────────────────────── */
+.bottom-nav {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  /* Hide sidebar on mobile */
+  .sidebar {
+    display: none;
+  }
+
+  /* Show bottom nav */
+  .bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: calc(56px + env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom);
+    z-index: 50;
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border-top: 1px solid var(--glass-border);
+    align-items: center;
+    justify-content: space-around;
+  }
+
+  .bottom-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-family: var(--font-sans);
+    font-size: 10px;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 8px 6px;
+    flex: 1;
+    transition: color var(--transition-fast);
+    outline: none;
+  }
+
+  .bottom-nav-item.active {
+    color: var(--accent);
+  }
+
+  .bottom-nav-item:active {
+    transform: scale(0.92);
+  }
+
+  /* Extra bottom padding so content clears the bar */
+  .content-area {
+    padding-bottom: calc(72px + env(safe-area-inset-bottom));
+  }
+
+  /* Hide topbar action buttons on mobile */
+  .topbar-mobile-hide {
+    display: none !important;
+  }
 }

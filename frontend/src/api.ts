@@ -254,8 +254,8 @@ export const api = {
       delete: (id: string) => req<void>(`/ha/instances/${id}`, { method: 'DELETE' }),
       test: (id: string) => req<{ ok: boolean; error?: string }>(`/ha/instances/${id}/test`, { method: 'POST', body: JSON.stringify({}) }),
       states: (id: string) => req<HaEntityFull[]>(`/ha/instances/${id}/states`),
-      call: (id: string, domain: string, service: string, entity_id: string) =>
-        req<{ ok: boolean }>(`/ha/instances/${id}/call`, { method: 'POST', body: JSON.stringify({ domain, service, entity_id }) }),
+      call: (id: string, domain: string, service: string, entity_id: string, service_data?: Record<string, unknown>) =>
+        req<{ ok: boolean }>(`/ha/instances/${id}/call`, { method: 'POST', body: JSON.stringify({ domain, service, entity_id, service_data }) }),
     },
     panels: {
       list: () => req<HaPanel[]>('/ha/panels'),

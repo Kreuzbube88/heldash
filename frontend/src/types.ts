@@ -241,13 +241,27 @@ export interface HaEntityFull {
     unit_of_measurement?: string
     device_class?: string
     icon?: string
+    // Light
+    brightness?: number
+    color_temp?: number
+    min_color_temp_kelvin?: number
+    max_color_temp_kelvin?: number
+    // Climate
     temperature?: number
     current_temperature?: number
     hvac_mode?: string
+    hvac_modes?: string[]
+    min_temp?: number
+    max_temp?: number
+    // Media player
     media_title?: string
     media_artist?: string
-    brightness?: number
-    color_temp?: number
+    entity_picture?: string
+    volume_level?: number
+    source?: string
+    source_list?: string[]
+    // Cover
+    current_position?: number
     [key: string]: unknown
   }
   last_changed: string

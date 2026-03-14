@@ -4,40 +4,23 @@ import {
   type DragEndEvent,
 } from '@dnd-kit/core'
 import {
-  SortableContext, rectSortingStrategy, useSortable,
+  SortableContext, rectSortingStrategy,
 } from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
 import {
-  Plus, Trash2, Pencil, GripVertical, X, Check, Loader, TestTube2,
-  ToggleLeft, ToggleRight, Search, ChevronDown, ChevronRight, Home,
+  Plus, Trash2, Pencil, X, Check, Loader, TestTube2,
+  Search, ChevronDown, ChevronRight, Home,
 } from 'lucide-react'
+
 import { useHaStore } from '../store/useHaStore'
 import { useStore } from '../store/useStore'
 import { api } from '../api'
 import type { HaEntityFull, HaPanel, HaInstance } from '../types'
+import { HaPanelCard } from './HaPanelCard'
 
 // ── Domain helpers ────────────────────────────────────────────────────────────
 
-const TOGGLE_DOMAINS = new Set(['light', 'switch', 'input_boolean', 'automation', 'fan', 'media_player'])
-const TOGGLE_SERVICE_MAP: Record<string, [string, string]> = {
-  cover: ['cover', 'toggle'],
-  lock: ['lock', 'toggle'],
-}
-
 function getDomain(entityId: string): string {
   return entityId.split('.')[0] ?? ''
-}
-
-function isToggleable(entityId: string): boolean {
-  const domain = getDomain(entityId)
-  return TOGGLE_DOMAINS.has(domain) || domain in TOGGLE_SERVICE_MAP
-}
-
-function getToggleService(entityId: string, currentState: string): [string, string] {
-  const domain = getDomain(entityId)
-  if (domain in TOGGLE_SERVICE_MAP) return TOGGLE_SERVICE_MAP[domain]
-  const isOn = ['on', 'open', 'unlocked', 'playing', 'home', 'active'].includes(currentState)
-  return [domain, isOn ? 'turn_off' : 'turn_on']
 }
 
 function stateColor(state: string): string {
@@ -61,6 +44,26 @@ function domainLabel(domain: string): string {
 function formatState(entity: HaEntityFull): string {
   const unit = entity.attributes.unit_of_measurement
   return entity.state + (unit ? ` ${unit}` : '')
+}
+
+// ── Domain filter tab helpers ──────────────────────────────────────────────────
+
+type BrowserTab = 'All' | 'Lights' | 'Climate' | 'Media' | 'Covers' | 'Switches' | 'Sensors' | 'Scripts' | 'Scenes' | 'Other'
+
+const BROWSER_TABS: BrowserTab[] = ['All', 'Lights', 'Climate', 'Media', 'Covers', 'Switches', 'Sensors', 'Scripts', 'Scenes', 'Other']
+
+function domainToTab(domain: string): BrowserTab {
+  switch (domain) {
+    case 'light': return 'Lights'
+    case 'climate': return 'Climate'
+    case 'media_player': return 'Media'
+    case 'cover': return 'Covers'
+    case 'switch': case 'input_boolean': case 'automation': case 'fan': return 'Switches'
+    case 'sensor': case 'binary_sensor': return 'Sensors'
+    case 'script': return 'Scripts'
+    case 'scene': return 'Scenes'
+    default: return 'Other'
+  }
 }
 
 // ── Instance Form Modal ───────────────────────────────────────────────────────
@@ -293,11 +296,13 @@ function EntityBrowserModal({ instances, panels, onClose, onAdd }: EntityBrowser
   const [search, setSearch] = useState('')
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [adding, setAdding] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<BrowserTab>('All')
 
   const loadEntities = useCallback(async (instanceId: string) => {
     if (!instanceId) return
     setLoading(true)
     setError('')
+    setActiveTab('All')
     try {
       const data = await api.ha.instances.states(instanceId)
       const sorted = [...data].sort((a, b) => a.entity_id.localeCompare(b.entity_id))
@@ -318,10 +323,22 @@ function EntityBrowserModal({ instances, panels, onClose, onAdd }: EntityBrowser
 
   const existingSet = new Set(panels.filter(p => p.instance_id === selectedInstance).map(p => p.entity_id))
 
-  const filtered = entities.filter(e =>
+  const matchesSearch = (e: HaEntityFull) =>
     !search || e.entity_id.toLowerCase().includes(search.toLowerCase())
       || (e.attributes.friendly_name ?? '').toLowerCase().includes(search.toLowerCase())
-  )
+
+  const tabCounts = BROWSER_TABS.reduce<Record<BrowserTab, number>>((acc, tab) => {
+    acc[tab] = tab === 'All'
+      ? entities.filter(matchesSearch).length
+      : entities.filter(e => domainToTab(getDomain(e.entity_id)) === tab && matchesSearch(e)).length
+    return acc
+  }, {} as Record<BrowserTab, number>)
+
+  const filtered = entities.filter(e => {
+    if (!matchesSearch(e)) return false
+    if (activeTab === 'All') return true
+    return domainToTab(getDomain(e.entity_id)) === activeTab
+  })
 
   const byDomain = filtered.reduce<Record<string, HaEntityFull[]>>((acc, e) => {
     const d = getDomain(e.entity_id)
@@ -398,6 +415,23 @@ function EntityBrowserModal({ instances, panels, onClose, onAdd }: EntityBrowser
           />
         </div>
 
+        {/* Domain filter tabs */}
+        <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 2 }}>
+          {BROWSER_TABS.filter(tab => tab === 'All' || tabCounts[tab] > 0).map(tab => (
+            <button
+              key={tab}
+              className="ha-tab-btn"
+              style={activeTab === tab ? { background: 'var(--accent)', color: 'var(--bg-primary)', borderColor: 'var(--accent)' } : {}}
+              onClick={() => setActiveTab(tab)}
+            >
+              {tab}
+              {tabCounts[tab] > 0 && (
+                <span style={{ marginLeft: 4, fontSize: 10, opacity: 0.8 }}>{tabCounts[tab]}</span>
+              )}
+            </button>
+          ))}
+        </div>
+
         <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4, minHeight: 0 }}>
           {loading && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
@@ -462,121 +496,13 @@ function EntityBrowserModal({ instances, panels, onClose, onAdd }: EntityBrowser
   )
 }
 
-// ── Panel Card ────────────────────────────────────────────────────────────────
-
-interface PanelCardProps {
-  panel: HaPanel
-  entity: HaEntityFull | undefined
-  onRemove: () => void
-  onEdit: () => void
-  onToggle: () => void
-  toggling: boolean
-}
-
-function PanelCard({ panel, entity, onRemove, onEdit, onToggle, toggling }: PanelCardProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: panel.id })
-
-  const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.4 : 1,
-  }
-
-  const label = panel.label || entity?.attributes.friendly_name || panel.entity_id
-  const domain = getDomain(panel.entity_id)
-  const state = entity?.state ?? '…'
-  const toggleable = isToggleable(panel.entity_id)
-  const isOn = entity ? ['on', 'open', 'unlocked', 'playing', 'home', 'active'].includes(entity.state) : false
-
-  return (
-    <div ref={setNodeRef} style={style} className="widget-card glass">
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 8 }}>
-        <div
-          {...attributes}
-          {...listeners}
-          style={{ cursor: 'grab', color: 'var(--text-muted)', opacity: 0, transition: 'opacity var(--transition-fast)', flexShrink: 0, marginTop: 2 }}
-          className="drag-handle"
-        >
-          <GripVertical size={14} />
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {domainLabel(domain)}
-          </div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {label}
-          </div>
-        </div>
-        <div style={{ display: 'flex', gap: 4, flexShrink: 0, opacity: 0, transition: 'opacity var(--transition-fast)' }} className="card-actions">
-          <button className="btn btn-ghost btn-icon" style={{ width: 22, height: 22 }} onClick={onEdit} data-tooltip="Edit label">
-            <Pencil size={11} />
-          </button>
-          <button className="btn btn-ghost btn-icon" style={{ width: 22, height: 22, color: 'var(--status-offline)' }} onClick={onRemove} data-tooltip="Remove panel">
-            <Trash2 size={11} />
-          </button>
-        </div>
-      </div>
-
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-        <div>
-          {entity ? (
-            <>
-              <span style={{ fontSize: 22, fontWeight: 700, fontFamily: 'var(--font-mono)', color: stateColor(entity.state) }}>
-                {entity.attributes.unit_of_measurement
-                  ? `${entity.state}`
-                  : entity.state}
-              </span>
-              {entity.attributes.unit_of_measurement && (
-                <span style={{ fontSize: 13, color: 'var(--text-muted)', marginLeft: 3 }}>
-                  {entity.attributes.unit_of_measurement}
-                </span>
-              )}
-            </>
-          ) : (
-            <span style={{ fontSize: 14, color: 'var(--text-muted)' }}>—</span>
-          )}
-          {entity && !entity.attributes.unit_of_measurement && (
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, fontFamily: 'var(--font-mono)' }}>
-              {panel.entity_id}
-            </div>
-          )}
-          {entity && entity.attributes.unit_of_measurement && (
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, fontFamily: 'var(--font-mono)' }}>
-              {panel.entity_id}
-            </div>
-          )}
-        </div>
-
-        {toggleable && entity && (
-          <button
-            onClick={toggling ? undefined : onToggle}
-            style={{ background: 'none', border: 'none', cursor: toggling ? 'wait' : 'pointer', color: isOn ? 'var(--status-online)' : 'var(--text-muted)', flexShrink: 0 }}
-            data-tooltip={isOn ? 'Turn off' : 'Turn on'}
-          >
-            {toggling
-              ? <Loader size={22} style={{ animation: 'spin 1s linear infinite' }} />
-              : isOn ? <ToggleRight size={28} /> : <ToggleLeft size={28} />
-            }
-          </button>
-        )}
-      </div>
-
-      {entity && (
-        <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 6, textAlign: 'right' }}>
-          {new Date(entity.last_updated).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
-        </div>
-      )}
-    </div>
-  )
-}
-
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export function HaPage() {
   const {
     instances, panels, stateMap,
     loadInstances, loadPanels, loadStates, updateEntityState,
-    addPanel, removePanel, reorderPanels, callService,
+    addPanel, removePanel, reorderPanels,
     deleteInstance,
   } = useHaStore()
   const { isAdmin } = useStore()
@@ -585,7 +511,6 @@ export function HaPage() {
   const [editInstance, setEditInstance] = useState<HaInstance | null>(null)
   const [showBrowser, setShowBrowser] = useState(false)
   const [editPanel, setEditPanel] = useState<HaPanel | null>(null)
-  const [toggling, setToggling] = useState<string | null>(null)
 
   // Load initial data
   useEffect(() => {
@@ -637,18 +562,6 @@ export function HaPage() {
     const [moved] = reordered.splice(oldIdx, 1)
     reordered.splice(newIdx, 0, moved)
     reorderPanels(reordered.map(p => p.id)).catch(() => {})
-  }
-
-  const handleToggle = async (panel: HaPanel) => {
-    const entity = stateMap[panel.instance_id]?.[panel.entity_id]
-    if (!entity) return
-    const [domain, service] = getToggleService(panel.entity_id, entity.state)
-    setToggling(panel.id)
-    try {
-      await callService(panel.instance_id, domain, service, panel.entity_id)
-    } finally {
-      setToggling(null)
-    }
   }
 
   const handleAddPanel = async (instanceId: string, entityId: string) => {
@@ -752,14 +665,13 @@ export function HaPage() {
               {panels.map(panel => {
                 const entity = stateMap[panel.instance_id]?.[panel.entity_id]
                 return (
-                  <PanelCard
+                  <HaPanelCard
                     key={panel.id}
                     panel={panel}
                     entity={entity}
+                    instanceId={panel.instance_id}
                     onRemove={() => removePanel(panel.id)}
                     onEdit={() => setEditPanel(panel)}
-                    onToggle={() => handleToggle(panel)}
-                    toggling={toggling === panel.id}
                   />
                 )
               })}

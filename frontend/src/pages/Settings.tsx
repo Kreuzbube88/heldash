@@ -340,6 +340,10 @@ export function SettingsPage() {
   const [groupError, setGroupError] = useState('')
   const [saving, setSaving] = useState(false)
 
+  const [tmdbKey, setTmdbKey] = useState(settings?.tmdb_api_key ?? '')
+  const [tmdbKeySaving, setTmdbKeySaving] = useState(false)
+  useEffect(() => { setTmdbKey(settings?.tmdb_api_key ?? '') }, [settings?.tmdb_api_key])
+
   const [autoTheme, setAutoTheme] = useState(settings?.auto_theme_enabled ?? false)
   const [lightStart, setLightStart] = useState(settings?.auto_theme_light_start ?? '08:00')
   const [darkStart, setDarkStart] = useState(settings?.auto_theme_dark_start ?? '20:00')
@@ -349,6 +353,15 @@ export function SettingsPage() {
     setAutoThemeSaving(true)
     try { await updateSettings({ auto_theme_enabled: enabled, auto_theme_light_start: ls, auto_theme_dark_start: ds }) }
     finally { setAutoThemeSaving(false) }
+  }
+
+  const saveTmdbKey = async () => {
+    setTmdbKeySaving(true)
+    try {
+      await updateSettings({ tmdb_api_key: tmdbKey.trim() })
+      toast({ message: 'TMDB API key saved', type: 'success', duration: 1500 })
+    } catch { /* ignore */ }
+    finally { setTmdbKeySaving(false) }
   }
 
   const [newUser, setNewUser] = useState({ username: '', first_name: '', last_name: '', email: '', password: '', user_group_id: 'grp_guest' })
@@ -564,6 +577,41 @@ export function SettingsPage() {
               )}
             </div>
           </section>
+
+          {/* TMDB API Key */}
+          {isAdmin && (
+            <section className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 24 }}>
+              <h3 style={{ marginBottom: 4, fontSize: 15, fontWeight: 600 }}>Integrations</h3>
+              <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 20 }}>
+                API keys for external services used by Heldash features.
+              </p>
+              <div className="form-group">
+                <label className="form-label">
+                  TMDB API Key
+                  <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--text-muted)', fontWeight: 400 }}>
+                    — enables the Discover tab in Media. <a
+                      href="https://www.themoviedb.org/settings/api"
+                      target="_blank" rel="noopener noreferrer"
+                      style={{ color: 'var(--accent)', textDecoration: 'none' }}
+                    >Get a free key at themoviedb.org</a>
+                  </span>
+                </label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input
+                    type="password"
+                    className="form-input"
+                    value={tmdbKey}
+                    onChange={e => setTmdbKey(e.target.value)}
+                    placeholder="Paste your TMDB API key (v3 auth)"
+                    style={{ fontFamily: 'var(--font-mono)', fontSize: 13 }}
+                  />
+                  <button className="btn btn-primary" onClick={saveTmdbKey} disabled={tmdbKeySaving} style={{ flexShrink: 0 }}>
+                    {tmdbKeySaving ? '...' : 'Save'}
+                  </button>
+                </div>
+              </div>
+            </section>
+          )}
 
           {/* App Groups */}
           <section className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 24 }}>

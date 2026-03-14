@@ -1,6 +1,6 @@
 import type { Service, Group, Settings, AuthUser, UserRecord, UserGroup, DashboardItem, DashboardGroup, DashboardResponse, Widget, WidgetStats, DockerContainer, ContainerStats, Background, HaInstance, HaPanel, HaEntityFull } from './types'
 import type { ArrInstance, ArrStatus, ArrStats, ArrQueueResponse, ArrCalendarItem, ProwlarrIndexer, SabnzbdQueueData, SabnzbdHistoryData, SeerrRequest, SeerrRequestsResponse, RadarrMovie, SonarrSeries } from './types/arr'
-import type { SeerrTvDetail, SeerrDiscoverResponse, DiscoverServerFilters } from './types/seerr'
+import type { TmdbPage, TmdbGenre, TmdbProvider, TmdbTvDetail, TmdbDiscoverFilters } from './types/tmdb'
 
 const BASE = '/api'
 
@@ -129,46 +129,44 @@ export const api = {
       req<void>(`/arr/${id}/requests/${requestId}`, { method: 'DELETE' }),
     movies: (id: string) => req<RadarrMovie[]>(`/arr/${id}/movies`),
     series: (id: string) => req<SonarrSeries[]>(`/arr/${id}/series`),
-    discoverMovies: (id: string, page = 1, sortBy = 'popularity.desc', filters?: DiscoverServerFilters) => {
-      const params = new URLSearchParams({ page: String(page), sortBy })
-      if (filters?.language) params.set('language', filters.language)
-      if (filters?.genreIds?.length) params.set('genre', filters.genreIds.join(','))
-      if (filters?.watchProviderIds?.length) {
-        params.set('watchProviders', filters.watchProviderIds.join(','))
-        params.set('watchRegion', navigator.language?.split('-')[1]?.toUpperCase() ?? 'US')
-      }
-      if (filters?.voteAverageGte) params.set('voteAverageGte', String(filters.voteAverageGte))
-      if (filters?.releaseYearFrom) params.set('primaryReleaseDateGte', `${filters.releaseYearFrom}-01-01`)
-      if (filters?.releaseYearTo) params.set('primaryReleaseDateLte', `${filters.releaseYearTo}-12-31`)
-      return req<SeerrDiscoverResponse>(`/arr/${id}/discover/movies?${params}`)
-    },
-    discoverTv: (id: string, page = 1, sortBy = 'popularity.desc', filters?: DiscoverServerFilters) => {
-      const params = new URLSearchParams({ page: String(page), sortBy })
-      if (filters?.language) params.set('language', filters.language)
-      if (filters?.genreIds?.length) params.set('genre', filters.genreIds.join(','))
-      if (filters?.watchProviderIds?.length) {
-        params.set('watchProviders', filters.watchProviderIds.join(','))
-        params.set('watchRegion', navigator.language?.split('-')[1]?.toUpperCase() ?? 'US')
-      }
-      if (filters?.voteAverageGte) params.set('voteAverageGte', String(filters.voteAverageGte))
-      if (filters?.releaseYearFrom) params.set('primaryReleaseDateGte', `${filters.releaseYearFrom}-01-01`)
-      if (filters?.releaseYearTo) params.set('primaryReleaseDateLte', `${filters.releaseYearTo}-12-31`)
-      return req<SeerrDiscoverResponse>(`/arr/${id}/discover/tv?${params}`)
-    },
-    discoverTrending: (id: string) => req<SeerrDiscoverResponse>(`/arr/${id}/discover/trending`),
-    discoverSearch: (id: string, query: string, language?: string, page = 1) => {
-      const params = new URLSearchParams({ query, page: String(page) })
-      if (language) params.set('language', language)
-      return req<SeerrDiscoverResponse>(`/arr/${id}/discover/search?${params}`)
-    },
-    discoverGenres: (id: string, mediaType: 'movie' | 'tv') =>
-      req<{ genres: { id: number; name: string }[] }>(`/arr/${id}/genres/${mediaType}`),
-    discoverWatchProviders: (id: string, mediaType: 'movie' | 'tv') =>
-      req<{ results: { id: number; name: string; logoPath: string }[] }>(`/arr/${id}/watchproviders/${mediaType}`),
-    discoverTvDetail: (id: string, tmdbId: number) =>
-      req<SeerrTvDetail>(`/arr/${id}/tv/${tmdbId}`),
     discoverRequest: (id: string, mediaType: 'movie' | 'tv', mediaId: number, seasons?: number[]) =>
       req<unknown>(`/arr/${id}/discover/request`, { method: 'POST', body: JSON.stringify({ mediaType, mediaId, seasons }) }),
+  },
+
+  tmdb: {
+    trending: (mediaType = 'all', timeWindow = 'day') => {
+      const params = new URLSearchParams({ mediaType, timeWindow })
+      return req<TmdbPage>(`/tmdb/trending?${params}`)
+    },
+    discoverMovies: (page = 1, sortBy = 'popularity.desc', filters?: TmdbDiscoverFilters) => {
+      const params = new URLSearchParams({ page: String(page), sortBy })
+      if (filters?.language) params.set('language', filters.language)
+      if (filters?.genreIds?.length) params.set('genreIds', filters.genreIds.join(','))
+      if (filters?.watchProviderIds?.length) params.set('watchProviders', filters.watchProviderIds.join(','))
+      if (filters?.voteAverageGte) params.set('voteAverageGte', String(filters.voteAverageGte))
+      if (filters?.releaseYearFrom) params.set('releaseDateGte', `${filters.releaseYearFrom}-01-01`)
+      if (filters?.releaseYearTo) params.set('releaseDateLte', `${filters.releaseYearTo}-12-31`)
+      return req<TmdbPage>(`/tmdb/discover/movie?${params}`)
+    },
+    discoverTv: (page = 1, sortBy = 'popularity.desc', filters?: TmdbDiscoverFilters) => {
+      const params = new URLSearchParams({ page: String(page), sortBy })
+      if (filters?.language) params.set('language', filters.language)
+      if (filters?.genreIds?.length) params.set('genreIds', filters.genreIds.join(','))
+      if (filters?.watchProviderIds?.length) params.set('watchProviders', filters.watchProviderIds.join(','))
+      if (filters?.voteAverageGte) params.set('voteAverageGte', String(filters.voteAverageGte))
+      if (filters?.releaseYearFrom) params.set('firstAirDateGte', `${filters.releaseYearFrom}-01-01`)
+      if (filters?.releaseYearTo) params.set('firstAirDateLte', `${filters.releaseYearTo}-12-31`)
+      return req<TmdbPage>(`/tmdb/discover/tv?${params}`)
+    },
+    search: (query: string, page = 1, language?: string) => {
+      const params = new URLSearchParams({ query, page: String(page) })
+      if (language) params.set('language', language)
+      return req<TmdbPage>(`/tmdb/search?${params}`)
+    },
+    tvDetail: (tmdbId: number) => req<TmdbTvDetail>(`/tmdb/tv/${tmdbId}`),
+    movieDetail: (tmdbId: number) => req<unknown>(`/tmdb/movie/${tmdbId}`),
+    genres: (mediaType: 'movie' | 'tv') => req<{ genres: TmdbGenre[] }>(`/tmdb/genres/${mediaType}`),
+    watchProviders: (mediaType: 'movie' | 'tv') => req<{ results: TmdbProvider[] }>(`/tmdb/watchproviders/${mediaType}`),
   },
 
   widgets: {

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../store/useStore'
 import { useArrStore } from '../store/useArrStore'
+import { useTmdbStore } from '../store/useTmdbStore'
 import { useDashboardStore } from '../store/useDashboardStore'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import type { DragEndEvent } from '@dnd-kit/core'
@@ -9,7 +10,7 @@ import { arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { Pencil, Trash2, Check, X, RefreshCw, GripVertical, LayoutGrid, CalendarDays, Search, Compass, Database, AlertTriangle } from 'lucide-react'
 import type { ArrInstance, ArrCalendarItem, RadarrCalendarItem, SonarrCalendarItem, ProwlarrStats } from '../types/arr'
-import type { SeerrSearchResult, SeerrTvDetail, DiscoverFilters, DiscoverServerFilters } from '../types/seerr'
+import type { TmdbResult, TmdbFilters, TmdbDiscoverFilters } from '../types/tmdb'
 import { ArrCardContent, SabnzbdCardContent, SeerrCardContent } from '../components/MediaCard'
 // ── Tab type ──────────────────────────────────────────────────────────────────
 
@@ -1083,7 +1084,7 @@ function LibraryTab() {
   )
 }
 
-// ── Discover tab (Seerr) ───────────────────────────────────────────────────────
+// ── Discover tab (TMDB) ────────────────────────────────────────────────────────
 
 const DISCOVER_LANGUAGES = [
   { code: '', label: 'Any language' },
@@ -1110,7 +1111,7 @@ const SORT_OPTIONS = [
   { label: 'Title A–Z', value: 'original_title.asc' },
 ]
 
-const DEFAULT_FILTERS: DiscoverFilters = {
+const DEFAULT_FILTERS: TmdbFilters = {
   mediaType: 'all',
   language: '',
   genreIds: [],
@@ -1121,18 +1122,13 @@ const DEFAULT_FILTERS: DiscoverFilters = {
   sortBy: 'popularity.desc',
 }
 
-function getSeasonStatus(seasonNumber: number, tvDetail: SeerrTvDetail): number {
-  return tvDetail.mediaInfo?.seasons?.find(s => s.seasonNumber === seasonNumber)?.status ?? 0
-}
-
 function DiscoverTab() {
+  const { instances, seerrRequests, discoverRequest, loadSeerrRequests } = useArrStore()
   const {
-    instances, discoverMovies, discoverTv, discoverTrending, discoverSearch,
-    seerrRequests, genres, watchProviders, tvDetails,
-    loadDiscoverMovies, loadDiscoverTv, loadDiscoverTrending, loadDiscoverSearch,
+    trending, discoverMovies, discoverTv, searchResults, genres, watchProviders, tvDetail,
+    loadTrending, loadDiscoverMovies, loadDiscoverTv, search: searchTmdb,
     loadGenres, loadWatchProviders, loadTvDetail,
-    discoverRequest, loadSeerrRequests,
-  } = useArrStore()
+  } = useTmdbStore()
 
   const [loading, setLoading] = useState(false)
   const [tab, setTab] = useState<'trending' | 'movies' | 'tv' | 'search'>('trending')
@@ -1140,21 +1136,21 @@ function DiscoverTab() {
   const [searchInput, setSearchInput] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [filtersOpen, setFiltersOpen] = useState(false)
-  const [filters, setFilters] = useState<DiscoverFilters>({ ...DEFAULT_FILTERS })
+  const [filters, setFilters] = useState<TmdbFilters>({ ...DEFAULT_FILTERS })
   const [requesting, setRequesting] = useState<string | null>(null)
-  const [confirmRequest, setConfirmRequest] = useState<{ item: SeerrSearchResult; mediaType: 'movie' | 'tv'; mediaId: number } | null>(null)
+  const [confirmRequest, setConfirmRequest] = useState<{ item: TmdbResult; mediaType: 'movie' | 'tv'; mediaId: number } | null>(null)
   const [selectedSeasons, setSelectedSeasons] = useState<number[]>([])
   const [tvDetailLoading, setTvDetailLoading] = useState(false)
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
   const seerrInstances = instances.filter(i => i.type === 'seerr' && i.enabled)
-  const selected = seerrInstances[0]
+  const seerrInstance = seerrInstances[0]
 
-  // Serialize filters to a stable string for use in effect deps
+  // Serialize filters for use in effect deps
   const filtersJson = JSON.stringify(filters)
 
-  // Build server filters from the current filters state
-  const buildServerFilters = (f: DiscoverFilters): DiscoverServerFilters => ({
+  // Build server-side filter params
+  const buildFilters = (f: TmdbFilters): TmdbDiscoverFilters => ({
     language: f.language || undefined,
     genreIds: f.genreIds.length > 0 ? f.genreIds : undefined,
     watchProviderIds: f.watchProviderIds.length > 0 ? f.watchProviderIds : undefined,
@@ -1163,72 +1159,70 @@ function DiscoverTab() {
     releaseYearTo: f.releaseYearTo || undefined,
   })
 
-  // Track whether initial load for the current selected instance has completed
   const hasMounted = useRef(false)
 
-  // Initial load: trending + both discover tabs + requests + genres + providers
+  // Initial load
   useEffect(() => {
-    if (!selected) return
     hasMounted.current = false
     setPage(1)
-    const sf = buildServerFilters(DEFAULT_FILTERS)
+    const sf = buildFilters(DEFAULT_FILTERS)
     const load = async () => {
       setLoading(true)
       await Promise.all([
-        loadDiscoverTrending(selected.id),
-        loadDiscoverMovies(selected.id, 1, DEFAULT_FILTERS.sortBy, sf),
-        loadDiscoverTv(selected.id, 1, DEFAULT_FILTERS.sortBy, sf),
-        loadSeerrRequests(selected.id, 'all'),
-        loadGenres(selected.id),
-        loadWatchProviders(selected.id),
+        loadTrending('all', 'day'),
+        loadDiscoverMovies(1, DEFAULT_FILTERS.sortBy, sf),
+        loadDiscoverTv(1, DEFAULT_FILTERS.sortBy, sf),
+        loadGenres(),
+        loadWatchProviders(),
+        ...(seerrInstance ? [loadSeerrRequests(seerrInstance.id, 'all')] : []),
       ])
       setLoading(false)
       hasMounted.current = true
     }
     load()
-  }, [selected?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Reload movies/tv when filters change (skip on initial mount — covered above)
+  // Reload movies/tv when filters change
   useEffect(() => {
-    if (!hasMounted.current || !selected) return
+    if (!hasMounted.current) return
     if (tab !== 'movies' && tab !== 'tv') return
     setPage(1)
-    const sf = buildServerFilters(filters)
+    const sf = buildFilters(filters)
     const load = async () => {
       setLoading(true)
-      if (tab === 'movies') await loadDiscoverMovies(selected.id, 1, filters.sortBy, sf)
-      else await loadDiscoverTv(selected.id, 1, filters.sortBy, sf)
+      if (tab === 'movies') await loadDiscoverMovies(1, filters.sortBy, sf)
+      else await loadDiscoverTv(1, filters.sortBy, sf)
       setLoading(false)
     }
     load()
   }, [filtersJson]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Reload when tab switches to movies/tv (picks up any filter changes made on other tabs)
+  // Reload when tab switches to movies/tv
   useEffect(() => {
-    if (!hasMounted.current || !selected) return
+    if (!hasMounted.current) return
     if (tab !== 'movies' && tab !== 'tv') return
     setPage(1)
-    const sf = buildServerFilters(filters)
+    const sf = buildFilters(filters)
     const load = async () => {
       setLoading(true)
-      if (tab === 'movies') await loadDiscoverMovies(selected.id, 1, filters.sortBy, sf)
-      else await loadDiscoverTv(selected.id, 1, filters.sortBy, sf)
+      if (tab === 'movies') await loadDiscoverMovies(1, filters.sortBy, sf)
+      else await loadDiscoverTv(1, filters.sortBy, sf)
       setLoading(false)
     }
     load()
   }, [tab]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Search debounce (also re-fires when language filter changes)
+  // Search debounce
   useEffect(() => {
-    if (tab !== 'search' || !selected || !searchQuery.trim()) return
+    if (tab !== 'search' || !searchQuery.trim()) return
     const timer = setTimeout(async () => {
       setPage(1)
       setLoading(true)
-      await loadDiscoverSearch(selected.id, searchQuery, filters.language || undefined)
+      await searchTmdb(searchQuery, 1, filters.language || undefined)
       setLoading(false)
-    }, 300)
+    }, 500)
     return () => clearTimeout(timer)
-  }, [tab, searchQuery, selected?.id, filters.language]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [tab, searchQuery, filters.language]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-dismiss notification
   useEffect(() => {
@@ -1237,101 +1231,84 @@ function DiscoverTab() {
     return () => clearTimeout(timer)
   }, [notification])
 
-  // Initialize selectedSeasons when TV detail loads in the modal
+  // Pre-select seasons when TV detail loads
   useEffect(() => {
     if (!confirmRequest || confirmRequest.mediaType !== 'tv') return
-    const tvDetail = tvDetails[`${selected.id}:${confirmRequest.mediaId}`]
-    if (!tvDetail) return
-    const realSeasons = tvDetail.seasons.filter(s => s.seasonNumber > 0)
-    const preSelected = realSeasons
-      .filter(s => {
-        const status = getSeasonStatus(s.seasonNumber, tvDetail)
-        return status !== 5 && status !== 2 && status !== 3
-      })
-      .map(s => s.seasonNumber)
-    setSelectedSeasons(preSelected)
-  }, [confirmRequest?.mediaId, tvDetails]) // eslint-disable-line react-hooks/exhaustive-deps
+    const detail = tvDetail[confirmRequest.mediaId]
+    if (!detail) return
+    const realSeasons = detail.seasons.filter(s => s.season_number > 0)
+    const pendingNums = seerrInstance
+      ? (seerrRequests[seerrInstance.id]?.results ?? [])
+          .filter(r => r.media.mediaType === 'tv' && r.media.tmdbId === confirmRequest.mediaId)
+          .flatMap(r => r.seasons?.map(s => s.seasonNumber) ?? [])
+      : []
+    setSelectedSeasons(realSeasons.filter(s => !pendingNums.includes(s.season_number)).map(s => s.season_number))
+  }, [confirmRequest?.mediaId, tvDetail]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!selected) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
-        <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No Seerr instances configured.</p>
-      </div>
-    )
-  }
-
-  // Resolve raw results for the active tab
-  const rawResults: SeerrSearchResult[] = tab === 'search'
-    ? (discoverSearch[selected.id]?.results ?? [])
+  // Resolve raw results
+  const rawResults: TmdbResult[] = tab === 'search'
+    ? (searchResults?.results ?? [])
     : tab === 'trending'
-    ? (discoverTrending[selected.id]?.results ?? [])
+    ? (trending?.results ?? [])
     : tab === 'movies'
-    ? (discoverMovies[selected.id]?.results ?? [])
-    : (discoverTv[selected.id]?.results ?? [])
+    ? (discoverMovies?.results ?? [])
+    : (discoverTv?.results ?? [])
 
   // Total pages for Load More
   const totalPages = tab === 'movies'
-    ? (discoverMovies[selected.id]?.pageInfo?.pages ?? 1)
+    ? (discoverMovies?.total_pages ?? 1)
     : tab === 'tv'
-    ? (discoverTv[selected.id]?.pageInfo?.pages ?? 1)
+    ? (discoverTv?.total_pages ?? 1)
     : tab === 'search'
-    ? (discoverSearch[selected.id]?.pageInfo?.pages ?? 1)
+    ? (searchResults?.total_pages ?? 1)
     : 1
 
-  // Client-side filtering (mediaType, rating, genre) for trending/search; sort for all client-side tabs
-  const allResults: SeerrSearchResult[] = (() => {
-    let results = [...rawResults]
-
-    if ((tab === 'trending' || tab === 'search')) {
+  // Client-side filter for trending/search (mediaType, rating, genre)
+  const allResults: TmdbResult[] = (() => {
+    let results = rawResults.filter(r => r.media_type !== 'person')
+    if (tab === 'trending' || tab === 'search') {
       if (filters.mediaType !== 'all') {
-        results = results.filter(r => r.mediaType === filters.mediaType)
+        results = results.filter(r => r.media_type === filters.mediaType)
       }
       if (filters.voteAverageGte > 0) {
-        results = results.filter(r => (r.voteAverage ?? 0) >= filters.voteAverageGte)
+        results = results.filter(r => (r.vote_average ?? 0) >= filters.voteAverageGte)
       }
       if (filters.genreIds.length > 0) {
-        results = results.filter(r => r.genreIds?.some(g => filters.genreIds.includes(g)))
+        results = results.filter(r => r.genre_ids?.some(g => filters.genreIds.includes(g)))
       }
-      // Client-side sort for trending/search
       switch (filters.sortBy) {
         case 'vote_average.desc':
-          results.sort((a, b) => (b.voteAverage ?? 0) - (a.voteAverage ?? 0))
-          break
+          results.sort((a, b) => (b.vote_average ?? 0) - (a.vote_average ?? 0)); break
         case 'release_date.desc':
           results.sort((a, b) =>
-            (b.releaseDate ?? b.firstAirDate ?? '').localeCompare(a.releaseDate ?? a.firstAirDate ?? '')
-          )
-          break
+            (b.release_date ?? b.first_air_date ?? '').localeCompare(a.release_date ?? a.first_air_date ?? '')
+          ); break
         case 'original_title.asc':
-          results.sort((a, b) =>
-            (a.originalTitle ?? a.title ?? a.name ?? '').localeCompare(b.originalTitle ?? b.title ?? b.name ?? '')
-          )
-          break
+          results.sort((a, b) => (a.title ?? a.name ?? '').localeCompare(b.title ?? b.name ?? '')); break
       }
     }
     return results
   })()
 
-  // Determine per-item media status
-  const getItemStatus = (item: SeerrSearchResult): 'available' | 'partial' | 'processing' | 'pending' | null => {
-    const s = item.mediaInfo?.status
-    if (s === 5) return 'available'
-    if (s === 4) return 'partial'
-    if (s === 3) return 'processing'
-    if (s === 2) return 'pending'
-    const requests = seerrRequests[selected.id]?.results ?? []
-    if (requests.some(r => r.media.mediaType === item.mediaType && r.media.tmdbId === item.id)) return 'pending'
-    return null
+  // Determine per-item request status (from Seerr requests if available)
+  const getItemStatus = (item: TmdbResult): 'available' | 'pending' | null => {
+    if (!seerrInstance) return null
+    const requests = seerrRequests[seerrInstance.id]?.results ?? []
+    const mt = item.media_type as 'movie' | 'tv'
+    const req = requests.find(r => r.media.mediaType === mt && r.media.tmdbId === item.id)
+    if (!req) return null
+    if (req.media.status === 5) return 'available'
+    return 'pending'
   }
 
-  // Which genres to show in filter panel
+  // Genre/provider lists depend on current tab
   const genreList = tab === 'tv'
-    ? (genres[selected.id]?.tv ?? [])
-    : (genres[selected.id]?.movie ?? [])
+    ? (genres?.tv ?? [])
+    : (genres?.movie ?? [])
 
   const providerList = tab === 'tv'
-    ? (watchProviders[selected.id]?.tv ?? [])
-    : (watchProviders[selected.id]?.movie ?? [])
+    ? (watchProviders?.tv ?? [])
+    : (watchProviders?.movie ?? [])
 
   const activeFilterCount = [
     filters.mediaType !== 'all',
@@ -1345,29 +1322,28 @@ function DiscoverTab() {
   const handleLoadMore = async () => {
     const nextPage = page + 1
     setPage(nextPage)
-    const sf = buildServerFilters(filters)
+    const sf = buildFilters(filters)
     setLoading(true)
     if (tab === 'movies') {
-      await loadDiscoverMovies(selected.id, nextPage, filters.sortBy, sf, true)
+      await loadDiscoverMovies(nextPage, filters.sortBy, sf, true)
     } else if (tab === 'tv') {
-      await loadDiscoverTv(selected.id, nextPage, filters.sortBy, sf, true)
+      await loadDiscoverTv(nextPage, filters.sortBy, sf, true)
     } else if (tab === 'search' && searchQuery.trim()) {
-      await loadDiscoverSearch(selected.id, searchQuery, filters.language || undefined, nextPage, true)
+      await searchTmdb(searchQuery, nextPage, filters.language || undefined, true)
     }
     setLoading(false)
   }
 
-  const openRequestModal = async (item: SeerrSearchResult) => {
-    setConfirmRequest({ item, mediaType: item.mediaType, mediaId: item.id })
+  const openRequestModal = async (item: TmdbResult) => {
+    const mt = item.media_type as 'movie' | 'tv'
+    setConfirmRequest({ item, mediaType: mt, mediaId: item.id })
     setSelectedSeasons([])
-    if (item.mediaType === 'tv') {
-      // Fetch TV detail if not cached
-      if (!tvDetails[`${selected.id}:${item.id}`]) {
+    if (mt === 'tv') {
+      if (!tvDetail[item.id]) {
         setTvDetailLoading(true)
-        await loadTvDetail(selected.id, item.id)
+        await loadTvDetail(item.id)
         setTvDetailLoading(false)
       }
-      // selectedSeasons will be initialized by the effect above when tvDetails updates
     }
   }
 
@@ -1617,25 +1593,23 @@ function DiscoverTab() {
       {/* Results grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 14 }}>
         {allResults.map(item => {
-          const posterUrl = item.posterPath ? `https://image.tmdb.org/t/p/w300${item.posterPath}` : null
+          const posterUrl = item.poster_path ? `https://image.tmdb.org/t/p/w300${item.poster_path}` : null
           const title = item.title ?? item.name ?? 'Unknown'
-          const year = item.releaseDate?.slice(0, 4) ?? item.firstAirDate?.slice(0, 4) ?? ''
-          const rating = item.voteAverage ? Math.round(item.voteAverage * 10) / 10 : null
+          const year = item.release_date?.slice(0, 4) ?? item.first_air_date?.slice(0, 4) ?? ''
+          const rating = item.vote_average ? Math.round(item.vote_average * 10) / 10 : null
           const overview = item.overview ? item.overview.slice(0, 100) + (item.overview.length > 100 ? '...' : '') : ''
           const itemStatus = getItemStatus(item)
-          const canRequest = itemStatus === null || itemStatus === 'partial'
+          const canRequest = !!seerrInstance && itemStatus !== 'available'
 
-          const btnLabel = requesting === `${item.mediaType}-${item.id}`
+          const btnLabel = requesting === `${item.media_type}-${item.id}`
             ? 'Requesting…'
             : itemStatus === 'available' ? '✓ Available'
-            : itemStatus === 'processing' ? '⟳ Processing'
             : itemStatus === 'pending' ? '⏳ Requested'
-            : itemStatus === 'partial' ? '◐ Request missing'
             : '+ Request'
 
           return (
             <div
-              key={`${item.mediaType}-${item.id}`}
+              key={`${item.media_type}-${item.id}`}
               className="glass"
               style={{
                 borderRadius: 'var(--radius-lg)', overflow: 'hidden',
@@ -1659,7 +1633,7 @@ function DiscoverTab() {
                 backgroundSize: 'cover', backgroundPosition: 'center',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative',
               }}>
-                {!posterUrl && <span style={{ fontSize: 32 }}>{item.mediaType === 'movie' ? '🎬' : '📺'}</span>}
+                {!posterUrl && <span style={{ fontSize: 32 }}>{item.media_type === 'movie' ? '🎬' : '📺'}</span>}
 
                 {/* Media type badge */}
                 <div style={{
@@ -1668,11 +1642,11 @@ function DiscoverTab() {
                   padding: '3px 7px', borderRadius: 'var(--radius-sm)',
                   fontSize: 10, fontWeight: 600, textTransform: 'uppercase', backdropFilter: 'blur(8px)',
                 }}>
-                  {item.mediaType === 'movie' ? 'Movie' : 'TV'}
+                  {item.media_type === 'movie' ? 'Movie' : 'TV'}
                 </div>
 
                 {/* Rating badge */}
-                {rating !== null && (
+                {rating !== null && rating > 0 && (
                   <div style={{
                     position: 'absolute', top: 8, right: 8,
                     background: 'rgba(0,0,0,0.7)',
@@ -1688,20 +1662,11 @@ function DiscoverTab() {
                 {itemStatus && (
                   <div style={{
                     position: 'absolute', bottom: 8, right: 8,
-                    background: itemStatus === 'available'
-                      ? 'rgba(34,197,94,0.9)'
-                      : itemStatus === 'partial'
-                      ? 'rgba(234,179,8,0.9)'
-                      : itemStatus === 'processing'
-                      ? 'rgba(59,130,246,0.9)'
-                      : 'rgba(234,179,8,0.9)',
+                    background: itemStatus === 'available' ? 'rgba(34,197,94,0.9)' : 'rgba(234,179,8,0.9)',
                     color: '#fff', padding: '3px 7px', borderRadius: 'var(--radius-sm)',
                     fontSize: 10, fontWeight: 600, textTransform: 'uppercase', backdropFilter: 'blur(8px)',
                   }}>
-                    {itemStatus === 'available' ? '✓ Available'
-                      : itemStatus === 'partial' ? '◐ Partial'
-                      : itemStatus === 'processing' ? '⟳ Processing'
-                      : '⏳ Requested'}
+                    {itemStatus === 'available' ? '✓ Available' : '⏳ Requested'}
                   </div>
                 )}
               </div>
@@ -1721,18 +1686,20 @@ function DiscoverTab() {
                   </div>
                 )}
 
-                <button
-                  onClick={e => {
-                    e.stopPropagation()
-                    if (!canRequest) return
-                    openRequestModal(item)
-                  }}
-                  disabled={!canRequest || requesting === `${item.mediaType}-${item.id}`}
-                  className={canRequest ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'}
-                  style={{ fontSize: 12, padding: '6px 12px', marginTop: 'auto', opacity: canRequest ? 1 : 0.6 }}
-                >
-                  {btnLabel}
-                </button>
+                {seerrInstance && (
+                  <button
+                    onClick={e => {
+                      e.stopPropagation()
+                      if (!canRequest) return
+                      openRequestModal(item)
+                    }}
+                    disabled={!canRequest || requesting === `${item.media_type}-${item.id}`}
+                    className={canRequest ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'}
+                    style={{ fontSize: 12, padding: '6px 12px', marginTop: 'auto', opacity: canRequest ? 1 : 0.6 }}
+                  >
+                    {btnLabel}
+                  </button>
+                )}
               </div>
             </div>
           )
@@ -1770,9 +1737,9 @@ function DiscoverTab() {
 
             {/* Preview */}
             <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
-              {confirmRequest.item.posterPath && (
+              {confirmRequest.item.poster_path && (
                 <img
-                  src={`https://image.tmdb.org/t/p/w92${confirmRequest.item.posterPath}`}
+                  src={`https://image.tmdb.org/t/p/w92${confirmRequest.item.poster_path}`}
                   alt=""
                   style={{ width: 60, borderRadius: 'var(--radius-md)', objectFit: 'cover', flexShrink: 0 }}
                 />
@@ -1783,15 +1750,15 @@ function DiscoverTab() {
                 </p>
                 <p style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
                   {confirmRequest.mediaType === 'movie' ? 'Movie' : 'TV Series'}
-                  {(confirmRequest.item.releaseDate ?? confirmRequest.item.firstAirDate) &&
-                    ` · ${(confirmRequest.item.releaseDate ?? confirmRequest.item.firstAirDate ?? '').slice(0, 4)}`}
+                  {(confirmRequest.item.release_date ?? confirmRequest.item.first_air_date) &&
+                    ` · ${(confirmRequest.item.release_date ?? confirmRequest.item.first_air_date ?? '').slice(0, 4)}`}
                 </p>
               </div>
             </div>
 
             {/* Season selection for TV */}
             {confirmRequest.mediaType === 'tv' && (() => {
-              const tvDetail = tvDetails[`${selected.id}:${confirmRequest.mediaId}`]
+              const detail = tvDetail[confirmRequest.mediaId]
               if (tvDetailLoading) {
                 return (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
@@ -1800,25 +1767,27 @@ function DiscoverTab() {
                   </div>
                 )
               }
-              if (!tvDetail) {
+              if (!detail) {
                 return (
                   <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16 }}>
                     Could not load season list. The request will include all seasons.
                   </p>
                 )
               }
-              const realSeasons = tvDetail.seasons.filter(s => s.seasonNumber > 0)
-              const missingSeasons = realSeasons.filter(s => {
-                const status = getSeasonStatus(s.seasonNumber, tvDetail)
-                return status !== 5 && status !== 2 && status !== 3
-              })
+              const realSeasons = detail.seasons.filter(s => s.season_number > 0)
+              const pendingNums = seerrInstance
+                ? (seerrRequests[seerrInstance.id]?.results ?? [])
+                    .filter(r => r.media.mediaType === 'tv' && r.media.tmdbId === confirmRequest.mediaId)
+                    .flatMap(r => r.seasons?.map(s => s.seasonNumber) ?? [])
+                : []
+              const missingSeasons = realSeasons.filter(s => !pendingNums.includes(s.season_number))
               return (
                 <div style={{ marginBottom: 16 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                     <span style={{ fontSize: 13, fontWeight: 500 }}>Seasons</span>
                     {missingSeasons.length > 0 && (
                       <button
-                        onClick={() => setSelectedSeasons(missingSeasons.map(s => s.seasonNumber))}
+                        onClick={() => setSelectedSeasons(missingSeasons.map(s => s.season_number))}
                         className="btn btn-ghost btn-sm"
                         style={{ fontSize: 11 }}
                       >
@@ -1828,45 +1797,41 @@ function DiscoverTab() {
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                     {realSeasons.map(s => {
-                      const status = getSeasonStatus(s.seasonNumber, tvDetail)
-                      const isAvailable = status === 5
-                      const isPending = status === 2 || status === 3
-                      const isDisabled = isAvailable || isPending
-                      const isSelected = selectedSeasons.includes(s.seasonNumber)
-                      const statusLabel = isAvailable ? 'Available' : isPending ? 'Pending' : null
+                      const isPending = pendingNums.includes(s.season_number)
+                      const isSelected = selectedSeasons.includes(s.season_number)
 
                       return (
                         <button
-                          key={s.seasonNumber}
-                          disabled={isDisabled}
+                          key={s.season_number}
+                          disabled={isPending}
                           onClick={() => {
-                            if (isDisabled) return
+                            if (isPending) return
                             setSelectedSeasons(prev =>
-                              prev.includes(s.seasonNumber)
-                                ? prev.filter(n => n !== s.seasonNumber)
-                                : [...prev, s.seasonNumber]
+                              prev.includes(s.season_number)
+                                ? prev.filter(n => n !== s.season_number)
+                                : [...prev, s.season_number]
                             )
                           }}
                           style={{
                             padding: '6px 10px', borderRadius: 'var(--radius-md)', fontSize: 12,
-                            background: isDisabled
+                            background: isPending
                               ? 'rgba(var(--text-rgb), 0.05)'
                               : isSelected
                               ? 'rgba(var(--accent-rgb), 0.25)'
                               : 'rgba(var(--text-rgb), 0.1)',
-                            color: isDisabled
+                            color: isPending
                               ? 'var(--text-muted)'
                               : isSelected
                               ? 'var(--accent)'
                               : 'var(--text-secondary)',
-                            border: isSelected && !isDisabled ? '1px solid var(--accent)' : '1px solid transparent',
-                            cursor: isDisabled ? 'default' : 'pointer',
-                            opacity: isDisabled ? 0.5 : 1,
+                            border: isSelected && !isPending ? '1px solid var(--accent)' : '1px solid transparent',
+                            cursor: isPending ? 'default' : 'pointer',
+                            opacity: isPending ? 0.5 : 1,
                             transition: 'all 150ms ease', fontFamily: 'var(--font-sans)',
                           }}
                         >
-                          S{s.seasonNumber}
-                          {statusLabel && <span style={{ fontSize: 10, marginLeft: 4, opacity: 0.75 }}>· {statusLabel}</span>}
+                          S{s.season_number}
+                          {isPending && <span style={{ fontSize: 10, marginLeft: 4, opacity: 0.75 }}>· Pending</span>}
                         </button>
                       )
                     })}
@@ -1886,6 +1851,7 @@ function DiscoverTab() {
               </button>
               <button
                 onClick={async () => {
+                  if (!seerrInstance) return
                   const key = `${confirmRequest.mediaType}-${confirmRequest.item.id}`
                   setRequesting(key)
                   try {
@@ -1893,7 +1859,7 @@ function DiscoverTab() {
                       ? selectedSeasons
                       : undefined
                     await discoverRequest(
-                      selected.id,
+                      seerrInstance.id,
                       confirmRequest.mediaType,
                       confirmRequest.mediaId,
                       seasons,
@@ -1907,9 +1873,10 @@ function DiscoverTab() {
                   }
                 }}
                 disabled={
-                  confirmRequest.mediaType === 'tv' &&
-                  !!tvDetails[`${selected.id}:${confirmRequest.mediaId}`] &&
-                  selectedSeasons.length === 0
+                  !seerrInstance ||
+                  (confirmRequest.mediaType === 'tv' &&
+                  !!tvDetail[confirmRequest.mediaId] &&
+                  selectedSeasons.length === 0)
                 }
                 className="btn btn-primary btn-sm"
                 style={{ flex: 1, fontSize: 12 }}
@@ -1942,8 +1909,7 @@ interface Props {
 }
 
 export function MediaPage({ showAddForm: showFromParent, onFormClose }: Props) {
-  const { instances } = useArrStore()
-  const { isAdmin } = useStore()
+  const { settings } = useStore()
   const [activeTab, setActiveTab] = useState<MediaTab>('instances')
 
   // When Topbar "Add Instance" fires, switch to Instances tab
@@ -1953,7 +1919,7 @@ export function MediaPage({ showAddForm: showFromParent, onFormClose }: Props) {
     }
   }, [showFromParent])
 
-  const hasSeerr = instances.some(i => i.type === 'seerr' && i.enabled)
+  const hasTmdbKey = !!(settings?.tmdb_api_key)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -1961,7 +1927,7 @@ export function MediaPage({ showAddForm: showFromParent, onFormClose }: Props) {
         <h2 style={{ fontSize: 18, fontWeight: 600, flex: 1 }}>Media</h2>
       </div>
 
-      <TabBar active={activeTab} onChange={setActiveTab} showDiscover={hasSeerr} />
+      <TabBar active={activeTab} onChange={setActiveTab} showDiscover={hasTmdbKey} />
 
       {activeTab === 'instances' && (
         <InstancesTab showAddForm={showFromParent} onFormClose={onFormClose} />

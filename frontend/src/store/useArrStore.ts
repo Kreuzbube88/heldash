@@ -1,7 +1,6 @@
 import { create } from 'zustand'
 import { api } from '../api'
 import type { ArrInstance, ArrStatus, ArrStats, ArrQueueResponse, ArrCalendarItem, ProwlarrIndexer, SabnzbdQueueData, SabnzbdHistoryData, SeerrRequestsResponse, RadarrMovie, SonarrSeries } from '../types/arr'
-import type { SeerrGenre, SeerrWatchProvider, SeerrTvDetail, SeerrDiscoverResponse, DiscoverServerFilters } from '../types/seerr'
 
 interface ArrState {
   instances: ArrInstance[]
@@ -15,13 +14,6 @@ interface ArrState {
   seerrRequests: Record<string, SeerrRequestsResponse>
   movies: Record<string, RadarrMovie[]>
   series: Record<string, SonarrSeries[]>
-  discoverMovies: Record<string, SeerrDiscoverResponse>
-  discoverTv: Record<string, SeerrDiscoverResponse>
-  discoverTrending: Record<string, SeerrDiscoverResponse>
-  discoverSearch: Record<string, SeerrDiscoverResponse>
-  genres: Record<string, { movie: SeerrGenre[]; tv: SeerrGenre[] }>
-  watchProviders: Record<string, { movie: SeerrWatchProvider[]; tv: SeerrWatchProvider[] }>
-  tvDetails: Record<string, SeerrTvDetail>  // keyed by `${instanceId}:${tmdbId}`
 
   loadInstances: () => Promise<void>
   loadAllStats: () => Promise<void>
@@ -35,13 +27,6 @@ interface ArrState {
   loadSeerrRequests: (id: string, filter?: string, page?: number) => Promise<void>
   loadMovies: (id: string) => Promise<void>
   loadSeries: (id: string) => Promise<void>
-  loadDiscoverMovies: (id: string, page?: number, sortBy?: string, filters?: DiscoverServerFilters, append?: boolean) => Promise<void>
-  loadDiscoverTv: (id: string, page?: number, sortBy?: string, filters?: DiscoverServerFilters, append?: boolean) => Promise<void>
-  loadDiscoverTrending: (id: string) => Promise<void>
-  loadDiscoverSearch: (id: string, query: string, language?: string, page?: number, append?: boolean) => Promise<void>
-  loadGenres: (id: string) => Promise<void>
-  loadWatchProviders: (id: string) => Promise<void>
-  loadTvDetail: (id: string, tmdbId: number) => Promise<void>
   discoverRequest: (id: string, mediaType: 'movie' | 'tv', mediaId: number, seasons?: number[]) => Promise<unknown>
   seerrApprove: (id: string, requestId: number) => Promise<void>
   seerrDecline: (id: string, requestId: number) => Promise<void>
@@ -65,13 +50,6 @@ export const useArrStore = create<ArrState>((set, get) => ({
   seerrRequests: {},
   movies: {},
   series: {},
-  discoverMovies: {},
-  discoverTv: {},
-  discoverTrending: {},
-  discoverSearch: {},
-  genres: {},
-  watchProviders: {},
-  tvDetails: {},
 
   loadInstances: async () => {
     const instances = await api.arr.instances.list()
@@ -164,77 +142,6 @@ export const useArrStore = create<ArrState>((set, get) => ({
     } catch { /* keep previous state on error */ }
   },
 
-  loadDiscoverMovies: async (id, page = 1, sortBy = 'popularity.desc', filters, append = false) => {
-    try {
-      const data = await api.arr.discoverMovies(id, page, sortBy, filters)
-      set(state => {
-        const prev = state.discoverMovies[id]
-        const results = append && prev ? [...prev.results, ...data.results] : data.results
-        return { discoverMovies: { ...state.discoverMovies, [id]: { ...data, results } } }
-      })
-    } catch { /* keep previous state on error */ }
-  },
-
-  loadDiscoverTv: async (id, page = 1, sortBy = 'popularity.desc', filters, append = false) => {
-    try {
-      const data = await api.arr.discoverTv(id, page, sortBy, filters)
-      set(state => {
-        const prev = state.discoverTv[id]
-        const results = append && prev ? [...prev.results, ...data.results] : data.results
-        return { discoverTv: { ...state.discoverTv, [id]: { ...data, results } } }
-      })
-    } catch { /* keep previous state on error */ }
-  },
-
-  loadDiscoverTrending: async (id) => {
-    try {
-      const data = await api.arr.discoverTrending(id)
-      set(state => ({ discoverTrending: { ...state.discoverTrending, [id]: data } }))
-    } catch { /* keep previous state on error */ }
-  },
-
-  loadDiscoverSearch: async (id, query, language, page = 1, append = false) => {
-    try {
-      const data = await api.arr.discoverSearch(id, query, language, page)
-      set(state => {
-        const prev = state.discoverSearch[id]
-        const results = append && prev ? [...prev.results, ...data.results] : data.results
-        return { discoverSearch: { ...state.discoverSearch, [id]: { ...data, results } } }
-      })
-    } catch { /* keep previous state on error */ }
-  },
-
-  loadGenres: async (id) => {
-    try {
-      const [movieRes, tvRes] = await Promise.all([
-        api.arr.discoverGenres(id, 'movie'),
-        api.arr.discoverGenres(id, 'tv'),
-      ])
-      set(state => ({
-        genres: { ...state.genres, [id]: { movie: movieRes.genres, tv: tvRes.genres } },
-      }))
-    } catch { /* keep previous state on error */ }
-  },
-
-  loadWatchProviders: async (id) => {
-    try {
-      const [movieRes, tvRes] = await Promise.all([
-        api.arr.discoverWatchProviders(id, 'movie'),
-        api.arr.discoverWatchProviders(id, 'tv'),
-      ])
-      set(state => ({
-        watchProviders: { ...state.watchProviders, [id]: { movie: movieRes.results, tv: tvRes.results } },
-      }))
-    } catch { /* keep previous state on error */ }
-  },
-
-  loadTvDetail: async (id, tmdbId) => {
-    try {
-      const data = await api.arr.discoverTvDetail(id, tmdbId)
-      set(state => ({ tvDetails: { ...state.tvDetails, [`${id}:${tmdbId}`]: data } }))
-    } catch { /* keep previous state on error */ }
-  },
-
   discoverRequest: async (id, mediaType, mediaId, seasons) => {
     const result = await api.arr.discoverRequest(id, mediaType, mediaId, seasons)
     // Refresh requests list so badge updates for newly-requested item
@@ -285,13 +192,6 @@ export const useArrStore = create<ArrState>((set, get) => ({
       seerrRequests: Object.fromEntries(Object.entries(state.seerrRequests).filter(([k]) => k !== id)),
       movies: Object.fromEntries(Object.entries(state.movies).filter(([k]) => k !== id)),
       series: Object.fromEntries(Object.entries(state.series).filter(([k]) => k !== id)),
-      discoverMovies: Object.fromEntries(Object.entries(state.discoverMovies).filter(([k]) => k !== id)),
-      discoverTv: Object.fromEntries(Object.entries(state.discoverTv).filter(([k]) => k !== id)),
-      discoverTrending: Object.fromEntries(Object.entries(state.discoverTrending).filter(([k]) => k !== id)),
-      discoverSearch: Object.fromEntries(Object.entries(state.discoverSearch).filter(([k]) => k !== id)),
-      genres: Object.fromEntries(Object.entries(state.genres).filter(([k]) => k !== id)),
-      watchProviders: Object.fromEntries(Object.entries(state.watchProviders).filter(([k]) => k !== id)),
-      tvDetails: Object.fromEntries(Object.entries(state.tvDetails).filter(([k]) => !k.startsWith(`${id}:`))),
     }))
   },
 }))

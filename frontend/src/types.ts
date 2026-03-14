@@ -44,6 +44,7 @@ export interface Settings {
   design_animations?: 'full' | 'reduced' | 'none'
   design_sidebar_style?: 'default' | 'minimal' | 'floating'
   design_custom_css?: string
+  tmdb_api_key?: string
 }
 
 export interface AuthUser {

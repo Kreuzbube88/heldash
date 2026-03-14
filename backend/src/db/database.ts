@@ -78,6 +78,9 @@ function runMigrations(db: Database.Database): number {
     VALUES ('grp_guest', 'Guest', 'Read-only access', 1)
   `).run()
 
+  // Ensure tmdb_api_key default exists
+  db.prepare("INSERT OR IGNORE INTO settings (key, value, updated_at) VALUES ('tmdb_api_key', '\"\"', datetime('now'))").run()
+
   // Admin group always has Docker access
   db.exec("UPDATE user_groups SET docker_access = 1 WHERE id = 'grp_admin'")
 

@@ -268,7 +268,7 @@ function InstancesTab({ showAddForm: showFromParent, onFormClose }: { showAddFor
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={sorted.map(i => i.id)} strategy={rectSortingStrategy}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
+          <div className="card-grid" style={{ gap: 14 }}>
             {sorted.map(inst => (
               editingId === inst.id
                 ? (

@@ -174,8 +174,8 @@ function ContainerTable({
   ]
 
   return (
-    <div className="glass" style={{ borderRadius: 'var(--radius-xl)', overflow: 'hidden' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+    <div className="table-responsive">
+      <table className="data-table">
         <thead>
           <tr style={{ borderBottom: '1px solid var(--glass-border)' }}>
             {cols.map(({ label, col }) => (

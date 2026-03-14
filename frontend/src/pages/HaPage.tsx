@@ -602,7 +602,7 @@ export function HaPage() {
           <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.8px', textTransform: 'uppercase', marginBottom: 12 }}>
             Instances
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div className="card-grid" style={{ gap: 8 }}>
             {instances.map(inst => (
               <div key={inst.id} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div style={{ flex: 1, minWidth: 0 }}>

@@ -94,8 +94,8 @@ function SortableGroupSection({
         </span>
         <span style={{ fontSize: 11, color: 'var(--text-muted)', opacity: 0.6 }}>({section.services.length})</span>
       </div>
-      <div className="glass" style={{ borderRadius: 'var(--radius-xl)', overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+      <div className="table-responsive">
+        <table className="data-table" style={{ tableLayout: 'fixed' }}>
           <colgroup>
             <col style={{ width: '24%' }} />
             <col style={{ width: isAdmin ? '30%' : '35%' }} />
@@ -109,7 +109,7 @@ function SortableGroupSection({
               <th style={thStyle}>App</th>
               <th style={thStyle}>URL</th>
               <th style={thStyle}>Status</th>
-              <th style={thStyle}>Check</th>
+              <th className="col-interval" style={thStyle}>Check</th>
               <th style={thStyle}>Dashboard</th>
               {isAdmin && <th style={{ ...thStyle, textAlign: 'right' }}>Actions</th>}
             </tr>
@@ -174,7 +174,7 @@ function SortableGroupSection({
                     )}
                   </div>
                 </td>
-                <td style={tdStyle}>
+                <td className="col-interval" style={tdStyle}>
                   <button
                     onClick={async () => {
                       await updateService(s.id, { check_enabled: !s.check_enabled })

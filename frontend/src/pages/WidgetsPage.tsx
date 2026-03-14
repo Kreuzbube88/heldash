@@ -1081,7 +1081,7 @@ export function WidgetsPage({ showAddForm, onFormClose }: Props) {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
+      <div className="card-grid" style={{ gap: 16 }}>
         {widgets.map(widget => (
           editingId === widget.id
             ? (

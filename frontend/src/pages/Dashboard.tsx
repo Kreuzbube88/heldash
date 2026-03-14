@@ -42,6 +42,7 @@ import {
   DndContext,
   DragEndEvent,
   PointerSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   closestCenter,
@@ -53,7 +54,7 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { GripVertical, X, Container } from 'lucide-react'
+import { GripVertical, X, Container, ChevronDown } from 'lucide-react'
 
 // ── Shared edit-mode overlay (drag handle + remove button + group selector) ────
 function EditOverlay({
@@ -443,6 +444,21 @@ function renderDashboardItem(
   return null
 }
 
+// ── Group collapse helpers (mobile sessionStorage) ─────────────────────────────
+function getGroupCollapsed(id: string): boolean {
+  try {
+    const val = sessionStorage.getItem(`group-collapsed-${id}`)
+    if (val !== null) return val === 'true'
+  } catch { /* ignore */ }
+  return false
+}
+
+function setGroupCollapsed(id: string, val: boolean): void {
+  try {
+    sessionStorage.setItem(`group-collapsed-${id}`, String(val))
+  } catch { /* ignore */ }
+}
+
 // ── Sortable Group ─────────────────────────────────────────────────────────────
 function SortableGroup({ group, editMode, onEdit }: {
   group: DashboardGroup
@@ -457,8 +473,22 @@ function SortableGroup({ group, editMode, onEdit }: {
   const [editingName, setEditingName] = useState(false)
   const [nameVal, setNameVal] = useState(group.name)
   const [showHandle, setShowHandle] = useState(false)
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    const stored = getGroupCollapsed(group.id)
+    if (sessionStorage.getItem(`group-collapsed-${group.id}`) !== null) return stored
+    return group.items.filter(i => i.type !== 'placeholder' && i.type !== 'placeholder_app' && i.type !== 'placeholder_widget' && i.type !== 'placeholder_row').length > 6
+  })
 
-  const groupSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
+  const handleToggleCollapse = () => {
+    const next = !collapsed
+    setCollapsed(next)
+    setGroupCollapsed(group.id, next)
+  }
+
+  const groupSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
+  )
 
   const handleInnerDragEnd = (event: DragEndEvent) => {
     const { active, over } = event
@@ -546,9 +576,21 @@ function SortableGroup({ group, editMode, onEdit }: {
               </button>
             </div>
           )}
+          <button
+            className={`group-chevron${collapsed ? ' collapsed' : ''}`}
+            onClick={handleToggleCollapse}
+            title={collapsed ? 'Expand group' : 'Collapse group'}
+            style={{ marginLeft: editMode ? 0 : 'auto' }}
+          >
+            <ChevronDown size={14} />
+          </button>
         </div>
 
         {/* Items inside group */}
+        <div
+          className={`group-content${collapsed ? ' collapsed' : ''}`}
+          style={{ maxHeight: collapsed ? 0 : undefined }}
+        >
         {group.items.length > 0 || editMode ? (
           <DndContext sensors={groupSensors} collisionDetection={closestCenter} onDragEnd={handleInnerDragEnd}>
             <SortableContext items={group.items.map(i => i.id)} strategy={rectSortingStrategy}>
@@ -601,6 +643,7 @@ function SortableGroup({ group, editMode, onEdit }: {
             Empty group
           </div>
         )}
+        </div>{/* end group-content */}
       </div>
     </div>
   )
@@ -613,11 +656,13 @@ interface Props {
 
 export function Dashboard({ onEdit }: Props) {
   const { isAdmin } = useStore()
-  const appsPerRow = 8
   const { instances, loadInstances, loadAllStats } = useArrStore()
   const { items, groups, editMode, guestMode, loading, reorder, reorderGroups, createGroup } = useDashboardStore()
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
+  )
 
   const arrItemCount = items.filter(i => i.type === 'arr_instance').length +
     groups.reduce((sum, g) => sum + g.items.filter(i => i.type === 'arr_instance').length, 0)
@@ -711,8 +756,15 @@ export function Dashboard({ onEdit }: Props) {
       {(realUngroupedItems || editMode) && (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleItemDragEnd}>
           <SortableContext items={items.map(i => i.id)} strategy={rectSortingStrategy}>
-            <div className="services-grid" style={{ gridAutoFlow: 'dense', '--app-cols': appsPerRow } as React.CSSProperties}>
-              {items.map(item => renderDashboardItem(item, editMode, onEdit, groups))}
+            {/* Widget strip — ungrouped widgets rendered above apps */}
+            {items.some(i => i.type === 'widget') && (
+              <div className="widget-strip">
+                {items.filter(i => i.type === 'widget').map(item => renderDashboardItem(item, editMode, onEdit, groups))}
+              </div>
+            )}
+            {/* Ungrouped apps/arr/placeholders */}
+            <div className="services-grid" style={{ gridAutoFlow: 'dense' } as React.CSSProperties}>
+              {items.filter(i => i.type !== 'widget').map(item => renderDashboardItem(item, editMode, onEdit, groups))}
             </div>
           </SortableContext>
         </DndContext>

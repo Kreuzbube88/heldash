@@ -12,11 +12,10 @@ Coded by Claude.ai because iam to stupid to code but can wirte prompts lol
 
 **Dashboard**
 - 🗂️ Modular overview grid — freely arrange apps, media instances, and widgets independent of group structure
-- 📏 **Smart Grid Layout** — 20-column grid supporting up to **10 apps per row**
+- 📏 **Smart Grid Layout** — 20-column CSS grid, 8 apps per row
   - Apps: 2 columns wide (1×1 base size)
   - Widgets: 4 columns wide, 2 rows tall (2×2 size) — twice the size of apps
   - Next to a widget, 2 apps can fit vertically
-  - Settings: choose 2–10 apps per row layout
 - 📦 **Dashboard Groups** — named containers for organizing dashboard items
   - Configurable widths (25%, 33%, 50%, 66%, 100% of dashboard)
   - Drag-and-drop reordering of groups and items within groups

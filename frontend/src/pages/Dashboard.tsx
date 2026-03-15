@@ -275,6 +275,7 @@ function DashboardWidgetCard({ item, editMode, groups, colSpan = 2 }: {
         opacity: isDragging ? 0.4 : 1,
         position: 'relative',
         gridColumn: `span ${colSpan}`,
+        gridRow: colSpan === 2 ? 'span 2' : undefined,
       }}
       onMouseEnter={() => setShowHandle(true)}
       onMouseLeave={() => setShowHandle(false)}
@@ -507,7 +508,7 @@ function SortableGroup({ group, editMode, onEdit }: {
         transform: CSS.Transform.toString(transform),
         transition,
         opacity: isDragging ? 0.4 : 1,
-        flex: `${group.col_span} 0 calc(${(group.col_span / 12 * 100).toFixed(4)}% - ${((12 - group.col_span) * 20 / 12).toFixed(4)}px)`,
+        flex: `0 0 calc(${(group.col_span / 12 * 100).toFixed(4)}% - ${((12 - group.col_span) * 20 / 12).toFixed(4)}px)`,
         minWidth: 0,
         position: 'relative',
       }}
@@ -742,6 +743,20 @@ export function Dashboard({ onEdit }: Props) {
     )
   }
 
+  // Ungrouped items section — shared between "with groups" and "standalone" layouts
+  const ungroupedSection = (realUngroupedItems || editMode) && (
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleItemDragEnd}>
+      <SortableContext items={items.map(i => i.id)} strategy={rectSortingStrategy}>
+        {/* All ungrouped items (apps, arr, widgets, placeholders) in one unified grid.
+            No grid-auto-flow: dense — array order determines visual position.
+            Widgets use gridColumn: span 2 + gridRow: span 2 (set in DashboardWidgetCard). */}
+        <div className="services-grid">
+          {items.map(item => renderDashboardItem(item, editMode, onEdit, groups))}
+        </div>
+      </SortableContext>
+    </DndContext>
+  )
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       {/* Add Group button (edit mode only) — at top */}
@@ -756,35 +771,27 @@ export function Dashboard({ onEdit }: Props) {
         </div>
       )}
 
-      {/* Groups */}
-      {(realGroupItems || editMode) && (
+      {/* Groups + ungrouped items share the same flex row so a 50% group leaves
+          room for ungrouped content alongside it. When no groups exist, ungrouped
+          items render standalone without the outer groups DndContext. */}
+      {(realGroupItems || editMode) ? (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleGroupDragEnd}>
           <SortableContext items={groups.map(g => g.id)} strategy={rectSortingStrategy}>
             <div className="dashboard-groups">
               {groups.map(group => (
                 <SortableGroup key={group.id} group={group} editMode={editMode} onEdit={onEdit} />
               ))}
+              {/* Ungrouped items fill remaining flex space in the same row */}
+              {ungroupedSection && (
+                <div style={{ flex: '1 1 0', minWidth: 'min(100%, 220px)' }}>
+                  {ungroupedSection}
+                </div>
+              )}
             </div>
           </SortableContext>
         </DndContext>
-      )}
-
-      {/* Ungrouped items */}
-      {(realUngroupedItems || editMode) && (
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleItemDragEnd}>
-          <SortableContext items={items.map(i => i.id)} strategy={rectSortingStrategy}>
-            {/* Widget strip — ungrouped widgets rendered above apps */}
-            {items.some(i => i.type === 'widget') && (
-              <div className="widget-strip">
-                {items.filter(i => i.type === 'widget').map(item => renderDashboardItem(item, editMode, onEdit, groups, 1))}
-              </div>
-            )}
-            {/* Ungrouped apps/arr/placeholders */}
-            <div className="services-grid" style={{ gridAutoFlow: 'dense' } as React.CSSProperties}>
-              {items.filter(i => i.type !== 'widget').map(item => renderDashboardItem(item, editMode, onEdit, groups))}
-            </div>
-          </SortableContext>
-        </DndContext>
+      ) : (
+        ungroupedSection
       )}
     </div>
   )

@@ -1,11 +1,12 @@
 import { FastifyInstance } from 'fastify'
 import { nanoid } from 'nanoid'
-import { getDb } from '../db/database.js'
+import { getDb } from '../db/database'
 import { stringify } from 'yaml'
 import * as fs from 'fs'
 import * as path from 'path'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
+import { fetch } from 'undici'
 
 const execFileAsync = promisify(execFile)
 
@@ -161,7 +162,6 @@ async function fetchCfListForTemplate(templateSlug: string, forceRefresh = false
   if (!meta) return []
 
   try {
-    const { fetch } = await import('undici')
     const treeResp = await fetch('https://api.github.com/repos/TRaSH-Guides/Guides/git/trees/master?recursive=1', {
       headers: { 'User-Agent': 'heldash/1.0', Accept: 'application/vnd.github.v3+json' },
     })

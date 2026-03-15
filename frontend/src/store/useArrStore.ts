@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { api } from '../api'
 import type { ArrInstance, ArrStatus, ArrStats, ArrQueueResponse, ArrCalendarItem, ProwlarrIndexer, SabnzbdQueueData, SabnzbdHistoryData, SeerrRequestsResponse, RadarrMovie, SonarrSeries, ArrCustomFormat, ArrCFSpecification, ArrQualityProfile } from '../types/arr'
+import type { SeerrMediaSeasonStatus } from '../types/seerr'
 
 interface ArrState {
   instances: ArrInstance[]
@@ -12,6 +13,7 @@ interface ArrState {
   sabQueues: Record<string, SabnzbdQueueData>
   histories: Record<string, SabnzbdHistoryData>
   seerrRequests: Record<string, SeerrRequestsResponse>
+  seerrTvStatus: Record<number, { status: number; seasons?: SeerrMediaSeasonStatus[] }>
   movies: Record<string, RadarrMovie[]>
   series: Record<string, SonarrSeries[]>
 
@@ -25,6 +27,7 @@ interface ArrState {
   loadSabQueue: (id: string) => Promise<void>
   loadHistory: (id: string) => Promise<void>
   loadSeerrRequests: (id: string, filter?: string, page?: number) => Promise<void>
+  loadSeerrTvStatus: (seerrId: string, tmdbId: number) => Promise<void>
   loadMovies: (id: string) => Promise<void>
   loadSeries: (id: string) => Promise<void>
   discoverRequest: (id: string, mediaType: 'movie' | 'tv', mediaId: number, seasons?: number[]) => Promise<unknown>
@@ -59,6 +62,7 @@ export const useArrStore = create<ArrState>((set, get) => ({
   sabQueues: {},
   histories: {},
   seerrRequests: {},
+  seerrTvStatus: {},
   movies: {},
   series: {},
   customFormats: {},
@@ -128,6 +132,16 @@ export const useArrStore = create<ArrState>((set, get) => ({
       const result = await api.arr.seerrRequests(id, page, filter)
       set(state => ({ seerrRequests: { ...state.seerrRequests, [id]: result } }))
     } catch { /* keep previous state on error — API independent */ }
+  },
+
+  loadSeerrTvStatus: async (seerrId, tmdbId) => {
+    try {
+      const detail = await api.arr.seerrTvDetail(seerrId, tmdbId)
+      const info = detail.mediaInfo
+        ? { status: detail.mediaInfo.status, seasons: detail.mediaInfo.seasons }
+        : { status: 1 }  // not tracked by Seerr / not in Sonarr
+      set(state => ({ seerrTvStatus: { ...state.seerrTvStatus, [tmdbId]: info } }))
+    } catch { /* keep previous state — show falls back to seerrRequests check */ }
   },
 
   seerrApprove: async (id, requestId) => {

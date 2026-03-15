@@ -20,7 +20,7 @@ import { dockerRoutes } from './routes/docker'
 import { backgroundsRoutes } from './routes/backgrounds'
 import { haRoutes } from './routes/ha'
 import { tmdbRoutes } from './routes/tmdb'
-import { trashRoutes } from './routes/trash'
+import recyclarrRoutes from './routes/recyclarr'
 
 const PORT = parseInt(process.env.PORT ?? '8282', 10)
 const DATA_DIR = process.env.DATA_DIR ?? '/data'
@@ -213,7 +213,7 @@ async function start() {
   await app.register(settingsRoutes)
   await app.register(haRoutes)
   await app.register(tmdbRoutes)
-  await app.register(trashRoutes)
+  await app.register(recyclarrRoutes)
 
   // ── SPA fallback – serve index.html for all non-API routes ───────────────────
   app.setNotFoundHandler(async (req, reply) => {

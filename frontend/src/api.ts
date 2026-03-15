@@ -1,7 +1,6 @@
 import type { Service, Group, Settings, AuthUser, UserRecord, UserGroup, DashboardItem, DashboardGroup, DashboardResponse, Widget, WidgetStats, DockerContainer, ContainerStats, Background, HaInstance, HaPanel, HaEntityFull, EnergyData } from './types'
 import type { ArrInstance, ArrStatus, ArrStats, ArrQueueResponse, ArrCalendarItem, ProwlarrIndexer, SabnzbdQueueData, SabnzbdHistoryData, SeerrRequest, SeerrRequestsResponse, RadarrMovie, SonarrSeries } from './types/arr'
 import type { TmdbPage, TmdbGenre, TmdbProvider, TmdbTvDetail, TmdbDiscoverFilters } from './types/tmdb'
-import type { TRaSHProfile, TrashInstanceConfig, TrashFormatListEntry, TrashChangeset, TrashApplyResult } from './types/trash'
 
 const BASE = '/api'
 
@@ -269,40 +268,14 @@ export const api = {
     },
   },
 
-  trash: {
-    profiles: (instanceId: string) => req<TRaSHProfile[]>(`/trash/instances/${instanceId}/profiles`),
-    config: (instanceId: string) => req<TrashInstanceConfig>(`/trash/instances/${instanceId}/config`),
-    saveConfig: (instanceId: string, profile_slugs: string[]) =>
-      req<{ ok: boolean; profile_slugs: string[] }>(`/trash/instances/${instanceId}/config`, {
-        method: 'PATCH', body: JSON.stringify({ profile_slugs }),
-      }),
-    customFormats: (instanceId: string) =>
-      req<Array<{ id: string; name: string; specifications: object[]; instance_id: string; created_at: string | null; updated_at: string | null }>>(
-        `/trash/instances/${instanceId}/custom-formats`
-      ),
-    createCustomFormat: (instanceId: string, name: string, specifications: object[]) =>
-      req<{ id: string; name: string; specifications: object[] }>(`/trash/instances/${instanceId}/custom-formats`, {
-        method: 'POST', body: JSON.stringify({ name, specifications }),
-      }),
-    updateCustomFormat: (instanceId: string, cfId: string, name: string, specifications: object[]) =>
-      req<{ id: string; name: string; specifications: object[] }>(`/trash/instances/${instanceId}/custom-formats/${cfId}`, {
-        method: 'PATCH', body: JSON.stringify({ name, specifications }),
-      }),
-    deleteCustomFormat: (instanceId: string, cfId: string) =>
-      req<void>(`/trash/instances/${instanceId}/custom-formats/${cfId}`, { method: 'DELETE' }),
-    formatList: (instanceId: string) => req<TrashFormatListEntry[]>(`/trash/instances/${instanceId}/format-list`),
-    saveOverrides: (instanceId: string, overrides: Array<{ format_slug: string; score_override: number | null; excluded: boolean }>) =>
-      req<{ ok: boolean }>(`/trash/instances/${instanceId}/overrides`, {
-        method: 'PUT', body: JSON.stringify({ overrides }),
-      }),
-    preview: (instanceId: string) => req<TrashChangeset>(`/trash/instances/${instanceId}/preview`),
-    apply: (instanceId: string) => req<TrashApplyResult>(`/trash/instances/${instanceId}/apply`, {
-      method: 'POST', body: JSON.stringify({}),
-    }),
-    refreshGithub: () => req<{ ok: boolean; fromCache: boolean; fetchedAt: string; counts: Record<string, number> }>('/trash/github/refresh', {
-      method: 'POST', body: JSON.stringify({}),
-    }),
-    cacheInfo: () => req<{ fetchedAt: string | null; treeSha: string | null }>('/trash/cache/info'),
+  recyclarr: {
+    templates: () => req<import('./types/recyclarr').RecyclarrTemplate[]>('/recyclarr/templates'),
+    configs: () => req<import('./types/recyclarr').RecyclarrInstanceConfig[]>('/recyclarr/config'),
+    saveConfig: (instanceId: string, data: { enabled: boolean; templates: string[]; scoreOverrides: import('./types/recyclarr').RecyclarrScoreOverride[]; userCfNames: import('./types/recyclarr').RecyclarrUserCf[] }) =>
+      req<{ ok: boolean }>(`/recyclarr/config/${instanceId}`, { method: 'PUT', body: JSON.stringify(data) }),
+    cfList: (instanceId: string) => req<import('./types/recyclarr').RecyclarrCfEntry[]>(`/recyclarr/formats/${instanceId}`),
+    sync: (instanceId?: string) => req<{ success: boolean; output: string; error?: string }>('/recyclarr/sync', { method: 'POST', body: JSON.stringify({ instanceId }) }),
+    refreshCache: () => req<{ ok: boolean }>('/recyclarr/refresh-cache', { method: 'POST', body: JSON.stringify({}) }),
   },
 
   health: () => req<{ status: string; version: string; uptime: number }>('/health'),

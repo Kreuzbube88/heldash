@@ -3,19 +3,19 @@ import { useStore } from '../store/useStore'
 import { useArrStore } from '../store/useArrStore'
 import { useTmdbStore } from '../store/useTmdbStore'
 import { useDashboardStore } from '../store/useDashboardStore'
-import { useTrashStore } from '../store/useTrashStore'
+import { useRecyclarrStore } from '../store/useRecyclarrStore'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import type { DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, rectSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Pencil, Trash2, Check, X, RefreshCw, GripVertical, LayoutGrid, CalendarDays, Search, Compass, Database, AlertTriangle, Sliders, ChevronDown, ChevronRight, Plus } from 'lucide-react'
+import { Pencil, Trash2, Check, X, RefreshCw, GripVertical, LayoutGrid, CalendarDays, Search, Compass, Database, AlertTriangle, Sliders, Plus } from 'lucide-react'
 import type { ArrInstance, ArrCalendarItem, RadarrCalendarItem, SonarrCalendarItem, ProwlarrStats } from '../types/arr'
 import type { TmdbResult, TmdbFilters, TmdbDiscoverFilters } from '../types/tmdb'
 import { ArrCardContent, SabnzbdCardContent, SeerrCardContent } from '../components/MediaCard'
 // ── Tab type ──────────────────────────────────────────────────────────────────
 
-type MediaTab = 'instances' | 'library' | 'calendar' | 'indexers' | 'discover' | 'trash'
+type MediaTab = 'instances' | 'library' | 'calendar' | 'indexers' | 'discover' | 'recyclarr'
 
 // ── Tab bar ───────────────────────────────────────────────────────────────────
 
@@ -26,7 +26,7 @@ function TabBar({ active, onChange }: { active: MediaTab; onChange: (t: MediaTab
     { id: 'calendar',   label: 'Calendar',   icon: <CalendarDays size={13} /> },
     { id: 'indexers',   label: 'Indexers',   icon: <Search size={13} /> },
     { id: 'discover' as MediaTab, label: 'Discover', icon: <Compass size={13} /> },
-    { id: 'trash' as MediaTab, label: 'TRaSH', icon: <Sliders size={13} /> },
+    { id: 'recyclarr' as MediaTab, label: 'Recyclarr', icon: <Sliders size={13} /> },
   ]
   return (
     <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: '6px 8px', display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -1948,18 +1948,15 @@ function DiscoverTab({ hasTmdbKey, onNavigate }: { hasTmdbKey: boolean; onNaviga
   )
 }
 
-// ── TRaSH Guides tab ──────────────────────────────────────────────────────────
+// ── Recyclarr tab ─────────────────────────────────────────────────────────────
 
-function TRaSHTab() {
+function RecyclarrTab() {
   const { isAdmin } = useStore()
   const { instances } = useArrStore()
   const {
-    profiles, configs, formatLists, previews, loading, applying, cacheInfo,
-    loadProfiles, loadConfig, loadFormatList, loadCustomFormats,
-    saveProfileSlugs, saveOverrides, createCustomFormat, updateCustomFormat,
-    deleteCustomFormat, loadPreview, applyChangeset, refreshGithub, loadCacheInfo,
-    customFormats,
-  } = useTrashStore()
+    templates, configs, cfLists, syncLog, syncing, loading,
+    loadTemplates, loadConfigs, saveConfig, loadCfList, sync, refreshCache,
+  } = useRecyclarrStore()
 
   const radarrSonarrInstances = instances.filter(i => (i.type === 'radarr' || i.type === 'sonarr') && i.enabled)
 
@@ -1967,200 +1964,103 @@ function TRaSHTab() {
     radarrSonarrInstances[0]?.id ?? null
   )
   const [refreshing, setRefreshing] = useState(false)
-  const [savingProfile, setSavingProfile] = useState(false)
-  const [localProfileSlugs, setLocalProfileSlugs] = useState<string[]>([])
-  const [showCustomModal, setShowCustomModal] = useState(false)
-  const [editingCF, setEditingCF] = useState<{ id: string; name: string; specifications: string } | null>(null)
-  const [cfName, setCfName] = useState('')
-  const [cfSpecs, setCfSpecs] = useState('[]')
-  const [cfError, setCfError] = useState('')
-  const [savingCF, setSavingCF] = useState(false)
-  const [localOverrides, setLocalOverrides] = useState<Record<string, { score: string; excluded: boolean }>>({})
-  const [overridesDirty, setOverridesDirty] = useState(false)
-  const [savingOverrides, setSavingOverrides] = useState(false)
-  const [previewOpen, setPreviewOpen] = useState(false)
-  const [trashUpdatesOpen, setTrashUpdatesOpen] = useState(false)
-  const [changesetOpen, setChangesetOpen] = useState(false)
-  const [applyError, setApplyError] = useState('')
-  const [applyErrors, setApplyErrors] = useState<string[]>([])
-  const [applyErrorsOpen, setApplyErrorsOpen] = useState(false)
+  const [loadingCfs, setLoadingCfs] = useState(false)
+
+  // Per-instance local config state
+  const [localEnabled, setLocalEnabled] = useState(true)
+  const [localTemplates, setLocalTemplates] = useState<string[]>([])
+  const [localScoreOverrides, setLocalScoreOverrides] = useState<import('../types/recyclarr').RecyclarrScoreOverride[]>([])
+  const [localUserCfs, setLocalUserCfs] = useState<import('../types/recyclarr').RecyclarrUserCf[]>([])
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
+
+  // Add user CF form
+  const [newCfName, setNewCfName] = useState('')
+  const [newCfScore, setNewCfScore] = useState('0')
+  const [newCfProfile, setNewCfProfile] = useState('')
 
   const instanceId = selectedInstanceId
 
   useEffect(() => {
-    loadCacheInfo().catch(() => {})
+    loadTemplates().catch(() => {})
+    loadConfigs().catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Sync local state from configs when instanceId or configs change
   useEffect(() => {
     if (!instanceId) return
-    loadProfiles(instanceId).catch(() => {})
-    loadConfig(instanceId).catch(() => {})
-    loadFormatList(instanceId).catch(() => {})
-    loadCustomFormats(instanceId).catch(() => {})
-  }, [instanceId])
-
-  useEffect(() => {
-    if (!instanceId) return
-    const config = configs[instanceId]
-    setLocalProfileSlugs(config?.profile_slugs ?? [])
+    const cfg = configs.find(c => c.instanceId === instanceId)
+    if (cfg) {
+      setLocalEnabled(cfg.enabled)
+      setLocalTemplates(cfg.templates)
+      setLocalScoreOverrides(cfg.scoreOverrides)
+      setLocalUserCfs(cfg.userCfNames)
+    } else {
+      setLocalEnabled(true)
+      setLocalTemplates([])
+      setLocalScoreOverrides([])
+      setLocalUserCfs([])
+    }
   }, [instanceId, configs])
 
-  useEffect(() => {
+  const handleSave = async () => {
     if (!instanceId) return
-    const list = formatLists[instanceId] ?? []
-    const overrides: Record<string, { score: string; excluded: boolean }> = {}
-    for (const entry of list) {
-      overrides[entry.slug] = {
-        score: entry.scoreOverride !== null ? String(entry.scoreOverride) : '',
-        excluded: entry.excluded,
-      }
+    setSaving(true)
+    setSaveError('')
+    try {
+      await saveConfig(instanceId, {
+        enabled: localEnabled,
+        templates: localTemplates,
+        scoreOverrides: localScoreOverrides,
+        userCfNames: localUserCfs,
+      })
+    } catch (e: unknown) {
+      setSaveError(e instanceof Error ? e.message : 'Save failed')
+    } finally {
+      setSaving(false)
     }
-    setLocalOverrides(overrides)
-    setOverridesDirty(false)
-  }, [instanceId, formatLists])
+  }
 
-  const handleRefreshGithub = async () => {
+  const handleLoadCfs = async () => {
+    if (!instanceId) return
+    setLoadingCfs(true)
+    try {
+      await loadCfList(instanceId)
+    } finally {
+      setLoadingCfs(false)
+    }
+  }
+
+  const handleRefreshCache = async () => {
     setRefreshing(true)
     try {
-      await refreshGithub()
-      if (instanceId) {
-        await loadProfiles(instanceId)
-        await loadFormatList(instanceId)
-      }
-    } catch (e: unknown) {
-      // ignore
+      await refreshCache()
     } finally {
       setRefreshing(false)
     }
   }
 
-  const handleSaveProfile = async () => {
-    if (!instanceId) return
-    setSavingProfile(true)
-    try {
-      await saveProfileSlugs(instanceId, localProfileSlugs)
-      await loadFormatList(instanceId).catch(() => {})
-    } finally {
-      setSavingProfile(false)
-    }
+  const handleAddUserCf = () => {
+    if (!newCfName.trim()) return
+    setLocalUserCfs(prev => [
+      ...prev,
+      { name: newCfName.trim(), score: parseInt(newCfScore, 10) || 0, profileName: newCfProfile },
+    ])
+    setNewCfName('')
+    setNewCfScore('0')
+    setNewCfProfile('')
   }
 
-  const handleSaveOverrides = async () => {
-    if (!instanceId) return
-    setSavingOverrides(true)
-    try {
-      const overrides = Object.entries(localOverrides).map(([slug, v]) => ({
-        format_slug: slug,
-        score_override: v.score !== '' ? parseInt(v.score, 10) : null,
-        excluded: v.excluded,
-      }))
-      await saveOverrides(instanceId, overrides)
-      setOverridesDirty(false)
-    } finally {
-      setSavingOverrides(false)
-    }
+  const handleRemoveUserCf = (idx: number) => {
+    setLocalUserCfs(prev => prev.filter((_, i) => i !== idx))
   }
 
-  const handleOpenAddCF = () => {
-    setEditingCF(null)
-    setCfName('')
-    setCfSpecs('[]')
-    setCfError('')
-    setShowCustomModal(true)
-  }
+  const currentCfs = instanceId ? (cfLists[instanceId] ?? []) : []
 
-  const handleOpenEditCF = (cf: { id: string; name: string; specifications: object[] }) => {
-    setEditingCF({ id: cf.id, name: cf.name, specifications: JSON.stringify(cf.specifications, null, 2) })
-    setCfName(cf.name)
-    setCfSpecs(JSON.stringify(cf.specifications, null, 2))
-    setCfError('')
-    setShowCustomModal(true)
-  }
-
-  const handleSaveCF = async () => {
-    if (!instanceId) return
-    if (!cfName.trim()) { setCfError('Name required'); return }
-    let specs: object[]
-    try {
-      specs = JSON.parse(cfSpecs) as object[]
-    } catch {
-      setCfError('Invalid JSON in specifications')
-      return
-    }
-    setSavingCF(true)
-    setCfError('')
-    try {
-      if (editingCF) {
-        await updateCustomFormat(instanceId, editingCF.id, cfName.trim(), specs)
-      } else {
-        await createCustomFormat(instanceId, cfName.trim(), specs)
-      }
-      setShowCustomModal(false)
-    } catch (e: unknown) {
-      setCfError(e instanceof Error ? e.message : 'Save failed')
-    } finally {
-      setSavingCF(false)
-    }
-  }
-
-  const handlePreview = async () => {
-    if (!instanceId) return
-    setApplyError('')
-    try {
-      await loadPreview(instanceId)
-      setPreviewOpen(true)
-      setTrashUpdatesOpen(false)
-      setChangesetOpen(false)
-    } catch (e: unknown) {
-      setApplyError(e instanceof Error ? e.message : 'Preview failed')
-    }
-  }
-
-  const handleApply = async () => {
-    if (!instanceId) return
-    if (!confirm('Apply TRaSH Guides changes to Arr? This will create/update custom formats and quality profile scores.')) return
-    setApplyError('')
-    setApplyErrors([])
-    setApplyErrorsOpen(false)
-    try {
-      const result = await applyChangeset(instanceId)
-      const msg = `Applied: ${result.created} created, ${result.updated} updated, ${result.scoresUpdated} scores updated.`
-      setApplyErrors(result.errors)
-      if (result.errors.length > 0) {
-        setApplyError(`Partial success: ${msg}`)
-      } else {
-        setApplyError('')
-        alert(msg)
-      }
-      await loadFormatList(instanceId).catch(() => {})
-    } catch (e: unknown) {
-      setApplyError(e instanceof Error ? e.message : 'Apply failed')
-    }
-  }
-
-  const formatRelativeTime = (isoStr: string | null): string => {
-    if (!isoStr) return 'Never'
-    const diff = Date.now() - new Date(isoStr).getTime()
-    const mins = Math.floor(diff / 60000)
-    if (mins < 1) return 'Just now'
-    if (mins < 60) return `${mins}m ago`
-    const hours = Math.floor(mins / 60)
-    if (hours < 24) return `${hours}h ago`
-    return `${Math.floor(hours / 24)}d ago`
-  }
-
-  const instanceProfiles = instanceId ? (profiles[instanceId] ?? []) : []
-  const formatList = instanceId ? (formatLists[instanceId] ?? []) : []
-  const preview = instanceId ? previews[instanceId] : undefined
-  const instanceCFs = instanceId ? (customFormats[instanceId] ?? []) : []
-  const isLoadingFormats = instanceId ? !!loading[`formats_${instanceId}`] : false
-  const isLoadingPreview = instanceId ? !!loading[`preview_${instanceId}`] : false
-  const isApplying = instanceId ? !!applying[instanceId] : false
-
-  const hasChanges = preview
-    ? (preview.toCreate.length + preview.toUpdate.length + preview.toUpdateScores.length +
-       preview.customToCreate.length + preview.customToUpdate.length) > 0
-    : false
+  const profileTemplates = templates.filter(t => t.type === 'profile')
+  const cfTemplates = templates.filter(t => t.type === 'custom_formats')
+  const qdTemplates = templates.filter(t => t.type === 'quality_definition')
 
   if (radarrSonarrInstances.length === 0) {
     return (
@@ -2172,12 +2072,12 @@ function TRaSHTab() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {/* Top bar: GitHub refresh + cache info */}
+      {/* Top bar */}
       {isAdmin && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <button
             className="btn btn-ghost btn-sm"
-            onClick={handleRefreshGithub}
+            onClick={handleRefreshCache}
             disabled={refreshing}
             style={{ fontSize: 12, gap: 6 }}
           >
@@ -2185,13 +2085,8 @@ function TRaSHTab() {
               ? <div className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} />
               : <RefreshCw size={12} />
             }
-            Refresh TRaSH data from GitHub
+            Refresh TRaSH cache
           </button>
-          {cacheInfo?.fetchedAt && (
-            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-              Last fetched: {formatRelativeTime(cacheInfo.fetchedAt)}
-            </span>
-          )}
         </div>
       )}
 
@@ -2224,84 +2119,139 @@ function TRaSHTab() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <h4 style={{ fontSize: 14, fontWeight: 600, margin: 0, flex: 1 }}>Configuration</h4>
               {isAdmin && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={localEnabled}
+                    onChange={e => setLocalEnabled(e.target.checked)}
+                  />
+                  Enabled
+                </label>
+              )}
+              {isAdmin && (
                 <button
                   className="btn btn-primary btn-sm"
-                  onClick={handleSaveProfile}
-                  disabled={savingProfile}
+                  onClick={handleSave}
+                  disabled={saving}
                   style={{ fontSize: 12, gap: 4 }}
                 >
                   <Check size={12} />
-                  {savingProfile ? 'Saving…' : 'Save'}
+                  {saving ? 'Saving…' : 'Save'}
                 </button>
               )}
             </div>
-            {loading[`profiles_${instanceId}`] ? (
+            {saveError && (
+              <div style={{ fontSize: 12, color: 'var(--status-offline)', padding: '8px 12px', background: 'rgba(239,68,68,0.1)', borderRadius: 'var(--radius-md)' }}>
+                {saveError}
+              </div>
+            )}
+            {loading ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />
-                <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Loading profiles…</span>
+                <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Loading…</span>
               </div>
-            ) : instanceProfiles.length === 0 ? (
-              <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No profiles available. Try refreshing TRaSH data from GitHub.</p>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 2 }}>Select one or more quality profiles to sync:</div>
-                {instanceProfiles.map(p => (
-                  <label key={p.slug} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: isAdmin ? 'pointer' : 'default', userSelect: 'none' }}>
-                    <input
-                      type="checkbox"
-                      checked={localProfileSlugs.includes(p.slug)}
-                      onChange={e => {
-                        if (!isAdmin) return
-                        setLocalProfileSlugs(prev =>
-                          e.target.checked ? [...prev, p.slug] : prev.filter(s => s !== p.slug)
-                        )
-                      }}
-                      disabled={!isAdmin}
-                    />
-                    {p.name}
-                  </label>
-                ))}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+                {/* Quality Definitions */}
+                {qdTemplates.length > 0 && (
+                  <div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6, fontWeight: 500 }}>Quality Definitions</div>
+                    {qdTemplates.map(t => (
+                      <label key={t.slug} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: isAdmin ? 'pointer' : 'default', userSelect: 'none', marginBottom: 4 }}>
+                        <input
+                          type="checkbox"
+                          checked={localTemplates.includes(t.slug)}
+                          onChange={e => {
+                            if (!isAdmin) return
+                            setLocalTemplates(prev => e.target.checked ? [...prev, t.slug] : prev.filter(s => s !== t.slug))
+                          }}
+                          disabled={!isAdmin}
+                        />
+                        {t.name}
+                      </label>
+                    ))}
+                  </div>
+                )}
+
+                {/* Profiles */}
+                {profileTemplates.length > 0 && (
+                  <div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6, fontWeight: 500 }}>Quality Profiles</div>
+                    {profileTemplates.map(t => (
+                      <label key={t.slug} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: isAdmin ? 'pointer' : 'default', userSelect: 'none', marginBottom: 4 }}>
+                        <input
+                          type="checkbox"
+                          checked={localTemplates.includes(t.slug)}
+                          onChange={e => {
+                            if (!isAdmin) return
+                            setLocalTemplates(prev => {
+                              let next = e.target.checked ? [...prev, t.slug] : prev.filter(s => s !== t.slug)
+                              // Auto-select paired CF template
+                              if (t.pairedWith) {
+                                if (e.target.checked && !next.includes(t.pairedWith)) {
+                                  next = [...next, t.pairedWith]
+                                } else if (!e.target.checked) {
+                                  next = next.filter(s => s !== t.pairedWith)
+                                }
+                              }
+                              return next
+                            })
+                          }}
+                          disabled={!isAdmin}
+                        />
+                        {t.name}
+                        {t.pairedWith && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>(includes CFs)</span>}
+                      </label>
+                    ))}
+                  </div>
+                )}
+
+                {/* Custom Formats (independent) */}
+                {cfTemplates.filter(t => !profileTemplates.some(p => p.pairedWith === t.slug)).length > 0 && (
+                  <div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6, fontWeight: 500 }}>Custom Formats (standalone)</div>
+                    {cfTemplates.filter(t => !profileTemplates.some(p => p.pairedWith === t.slug)).map(t => (
+                      <label key={t.slug} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: isAdmin ? 'pointer' : 'default', userSelect: 'none', marginBottom: 4 }}>
+                        <input
+                          type="checkbox"
+                          checked={localTemplates.includes(t.slug)}
+                          onChange={e => {
+                            if (!isAdmin) return
+                            setLocalTemplates(prev => e.target.checked ? [...prev, t.slug] : prev.filter(s => s !== t.slug))
+                          }}
+                          disabled={!isAdmin}
+                        />
+                        {t.name}
+                      </label>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
 
-          {/* Section B — Format customization */}
+          {/* Section B — Score Overrides */}
           <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <h4 style={{ fontSize: 14, fontWeight: 600, margin: 0, flex: 1 }}>Format Customization</h4>
-              {isAdmin && overridesDirty && (
-                <button
-                  className="btn btn-primary btn-sm"
-                  onClick={handleSaveOverrides}
-                  disabled={savingOverrides}
-                  style={{ fontSize: 12, gap: 4 }}
-                >
-                  <Check size={12} />
-                  {savingOverrides ? 'Saving…' : 'Save overrides'}
-                </button>
-              )}
-              {isAdmin && (
-                <button
-                  className="btn btn-ghost btn-sm"
-                  onClick={handleOpenAddCF}
-                  style={{ fontSize: 12, gap: 4 }}
-                >
-                  <Plus size={12} />
-                  Add custom format
-                </button>
-              )}
+              <h4 style={{ fontSize: 14, fontWeight: 600, margin: 0, flex: 1 }}>Score Overrides</h4>
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={handleLoadCfs}
+                disabled={loadingCfs}
+                style={{ fontSize: 12, gap: 4 }}
+              >
+                {loadingCfs
+                  ? <div className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} />
+                  : <RefreshCw size={12} />
+                }
+                Load CFs
+              </button>
             </div>
 
-            {isLoadingFormats ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />
-                <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Loading formats…</span>
-              </div>
-            ) : formatList.length === 0 ? (
+            {currentCfs.length === 0 ? (
               <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                {(configs[instanceId]?.profile_slugs?.length ?? 0) > 0
-                  ? 'No formats found. Try refreshing TRaSH data from GitHub.'
-                  : 'Select a quality profile above to see formats.'}
+                Click "Load CFs" to fetch custom format data for the selected templates.
               </p>
             ) : (
               <div style={{ overflowX: 'auto' }}>
@@ -2309,108 +2259,46 @@ function TRaSHTab() {
                   <thead>
                     <tr style={{ borderBottom: '1px solid var(--border)' }}>
                       <th style={{ textAlign: 'left', padding: '6px 8px', color: 'var(--text-muted)', fontWeight: 500 }}>Name</th>
-                      <th style={{ textAlign: 'left', padding: '6px 8px', color: 'var(--text-muted)', fontWeight: 500 }}>Source</th>
-                      <th style={{ textAlign: 'left', padding: '6px 8px', color: 'var(--text-muted)', fontWeight: 500 }}>In Profile(s)</th>
-                      <th style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--text-muted)', fontWeight: 500 }}>Default Score</th>
-                      <th style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--text-muted)', fontWeight: 500 }}>Your Score</th>
-                      <th style={{ textAlign: 'center', padding: '6px 8px', color: 'var(--text-muted)', fontWeight: 500 }}>Excluded</th>
-                      {isAdmin && <th style={{ padding: '6px 8px' }}></th>}
+                      <th style={{ textAlign: 'left', padding: '6px 8px', color: 'var(--text-muted)', fontWeight: 500 }}>Profile</th>
+                      <th style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--text-muted)', fontWeight: 500 }}>Default</th>
+                      <th style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--text-muted)', fontWeight: 500 }}>Override</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {formatList.map(entry => {
-                      const overrideVal = localOverrides[entry.slug]
-                      const isOverridden = (overrideVal?.score !== undefined && overrideVal.score !== '') || overrideVal?.excluded
-                      const rowBg = isOverridden ? 'var(--accent-ghost)' : 'transparent'
+                    {currentCfs.map(cf => {
+                      const override = localScoreOverrides.find(o => o.trash_id === cf.trash_id)
                       return (
-                        <tr
-                          key={entry.slug}
-                          style={{
-                            background: rowBg,
-                            borderBottom: '1px solid rgba(var(--text-rgb), 0.06)',
-                          }}
-                        >
-                          <td style={{ padding: '7px 8px', color: 'var(--text-primary)' }}>{entry.name}</td>
-                          <td style={{ padding: '7px 8px' }}>
-                            {entry.source === 'trash'
-                              ? <span className="badge badge-neutral" style={{ fontSize: 10 }}>TRaSH</span>
-                              : <span className="badge badge-accent" style={{ fontSize: 10 }}>Custom</span>
-                            }
-                          </td>
-                          <td style={{ padding: '7px 8px', color: 'var(--text-secondary)', fontSize: 11 }}>
-                            {entry.inProfiles && entry.inProfiles.length > 0 ? entry.inProfiles.join(', ') : '—'}
-                          </td>
-                          <td style={{ padding: '7px 8px', textAlign: 'right', color: 'var(--text-secondary)' }}>
-                            {entry.defaultScore !== 0 ? entry.defaultScore : '—'}
-                          </td>
+                        <tr key={cf.trash_id} style={{ borderBottom: '1px solid rgba(var(--text-rgb), 0.06)', background: override ? 'var(--accent-ghost)' : 'transparent' }}>
+                          <td style={{ padding: '7px 8px', color: 'var(--text-primary)' }}>{cf.name}</td>
+                          <td style={{ padding: '7px 8px', color: 'var(--text-secondary)', fontSize: 11 }}>{cf.profileName}</td>
+                          <td style={{ padding: '7px 8px', textAlign: 'right', color: 'var(--text-secondary)' }}>{cf.defaultScore || '—'}</td>
                           <td style={{ padding: '7px 8px', textAlign: 'right' }}>
-                            <input
-                              type="number"
-                              value={overrideVal?.score ?? ''}
-                              onChange={e => {
-                                if (!isAdmin) return
-                                setLocalOverrides(prev => ({
-                                  ...prev,
-                                  [entry.slug]: { ...prev[entry.slug], score: e.target.value },
-                                }))
-                                setOverridesDirty(true)
-                              }}
-                              placeholder="default"
-                              disabled={!isAdmin}
-                              style={{
-                                width: 70, textAlign: 'right',
-                                background: 'rgba(var(--text-rgb), 0.06)',
-                                border: '1px solid var(--border)',
-                                borderRadius: 'var(--radius-sm)',
-                                padding: '3px 6px', fontSize: 12,
-                                color: 'var(--text-primary)',
-                              }}
-                            />
+                            {isAdmin ? (
+                              <input
+                                type="number"
+                                value={override?.score ?? ''}
+                                onChange={e => {
+                                  const val = e.target.value
+                                  setLocalScoreOverrides(prev => {
+                                    const filtered = prev.filter(o => o.trash_id !== cf.trash_id)
+                                    if (val === '') return filtered
+                                    return [...filtered, { trash_id: cf.trash_id, name: cf.name, score: parseInt(val, 10) || 0, profileName: cf.profileName }]
+                                  })
+                                }}
+                                placeholder="—"
+                                style={{
+                                  width: 70, textAlign: 'right',
+                                  background: 'rgba(var(--text-rgb), 0.06)',
+                                  border: '1px solid var(--border)',
+                                  borderRadius: 'var(--radius-sm)',
+                                  padding: '3px 6px', fontSize: 12,
+                                  color: 'var(--text-primary)',
+                                }}
+                              />
+                            ) : (
+                              <span style={{ color: 'var(--text-secondary)' }}>{override?.score ?? '—'}</span>
+                            )}
                           </td>
-                          <td style={{ padding: '7px 8px', textAlign: 'center' }}>
-                            <input
-                              type="checkbox"
-                              checked={overrideVal?.excluded ?? false}
-                              onChange={e => {
-                                if (!isAdmin) return
-                                setLocalOverrides(prev => ({
-                                  ...prev,
-                                  [entry.slug]: { ...prev[entry.slug], excluded: e.target.checked },
-                                }))
-                                setOverridesDirty(true)
-                              }}
-                              disabled={!isAdmin}
-                            />
-                          </td>
-                          {isAdmin && (
-                            <td style={{ padding: '7px 8px' }}>
-                              {entry.source === 'custom' && (
-                                <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
-                                  <button
-                                    className="btn btn-ghost btn-icon btn-sm"
-                                    onClick={() => {
-                                      const cf = instanceCFs.find(c => c.id === entry.slug)
-                                      if (cf) handleOpenEditCF(cf)
-                                    }}
-                                    style={{ width: 24, height: 24, padding: 3 }}
-                                  >
-                                    <Pencil size={10} />
-                                  </button>
-                                  <button
-                                    className="btn btn-danger btn-icon btn-sm"
-                                    onClick={() => {
-                                      if (confirm(`Delete custom format "${entry.name}"?`)) {
-                                        deleteCustomFormat(instanceId, entry.slug).catch(() => {})
-                                      }
-                                    }}
-                                    style={{ width: 24, height: 24, padding: 3 }}
-                                  >
-                                    <Trash2 size={10} />
-                                  </button>
-                                </div>
-                              )}
-                            </td>
-                          )}
                         </tr>
                       )
                     })}
@@ -2420,213 +2308,115 @@ function TRaSHTab() {
             )}
           </div>
 
-          {/* Section C — Preview */}
+          {/* Section C — User Custom Formats */}
           <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <h4 style={{ fontSize: 14, fontWeight: 600, margin: 0, flex: 1 }}>Preview</h4>
-              <button
-                className="btn btn-ghost btn-sm"
-                onClick={handlePreview}
-                disabled={isLoadingPreview || !(configs[instanceId]?.profile_slugs?.length ?? 0)}
-                style={{ fontSize: 12, gap: 4 }}
-              >
-                {isLoadingPreview
-                  ? <div className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} />
-                  : <RefreshCw size={12} />
-                }
-                Preview changes
-              </button>
-            </div>
+            <h4 style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>User Custom Formats</h4>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>
+              Add custom format names that exist in your Arr instance. These will be assigned to a profile with a custom score.
+            </p>
 
-            {applyError && (
-              <div style={{ fontSize: 12, color: 'var(--status-offline)', padding: '8px 12px', background: 'rgba(239,68,68,0.1)', borderRadius: 'var(--radius-md)' }}>
-                {applyError}
+            {localUserCfs.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {localUserCfs.map((ucf, idx) => (
+                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, padding: '6px 8px', background: 'rgba(var(--text-rgb), 0.04)', borderRadius: 'var(--radius-sm)' }}>
+                    <span style={{ flex: 1 }}>{ucf.name}</span>
+                    <span style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{ucf.profileName || '—'}</span>
+                    <span style={{ color: 'var(--accent)', fontSize: 12, minWidth: 40, textAlign: 'right' }}>{ucf.score}</span>
+                    {isAdmin && (
+                      <button
+                        className="btn btn-danger btn-icon btn-sm"
+                        onClick={() => handleRemoveUserCf(idx)}
+                        style={{ width: 22, height: 22, padding: 3 }}
+                      >
+                        <X size={10} />
+                      </button>
+                    )}
+                  </div>
+                ))}
               </div>
             )}
 
-            {preview && previewOpen && (
-              <>
-                {/* TRaSH updates section */}
-                {(preview.trashUpdates.newFormats.length > 0 ||
-                  preview.trashUpdates.updatedFormats.length > 0 ||
-                  preview.trashUpdates.removedFromTRaSH.length > 0) && (
-                  <div>
-                    <button
-                      onClick={() => setTrashUpdatesOpen(v => !v)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 500, cursor: 'pointer', background: 'none', border: 'none', color: 'var(--text-primary)', padding: 0 }}
-                    >
-                      {trashUpdatesOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                      TRaSH Guide changes
-                    </button>
-                    {trashUpdatesOpen && (
-                      <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8, paddingLeft: 20 }}>
-                        {preview.trashUpdates.newFormats.length > 0 && (
-                          <div>
-                            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>New formats</div>
-                            {preview.trashUpdates.newFormats.map(f => (
-                              <div key={f.slug} style={{ fontSize: 12, color: '#10b981' }}>+ {f.name}</div>
-                            ))}
-                          </div>
-                        )}
-                        {preview.trashUpdates.updatedFormats.length > 0 && (
-                          <div>
-                            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Updated formats</div>
-                            {preview.trashUpdates.updatedFormats.map(f => (
-                              <div key={f.slug} style={{ fontSize: 12, color: '#f59e0b' }}>~ {f.name}</div>
-                            ))}
-                          </div>
-                        )}
-                        {preview.trashUpdates.removedFromTRaSH.length > 0 && (
-                          <div>
-                            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
-                              Removed from TRaSH <span className="badge badge-warning" style={{ fontSize: 10 }}>stays in Arr unless manually deleted</span>
-                            </div>
-                            {preview.trashUpdates.removedFromTRaSH.map(f => (
-                              <div key={f.slug} style={{ fontSize: 12, color: '#f87171' }}>- {f.name}</div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Changeset section */}
-                <div>
-                  <button
-                    onClick={() => setChangesetOpen(v => !v)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 500, cursor: 'pointer', background: 'none', border: 'none', color: 'var(--text-primary)', padding: 0 }}
-                  >
-                    {changesetOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                    Changeset ({preview.toCreate.length + preview.toUpdate.length + preview.toUpdateScores.length} changes, {preview.noChange} unchanged, {preview.excluded} excluded)
-                  </button>
-                  {changesetOpen && (
-                    <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8, paddingLeft: 20, fontSize: 12 }}>
-                      {preview.toCreate.length > 0 && (
-                        <div>
-                          <div style={{ color: 'var(--text-muted)', marginBottom: 4 }}>To create ({preview.toCreate.length})</div>
-                          {preview.toCreate.map(f => <div key={f.slug} style={{ color: '#10b981' }}>+ {f.name}</div>)}
-                        </div>
-                      )}
-                      {preview.toUpdate.length > 0 && (
-                        <div>
-                          <div style={{ color: 'var(--text-muted)', marginBottom: 4 }}>To update ({preview.toUpdate.length})</div>
-                          {preview.toUpdate.map(f => <div key={f.slug} style={{ color: '#f59e0b' }}>~ {f.name} — {f.changeDescription}</div>)}
-                        </div>
-                      )}
-                      {preview.toUpdateScores.length > 0 && (
-                        <div>
-                          <div style={{ color: 'var(--text-muted)', marginBottom: 4 }}>Score changes ({preview.toUpdateScores.length})</div>
-                          {preview.toUpdateScores.map(f => (
-                            <div key={f.slug} style={{ color: '#60a5fa' }}>
-                              {f.name}: {f.oldScore} → {f.newScore}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {(preview.customToCreate.length > 0 || preview.customToUpdate.length > 0) && (
-                        <div>
-                          <div style={{ color: 'var(--text-muted)', marginBottom: 4 }}>Custom formats ({preview.customToCreate.length + preview.customToUpdate.length})</div>
-                          {preview.customToCreate.map(f => <div key={f.slug} style={{ color: '#10b981' }}>+ {f.name}</div>)}
-                          {preview.customToUpdate.map(f => <div key={f.slug} style={{ color: '#f59e0b' }}>~ {f.name}</div>)}
-                        </div>
-                      )}
-                      <div style={{ color: 'var(--text-muted)' }}>No change: {preview.noChange} · Excluded: {preview.excluded}</div>
-                    </div>
-                  )}
-                </div>
-              </>
+            {isAdmin && (
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                <input
+                  className="form-input"
+                  placeholder="CF name"
+                  value={newCfName}
+                  onChange={e => setNewCfName(e.target.value)}
+                  style={{ flex: 2, minWidth: 120, fontSize: 12 }}
+                />
+                <input
+                  className="form-input"
+                  placeholder="Profile name"
+                  value={newCfProfile}
+                  onChange={e => setNewCfProfile(e.target.value)}
+                  style={{ flex: 2, minWidth: 120, fontSize: 12 }}
+                />
+                <input
+                  className="form-input"
+                  type="number"
+                  placeholder="Score"
+                  value={newCfScore}
+                  onChange={e => setNewCfScore(e.target.value)}
+                  style={{ flex: 1, minWidth: 70, fontSize: 12 }}
+                />
+                <button
+                  className="btn btn-ghost btn-sm"
+                  onClick={handleAddUserCf}
+                  style={{ fontSize: 12, gap: 4 }}
+                >
+                  <Plus size={12} />
+                  Add
+                </button>
+              </div>
             )}
           </div>
 
-          {/* Section D — Apply */}
+          {/* Section D — Sync */}
           {isAdmin && (
             <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <h4 style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>Apply</h4>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <h4 style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>Sync</h4>
+              <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>
+                Runs <code style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>recyclarr sync</code> inside the Recyclarr Docker container.
+                Save your configuration first.
+              </p>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <button
                   className="btn btn-primary btn-sm"
-                  onClick={handleApply}
-                  disabled={isApplying || !preview || !hasChanges}
+                  onClick={() => sync(instanceId).catch(() => {})}
+                  disabled={syncing}
                   style={{ fontSize: 12, gap: 4 }}
                 >
-                  {isApplying
+                  {syncing
                     ? <div className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} />
                     : <Check size={12} />
                   }
-                  {isApplying ? 'Applying…' : 'Apply changes'}
+                  {syncing ? 'Syncing…' : 'Sync this instance'}
                 </button>
-                {!preview && (
-                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Run preview first</span>
-                )}
-                {preview && !hasChanges && (
-                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Nothing to apply</span>
-                )}
+                <button
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => sync(undefined).catch(() => {})}
+                  disabled={syncing}
+                  style={{ fontSize: 12, gap: 4 }}
+                >
+                  Sync all
+                </button>
               </div>
-              {applyErrors.length > 0 && (
-                <div>
-                  <button
-                    onClick={() => setApplyErrorsOpen(v => !v)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 500, cursor: 'pointer', background: 'none', border: 'none', color: 'var(--status-offline)', padding: 0 }}
-                  >
-                    {applyErrorsOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                    {applyErrors.length} error{applyErrors.length > 1 ? 's' : ''} occurred
-                  </button>
-                  {applyErrorsOpen && (
-                    <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4, paddingLeft: 18, fontSize: 12 }}>
-                      {applyErrors.map((e, i) => (
-                        <div key={i} style={{ color: 'var(--status-offline)', fontFamily: 'var(--font-mono)', fontSize: 11 }}>{e}</div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+              {syncLog && (
+                <pre style={{
+                  fontFamily: 'var(--font-mono)', fontSize: 11,
+                  background: 'rgba(var(--text-rgb), 0.06)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: 12, overflowX: 'auto', whiteSpace: 'pre-wrap',
+                  color: 'var(--text-primary)', margin: 0,
+                }}>
+                  {syncLog}
+                </pre>
               )}
             </div>
           )}
         </>
-      )}
-
-      {/* Custom format modal */}
-      {showCustomModal && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 1000,
-          background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          backdropFilter: 'blur(4px)',
-        }}>
-          <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 24, width: '90%', maxWidth: 520, display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <h4 style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>
-              {editingCF ? 'Edit custom format' : 'Add custom format'}
-            </h4>
-            <input
-              className="form-input"
-              placeholder="Name *"
-              value={cfName}
-              onChange={e => setCfName(e.target.value)}
-            />
-            <div>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>
-                Specifications (use Radarr/Sonarr custom format JSON spec format)
-              </div>
-              <textarea
-                className="form-input"
-                value={cfSpecs}
-                onChange={e => setCfSpecs(e.target.value)}
-                rows={8}
-                style={{ fontFamily: 'var(--font-mono)', fontSize: 11, resize: 'vertical' }}
-                placeholder="[]"
-              />
-            </div>
-            {cfError && <div style={{ fontSize: 12, color: 'var(--status-offline)' }}>{cfError}</div>}
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn btn-primary btn-sm" onClick={handleSaveCF} disabled={savingCF} style={{ fontSize: 12, gap: 4 }}>
-                <Check size={12} /> {savingCF ? 'Saving…' : 'Save'}
-              </button>
-              <button className="btn btn-ghost btn-sm" onClick={() => setShowCustomModal(false)} style={{ fontSize: 12, gap: 4 }}>
-                <X size={12} /> Cancel
-              </button>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   )
@@ -2678,7 +2468,7 @@ export function MediaPage({ showAddForm: showFromParent, onFormClose, onNavigate
       {activeTab === 'calendar' && <CalendarTab />}
       {activeTab === 'indexers' && <IndexersTab />}
       {activeTab === 'discover' && <DiscoverTab hasTmdbKey={hasTmdbKey} onNavigate={onNavigate ?? (() => {})} />}
-      {activeTab === 'trash' && <TRaSHTab />}
+      {activeTab === 'recyclarr' && <RecyclarrTab />}
     </div>
   )
 }

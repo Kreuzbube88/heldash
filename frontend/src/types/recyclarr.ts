@@ -4,6 +4,13 @@ export interface RecyclarrTemplate {
   type: 'profile' | 'custom_formats' | 'quality_definition'
   mediaType: 'radarr' | 'sonarr'
   pairedWith?: string
+  group: string
+}
+
+export interface RecyclarrTemplatesResponse {
+  templates: RecyclarrTemplate[]
+  lastFetchedAt: string | null
+  warning: boolean
 }
 
 export interface RecyclarrScoreOverride {
@@ -34,4 +41,9 @@ export interface RecyclarrCfEntry {
   name: string
   defaultScore: number
   profileName: string
+}
+
+export interface RecyclarrSyncLine {
+  line: string
+  type: 'stdout' | 'stderr'
 }

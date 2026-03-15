@@ -4,16 +4,18 @@ import { getDb } from '../db/database'
 import { stringify } from 'yaml'
 import * as fs from 'fs'
 import * as path from 'path'
-import { execFile } from 'child_process'
-import { promisify } from 'util'
+import { spawn } from 'child_process'
 import { fetch } from 'undici'
-
-const execFileAsync = promisify(execFile)
 
 const RECYCLARR_CONFIG_PATH = process.env.RECYCLARR_CONFIG_PATH ?? '/recyclarr/recyclarr.yml'
 const RECYCLARR_CONTAINER_NAME = process.env.RECYCLARR_CONTAINER_NAME ?? 'recyclarr'
 
-// ─── Hardcoded template list ───────────────────────────────────────────────
+const GITHUB_INCLUDES_URL = 'https://raw.githubusercontent.com/recyclarr/config-templates/master/includes.json'
+const TEMPLATES_CACHE_KEY = 'recyclarr_templates_cache'
+const TEMPLATES_FETCHED_AT_KEY = 'recyclarr_templates_fetched_at'
+const TEMPLATES_CACHE_TTL = 24 * 60 * 60 * 1000 // 24h
+
+// ─── Template types ─────────────────────────────────────────────────────────
 
 interface RecyclarrTemplate {
   slug: string
@@ -21,34 +23,183 @@ interface RecyclarrTemplate {
   type: 'profile' | 'custom_formats' | 'quality_definition'
   mediaType: 'radarr' | 'sonarr'
   pairedWith?: string
+  group: string
 }
 
-const TEMPLATES: RecyclarrTemplate[] = [
-  // Radarr quality definitions
-  { slug: 'radarr-quality-definition-movie', name: 'Movie Quality Sizes', type: 'quality_definition', mediaType: 'radarr' },
-  // Radarr profiles
-  { slug: 'radarr-quality-profile-hd-bluray-web', name: 'HD Bluray + WEB', type: 'profile', mediaType: 'radarr', pairedWith: 'radarr-custom-formats-hd-bluray-web' },
-  { slug: 'radarr-quality-profile-uhd-bluray-web', name: 'UHD Bluray + WEB', type: 'profile', mediaType: 'radarr', pairedWith: 'radarr-custom-formats-uhd-bluray-web' },
-  { slug: 'radarr-quality-profile-remux-web-1080p', name: 'Remux + WEB 1080p', type: 'profile', mediaType: 'radarr', pairedWith: 'radarr-custom-formats-remux-web-1080p' },
-  { slug: 'radarr-quality-profile-remux-web-2160p', name: 'Remux + WEB 2160p', type: 'profile', mediaType: 'radarr', pairedWith: 'radarr-custom-formats-remux-web-2160p' },
-  // Radarr custom formats
-  { slug: 'radarr-custom-formats-hd-bluray-web', name: 'HD Bluray + WEB (CFs)', type: 'custom_formats', mediaType: 'radarr', pairedWith: 'radarr-quality-profile-hd-bluray-web' },
-  { slug: 'radarr-custom-formats-uhd-bluray-web', name: 'UHD Bluray + WEB (CFs)', type: 'custom_formats', mediaType: 'radarr', pairedWith: 'radarr-quality-profile-uhd-bluray-web' },
-  { slug: 'radarr-custom-formats-remux-web-1080p', name: 'Remux + WEB 1080p (CFs)', type: 'custom_formats', mediaType: 'radarr', pairedWith: 'radarr-quality-profile-remux-web-1080p' },
-  { slug: 'radarr-custom-formats-remux-web-2160p', name: 'Remux + WEB 2160p (CFs)', type: 'custom_formats', mediaType: 'radarr', pairedWith: 'radarr-quality-profile-remux-web-2160p' },
-  // Sonarr quality definitions
-  { slug: 'sonarr-quality-definition-series', name: 'Series Quality Sizes', type: 'quality_definition', mediaType: 'sonarr' },
-  // Sonarr profiles
-  { slug: 'sonarr-quality-profile-web-1080p', name: 'WEB 1080p', type: 'profile', mediaType: 'sonarr', pairedWith: 'sonarr-custom-formats-web-1080p' },
-  { slug: 'sonarr-quality-profile-web-2160p', name: 'WEB 2160p', type: 'profile', mediaType: 'sonarr', pairedWith: 'sonarr-custom-formats-web-2160p' },
-  { slug: 'sonarr-quality-profile-anime-sonarr', name: 'Anime', type: 'profile', mediaType: 'sonarr', pairedWith: 'sonarr-custom-formats-anime' },
-  // Sonarr custom formats
-  { slug: 'sonarr-custom-formats-web-1080p', name: 'WEB 1080p (CFs)', type: 'custom_formats', mediaType: 'sonarr', pairedWith: 'sonarr-quality-profile-web-1080p' },
-  { slug: 'sonarr-custom-formats-web-2160p', name: 'WEB 2160p (CFs)', type: 'custom_formats', mediaType: 'sonarr', pairedWith: 'sonarr-quality-profile-web-2160p' },
-  { slug: 'sonarr-custom-formats-anime', name: 'Anime (CFs)', type: 'custom_formats', mediaType: 'sonarr', pairedWith: 'sonarr-quality-profile-anime-sonarr' },
-]
+// ─── Template fetch + cache ──────────────────────────────────────────────────
 
-// ─── DB row types ──────────────────────────────────────────────────────────
+function getSettingStr(key: string): string | null {
+  const db = getDb()
+  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key) as { value: string } | undefined
+  if (!row) return null
+  try { return JSON.parse(row.value) as string } catch { return row.value }
+}
+
+function setSettingStr(key: string, value: string): void {
+  const db = getDb()
+  db.prepare("INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, datetime('now'))").run(key, JSON.stringify(value))
+}
+
+function deriveType(template: string): 'profile' | 'custom_formats' | 'quality_definition' | null {
+  if (template.includes('/quality-profiles/')) return 'profile'
+  if (template.includes('/custom-formats/')) return 'custom_formats'
+  if (template.includes('/quality-definitions/')) return 'quality_definition'
+  return null
+}
+
+function deriveGroup(slug: string): string {
+  if (slug.includes('german')) return 'Deutsch (German)'
+  if (slug.includes('anime')) return 'Anime'
+  if (slug.includes('french')) return 'French'
+  if (slug.includes('dutch')) return 'Dutch'
+  return 'Standard'
+}
+
+function deriveDisplayName(slug: string): string {
+  let name = slug
+  const prefixes = [
+    'radarr-quality-profile-', 'sonarr-v4-quality-profile-',
+    'radarr-custom-formats-', 'sonarr-v4-custom-formats-',
+    'radarr-quality-definition-', 'sonarr-quality-definition-',
+    'sonarr-quality-profile-',
+  ]
+  for (const prefix of prefixes) {
+    if (name.startsWith(prefix)) {
+      name = name.slice(prefix.length)
+      break
+    }
+  }
+
+  name = name.replace(/-/g, ' ')
+  name = name.replace(/\b\w/g, c => c.toUpperCase())
+
+  const replacements: [RegExp, string][] = [
+    [/\bUhd\b/g, 'UHD'],
+    [/\bHd\b/g, 'HD'],
+    [/\bWeb\b/g, 'WEB'],
+    [/\bBluray\b/g, 'Bluray'],
+    [/\bRemux\b/g, 'Remux'],
+    [/\bV4\b/g, ''],
+    [/\bGerman\b/g, '(German)'],
+    [/\bAnime\b/g, 'Anime'],
+    [/\bSonarr\b/g, ''],
+    [/\bRadarr\b/g, ''],
+    [/\bMovie\b/g, 'Movie'],
+    [/\bSeries\b/g, 'Series'],
+  ]
+  for (const [pattern, replacement] of replacements) {
+    name = name.replace(pattern, replacement)
+  }
+  return name.replace(/\s+/g, ' ').trim()
+}
+
+interface IncludesJsonEntry {
+  template: string
+  id: string
+}
+
+interface IncludesJson {
+  radarr?: unknown[]
+  sonarr?: unknown[]
+}
+
+function parseIncludesJson(raw: unknown): RecyclarrTemplate[] {
+  if (!raw || typeof raw !== 'object') return []
+  const obj = raw as IncludesJson
+  const templates: RecyclarrTemplate[] = []
+  const groups: Array<{ mediaType: 'radarr' | 'sonarr'; entries: IncludesJsonEntry[] }> = []
+
+  for (const mt of ['radarr', 'sonarr'] as const) {
+    const arr = (obj as Record<string, unknown>)[mt]
+    if (!Array.isArray(arr)) continue
+    const entries: IncludesJsonEntry[] = []
+    for (const item of arr) {
+      if (!item || typeof item !== 'object') continue
+      const entry = item as Record<string, unknown>
+      if (typeof entry.template !== 'string' || typeof entry.id !== 'string') continue
+      const type = deriveType(entry.template)
+      if (!type) {
+        console.warn(`[recyclarr] unknown template type: ${entry.template} — skipping`)
+        continue
+      }
+      entries.push({ template: entry.template, id: entry.id })
+    }
+    groups.push({ mediaType: mt, entries })
+  }
+
+  // Build profile→CF pairing map
+  for (const { mediaType, entries } of groups) {
+    for (const entry of entries) {
+      const type = deriveType(entry.template)!
+      const pairedWith = type === 'profile'
+        ? entry.id.replace('quality-profile-', 'custom-formats-')
+        : null
+      // Verify CF exists
+      const resolvedPair = pairedWith && entries.some(e => e.id === pairedWith) ? pairedWith : null
+
+      const tpl: RecyclarrTemplate = {
+        slug: entry.id,
+        name: deriveDisplayName(entry.id),
+        type,
+        mediaType,
+        group: deriveGroup(entry.id),
+      }
+      if (resolvedPair) tpl.pairedWith = resolvedPair
+      templates.push(tpl)
+    }
+  }
+
+  return templates
+}
+
+async function fetchTemplatesFromGitHub(): Promise<{ templates: RecyclarrTemplate[]; warning?: string }> {
+  try {
+    const resp = await fetch(GITHUB_INCLUDES_URL, {
+      headers: { 'User-Agent': 'heldash/1.0' },
+      signal: AbortSignal.timeout(15_000),
+    })
+    if (!resp.ok) throw new Error(`GitHub returned ${resp.status}`)
+    const raw = await resp.json()
+    const templates = parseIncludesJson(raw)
+    return { templates }
+  } catch (e) {
+    return { templates: [], warning: e instanceof Error ? e.message : String(e) }
+  }
+}
+
+async function getTemplates(forceRefresh = false): Promise<{ templates: RecyclarrTemplate[]; lastFetchedAt: string | null; warning: boolean }> {
+  const cachedJson = getSettingStr(TEMPLATES_CACHE_KEY)
+  const fetchedAt = getSettingStr(TEMPLATES_FETCHED_AT_KEY)
+  const age = fetchedAt ? Date.now() - new Date(fetchedAt).getTime() : Infinity
+
+  if (!forceRefresh && cachedJson && age < TEMPLATES_CACHE_TTL) {
+    try {
+      const templates = JSON.parse(cachedJson) as RecyclarrTemplate[]
+      return { templates, lastFetchedAt: fetchedAt, warning: false }
+    } catch { /* fall through to refresh */ }
+  }
+
+  const { templates, warning } = await fetchTemplatesFromGitHub()
+
+  if (templates.length > 0) {
+    const now = new Date().toISOString()
+    setSettingStr(TEMPLATES_CACHE_KEY, JSON.stringify(templates))
+    setSettingStr(TEMPLATES_FETCHED_AT_KEY, now)
+    return { templates, lastFetchedAt: now, warning: false }
+  }
+
+  // GitHub failed — return cached if available
+  if (cachedJson) {
+    try {
+      const templates = JSON.parse(cachedJson) as RecyclarrTemplate[]
+      return { templates, lastFetchedAt: fetchedAt, warning: true }
+    } catch { /* fall through */ }
+  }
+
+  return { templates: [], lastFetchedAt: null, warning: !!warning }
+}
+
+// ─── DB row types ────────────────────────────────────────────────────────────
 
 interface RecyclarrConfigRow {
   id: string
@@ -86,11 +237,7 @@ interface SaveConfigBody {
   userCfNames: UserCf[]
 }
 
-interface SyncBody {
-  instanceId?: string
-}
-
-// ─── TRaSH CF cache ────────────────────────────────────────────────────────
+// ─── TRaSH CF cache ──────────────────────────────────────────────────────────
 
 interface CfEntry {
   trash_id: string
@@ -148,8 +295,11 @@ const TEMPLATE_CF_PATHS: Record<string, { mediaType: string; profileName: string
   'radarr-custom-formats-remux-web-1080p': { mediaType: 'radarr', profileName: 'Remux + WEB 1080p' },
   'radarr-custom-formats-remux-web-2160p': { mediaType: 'radarr', profileName: 'Remux + WEB 2160p' },
   'sonarr-custom-formats-web-1080p': { mediaType: 'sonarr', profileName: 'WEB 1080p' },
+  'sonarr-v4-custom-formats-web-1080p': { mediaType: 'sonarr', profileName: 'WEB 1080p' },
   'sonarr-custom-formats-web-2160p': { mediaType: 'sonarr', profileName: 'WEB 2160p' },
+  'sonarr-v4-custom-formats-web-2160p': { mediaType: 'sonarr', profileName: 'WEB 2160p' },
   'sonarr-custom-formats-anime': { mediaType: 'sonarr', profileName: 'Anime' },
+  'sonarr-v4-custom-formats-anime-sonarr': { mediaType: 'sonarr', profileName: 'Anime' },
 }
 
 async function fetchCfListForTemplate(templateSlug: string, forceRefresh = false): Promise<CfEntry[]> {
@@ -205,7 +355,7 @@ async function fetchCfListForTemplate(templateSlug: string, forceRefresh = false
   }
 }
 
-// ─── YAML generation ───────────────────────────────────────────────────────
+// ─── YAML generation ─────────────────────────────────────────────────────────
 
 interface RecyclarrConfig {
   instanceId: string
@@ -277,13 +427,29 @@ async function writeYaml(configs: RecyclarrConfig[], instances: ArrInstanceRow[]
   fs.writeFileSync(RECYCLARR_CONFIG_PATH, yaml, 'utf8')
 }
 
-// ─── Route plugin ──────────────────────────────────────────────────────────
+// ─── Route plugin ─────────────────────────────────────────────────────────────
 
 export default async function recyclarrRoutes(app: FastifyInstance): Promise<void> {
-  // GET /api/recyclarr/templates — public (all GETs are public)
+  // GET /api/recyclarr/templates — public
   app.get('/api/recyclarr/templates', async (_req, reply) => {
-    return reply.send(TEMPLATES)
+    const result = await getTemplates()
+    return reply.send(result)
   })
+
+  // POST /api/recyclarr/refresh-templates — requireAdmin
+  app.post(
+    '/api/recyclarr/refresh-templates',
+    { onRequest: [app.requireAdmin] },
+    async (_req, reply) => {
+      const result = await getTemplates(true)
+      return reply.send({
+        updated: true,
+        count: result.templates.length,
+        fetched_at: result.lastFetchedAt ?? new Date().toISOString(),
+        warning: result.warning ? 'GitHub unavailable — using cached templates' : undefined,
+      })
+    }
+  )
 
   // GET /api/recyclarr/config — authenticate
   app.get('/api/recyclarr/config', { onRequest: [app.authenticate] }, async (_req, reply) => {
@@ -373,31 +539,64 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
     }
   )
 
-  // POST /api/recyclarr/sync — requireAdmin
-  app.post<{ Body: SyncBody }>(
+  // GET /api/recyclarr/sync — requireAdmin, SSE stream
+  app.get<{ Querystring: { instanceId?: string } }>(
     '/api/recyclarr/sync',
     { onRequest: [app.requireAdmin] },
     async (req, reply) => {
-      const { instanceId } = req.body
+      const { instanceId } = req.query
       const args = ['exec', RECYCLARR_CONTAINER_NAME, 'recyclarr', 'sync']
       if (instanceId) args.push('--instance', instanceId)
 
-      try {
-        const { stdout, stderr } = await execFileAsync('docker', args, { timeout: 120_000 })
-        return reply.send({ success: true, output: stdout + stderr })
-      } catch (e: unknown) {
-        const err = e as { message?: string; stdout?: string; stderr?: string }
-        const output = (err.stdout ?? '') + (err.stderr ?? '')
-        const message = err.message ?? String(e)
-        if (message.includes('No such container')) {
-          return reply.send({
-            success: false,
-            output,
-            error: `Container '${RECYCLARR_CONTAINER_NAME}' not found — is it running?`,
-          })
+      reply.hijack()
+      reply.raw.setHeader('Content-Type', 'text/event-stream')
+      reply.raw.setHeader('Cache-Control', 'no-cache')
+      reply.raw.setHeader('Connection', 'keep-alive')
+      reply.raw.setHeader('X-Accel-Buffering', 'no')
+      reply.raw.flushHeaders()
+
+      const sendEvent = (data: unknown) => {
+        if (!reply.raw.destroyed) {
+          reply.raw.write(`data: ${JSON.stringify(data)}\n\n`)
         }
-        return reply.send({ success: false, output, error: message })
       }
+
+      const proc = spawn('docker', args)
+
+      req.raw.on('close', () => {
+        proc.kill()
+      })
+
+      if (proc.stdout) {
+        proc.stdout.on('data', (chunk: Buffer) => {
+          const lines = chunk.toString('utf8').split('\n')
+          for (const line of lines) {
+            if (line.trim()) sendEvent({ line, type: 'stdout' })
+          }
+        })
+      }
+
+      if (proc.stderr) {
+        proc.stderr.on('data', (chunk: Buffer) => {
+          const lines = chunk.toString('utf8').split('\n')
+          for (const line of lines) {
+            if (line.trim()) sendEvent({ line, type: 'stderr' })
+          }
+        })
+      }
+
+      await new Promise<void>(resolve => {
+        proc.on('close', code => {
+          sendEvent({ done: true, exitCode: code ?? 1, success: code === 0 })
+          if (!reply.raw.destroyed) reply.raw.end()
+          resolve()
+        })
+        proc.on('error', err => {
+          sendEvent({ error: err.message })
+          if (!reply.raw.destroyed) reply.raw.end()
+          resolve()
+        })
+      })
     }
   )
 

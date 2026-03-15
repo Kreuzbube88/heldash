@@ -269,12 +269,12 @@ export const api = {
   },
 
   recyclarr: {
-    templates: () => req<import('./types/recyclarr').RecyclarrTemplate[]>('/recyclarr/templates'),
+    templates: () => req<import('./types/recyclarr').RecyclarrTemplatesResponse>('/recyclarr/templates'),
     configs: () => req<import('./types/recyclarr').RecyclarrInstanceConfig[]>('/recyclarr/config'),
     saveConfig: (instanceId: string, data: { enabled: boolean; templates: string[]; scoreOverrides: import('./types/recyclarr').RecyclarrScoreOverride[]; userCfNames: import('./types/recyclarr').RecyclarrUserCf[] }) =>
       req<{ ok: boolean }>(`/recyclarr/config/${instanceId}`, { method: 'PUT', body: JSON.stringify(data) }),
     cfList: (instanceId: string) => req<import('./types/recyclarr').RecyclarrCfEntry[]>(`/recyclarr/formats/${instanceId}`),
-    sync: (instanceId?: string) => req<{ success: boolean; output: string; error?: string }>('/recyclarr/sync', { method: 'POST', body: JSON.stringify({ instanceId }) }),
+    refreshTemplates: () => req<{ updated: boolean; count: number; fetched_at: string; warning?: string }>('/recyclarr/refresh-templates', { method: 'POST', body: JSON.stringify({}) }),
     refreshCache: () => req<{ ok: boolean }>('/recyclarr/refresh-cache', { method: 'POST', body: JSON.stringify({}) }),
   },
 

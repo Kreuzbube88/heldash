@@ -1954,8 +1954,9 @@ function RecyclarrTab() {
   const { isAdmin } = useStore()
   const { instances } = useArrStore()
   const {
-    templates, configs, cfLists, syncLog, syncing, loading,
-    loadTemplates, loadConfigs, saveConfig, loadCfList, sync, refreshCache,
+    templates, templatesLastFetchedAt, templatesWarning,
+    configs, cfLists, syncLines, syncDone, syncExitCode, syncing, loading,
+    loadTemplates, loadConfigs, saveConfig, loadCfList, sync, refreshTemplates, refreshCache,
   } = useRecyclarrStore()
 
   const radarrSonarrInstances = instances.filter(i => (i.type === 'radarr' || i.type === 'sonarr') && i.enabled)
@@ -1963,7 +1964,8 @@ function RecyclarrTab() {
   const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(
     radarrSonarrInstances[0]?.id ?? null
   )
-  const [refreshing, setRefreshing] = useState(false)
+  const [refreshingTemplates, setRefreshingTemplates] = useState(false)
+  const [refreshingCache, setRefreshingCache] = useState(false)
   const [loadingCfs, setLoadingCfs] = useState(false)
 
   // Per-instance local config state
@@ -1979,13 +1981,24 @@ function RecyclarrTab() {
   const [newCfScore, setNewCfScore] = useState('0')
   const [newCfProfile, setNewCfProfile] = useState('')
 
+  // Sync output scroll ref
+  const syncOutputRef = useRef<HTMLPreElement>(null)
+
   const instanceId = selectedInstanceId
+  const selectedInstance = radarrSonarrInstances.find(i => i.id === instanceId)
 
   useEffect(() => {
     loadTemplates().catch(() => {})
     loadConfigs().catch(() => {})
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Auto-scroll sync output
+  useEffect(() => {
+    if (syncOutputRef.current) {
+      syncOutputRef.current.scrollTop = syncOutputRef.current.scrollHeight
+    }
+  }, [syncLines])
 
   // Sync local state from configs when instanceId or configs change
   useEffect(() => {
@@ -1997,12 +2010,16 @@ function RecyclarrTab() {
       setLocalScoreOverrides(cfg.scoreOverrides)
       setLocalUserCfs(cfg.userCfNames)
     } else {
+      // New instance — auto-check matching quality definition
+      const inst = radarrSonarrInstances.find(i => i.id === instanceId)
+      const matchingQd = templates.find(t => t.type === 'quality_definition' && t.mediaType === inst?.type)
       setLocalEnabled(true)
-      setLocalTemplates([])
+      setLocalTemplates(matchingQd ? [matchingQd.slug] : [])
       setLocalScoreOverrides([])
       setLocalUserCfs([])
     }
-  }, [instanceId, configs])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [instanceId, configs, templates])
 
   const handleSave = async () => {
     if (!instanceId) return
@@ -2032,12 +2049,21 @@ function RecyclarrTab() {
     }
   }
 
+  const handleRefreshTemplates = async () => {
+    setRefreshingTemplates(true)
+    try {
+      await refreshTemplates()
+    } finally {
+      setRefreshingTemplates(false)
+    }
+  }
+
   const handleRefreshCache = async () => {
-    setRefreshing(true)
+    setRefreshingCache(true)
     try {
       await refreshCache()
     } finally {
-      setRefreshing(false)
+      setRefreshingCache(false)
     }
   }
 
@@ -2058,9 +2084,33 @@ function RecyclarrTab() {
 
   const currentCfs = instanceId ? (cfLists[instanceId] ?? []) : []
 
-  const profileTemplates = templates.filter(t => t.type === 'profile')
-  const cfTemplates = templates.filter(t => t.type === 'custom_formats')
-  const qdTemplates = templates.filter(t => t.type === 'quality_definition')
+  // Filter by selected instance mediaType
+  const instMediaType = selectedInstance?.type as 'radarr' | 'sonarr' | undefined
+  const filteredTemplates = instMediaType ? templates.filter(t => t.mediaType === instMediaType) : templates
+  const profileTemplates = filteredTemplates.filter(t => t.type === 'profile')
+  const cfTemplates = filteredTemplates.filter(t => t.type === 'custom_formats')
+  const qdTemplates = filteredTemplates.filter(t => t.type === 'quality_definition')
+
+  // Group profiles by their group field
+  const profileGroups = profileTemplates.reduce<Record<string, typeof profileTemplates>>((acc, t) => {
+    const g = t.group ?? 'Standard'
+    if (!acc[g]) acc[g] = []
+    acc[g].push(t)
+    return acc
+  }, {})
+  const profileGroupOrder = ['Standard', 'Anime', 'Deutsch (German)', 'French', 'Dutch']
+  const sortedProfileGroups = [...new Set([...profileGroupOrder, ...Object.keys(profileGroups)])].filter(g => profileGroups[g]?.length)
+
+  // Compute templates last updated label
+  const templatesAgeLabel = (() => {
+    if (!templatesLastFetchedAt) return null
+    const ms = Date.now() - new Date(templatesLastFetchedAt).getTime()
+    const mins = Math.floor(ms / 60_000)
+    if (mins < 60) return `${mins}m ago`
+    const hrs = Math.floor(mins / 60)
+    if (hrs < 24) return `${hrs}h ago`
+    return `${Math.floor(hrs / 24)}d ago`
+  })()
 
   if (radarrSonarrInstances.length === 0) {
     return (
@@ -2075,13 +2125,37 @@ function RecyclarrTab() {
       {/* Top bar */}
       {isAdmin && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={handleRefreshTemplates}
+              disabled={refreshingTemplates}
+              style={{ fontSize: 12, gap: 6 }}
+            >
+              {refreshingTemplates
+                ? <div className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} />
+                : <RefreshCw size={12} />
+              }
+              Refresh templates
+            </button>
+            {templatesAgeLabel && (
+              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                Last updated: {templatesAgeLabel}
+              </span>
+            )}
+            {templatesWarning && (
+              <span className="badge badge-warning" style={{ fontSize: 10 }}>
+                Using cached — GitHub unavailable
+              </span>
+            )}
+          </div>
           <button
             className="btn btn-ghost btn-sm"
             onClick={handleRefreshCache}
-            disabled={refreshing}
+            disabled={refreshingCache}
             style={{ fontSize: 12, gap: 6 }}
           >
-            {refreshing
+            {refreshingCache
               ? <div className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} />
               : <RefreshCw size={12} />
             }
@@ -2156,7 +2230,10 @@ function RecyclarrTab() {
                 {/* Quality Definitions */}
                 {qdTemplates.length > 0 && (
                   <div>
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6, fontWeight: 500 }}>Quality Definitions</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4, fontWeight: 500 }}>Quality Definitions</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8 }}>
+                      Controls allowed file sizes per quality — recommended to always include
+                    </div>
                     {qdTemplates.map(t => (
                       <label key={t.slug} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: isAdmin ? 'pointer' : 'default', userSelect: 'none', marginBottom: 4 }}>
                         <input
@@ -2169,40 +2246,48 @@ function RecyclarrTab() {
                           disabled={!isAdmin}
                         />
                         {t.name}
+                        <span className="badge badge-accent" style={{ fontSize: 10 }}>Recommended</span>
                       </label>
                     ))}
                   </div>
                 )}
 
-                {/* Profiles */}
+                {/* Profiles — grouped */}
                 {profileTemplates.length > 0 && (
-                  <div>
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6, fontWeight: 500 }}>Quality Profiles</div>
-                    {profileTemplates.map(t => (
-                      <label key={t.slug} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: isAdmin ? 'pointer' : 'default', userSelect: 'none', marginBottom: 4 }}>
-                        <input
-                          type="checkbox"
-                          checked={localTemplates.includes(t.slug)}
-                          onChange={e => {
-                            if (!isAdmin) return
-                            setLocalTemplates(prev => {
-                              let next = e.target.checked ? [...prev, t.slug] : prev.filter(s => s !== t.slug)
-                              // Auto-select paired CF template
-                              if (t.pairedWith) {
-                                if (e.target.checked && !next.includes(t.pairedWith)) {
-                                  next = [...next, t.pairedWith]
-                                } else if (!e.target.checked) {
-                                  next = next.filter(s => s !== t.pairedWith)
-                                }
-                              }
-                              return next
-                            })
-                          }}
-                          disabled={!isAdmin}
-                        />
-                        {t.name}
-                        {t.pairedWith && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>(includes CFs)</span>}
-                      </label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>Quality Profiles</div>
+                    {sortedProfileGroups.map(group => (
+                      <div key={group}>
+                        {sortedProfileGroups.length > 1 && (
+                          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4, fontStyle: 'italic' }}>{group}</div>
+                        )}
+                        {(profileGroups[group] ?? []).map(t => (
+                          <label key={t.slug} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: isAdmin ? 'pointer' : 'default', userSelect: 'none', marginBottom: 4 }}>
+                            <input
+                              type="checkbox"
+                              checked={localTemplates.includes(t.slug)}
+                              onChange={e => {
+                                if (!isAdmin) return
+                                setLocalTemplates(prev => {
+                                  let next = e.target.checked ? [...prev, t.slug] : prev.filter(s => s !== t.slug)
+                                  // Auto-select paired CF template
+                                  if (t.pairedWith) {
+                                    if (e.target.checked && !next.includes(t.pairedWith)) {
+                                      next = [...next, t.pairedWith]
+                                    } else if (!e.target.checked) {
+                                      next = next.filter(s => s !== t.pairedWith)
+                                    }
+                                  }
+                                  return next
+                                })
+                              }}
+                              disabled={!isAdmin}
+                            />
+                            {t.name}
+                            {t.pairedWith && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>(includes CFs)</span>}
+                          </label>
+                        ))}
+                      </div>
                     ))}
                   </div>
                 )}
@@ -2380,10 +2465,10 @@ function RecyclarrTab() {
                 Runs <code style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>recyclarr sync</code> inside the Recyclarr Docker container.
                 Save your configuration first.
               </p>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                 <button
                   className="btn btn-primary btn-sm"
-                  onClick={() => sync(instanceId).catch(() => {})}
+                  onClick={() => sync(instanceId ?? undefined)}
                   disabled={syncing}
                   style={{ fontSize: 12, gap: 4 }}
                 >
@@ -2395,23 +2480,41 @@ function RecyclarrTab() {
                 </button>
                 <button
                   className="btn btn-ghost btn-sm"
-                  onClick={() => sync(undefined).catch(() => {})}
+                  onClick={() => sync(undefined)}
                   disabled={syncing}
                   style={{ fontSize: 12, gap: 4 }}
                 >
                   Sync all
                 </button>
+                {syncDone && syncExitCode !== null && (
+                  syncExitCode === 0
+                    ? <span className="badge badge-success" style={{ fontSize: 11 }}>Sync complete</span>
+                    : <span className="badge badge-error" style={{ fontSize: 11 }}>Sync failed (exit {syncExitCode})</span>
+                )}
               </div>
-              {syncLog && (
-                <pre style={{
-                  fontFamily: 'var(--font-mono)', fontSize: 11,
-                  background: 'rgba(var(--text-rgb), 0.06)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 'var(--radius-md)',
-                  padding: 12, overflowX: 'auto', whiteSpace: 'pre-wrap',
-                  color: 'var(--text-primary)', margin: 0,
-                }}>
-                  {syncLog}
+              {(syncLines.length > 0 || syncing) && (
+                <pre
+                  ref={syncOutputRef}
+                  style={{
+                    fontFamily: 'var(--font-mono)', fontSize: 11,
+                    background: 'rgba(0,0,0,0.3)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-md)',
+                    padding: 12, overflowY: 'auto', whiteSpace: 'pre-wrap',
+                    maxHeight: 320, margin: 0,
+                  }}
+                >
+                  {syncLines.map((sl, i) => (
+                    <span
+                      key={i}
+                      style={{ display: 'block', color: sl.type === 'stderr' ? 'var(--status-offline)' : 'var(--text-primary)' }}
+                    >
+                      {sl.line}
+                    </span>
+                  ))}
+                  {syncing && (
+                    <span style={{ color: 'var(--text-muted)', display: 'block' }}>…</span>
+                  )}
                 </pre>
               )}
             </div>

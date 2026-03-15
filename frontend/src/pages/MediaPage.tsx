@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from '../store/useStore'
 import { useArrStore } from '../store/useArrStore'
 import { useTmdbStore } from '../store/useTmdbStore'
@@ -9,13 +9,13 @@ import type { DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, rectSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Pencil, Trash2, Check, X, RefreshCw, GripVertical, LayoutGrid, CalendarDays, Search, Compass, Database, AlertTriangle, Sliders, Plus, ChevronDown, ChevronRight, Clock } from 'lucide-react'
-import type { ArrInstance, ArrCalendarItem, RadarrCalendarItem, SonarrCalendarItem, ProwlarrStats } from '../types/arr'
+import { Pencil, Trash2, Check, X, RefreshCw, GripVertical, LayoutGrid, CalendarDays, Search, Compass, Database, AlertTriangle, Sliders, Plus, ChevronDown, ChevronRight, Clock, Shield } from 'lucide-react'
+import type { ArrInstance, ArrCalendarItem, RadarrCalendarItem, SonarrCalendarItem, ProwlarrStats, ArrCustomFormat, ArrCFSpecification, ArrQualityProfile } from '../types/arr'
 import type { TmdbResult, TmdbFilters, TmdbDiscoverFilters } from '../types/tmdb'
 import { ArrCardContent, SabnzbdCardContent, SeerrCardContent } from '../components/MediaCard'
 // ── Tab type ──────────────────────────────────────────────────────────────────
 
-type MediaTab = 'instances' | 'library' | 'calendar' | 'indexers' | 'discover' | 'recyclarr'
+type MediaTab = 'instances' | 'library' | 'calendar' | 'indexers' | 'discover' | 'recyclarr' | 'cf-manager'
 
 // ── Tab bar ───────────────────────────────────────────────────────────────────
 
@@ -27,6 +27,7 @@ function TabBar({ active, onChange }: { active: MediaTab; onChange: (t: MediaTab
     { id: 'indexers',   label: 'Indexers',   icon: <Search size={13} /> },
     { id: 'discover' as MediaTab, label: 'Discover', icon: <Compass size={13} /> },
     { id: 'recyclarr' as MediaTab, label: 'Recyclarr', icon: <Sliders size={13} /> },
+    { id: 'cf-manager' as MediaTab, label: 'CF-Manager', icon: <Shield size={13} /> },
   ]
   return (
     <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: '6px 8px', display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -2697,6 +2698,776 @@ function RecyclarrTab() {
   )
 }
 
+// ── CF Manager helpers ─────────────────────────────────────────────────────────
+
+const SPEC_TYPE_NAMES: Record<string, string> = {
+  ReleaseTitleSpecification: 'Release Titel',
+  LanguageSpecification: 'Sprache',
+  QualityModifierSpecification: 'Qualitäts-Modifier',
+  SizeSpecification: 'Dateigröße',
+  IndexerFlagSpecification: 'Indexer Flag',
+  SourceSpecification: 'Quelle',
+  ResolutionSpecification: 'Auflösung',
+  ReleaseGroupSpecification: 'Release-Gruppe',
+}
+
+const KNOWN_SPEC_IMPLS = new Set(Object.keys(SPEC_TYPE_NAMES))
+
+interface DraftSpec {
+  name: string
+  implementation: string
+  negate: boolean
+  required: boolean
+  value: string
+  isUnknown: boolean
+  rawJson: string
+  originalFields: { name: string; value: unknown }[]
+}
+
+function initDraftSpec(): DraftSpec {
+  return {
+    name: '',
+    implementation: 'ReleaseTitleSpecification',
+    negate: false,
+    required: false,
+    value: '',
+    isUnknown: false,
+    rawJson: '[]',
+    originalFields: [],
+  }
+}
+
+function toDraftSpec(spec: ArrCFSpecification): DraftSpec {
+  const isUnknown = !KNOWN_SPEC_IMPLS.has(spec.implementation)
+  const valueField = spec.fields.find(f => f.name === 'value')
+  const value = valueField == null ? '' : typeof valueField.value === 'string' ? valueField.value : String(valueField.value)
+  return {
+    name: spec.name,
+    implementation: spec.implementation,
+    negate: spec.negate,
+    required: spec.required,
+    value,
+    isUnknown,
+    rawJson: isUnknown ? JSON.stringify(spec.fields, null, 2) : '[]',
+    originalFields: spec.fields,
+  }
+}
+
+function buildSpecPayload(ds: DraftSpec): ArrCFSpecification {
+  if (ds.isUnknown) {
+    let fields: { name: string; value: unknown }[] = []
+    try { fields = JSON.parse(ds.rawJson) as { name: string; value: unknown }[] } catch { fields = [] }
+    return { name: ds.name, implementation: ds.implementation, implementationName: ds.implementation, negate: ds.negate, required: ds.required, fields }
+  }
+  const updatedFields = ds.originalFields.length > 0
+    ? ds.originalFields.map(f => f.name === 'value' ? { ...f, value: ds.value } : f)
+    : [{ name: 'value', value: ds.value }]
+  return {
+    name: ds.name,
+    implementation: ds.implementation,
+    implementationName: SPEC_TYPE_NAMES[ds.implementation] ?? ds.implementation,
+    negate: ds.negate,
+    required: ds.required,
+    fields: updatedFields,
+  }
+}
+
+// ── CF Row ─────────────────────────────────────────────────────────────────────
+
+function CfRow({
+  cf,
+  profiles,
+  scores,
+  isProtected,
+  isAdmin,
+  onEdit,
+  onDelete,
+}: {
+  cf: ArrCustomFormat
+  profiles: ArrQualityProfile[]
+  scores: Record<number, number>
+  isProtected: boolean
+  isAdmin: boolean
+  onEdit: () => void
+  onDelete: () => void
+}) {
+  const [hovered, setHovered] = useState(false)
+  return (
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        background: 'rgba(var(--bg-secondary-rgb), 0.4)',
+        borderRadius: 'var(--radius-md)',
+        padding: '8px 12px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        flexWrap: 'wrap',
+        position: 'relative',
+        border: '1px solid rgba(var(--border-rgb), 0.08)',
+      }}
+    >
+      <span style={{ fontWeight: 500, fontSize: 13, flex: 1, minWidth: 100 }}>{cf.name}</span>
+      <span className="badge-neutral" style={{ fontSize: 11 }}>{cf.specifications.length} Conditions</span>
+      {profiles.map(p => {
+        const score = scores[p.id]
+        if (score == null || score === 0) return null
+        return (
+          <span
+            key={p.id}
+            className={score > 0 ? 'badge-success' : 'badge-error'}
+            style={{ fontSize: 11 }}
+            title={p.name}
+          >
+            {score > 0 ? '+' : ''}{score}
+          </span>
+        )
+      })}
+      {isProtected && (
+        <span className="badge-accent" style={{ fontSize: 11 }}>Recyclarr: geschützt</span>
+      )}
+      {isAdmin && hovered && (
+        <div style={{ display: 'flex', gap: 4, marginLeft: 4 }}>
+          <button
+            onClick={onEdit}
+            style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4 }}
+          >
+            <Pencil size={12} />
+          </button>
+          <button
+            onClick={onDelete}
+            style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#f87171', padding: 4 }}
+          >
+            <Trash2 size={12} />
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── CF Edit Modal ──────────────────────────────────────────────────────────────
+
+function CfEditModal({
+  initial,
+  onClose,
+  onSave,
+}: {
+  initial: ArrCustomFormat | null
+  onClose: () => void
+  onSave: (data: { name: string; includeCustomFormatWhenRenaming: boolean; specifications: ArrCFSpecification[] }) => Promise<void>
+}) {
+  const [name, setName] = useState(initial?.name ?? '')
+  const [includeWhenRenaming, setIncludeWhenRenaming] = useState(initial?.includeCustomFormatWhenRenaming ?? false)
+  const [specs, setSpecs] = useState<DraftSpec[]>(initial ? initial.specifications.map(toDraftSpec) : [])
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  function updateSpec(idx: number, updater: (s: DraftSpec) => DraftSpec) {
+    setSpecs(prev => prev.map((s, i) => i === idx ? updater(s) : s))
+  }
+
+  async function handleSave() {
+    if (!name.trim()) { setError('Name ist erforderlich'); return }
+    setSaving(true)
+    setError(null)
+    try {
+      await onSave({
+        name: name.trim(),
+        includeCustomFormatWhenRenaming: includeWhenRenaming,
+        specifications: specs.map(buildSpecPayload),
+      })
+    } catch (e: any) {
+      setError(e.message)
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 200, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', overflowY: 'auto', padding: '40px 16px' }}>
+      <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 24, width: '100%', maxWidth: 580 }}>
+        <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 20 }}>
+          {initial ? 'Custom Format bearbeiten' : 'Custom Format erstellen'}
+        </h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Name *</label>
+            <input
+              value={name}
+              onChange={e => setName(e.target.value)}
+              style={{ width: '100%', padding: '8px 10px', borderRadius: 'var(--radius-md)', fontSize: 13, border: '1px solid rgba(var(--border-rgb), 0.2)', background: 'rgba(var(--bg-secondary-rgb), 0.5)', color: 'var(--text)', boxSizing: 'border-box' }}
+            />
+          </div>
+
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13 }}>
+            <input type="checkbox" checked={includeWhenRenaming} onChange={e => setIncludeWhenRenaming(e.target.checked)} />
+            Beim Umbenennen anwenden
+          </label>
+
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <span style={{ fontSize: 13, fontWeight: 500 }}>Conditions</span>
+              <button
+                onClick={() => setSpecs(prev => [...prev, initDraftSpec()])}
+                style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, background: 'transparent', border: '1px solid rgba(var(--accent-rgb), 0.3)', color: 'var(--accent)', borderRadius: 'var(--radius-sm)', padding: '3px 8px', cursor: 'pointer' }}
+              >
+                <Plus size={11} /> Condition hinzufügen
+              </button>
+            </div>
+
+            {specs.length === 0 && (
+              <p style={{ fontSize: 12, color: 'var(--text-muted)', padding: '4px 0 8px' }}>Keine Conditions definiert</p>
+            )}
+
+            {specs.map((spec, idx) => (
+              <div key={idx} style={{ background: 'rgba(var(--bg-secondary-rgb), 0.4)', borderRadius: 'var(--radius-md)', padding: '10px 12px', marginBottom: 8, border: '1px solid rgba(var(--border-rgb), 0.1)' }}>
+                <div style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+                  <select
+                    value={spec.implementation}
+                    onChange={e => {
+                      const newImpl = e.target.value
+                      updateSpec(idx, s => ({ ...s, implementation: newImpl, isUnknown: !KNOWN_SPEC_IMPLS.has(newImpl), originalFields: [] }))
+                    }}
+                    style={{ flex: 1, minWidth: 140, padding: '4px 6px', borderRadius: 'var(--radius-sm)', fontSize: 12, background: 'rgba(var(--bg-secondary-rgb), 0.8)', color: 'var(--text)', border: '1px solid rgba(var(--border-rgb), 0.2)' }}
+                  >
+                    {Object.entries(SPEC_TYPE_NAMES).map(([impl, label]) => (
+                      <option key={impl} value={impl}>{label}</option>
+                    ))}
+                    {spec.isUnknown && <option value={spec.implementation}>{spec.implementation}</option>}
+                  </select>
+                  <input
+                    value={spec.name}
+                    onChange={e => updateSpec(idx, s => ({ ...s, name: e.target.value }))}
+                    placeholder="Name"
+                    style={{ flex: 1, minWidth: 100, padding: '4px 6px', borderRadius: 'var(--radius-sm)', fontSize: 12, background: 'rgba(var(--bg-secondary-rgb), 0.8)', color: 'var(--text)', border: '1px solid rgba(var(--border-rgb), 0.2)' }}
+                  />
+                  <button
+                    onClick={() => setSpecs(prev => prev.filter((_, i) => i !== idx))}
+                    style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#f87171', padding: '4px' }}
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
+                <div style={{ display: 'flex', gap: 16, marginBottom: 8 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={spec.negate} onChange={e => updateSpec(idx, s => ({ ...s, negate: e.target.checked }))} />
+                    Nicht
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={spec.required} onChange={e => updateSpec(idx, s => ({ ...s, required: e.target.checked }))} />
+                    Pflicht
+                  </label>
+                </div>
+                {spec.isUnknown ? (
+                  <div>
+                    <label style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Fields (JSON)</label>
+                    <textarea
+                      value={spec.rawJson}
+                      onChange={e => updateSpec(idx, s => ({ ...s, rawJson: e.target.value }))}
+                      rows={3}
+                      style={{ width: '100%', padding: '4px 6px', borderRadius: 'var(--radius-sm)', fontSize: 11, fontFamily: 'var(--font-mono)', background: 'rgba(var(--bg-secondary-rgb), 0.8)', color: 'var(--text)', border: '1px solid rgba(var(--border-rgb), 0.2)', resize: 'vertical', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                ) : (
+                  <div>
+                    <label style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>
+                      {spec.implementation === 'ReleaseTitleSpecification' || spec.implementation === 'ReleaseGroupSpecification' ? 'Regex' : 'Wert'}
+                    </label>
+                    <input
+                      value={spec.value}
+                      onChange={e => updateSpec(idx, s => ({ ...s, value: e.target.value }))}
+                      style={{ width: '100%', padding: '4px 6px', borderRadius: 'var(--radius-sm)', fontSize: 12, background: 'rgba(var(--bg-secondary-rgb), 0.8)', color: 'var(--text)', border: '1px solid rgba(var(--border-rgb), 0.2)', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                )}
+              </div>
+            ))}
+
+            <span className="badge-neutral" style={{ fontSize: 11, padding: '4px 10px', borderRadius: 'var(--radius-sm)', display: 'inline-block', marginTop: 2 }}>
+              Conditions werden direkt in Radarr/Sonarr gespeichert.
+            </span>
+          </div>
+
+          {error && <p style={{ color: '#f87171', fontSize: 13, margin: 0 }}>{error}</p>}
+
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
+            <button
+              onClick={onClose}
+              style={{ padding: '7px 16px', borderRadius: 'var(--radius-md)', background: 'transparent', border: '1px solid rgba(var(--border-rgb), 0.2)', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: 13 }}
+            >
+              Abbrechen
+            </button>
+            <button onClick={handleSave} disabled={saving} className="btn-primary" style={{ padding: '7px 16px', fontSize: 13 }}>
+              {saving ? 'Speichern…' : 'Speichern'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── CF Manager Tab ─────────────────────────────────────────────────────────────
+
+function CfManagerTab() {
+  const { isAdmin } = useStore()
+  const {
+    instances,
+    customFormats,
+    qualityProfiles,
+    cfLoading,
+    loadCustomFormats,
+    loadQualityProfiles,
+    createCustomFormat,
+    updateCustomFormat,
+    deleteCustomFormat,
+    updateProfileScores,
+  } = useArrStore()
+  const { configs, loadConfigs } = useRecyclarrStore()
+
+  const arrInstances = instances.filter(i => i.enabled && (i.type === 'radarr' || i.type === 'sonarr'))
+
+  const [activeInstance, setActiveInstance] = useState<string | null>(null)
+  const [cfSearch, setCfSearch] = useState('')
+  const [sortByScore, setSortByScore] = useState(false)
+  const [editingCf, setEditingCf] = useState<ArrCustomFormat | 'new' | null>(null)
+  const [confirmDeleteCfId, setConfirmDeleteCfId] = useState<number | null>(null)
+  const [activeProfileId, setActiveProfileId] = useState<number | null>(null)
+  const [scoreEdits, setScoreEdits] = useState<Record<number, string>>({})
+  const [scoreSaving, setScoreSaving] = useState(false)
+  const [scoreSaved, setScoreSaved] = useState(false)
+  const [scoreSaveError, setScoreSaveError] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  // Init active instance
+  useEffect(() => {
+    if (arrInstances.length > 0 && !activeInstance) {
+      setActiveInstance(arrInstances[0].id)
+    }
+  }, [arrInstances.length]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load recyclarr configs if empty (needed for protected CF badges)
+  useEffect(() => {
+    if (configs.length === 0) loadConfigs().catch(() => {})
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load CFs + profiles when active instance changes
+  useEffect(() => {
+    if (!activeInstance) return
+    setLoadError(null)
+    Promise.all([
+      loadCustomFormats(activeInstance),
+      loadQualityProfiles(activeInstance),
+    ]).catch(e => setLoadError(e.message ?? 'Ladefehler'))
+  }, [activeInstance]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Set first profile active when profiles load for a new instance
+  useEffect(() => {
+    if (!activeInstance) return
+    const profiles = qualityProfiles[activeInstance] ?? []
+    if (profiles.length > 0 && activeProfileId == null) {
+      setActiveProfileId(profiles[0].id)
+    }
+  }, [activeInstance, qualityProfiles]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reinit score edits when active profile or CFs change
+  useEffect(() => {
+    if (!activeInstance || activeProfileId == null) return
+    const profiles = qualityProfiles[activeInstance] ?? []
+    const profile = profiles.find(p => p.id === activeProfileId)
+    if (!profile) return
+    const cfs = customFormats[activeInstance] ?? []
+    const edits: Record<number, string> = {}
+    for (const cf of cfs) {
+      const item = profile.formatItems.find(fi => fi.format === cf.id)
+      edits[cf.id] = String(item?.score ?? 0)
+    }
+    setScoreEdits(edits)
+    setScoreSaved(false)
+    setScoreSaveError(null)
+  }, [activeInstance, activeProfileId, qualityProfiles, customFormats]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Protected CF names from recyclarr config
+  const protectedCfNames = useMemo(() => {
+    if (!activeInstance) return new Set<string>()
+    const config = configs.find(c => c.instanceId === activeInstance)
+    if (!config) return new Set<string>()
+    const names = new Set<string>()
+    for (const pc of config.profilesConfig) {
+      for (const n of pc.reset_unmatched_scores_except) names.add(n)
+    }
+    return names
+  }, [configs, activeInstance])
+
+  // cfId -> profileId -> score map for badge display
+  const profileScoreMap = useMemo(() => {
+    if (!activeInstance) return {} as Record<number, Record<number, number>>
+    const profiles = qualityProfiles[activeInstance] ?? []
+    const map: Record<number, Record<number, number>> = {}
+    for (const profile of profiles) {
+      for (const item of profile.formatItems) {
+        if (!map[item.format]) map[item.format] = {}
+        map[item.format][profile.id] = item.score
+      }
+    }
+    return map
+  }, [qualityProfiles, activeInstance])
+
+  // Filtered + sorted CF list for left panel
+  const filteredCfs = useMemo(() => {
+    const cfs = customFormats[activeInstance ?? ''] ?? []
+    let filtered = cfs.filter(cf => cf.name.toLowerCase().includes(cfSearch.toLowerCase()))
+    if (sortByScore) {
+      filtered = [...filtered].sort((a, b) => {
+        const aScores = Object.values(profileScoreMap[a.id] ?? {})
+        const bScores = Object.values(profileScoreMap[b.id] ?? {})
+        const aMax = aScores.length ? Math.max(...aScores) : 0
+        const bMax = bScores.length ? Math.max(...bScores) : 0
+        if (bMax !== aMax) return bMax - aMax
+        return a.name.localeCompare(b.name)
+      })
+    } else {
+      filtered = [...filtered].sort((a, b) => a.name.localeCompare(b.name))
+    }
+    return filtered
+  }, [customFormats, activeInstance, cfSearch, sortByScore, profileScoreMap])
+
+  // All CFs sorted by name for score table
+  const allCfsSorted = useMemo(() => {
+    const cfs = customFormats[activeInstance ?? ''] ?? []
+    return [...cfs].sort((a, b) => a.name.localeCompare(b.name))
+  }, [customFormats, activeInstance])
+
+  async function handleSaveScores() {
+    if (!activeInstance || activeProfileId == null) return
+    const profiles = qualityProfiles[activeInstance] ?? []
+    const profile = profiles.find(p => p.id === activeProfileId)
+    if (!profile) return
+
+    const changes: { formatId: number; score: number }[] = []
+    for (const [cfIdStr, newScoreStr] of Object.entries(scoreEdits)) {
+      const cfId = parseInt(cfIdStr, 10)
+      const newScore = parseInt(newScoreStr, 10)
+      if (isNaN(newScore)) continue
+      const item = profile.formatItems.find(fi => fi.format === cfId)
+      const currentScore = item?.score ?? 0
+      if (newScore !== currentScore) {
+        changes.push({ formatId: cfId, score: newScore })
+      }
+    }
+
+    setScoreSaving(true)
+    setScoreSaveError(null)
+    try {
+      await updateProfileScores(activeInstance, activeProfileId, changes)
+      await loadQualityProfiles(activeInstance)
+      setScoreSaved(true)
+      setTimeout(() => setScoreSaved(false), 3000)
+    } catch (e: any) {
+      if (e.message?.includes('Recyclarr Sync') || e.message?.includes('409')) {
+        setScoreSaveError('sync')
+      } else {
+        setScoreSaveError(e.message ?? 'Fehler beim Speichern')
+      }
+    } finally {
+      setScoreSaving(false)
+    }
+  }
+
+  const isLoading = cfLoading[activeInstance ?? ''] === true
+  const cfs = customFormats[activeInstance ?? ''] ?? []
+  const profiles = qualityProfiles[activeInstance ?? ''] ?? []
+  const activeProfile = profiles.find(p => p.id === activeProfileId)
+  const activeInstanceObj = instances.find(i => i.id === activeInstance)
+
+  if (arrInstances.length === 0) {
+    return (
+      <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 48, textAlign: 'center' }}>
+        <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>Keine Radarr oder Sonarr Instanzen konfiguriert.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* Instance selector */}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {arrInstances.map(inst => (
+          <button
+            key={inst.id}
+            onClick={() => {
+              setActiveInstance(inst.id)
+              setActiveProfileId(null)
+              setCfSearch('')
+            }}
+            className={activeInstance === inst.id ? 'badge-accent' : 'badge-neutral'}
+            style={{ cursor: 'pointer', fontSize: 13, padding: '4px 12px', border: 'none', display: 'flex', alignItems: 'center', gap: 6 }}
+          >
+            {inst.name}
+            <span style={{ opacity: 0.6, fontSize: 11 }}>({inst.type})</span>
+          </button>
+        ))}
+      </div>
+
+      {loadError && (
+        <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: '10px 16px', color: '#f87171', fontSize: 13, display: 'flex', alignItems: 'center', gap: 10 }}>
+          <AlertTriangle size={14} />
+          {loadError}
+          <button
+            onClick={() => {
+              if (!activeInstance) return
+              setLoadError(null)
+              Promise.all([loadCustomFormats(activeInstance), loadQualityProfiles(activeInstance)]).catch(e => setLoadError(e.message))
+            }}
+            style={{ marginLeft: 4, background: 'transparent', border: 'none', cursor: 'pointer', color: '#f87171', textDecoration: 'underline', fontSize: 13 }}
+          >
+            Wiederholen
+          </button>
+        </div>
+      )}
+
+      {/* Two-column layout */}
+      <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        {/* Left: CF list (60%) */}
+        <div style={{ flex: '0 0 calc(60% - 8px)', minWidth: 300 }}>
+          <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+              <span style={{ fontWeight: 600, fontSize: 15 }}>Custom Formats</span>
+              <span className="badge-neutral" style={{ fontSize: 11 }}>{cfs.length}</span>
+              <div style={{ flex: 1 }} />
+              {isAdmin && (
+                <button
+                  onClick={() => setEditingCf('new')}
+                  className="btn-primary"
+                  style={{ fontSize: 12, padding: '4px 12px', display: 'flex', alignItems: 'center', gap: 4 }}
+                >
+                  <Plus size={12} /> Erstellen
+                </button>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+              <input
+                value={cfSearch}
+                onChange={e => setCfSearch(e.target.value)}
+                placeholder="Suchen…"
+                style={{ flex: 1, borderRadius: 'var(--radius-md)', padding: '6px 10px', fontSize: 13, border: '1px solid rgba(var(--border-rgb), 0.2)', background: 'rgba(var(--bg-secondary-rgb), 0.5)', color: 'var(--text)' }}
+              />
+              <button
+                onClick={() => setSortByScore(!sortByScore)}
+                style={{
+                  padding: '6px 10px', borderRadius: 'var(--radius-md)', fontSize: 12, whiteSpace: 'nowrap',
+                  background: sortByScore ? 'rgba(var(--accent-rgb), 0.12)' : 'transparent',
+                  color: sortByScore ? 'var(--accent)' : 'var(--text-secondary)',
+                  border: sortByScore ? '1px solid rgba(var(--accent-rgb), 0.25)' : '1px solid rgba(var(--border-rgb), 0.2)',
+                  cursor: 'pointer',
+                }}
+              >
+                Score &gt; 0 zuerst
+              </button>
+            </div>
+
+            {isLoading ? (
+              <p style={{ color: 'var(--text-muted)', fontSize: 13, textAlign: 'center', padding: 24 }}>Lade…</p>
+            ) : filteredCfs.length === 0 ? (
+              <p style={{ color: 'var(--text-muted)', fontSize: 13, textAlign: 'center', padding: 24 }}>
+                {cfSearch ? 'Keine Custom Formats gefunden' : 'Keine Custom Formats in dieser Instanz'}
+              </p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {filteredCfs.map(cf => (
+                  <CfRow
+                    key={cf.id}
+                    cf={cf}
+                    profiles={profiles}
+                    scores={profileScoreMap[cf.id] ?? {}}
+                    isProtected={protectedCfNames.has(cf.name)}
+                    isAdmin={isAdmin}
+                    onEdit={() => setEditingCf(cf)}
+                    onDelete={() => setConfirmDeleteCfId(cf.id)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right: Quality profile score editor (40%) */}
+        <div style={{ flex: 1, minWidth: 280 }}>
+          <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+              <span style={{ fontWeight: 600, fontSize: 15 }}>Qualitätsprofile</span>
+              {activeInstanceObj && (
+                <span style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{activeInstanceObj.name}</span>
+              )}
+            </div>
+
+            {profiles.length === 0 ? (
+              <p style={{ color: 'var(--text-muted)', fontSize: 13, textAlign: 'center', padding: 24 }}>
+                {isLoading ? 'Lade…' : 'Keine Qualitätsprofile gefunden'}
+              </p>
+            ) : (
+              <>
+                {/* Profile tabs */}
+                <div style={{ display: 'flex', gap: 6, overflowX: 'auto', marginBottom: 14, paddingBottom: 4 }}>
+                  {profiles.map(p => (
+                    <button
+                      key={p.id}
+                      onClick={() => setActiveProfileId(p.id)}
+                      className={activeProfileId === p.id ? 'badge-accent' : 'badge-neutral'}
+                      style={{ whiteSpace: 'nowrap', cursor: 'pointer', fontSize: 12, padding: '3px 10px', border: 'none', flexShrink: 0 }}
+                    >
+                      {p.name}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Recyclarr warning */}
+                <div style={{ fontSize: 11, padding: '6px 10px', borderRadius: 'var(--radius-md)', marginBottom: 12, background: 'rgba(245,158,11,0.1)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.2)' }}>
+                  Scores die von Recyclarr verwaltet werden können beim nächsten Sync überschrieben werden — außer sie sind in der Ausnahmen-Liste (reset_unmatched_scores.except) eingetragen.
+                </div>
+
+                {/* Score table */}
+                {activeProfile != null && (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                      <thead>
+                        <tr style={{ borderBottom: '1px solid rgba(var(--border-rgb), 0.15)' }}>
+                          <th style={{ textAlign: 'left', padding: '6px 8px', color: 'var(--text-secondary)', fontWeight: 500 }}>Name</th>
+                          <th style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--text-secondary)', fontWeight: 500, whiteSpace: 'nowrap' }}>Aktuell</th>
+                          <th style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--text-secondary)', fontWeight: 500 }}>Neu</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {allCfsSorted.map(cf => {
+                          const profileItem = activeProfile.formatItems.find(fi => fi.format === cf.id)
+                          const currentScore = profileItem?.score ?? 0
+                          const editScore = scoreEdits[cf.id] ?? String(currentScore)
+                          const editNum = parseInt(editScore, 10)
+                          const isProtected = protectedCfNames.has(cf.name)
+                          return (
+                            <tr key={cf.id} style={{ borderBottom: '1px solid rgba(var(--border-rgb), 0.06)' }}>
+                              <td style={{ padding: '5px 8px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                  <span style={{ fontSize: 12 }}>{cf.name}</span>
+                                  {isProtected && (
+                                    <span
+                                      className="badge-accent"
+                                      style={{ fontSize: 10, padding: '1px 5px', cursor: 'help' }}
+                                      title="Score wird beim Sync nicht überschrieben"
+                                    >
+                                      geschützt
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                              <td style={{ padding: '5px 8px', textAlign: 'right', fontSize: 12, color: currentScore > 0 ? '#10b981' : currentScore < 0 ? '#f87171' : 'var(--text-muted)' }}>
+                                {currentScore}
+                              </td>
+                              <td style={{ padding: '5px 8px', textAlign: 'right' }}>
+                                <input
+                                  type="number"
+                                  value={editScore}
+                                  onChange={e => setScoreEdits(prev => ({ ...prev, [cf.id]: e.target.value }))}
+                                  style={{
+                                    width: 70,
+                                    padding: '2px 6px',
+                                    fontSize: 12,
+                                    textAlign: 'right',
+                                    borderRadius: 'var(--radius-sm)',
+                                    background: 'rgba(var(--bg-secondary-rgb), 0.5)',
+                                    color: 'var(--text)',
+                                    border: `1px solid ${!isNaN(editNum) && editNum > 0 ? 'var(--status-online)' : !isNaN(editNum) && editNum < 0 ? 'var(--status-offline)' : 'rgba(var(--border-rgb), 0.2)'}`,
+                                  }}
+                                />
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {scoreSaveError === 'sync' && (
+                  <div style={{ fontSize: 12, padding: '6px 10px', borderRadius: 'var(--radius-md)', marginTop: 12, background: 'rgba(245,158,11,0.1)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.2)' }}>
+                    Sync läuft gerade — bitte danach erneut versuchen
+                  </div>
+                )}
+                {scoreSaveError != null && scoreSaveError !== 'sync' && (
+                  <p style={{ color: '#f87171', fontSize: 12, marginTop: 8 }}>{scoreSaveError}</p>
+                )}
+                {scoreSaved && (
+                  <p style={{ color: '#10b981', fontSize: 12, marginTop: 8 }}>Scores gespeichert</p>
+                )}
+
+                {isAdmin && (
+                  <button
+                    onClick={handleSaveScores}
+                    disabled={scoreSaving}
+                    className="btn-primary"
+                    style={{ width: '100%', marginTop: 12, padding: '8px', fontSize: 13 }}
+                  >
+                    {scoreSaving ? 'Speichern…' : 'Alle Scores speichern'}
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* CF create/edit modal */}
+      {editingCf != null && (
+        <CfEditModal
+          initial={editingCf === 'new' ? null : editingCf}
+          onClose={() => setEditingCf(null)}
+          onSave={async data => {
+            if (!activeInstance) return
+            if (editingCf === 'new') {
+              await createCustomFormat(activeInstance, data)
+            } else if (editingCf != null) {
+              await updateCustomFormat(activeInstance, editingCf.id, data)
+            }
+            await loadCustomFormats(activeInstance)
+            setEditingCf(null)
+          }}
+        />
+      )}
+
+      {/* Delete confirm */}
+      {confirmDeleteCfId != null && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 24, maxWidth: 380, width: '90%' }}>
+            <p style={{ fontSize: 14, marginBottom: 16 }}>Custom Format wirklich löschen?</p>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setConfirmDeleteCfId(null)}
+                style={{ padding: '6px 14px', borderRadius: 'var(--radius-md)', background: 'transparent', border: '1px solid rgba(var(--border-rgb), 0.2)', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: 13 }}
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={async () => {
+                  if (activeInstance) {
+                    await deleteCustomFormat(activeInstance, confirmDeleteCfId)
+                    await loadCustomFormats(activeInstance)
+                  }
+                  setConfirmDeleteCfId(null)
+                }}
+                style={{ padding: '6px 14px', borderRadius: 'var(--radius-md)', background: 'rgba(248,113,113,0.15)', color: '#f87171', border: '1px solid rgba(248,113,113,0.3)', cursor: 'pointer', fontSize: 13 }}
+              >
+                Löschen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Stub tab ──────────────────────────────────────────────────────────────────
 
 function ComingSoonTab({ label }: { label: string }) {
@@ -2744,6 +3515,7 @@ export function MediaPage({ showAddForm: showFromParent, onFormClose, onNavigate
       {activeTab === 'indexers' && <IndexersTab />}
       {activeTab === 'discover' && <DiscoverTab hasTmdbKey={hasTmdbKey} onNavigate={onNavigate ?? (() => {})} />}
       {activeTab === 'recyclarr' && <RecyclarrTab />}
+      {activeTab === 'cf-manager' && <CfManagerTab />}
     </div>
   )
 }

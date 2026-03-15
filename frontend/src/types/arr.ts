@@ -202,6 +202,30 @@ export interface ProwlarrIndexer {
   privacy: string
 }
 
+// ── Custom Formats ────────────────────────────────────────────────────────────
+export interface ArrCFSpecification {
+  name: string
+  implementation: string
+  implementationName: string
+  infoLink?: string
+  negate: boolean
+  required: boolean
+  fields: { name: string; value: unknown }[]
+}
+
+export interface ArrCustomFormat {
+  id: number
+  name: string
+  includeCustomFormatWhenRenaming: boolean
+  specifications: ArrCFSpecification[]
+}
+
+export interface ArrQualityProfile {
+  id: number
+  name: string
+  formatItems: { format: number; score: number; name: string }[]
+}
+
 // ── Library (Radarr movies / Sonarr series) ───────────────────────────────────
 export interface RadarrMovie {
   id: number

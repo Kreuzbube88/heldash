@@ -120,4 +120,34 @@ export class ArrBaseClient {
   getSystemStatus(): Promise<{ version: string; instanceName?: string }> {
     return this.get('system/status')
   }
+
+  // ── Custom Formats & Quality Profiles (Radarr/Sonarr v3 shared) ─────────────
+
+  getCustomFormats(): Promise<unknown[]> {
+    return this.get<unknown[]>('customformat')
+  }
+
+  createCustomFormat(data: unknown): Promise<unknown> {
+    return this.post<unknown>('customformat', data)
+  }
+
+  updateCustomFormat(cfId: number, data: unknown): Promise<unknown> {
+    return this.put<unknown>(`customformat/${cfId}`, data)
+  }
+
+  deleteCustomFormat(cfId: number): Promise<void> {
+    return this.del(`customformat/${cfId}`)
+  }
+
+  getQualityProfiles(): Promise<unknown[]> {
+    return this.get<unknown[]>('qualityprofile')
+  }
+
+  getQualityProfile(profileId: number): Promise<unknown> {
+    return this.get<unknown>(`qualityprofile/${profileId}`)
+  }
+
+  updateQualityProfile(profileId: number, data: unknown): Promise<unknown> {
+    return this.put<unknown>(`qualityprofile/${profileId}`, data)
+  }
 }

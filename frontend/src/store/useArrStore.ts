@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { api } from '../api'
-import type { ArrInstance, ArrStatus, ArrStats, ArrQueueResponse, ArrCalendarItem, ProwlarrIndexer, SabnzbdQueueData, SabnzbdHistoryData, SeerrRequestsResponse, RadarrMovie, SonarrSeries } from '../types/arr'
+import type { ArrInstance, ArrStatus, ArrStats, ArrQueueResponse, ArrCalendarItem, ProwlarrIndexer, SabnzbdQueueData, SabnzbdHistoryData, SeerrRequestsResponse, RadarrMovie, SonarrSeries, ArrCustomFormat, ArrCFSpecification, ArrQualityProfile } from '../types/arr'
 
 interface ArrState {
   instances: ArrInstance[]
@@ -32,6 +32,17 @@ interface ArrState {
   seerrDecline: (id: string, requestId: number) => Promise<void>
   seerrDelete: (id: string, requestId: number) => Promise<void>
 
+  customFormats: Record<string, ArrCustomFormat[]>
+  qualityProfiles: Record<string, ArrQualityProfile[]>
+  cfLoading: Record<string, boolean>
+
+  loadCustomFormats: (instanceId: string) => Promise<void>
+  loadQualityProfiles: (instanceId: string) => Promise<void>
+  createCustomFormat: (instanceId: string, data: { name: string; includeCustomFormatWhenRenaming?: boolean; specifications: ArrCFSpecification[] }) => Promise<ArrCustomFormat>
+  updateCustomFormat: (instanceId: string, cfId: number, data: { name: string; includeCustomFormatWhenRenaming?: boolean; specifications: ArrCFSpecification[] }) => Promise<void>
+  deleteCustomFormat: (instanceId: string, cfId: number) => Promise<void>
+  updateProfileScores: (instanceId: string, profileId: number, scores: { formatId: number; score: number }[]) => Promise<void>
+
   createInstance: (data: { type: string; name: string; url: string; api_key: string }) => Promise<string>
   updateInstance: (id: string, data: { name?: string; url?: string; api_key?: string; enabled?: boolean; position?: number }) => Promise<void>
   deleteInstance: (id: string) => Promise<void>
@@ -50,6 +61,9 @@ export const useArrStore = create<ArrState>((set, get) => ({
   seerrRequests: {},
   movies: {},
   series: {},
+  customFormats: {},
+  qualityProfiles: {},
+  cfLoading: {},
 
   loadInstances: async () => {
     const instances = await api.arr.instances.list()
@@ -152,6 +166,41 @@ export const useArrStore = create<ArrState>((set, get) => ({
     return result
   },
 
+  loadCustomFormats: async (instanceId) => {
+    set(s => ({ cfLoading: { ...s.cfLoading, [instanceId]: true } }))
+    try {
+      const cfs = await api.arr.customFormats.list(instanceId)
+      set(s => ({
+        customFormats: { ...s.customFormats, [instanceId]: cfs },
+        cfLoading: { ...s.cfLoading, [instanceId]: false },
+      }))
+    } catch (e) {
+      set(s => ({ cfLoading: { ...s.cfLoading, [instanceId]: false } }))
+      throw e
+    }
+  },
+
+  loadQualityProfiles: async (instanceId) => {
+    const profiles = await api.arr.qualityProfiles.list(instanceId)
+    set(s => ({ qualityProfiles: { ...s.qualityProfiles, [instanceId]: profiles } }))
+  },
+
+  createCustomFormat: async (instanceId, data) => {
+    return await api.arr.customFormats.create(instanceId, data)
+  },
+
+  updateCustomFormat: async (instanceId, cfId, data) => {
+    await api.arr.customFormats.update(instanceId, cfId, data)
+  },
+
+  deleteCustomFormat: async (instanceId, cfId) => {
+    await api.arr.customFormats.delete(instanceId, cfId)
+  },
+
+  updateProfileScores: async (instanceId, profileId, scores) => {
+    await api.arr.qualityProfiles.updateScores(instanceId, profileId, scores)
+  },
+
   createInstance: async (data) => {
     const instance = await api.arr.instances.create(data)
     set(state => ({ instances: [...state.instances, instance] }))
@@ -192,6 +241,9 @@ export const useArrStore = create<ArrState>((set, get) => ({
       seerrRequests: Object.fromEntries(Object.entries(state.seerrRequests).filter(([k]) => k !== id)),
       movies: Object.fromEntries(Object.entries(state.movies).filter(([k]) => k !== id)),
       series: Object.fromEntries(Object.entries(state.series).filter(([k]) => k !== id)),
+      customFormats: Object.fromEntries(Object.entries(state.customFormats).filter(([k]) => k !== id)),
+      qualityProfiles: Object.fromEntries(Object.entries(state.qualityProfiles).filter(([k]) => k !== id)),
+      cfLoading: Object.fromEntries(Object.entries(state.cfLoading).filter(([k]) => k !== id)),
     }))
   },
 }))

@@ -1,5 +1,5 @@
 import type { Service, Group, Settings, AuthUser, UserRecord, UserGroup, DashboardItem, DashboardGroup, DashboardResponse, Widget, WidgetStats, DockerContainer, ContainerStats, Background, HaInstance, HaPanel, HaEntityFull, EnergyData } from './types'
-import type { ArrInstance, ArrStatus, ArrStats, ArrQueueResponse, ArrCalendarItem, ProwlarrIndexer, SabnzbdQueueData, SabnzbdHistoryData, SeerrRequest, SeerrRequestsResponse, RadarrMovie, SonarrSeries } from './types/arr'
+import type { ArrInstance, ArrStatus, ArrStats, ArrQueueResponse, ArrCalendarItem, ProwlarrIndexer, SabnzbdQueueData, SabnzbdHistoryData, SeerrRequest, SeerrRequestsResponse, RadarrMovie, SonarrSeries, ArrCustomFormat, ArrCFSpecification, ArrQualityProfile } from './types/arr'
 import type { TmdbPage, TmdbGenre, TmdbProvider, TmdbTvDetail, TmdbDiscoverFilters } from './types/tmdb'
 
 const BASE = '/api'
@@ -131,6 +131,19 @@ export const api = {
     series: (id: string) => req<SonarrSeries[]>(`/arr/${id}/series`),
     discoverRequest: (id: string, mediaType: 'movie' | 'tv', mediaId: number, seasons?: number[]) =>
       req<unknown>(`/arr/${id}/discover/request`, { method: 'POST', body: JSON.stringify({ mediaType, mediaId, seasons }) }),
+    customFormats: {
+      list: (id: string) => req<ArrCustomFormat[]>(`/arr/${id}/custom-formats`),
+      create: (id: string, data: { name: string; includeCustomFormatWhenRenaming?: boolean; specifications: ArrCFSpecification[] }) =>
+        req<ArrCustomFormat>(`/arr/${id}/custom-formats`, { method: 'POST', body: JSON.stringify(data) }),
+      update: (id: string, cfId: number, data: { name: string; includeCustomFormatWhenRenaming?: boolean; specifications: ArrCFSpecification[] }) =>
+        req<ArrCustomFormat>(`/arr/${id}/custom-formats/${cfId}`, { method: 'PUT', body: JSON.stringify(data) }),
+      delete: (id: string, cfId: number) => req<void>(`/arr/${id}/custom-formats/${cfId}`, { method: 'DELETE' }),
+    },
+    qualityProfiles: {
+      list: (id: string) => req<ArrQualityProfile[]>(`/arr/${id}/quality-profiles`),
+      updateScores: (id: string, profileId: number, scores: { formatId: number; score: number }[]) =>
+        req<{ ok: boolean }>(`/arr/${id}/quality-profiles/${profileId}/scores`, { method: 'PUT', body: JSON.stringify({ scores }) }),
+    },
   },
 
   tmdb: {

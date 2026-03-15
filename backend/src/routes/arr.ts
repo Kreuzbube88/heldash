@@ -44,6 +44,23 @@ interface VisibilityBody {
   hidden_instance_ids: string[]
 }
 
+interface CreateCfBody {
+  name: string
+  includeCustomFormatWhenRenaming?: boolean
+  specifications: unknown[]
+}
+
+interface PutCfBody {
+  id?: number
+  name: string
+  includeCustomFormatWhenRenaming?: boolean
+  specifications: unknown[]
+}
+
+interface UpdateProfileScoresBody {
+  scores: { formatId: number; score: number }[]
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /** Never return the API key to the client */
@@ -436,6 +453,151 @@ export async function arrRoutes(app: FastifyInstance) {
       return reply.status(502).send({ error: 'Upstream error', detail: e.message })
     }
   })
+
+  // ── Custom Format routes ────────────────────────────────────────────────────
+
+  // GET /api/arr/:id/custom-formats
+  app.get<{ Params: { id: string } }>(
+    '/api/arr/:id/custom-formats',
+    { preHandler: [app.authenticate] },
+    async (req, reply) => {
+      const row = await resolveInstance(req, reply, req.params.id)
+      if (!row) return
+      if (row.type !== 'radarr' && row.type !== 'sonarr') {
+        return reply.status(400).send({ error: 'Only available for Radarr and Sonarr' })
+      }
+      try {
+        return await makeClient(row).getCustomFormats()
+      } catch (e: any) {
+        return reply.status(502).send({ error: 'Upstream error', detail: e.message })
+      }
+    }
+  )
+
+  // POST /api/arr/:id/custom-formats
+  app.post<{ Params: { id: string }; Body: CreateCfBody }>(
+    '/api/arr/:id/custom-formats',
+    { preHandler: [app.requireAdmin] },
+    async (req, reply) => {
+      const row = await resolveInstance(req, reply, req.params.id)
+      if (!row) return
+      if (row.type !== 'radarr' && row.type !== 'sonarr') {
+        return reply.status(400).send({ error: 'Only available for Radarr and Sonarr' })
+      }
+      if (!req.body.name?.trim()) return reply.status(400).send({ error: 'name is required' })
+      try {
+        const cf = await makeClient(row).createCustomFormat(req.body)
+        return reply.status(201).send(cf)
+      } catch (e: any) {
+        return reply.status(502).send({ error: 'Upstream error', detail: e.message })
+      }
+    }
+  )
+
+  // PUT /api/arr/:id/custom-formats/:cfId
+  app.put<{ Params: { id: string; cfId: string }; Body: PutCfBody }>(
+    '/api/arr/:id/custom-formats/:cfId',
+    { preHandler: [app.requireAdmin] },
+    async (req, reply) => {
+      const row = await resolveInstance(req, reply, req.params.id)
+      if (!row) return
+      if (row.type !== 'radarr' && row.type !== 'sonarr') {
+        return reply.status(400).send({ error: 'Only available for Radarr and Sonarr' })
+      }
+      const cfId = parseInt(req.params.cfId, 10)
+      if (isNaN(cfId)) return reply.status(400).send({ error: 'Invalid cfId' })
+      try {
+        return await makeClient(row).updateCustomFormat(cfId, { ...req.body, id: cfId })
+      } catch (e: any) {
+        return reply.status(502).send({ error: 'Upstream error', detail: e.message })
+      }
+    }
+  )
+
+  // DELETE /api/arr/:id/custom-formats/:cfId
+  app.delete<{ Params: { id: string; cfId: string } }>(
+    '/api/arr/:id/custom-formats/:cfId',
+    { preHandler: [app.requireAdmin] },
+    async (req, reply) => {
+      const row = await resolveInstance(req, reply, req.params.id)
+      if (!row) return
+      if (row.type !== 'radarr' && row.type !== 'sonarr') {
+        return reply.status(400).send({ error: 'Only available for Radarr and Sonarr' })
+      }
+      const cfId = parseInt(req.params.cfId, 10)
+      if (isNaN(cfId)) return reply.status(400).send({ error: 'Invalid cfId' })
+      try {
+        await makeClient(row).deleteCustomFormat(cfId)
+        return reply.status(204).send()
+      } catch (e: any) {
+        return reply.status(502).send({ error: 'Upstream error', detail: e.message })
+      }
+    }
+  )
+
+  // ── Quality Profile routes ──────────────────────────────────────────────────
+
+  // GET /api/arr/:id/quality-profiles
+  app.get<{ Params: { id: string } }>(
+    '/api/arr/:id/quality-profiles',
+    { preHandler: [app.authenticate] },
+    async (req, reply) => {
+      const row = await resolveInstance(req, reply, req.params.id)
+      if (!row) return
+      if (row.type !== 'radarr' && row.type !== 'sonarr') {
+        return reply.status(400).send({ error: 'Only available for Radarr and Sonarr' })
+      }
+      try {
+        return await makeClient(row).getQualityProfiles()
+      } catch (e: any) {
+        return reply.status(502).send({ error: 'Upstream error', detail: e.message })
+      }
+    }
+  )
+
+  // PUT /api/arr/:id/quality-profiles/:profileId/scores
+  app.put<{ Params: { id: string; profileId: string }; Body: UpdateProfileScoresBody }>(
+    '/api/arr/:id/quality-profiles/:profileId/scores',
+    { preHandler: [app.requireAdmin] },
+    async (req, reply) => {
+      const row = await resolveInstance(req, reply, req.params.id)
+      if (!row) return
+      if (row.type !== 'radarr' && row.type !== 'sonarr') {
+        return reply.status(400).send({ error: 'Only available for Radarr and Sonarr' })
+      }
+      const profileId = parseInt(req.params.profileId, 10)
+      if (isNaN(profileId)) return reply.status(400).send({ error: 'Invalid profileId' })
+      if (!Array.isArray(req.body.scores)) return reply.status(400).send({ error: 'scores must be an array' })
+
+      // Check if Recyclarr sync is running for this instance
+      const syncState = db.prepare(
+        'SELECT is_syncing FROM recyclarr_config WHERE instance_id = ?'
+      ).get(row.id) as { is_syncing: number } | undefined
+      if (syncState?.is_syncing === 1) {
+        return reply.status(409).send({ error: 'Recyclarr Sync läuft gerade — bitte nach dem Sync Scores anpassen' })
+      }
+
+      try {
+        const client = makeClient(row)
+        const profile = await client.getQualityProfile(profileId) as {
+          formatItems: { format: number; score: number; name: string }[]
+          [k: string]: unknown
+        }
+        const scoreMap = new Map(req.body.scores.map(s => [s.formatId, s.score]))
+        const updatedProfile = {
+          ...profile,
+          formatItems: profile.formatItems.map(item => ({
+            ...item,
+            score: scoreMap.has(item.format) ? scoreMap.get(item.format)! : item.score,
+          })),
+        }
+        await client.updateQualityProfile(profileId, updatedProfile)
+        return { ok: true }
+      } catch (e: any) {
+        return reply.status(502).send({ error: 'Upstream error', detail: e.message })
+      }
+    }
+  )
 
   // ── Seerr routes ────────────────────────────────────────────────────────────
 

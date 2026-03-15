@@ -53,6 +53,23 @@ function domainLabel(domain: string): string {
   return labels[domain] ?? domain.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }
 
+// ── Optimistic update helper ───────────────────────────────────────────────────
+
+function buildOptimistic(
+  entity: HaEntityFull,
+  patchState?: string,
+  patchAttrs?: Partial<HaEntityFull['attributes']>,
+): HaEntityFull {
+  const now = new Date().toISOString()
+  return {
+    ...entity,
+    state: patchState ?? entity.state,
+    attributes: patchAttrs ? { ...entity.attributes, ...patchAttrs } : entity.attributes,
+    last_updated: now,
+    last_changed: patchState != null && patchState !== entity.state ? now : entity.last_changed,
+  }
+}
+
 // ── Shared card shell ──────────────────────────────────────────────────────────
 
 interface ShellProps {
@@ -129,12 +146,17 @@ function ToggleBtn({ isOn, busy, onToggle }: { isOn: boolean; busy: boolean; onT
 }
 
 // ── Light card ─────────────────────────────────────────────────────────────────
+// Bug B: toggle always visible regardless of on/off state
+// Bug C: localBrightness / localColorTemp cleared only after service call +
+//        optimistic update, preventing WS events from causing slider flicker
 
 function LightCard({ panel, entity, instanceId }: { panel: HaPanel; entity: HaEntityFull; instanceId: string }) {
-  const { callService } = useHaStore()
+  const { callService, updateEntityState } = useHaStore()
   const [busy, setBusy] = useState(false)
   const [localBrightness, setLocalBrightness] = useState<number | null>(null)
   const [localColorTemp, setLocalColorTemp] = useState<number | null>(null)
+  const [isDraggingBrightness, setIsDraggingBrightness] = useState(false)
+  const [isDraggingColorTemp, setIsDraggingColorTemp] = useState(false)
   const brightRef = useRef<ReturnType<typeof setTimeout>>()
   const tempRef = useRef<ReturnType<typeof setTimeout>>()
 
@@ -144,51 +166,78 @@ function LightCard({ panel, entity, instanceId }: { panel: HaPanel; entity: HaEn
   const minK = entity.attributes.min_color_temp_kelvin ?? 2700
   const maxK = entity.attributes.max_color_temp_kelvin ?? 6500
 
+  // Bug B: always use turn_on / turn_off explicitly (never light.toggle)
   const toggle = async () => {
     setBusy(true)
-    try { await callService(instanceId, 'light', isOn ? 'turn_off' : 'turn_on', panel.entity_id) }
-    finally { setBusy(false) }
+    const nextState = isOn ? 'off' : 'on'
+    try {
+      await callService(instanceId, 'light', isOn ? 'turn_off' : 'turn_on', panel.entity_id)
+      // Bug A: optimistic update — WS event will confirm shortly
+      updateEntityState(instanceId, entity.entity_id, buildOptimistic(entity, nextState))
+    } finally {
+      setBusy(false)
+    }
   }
 
+  // Bug C: clear local state only after service + optimistic update are applied
   const handleBrightness = (val: number) => {
     setLocalBrightness(val)
+    setIsDraggingBrightness(true)
     clearTimeout(brightRef.current)
-    brightRef.current = setTimeout(() => {
-      callService(instanceId, 'light', 'turn_on', panel.entity_id, { brightness: val }).catch(() => {})
-      setLocalBrightness(null)
+    brightRef.current = setTimeout(async () => {
+      try {
+        await callService(instanceId, 'light', 'turn_on', panel.entity_id, { brightness: val })
+        updateEntityState(instanceId, entity.entity_id,
+          buildOptimistic(entity, 'on', { brightness: val }))
+      } finally {
+        setLocalBrightness(null)
+        setIsDraggingBrightness(false)
+      }
     }, 300)
   }
 
   const handleColorTemp = (val: number) => {
     setLocalColorTemp(val)
+    setIsDraggingColorTemp(true)
     clearTimeout(tempRef.current)
-    tempRef.current = setTimeout(() => {
-      callService(instanceId, 'light', 'turn_on', panel.entity_id, { color_temp_kelvin: val }).catch(() => {})
-      setLocalColorTemp(null)
+    tempRef.current = setTimeout(async () => {
+      const mired = Math.round(1_000_000 / val)
+      try {
+        await callService(instanceId, 'light', 'turn_on', panel.entity_id, { color_temp_kelvin: val })
+        updateEntityState(instanceId, entity.entity_id,
+          buildOptimistic(entity, 'on', { color_temp: mired }))
+      } finally {
+        setLocalColorTemp(null)
+        setIsDraggingColorTemp(false)
+      }
     }, 300)
   }
 
-  const displayBrightness = localBrightness ?? brightness
+  // While dragging use local value; otherwise use entity value
+  const displayBrightness = (isDraggingBrightness || localBrightness !== null) ? localBrightness : brightness
   const colorTempK = colorTemp !== undefined ? Math.round(1_000_000 / colorTemp) : undefined
-  const displayColorTempK = localColorTemp ?? colorTempK
+  const displayColorTempK = (isDraggingColorTemp || localColorTemp !== null) ? localColorTemp : colorTempK
 
   return (
     <div>
+      {/* Bug B: toggle is always rendered (visible when on AND off) */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span style={{ fontSize: 22, fontWeight: 700, fontFamily: 'var(--font-mono)', color: stateColor(entity.state) }}>
           {entity.state}
         </span>
         <ToggleBtn isOn={isOn} busy={busy} onToggle={toggle} />
       </div>
+      {/* Bug B: sliders only when light is on */}
       {isOn && displayBrightness !== undefined && (
         <div style={{ marginTop: 10 }}>
           <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>
-            Brightness {Math.round((displayBrightness / 255) * 100)}%
+            Brightness {Math.round(((displayBrightness ?? 0) / 255) * 100)}%
           </div>
           <input
             type="range" className="ha-slider" min={0} max={255}
-            value={displayBrightness}
+            value={displayBrightness ?? 0}
             onChange={e => handleBrightness(Number(e.target.value))}
+            onPointerUp={() => setIsDraggingBrightness(false)}
           />
         </div>
       )}
@@ -197,8 +246,9 @@ function LightCard({ panel, entity, instanceId }: { panel: HaPanel; entity: HaEn
           <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Color Temp</div>
           <input
             type="range" className="ha-slider" min={minK} max={maxK}
-            value={displayColorTempK}
+            value={displayColorTempK ?? minK}
             onChange={e => handleColorTemp(Number(e.target.value))}
+            onPointerUp={() => setIsDraggingColorTemp(false)}
           />
         </div>
       )}
@@ -209,7 +259,7 @@ function LightCard({ panel, entity, instanceId }: { panel: HaPanel; entity: HaEn
 // ── Climate card ───────────────────────────────────────────────────────────────
 
 function ClimateCard({ panel, entity, instanceId }: { panel: HaPanel; entity: HaEntityFull; instanceId: string }) {
-  const { callService } = useHaStore()
+  const { callService, updateEntityState } = useHaStore()
   const attrs = entity.attributes
   const current = attrs.current_temperature
   const target = attrs.temperature
@@ -219,13 +269,21 @@ function ClimateCard({ panel, entity, instanceId }: { panel: HaPanel; entity: Ha
   const minTemp = attrs.min_temp ?? 7
   const maxTemp = attrs.max_temp ?? 35
 
-  const setTemp = (delta: number) => {
+  const setTemp = async (delta: number) => {
     const newTemp = Math.min(maxTemp, Math.max(minTemp, (target ?? current ?? 20) + delta))
-    callService(instanceId, 'climate', 'set_temperature', panel.entity_id, { temperature: newTemp }).catch(() => {})
+    try {
+      await callService(instanceId, 'climate', 'set_temperature', panel.entity_id, { temperature: newTemp })
+      updateEntityState(instanceId, entity.entity_id,
+        buildOptimistic(entity, undefined, { temperature: newTemp }))
+    } catch { /* ignore */ }
   }
 
-  const setMode = (mode: string) => {
-    callService(instanceId, 'climate', 'set_hvac_mode', panel.entity_id, { hvac_mode: mode }).catch(() => {})
+  const setMode = async (mode: string) => {
+    try {
+      await callService(instanceId, 'climate', 'set_hvac_mode', panel.entity_id, { hvac_mode: mode })
+      updateEntityState(instanceId, entity.entity_id,
+        buildOptimistic(entity, mode, { hvac_mode: mode }))
+    } catch { /* ignore */ }
   }
 
   return (
@@ -272,20 +330,32 @@ function ClimateCard({ panel, entity, instanceId }: { panel: HaPanel; entity: Ha
 // ── Media player card ──────────────────────────────────────────────────────────
 
 function MediaPlayerCard({ panel, entity, instanceId }: { panel: HaPanel; entity: HaEntityFull; instanceId: string }) {
-  const { callService } = useHaStore()
+  const { callService, updateEntityState } = useHaStore()
   const attrs = entity.attributes
   const volRef = useRef<ReturnType<typeof setTimeout>>()
 
   const isPlaying = entity.state === 'playing'
   const volume = attrs.volume_level
 
-  const call = (svc: string, data?: Record<string, unknown>) => {
-    callService(instanceId, 'media_player', svc, panel.entity_id, data).catch(() => {})
+  const call = async (svc: string, data?: Record<string, unknown>) => {
+    try {
+      await callService(instanceId, 'media_player', svc, panel.entity_id, data)
+      if (svc === 'media_play_pause') {
+        const nextState = entity.state === 'playing' ? 'paused' : 'playing'
+        updateEntityState(instanceId, entity.entity_id, buildOptimistic(entity, nextState))
+      }
+    } catch { /* ignore */ }
   }
 
   const handleVolume = (val: number) => {
     clearTimeout(volRef.current)
-    volRef.current = setTimeout(() => call('volume_set', { volume_level: val }), 300)
+    volRef.current = setTimeout(async () => {
+      try {
+        await callService(instanceId, 'media_player', 'volume_set', panel.entity_id, { volume_level: val })
+        updateEntityState(instanceId, entity.entity_id,
+          buildOptimistic(entity, undefined, { volume_level: val }))
+      } catch { /* ignore */ }
+    }, 300)
   }
 
   const pictureSrc = attrs.entity_picture?.startsWith('http') ? attrs.entity_picture : undefined
@@ -352,20 +422,38 @@ function MediaPlayerCard({ panel, entity, instanceId }: { panel: HaPanel; entity
 
 // ── Cover card ─────────────────────────────────────────────────────────────────
 
+const COVER_OPTIMISTIC_STATE: Record<string, string> = {
+  open_cover: 'opening',
+  close_cover: 'closing',
+  stop_cover: 'idle',
+}
+
 function CoverCard({ panel, entity, instanceId }: { panel: HaPanel; entity: HaEntityFull; instanceId: string }) {
-  const { callService } = useHaStore()
+  const { callService, updateEntityState } = useHaStore()
   const posRef = useRef<ReturnType<typeof setTimeout>>()
   const isOpen = entity.state === 'open'
   const isClosed = entity.state === 'closed'
   const pos = entity.attributes.current_position
 
-  const call = (svc: string, data?: Record<string, unknown>) => {
-    callService(instanceId, 'cover', svc, panel.entity_id, data).catch(() => {})
+  const call = async (svc: string, data?: Record<string, unknown>) => {
+    try {
+      await callService(instanceId, 'cover', svc, panel.entity_id, data)
+      const nextState = COVER_OPTIMISTIC_STATE[svc]
+      if (nextState) {
+        updateEntityState(instanceId, entity.entity_id, buildOptimistic(entity, nextState))
+      }
+    } catch { /* ignore */ }
   }
 
   const handlePosition = (val: number) => {
     clearTimeout(posRef.current)
-    posRef.current = setTimeout(() => call('set_cover_position', { position: val }), 300)
+    posRef.current = setTimeout(async () => {
+      try {
+        await callService(instanceId, 'cover', 'set_cover_position', panel.entity_id, { position: val })
+        updateEntityState(instanceId, entity.entity_id,
+          buildOptimistic(entity, undefined, { current_position: val }))
+      } catch { /* ignore */ }
+    }, 300)
   }
 
   return (
@@ -440,15 +528,19 @@ function SensorCard({ entity }: { entity: HaEntityFull }) {
 // ── Script / Scene card ────────────────────────────────────────────────────────
 
 function ScriptSceneCard({ panel, entity, instanceId }: { panel: HaPanel; entity: HaEntityFull; instanceId: string }) {
-  const { callService } = useHaStore()
+  const { callService, updateEntityState } = useHaStore()
   const [busy, setBusy] = useState(false)
   const domain = getDomain(panel.entity_id)
   const isScript = domain === 'script'
 
   const run = async () => {
     setBusy(true)
-    try { await callService(instanceId, domain, 'turn_on', panel.entity_id) }
-    finally { setBusy(false) }
+    try {
+      await callService(instanceId, domain, 'turn_on', panel.entity_id)
+      updateEntityState(instanceId, entity.entity_id, buildOptimistic(entity))
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
@@ -464,26 +556,37 @@ function ScriptSceneCard({ panel, entity, instanceId }: { panel: HaPanel; entity
 
 // ── Generic card (switch / input_boolean / automation / fan / lock / fallback) ─
 
+const TOGGLE_DOMAINS = new Set(['switch', 'input_boolean', 'automation', 'fan', 'light', 'media_player'])
+const TOGGLE_MAP: Record<string, [string, string]> = { cover: ['cover', 'toggle'], lock: ['lock', 'toggle'] }
+// Domains where state is 'on'/'off' — safe for optimistic toggle
+const ON_OFF_DOMAINS = new Set(['switch', 'input_boolean', 'automation', 'fan'])
+
 function GenericCard({ panel, entity, instanceId }: { panel: HaPanel; entity: HaEntityFull; instanceId: string }) {
-  const { callService } = useHaStore()
+  const { callService, updateEntityState } = useHaStore()
   const [busy, setBusy] = useState(false)
 
-  const TOGGLE_DOMAINS = new Set(['switch', 'input_boolean', 'automation', 'fan', 'light', 'media_player'])
-  const TOGGLE_MAP: Record<string, [string, string]> = { cover: ['cover', 'toggle'], lock: ['lock', 'toggle'] }
   const domain = getDomain(panel.entity_id)
   const isOn = ['on', 'open', 'unlocked', 'playing', 'home', 'active'].includes(entity.state)
   const toggleable = TOGGLE_DOMAINS.has(domain) || domain in TOGGLE_MAP
 
   const getToggle = (): [string, string] => {
-    if (domain in TOGGLE_MAP) return TOGGLE_MAP[domain]
+    if (domain in TOGGLE_MAP) return TOGGLE_MAP[domain]!
     return [domain, isOn ? 'turn_off' : 'turn_on']
   }
 
   const toggle = async () => {
     const [d, svc] = getToggle()
     setBusy(true)
-    try { await callService(instanceId, d, svc, panel.entity_id) }
-    finally { setBusy(false) }
+    try {
+      await callService(instanceId, d, svc, panel.entity_id)
+      // Apply optimistic state only for domains with clear on/off semantics
+      if (ON_OFF_DOMAINS.has(domain)) {
+        updateEntityState(instanceId, entity.entity_id,
+          buildOptimistic(entity, isOn ? 'off' : 'on'))
+      }
+    } finally {
+      setBusy(false)
+    }
   }
 
   const unit = entity.attributes.unit_of_measurement

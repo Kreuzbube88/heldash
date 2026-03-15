@@ -66,8 +66,8 @@ export const useHaStore = create<HaStore>((set, get) => ({
 
   callService: async (instanceId, domain, service, entityId, serviceData) => {
     await api.ha.instances.call(instanceId, domain, service, entityId, serviceData)
-    // Reload states for this instance after call
-    await get().loadStates(instanceId)
+    // State updates arrive via WebSocket bridge (SSE stream); card components
+    // apply optimistic updates immediately after this resolves.
   },
 
   addPanel: async (instanceId, entityId, label, panelType) => {

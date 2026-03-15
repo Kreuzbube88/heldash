@@ -7,6 +7,7 @@ import type {
   RecyclarrScoreOverride,
   RecyclarrUserCf,
   RecyclarrSyncLine,
+  RecyclarrProfileConfig,
 } from '../types/recyclarr'
 
 interface SyncEvent {
@@ -23,6 +24,7 @@ interface RecyclarrState {
   templatesLastFetchedAt: string | null
   templatesWarning: boolean
   configs: RecyclarrInstanceConfig[]
+  importWarning: string | null
   cfLists: Record<string, RecyclarrCfEntry[]>
   syncLines: RecyclarrSyncLine[]
   syncDone: boolean
@@ -37,6 +39,10 @@ interface RecyclarrState {
     templates: string[]
     scoreOverrides: RecyclarrScoreOverride[]
     userCfNames: RecyclarrUserCf[]
+    preferredRatio: number
+    profilesConfig: RecyclarrProfileConfig[]
+    syncSchedule: string
+    deleteOldCfs: boolean
   }) => Promise<void>
   loadCfList: (instanceId: string) => Promise<void>
   sync: (instanceId?: string) => void
@@ -49,6 +55,7 @@ export const useRecyclarrStore = create<RecyclarrState>((set, get) => ({
   templatesLastFetchedAt: null,
   templatesWarning: false,
   configs: [],
+  importWarning: null,
   cfLists: {},
   syncLines: [],
   syncDone: false,
@@ -69,7 +76,7 @@ export const useRecyclarrStore = create<RecyclarrState>((set, get) => ({
     set({ loading: true })
     try {
       const data = await api.recyclarr.configs()
-      set({ configs: data })
+      set({ configs: data.configs, importWarning: data.importWarning ?? null })
     } finally {
       set({ loading: false })
     }
@@ -97,6 +104,8 @@ export const useRecyclarrStore = create<RecyclarrState>((set, get) => ({
         if (data.done) {
           set({ syncing: false, syncDone: true, syncExitCode: data.exitCode ?? null })
           es.close()
+          // Reload configs to update lastSyncedAt
+          get().loadConfigs().catch(() => {})
         } else if (data.error) {
           set(s => ({
             syncing: false,
@@ -105,6 +114,7 @@ export const useRecyclarrStore = create<RecyclarrState>((set, get) => ({
             syncExitCode: 1,
           }))
           es.close()
+          get().loadConfigs().catch(() => {})
         } else if (data.line != null) {
           const type: 'stdout' | 'stderr' = data.type === 'stderr' ? 'stderr' : 'stdout'
           set(s => ({ syncLines: [...s.syncLines, { line: data.line!, type }] }))

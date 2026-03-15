@@ -58,6 +58,14 @@ function runMigrations(db: Database.Database): number {
     'ALTER TABLE widgets ADD COLUMN display_location TEXT NOT NULL DEFAULT \'none\'',
     // Dashboard groups: named containers for dashboard items
     'ALTER TABLE dashboard_items ADD COLUMN group_id TEXT',
+    // Recyclarr extended config fields
+    'ALTER TABLE recyclarr_config ADD COLUMN preferred_ratio REAL NOT NULL DEFAULT 0.0',
+    "ALTER TABLE recyclarr_config ADD COLUMN profiles_config TEXT NOT NULL DEFAULT '[]'",
+    "ALTER TABLE recyclarr_config ADD COLUMN sync_schedule TEXT NOT NULL DEFAULT 'manual'",
+    'ALTER TABLE recyclarr_config ADD COLUMN last_synced_at TEXT',
+    'ALTER TABLE recyclarr_config ADD COLUMN last_sync_success INTEGER',
+    'ALTER TABLE recyclarr_config ADD COLUMN delete_old_cfs INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE recyclarr_config ADD COLUMN is_syncing INTEGER NOT NULL DEFAULT 0',
   ]
   for (const sql of migrations) {
     try {

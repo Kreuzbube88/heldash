@@ -496,6 +496,52 @@ environment:
         </ol>
       </DocSection>
 
+      <DocSection title="Schutz eigener Custom Formats">
+        <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: 12 }}>
+          Recyclarr löscht standardmäßig nur Custom Formats, die es selbst angelegt hat — niemals manuell erstellte CFs.
+          Damit eigene CFs (z.B. Tdarr) bei jedem Sync ihren Score behalten, reichen zwei Einstellungen:
+        </p>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, marginBottom: 12 }}>
+          <thead>
+            <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+              <th style={{ textAlign: 'left', padding: '6px 12px 6px 0', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: 12 }}>Einstellung</th>
+              <th style={{ textAlign: 'left', padding: '6px 12px 6px 0', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: 12 }}>Wert</th>
+              <th style={{ textAlign: 'left', padding: '6px 0', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: 12 }}>Wo</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+              <td style={{ padding: '8px 12px 8px 0', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', fontSize: 12 }}>delete_old_custom_formats</td>
+              <td style={{ padding: '8px 12px 8px 0' }}><span className="badge badge-error">false</span></td>
+              <td style={{ padding: '8px 0', color: 'var(--text-secondary)', fontSize: 13 }}>Instanz-Einstellungen → "Alte CFs löschen" deaktiviert lassen</td>
+            </tr>
+            <tr>
+              <td style={{ padding: '8px 12px 8px 0', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', fontSize: 12 }}>reset_unmatched_scores</td>
+              <td style={{ padding: '8px 12px 8px 0' }}><span className="badge badge-error">false</span></td>
+              <td style={{ padding: '8px 0', color: 'var(--text-secondary)', fontSize: 13 }}>Profil-Einstellungen → "Unmatched Scores zurücksetzen" deaktiviert lassen</td>
+            </tr>
+          </tbody>
+        </table>
+        <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>Beispiel: Tdarr-Scores in Radarr schützen</p>
+        <pre style={{ background: 'var(--bg-tertiary)', borderRadius: 8, padding: '12px 16px', fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)', overflowX: 'auto', margin: '0 0 12px 0', lineHeight: 1.6 }}>{`# YAML (automatisch generiert von HELDASH)
+radarr:
+  my-radarr:
+    delete_old_custom_formats: false
+    quality_profiles:
+      - name: HD Bluray + WEB
+        reset_unmatched_scores:
+          enabled: false   # ← Tdarr-Score bleibt erhalten
+    custom_formats:
+      - trash_ids: [...]   # TRaSH-Formate
+      - assign_scores_to:
+          - name: HD Bluray + WEB
+        # Tdarr CF: manuell in Radarr angelegt, Score via HELDASH gesetzt`}</pre>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <span className="badge badge-success">✓ Mit diesen zwei Einstellungen sind alle eigenen CFs geschützt</span>
+          <span className="badge badge-neutral">ℹ️ Recyclarr löscht nur CFs, die es selbst erstellt hat — manuell angelegte CFs sind immer sicher</span>
+        </div>
+      </DocSection>
+
       <DocSection title="Templates automatisch aktualisieren">
         <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.7, margin: 0 }}>
           Templates werden alle 24h automatisch von GitHub (<code style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>recyclarr/config-templates</code>) aktualisiert.

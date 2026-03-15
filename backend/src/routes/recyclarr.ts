@@ -1,11 +1,12 @@
 import { FastifyInstance } from 'fastify'
 import { nanoid } from 'nanoid'
 import { getDb } from '../db/database'
-import { stringify } from 'yaml'
+import { stringify, parse as parseYaml } from 'yaml'
 import * as fs from 'fs'
 import * as path from 'path'
 import { spawn } from 'child_process'
 import { fetch } from 'undici'
+import * as cron from 'node-cron'
 
 const RECYCLARR_CONFIG_PATH = process.env.RECYCLARR_CONFIG_PATH ?? '/recyclarr/recyclarr.yml'
 const RECYCLARR_CONTAINER_NAME = process.env.RECYCLARR_CONTAINER_NAME ?? 'recyclarr'
@@ -14,6 +15,9 @@ const GITHUB_INCLUDES_URL = 'https://raw.githubusercontent.com/recyclarr/config-
 const TEMPLATES_CACHE_KEY = 'recyclarr_templates_cache'
 const TEMPLATES_FETCHED_AT_KEY = 'recyclarr_templates_fetched_at'
 const TEMPLATES_CACHE_TTL = 24 * 60 * 60 * 1000 // 24h
+
+const IMPORT_WARNING_KEY = 'recyclarr_yaml_import_warning'
+const IMPORT_ATTEMPTED_KEY = 'recyclarr_yaml_import_attempted'
 
 // ─── Template types ─────────────────────────────────────────────────────────
 
@@ -38,6 +42,11 @@ function getSettingStr(key: string): string | null {
 function setSettingStr(key: string, value: string): void {
   const db = getDb()
   db.prepare("INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, datetime('now'))").run(key, JSON.stringify(value))
+}
+
+function delSetting(key: string): void {
+  const db = getDb()
+  db.prepare('DELETE FROM settings WHERE key = ?').run(key)
 }
 
 function deriveType(template: string): 'profile' | 'custom_formats' | 'quality_definition' | null {
@@ -201,6 +210,13 @@ async function getTemplates(forceRefresh = false): Promise<{ templates: Recyclar
 
 // ─── DB row types ────────────────────────────────────────────────────────────
 
+interface ProfileConfig {
+  slug: string
+  min_format_score?: number
+  reset_unmatched_scores_enabled: boolean
+  reset_unmatched_scores_except: string[]
+}
+
 interface RecyclarrConfigRow {
   id: string
   instance_id: string
@@ -208,6 +224,13 @@ interface RecyclarrConfigRow {
   templates: string
   score_overrides: string
   user_cf_names: string
+  preferred_ratio: number
+  profiles_config: string
+  sync_schedule: string
+  last_synced_at: string | null
+  last_sync_success: number | null
+  delete_old_cfs: number
+  is_syncing: number
   updated_at: string
 }
 
@@ -235,6 +258,10 @@ interface SaveConfigBody {
   templates: string[]
   scoreOverrides: ScoreOverride[]
   userCfNames: UserCf[]
+  preferredRatio: number
+  profilesConfig: ProfileConfig[]
+  syncSchedule: string
+  deleteOldCfs: boolean
 }
 
 // ─── TRaSH CF cache ──────────────────────────────────────────────────────────
@@ -355,6 +382,209 @@ async function fetchCfListForTemplate(templateSlug: string, forceRefresh = false
   }
 }
 
+// ─── Cron scheduler ──────────────────────────────────────────────────────────
+
+interface SimpleLogger {
+  info: (obj: object, msg?: string) => void
+  warn: (obj: object, msg?: string) => void
+  error: (obj: object, msg?: string) => void
+}
+
+const scheduledTasks: Map<string, cron.ScheduledTask> = new Map()
+
+async function runRecyclarrSync(instanceId: string, log: SimpleLogger): Promise<void> {
+  const db = getDb()
+  // Guard: skip if already syncing
+  const row = db.prepare('SELECT is_syncing FROM recyclarr_config WHERE instance_id = ?').get(instanceId) as { is_syncing: number } | undefined
+  if (row?.is_syncing === 1) {
+    log.warn({ instanceId }, 'recyclarr: sync already in progress — skipping scheduled run')
+    return
+  }
+  try {
+    db.prepare("UPDATE recyclarr_config SET is_syncing = 1 WHERE instance_id = ?").run(instanceId)
+    const args = ['exec', RECYCLARR_CONTAINER_NAME, 'recyclarr', 'sync', '--instance', instanceId]
+    const proc = spawn('docker', args)
+    await new Promise<void>(resolve => {
+      proc.on('close', code => {
+        const now = new Date().toISOString()
+        const success = code === 0 ? 1 : 0
+        try {
+          db.prepare("UPDATE recyclarr_config SET last_synced_at = ?, last_sync_success = ?, is_syncing = 0 WHERE instance_id = ?")
+            .run(now, success, instanceId)
+        } catch (e) {
+          log.warn({ err: e }, 'recyclarr: could not update last_synced_at')
+        }
+        resolve()
+      })
+      proc.on('error', err => {
+        log.error({ err, instanceId }, 'recyclarr: scheduled sync spawn error')
+        try {
+          db.prepare("UPDATE recyclarr_config SET is_syncing = 0 WHERE instance_id = ?").run(instanceId)
+        } catch { /* ignore */ }
+        resolve()
+      })
+    })
+  } finally {
+    try {
+      db.prepare("UPDATE recyclarr_config SET is_syncing = 0 WHERE instance_id = ?").run(instanceId)
+    } catch { /* ignore */ }
+  }
+}
+
+export function scheduleRecyclarrSync(instanceId: string, schedule: string, log: SimpleLogger): void {
+  const existing = scheduledTasks.get(instanceId)
+  if (existing) {
+    existing.stop()
+    scheduledTasks.delete(instanceId)
+  }
+  if (schedule === 'manual') return
+  if (!cron.validate(schedule)) {
+    log.warn({ instanceId, schedule }, 'recyclarr: invalid cron expression — scheduler not started')
+    return
+  }
+  const task = cron.schedule(schedule, () => {
+    log.info({ instanceId }, 'recyclarr: scheduled sync triggered')
+    runRecyclarrSync(instanceId, log).catch(e => {
+      log.error({ err: e, instanceId }, 'recyclarr: scheduled sync failed')
+    })
+  })
+  scheduledTasks.set(instanceId, task)
+}
+
+export function initRecyclarrSchedulers(log: SimpleLogger): void {
+  const db = getDb()
+  interface ScheduleRow { instance_id: string; sync_schedule: string }
+  const rows = db.prepare(
+    "SELECT instance_id, sync_schedule FROM recyclarr_config WHERE sync_schedule != 'manual' AND enabled = 1"
+  ).all() as ScheduleRow[]
+  for (const row of rows) {
+    scheduleRecyclarrSync(row.instance_id, row.sync_schedule, log)
+  }
+}
+
+// ─── YAML import ─────────────────────────────────────────────────────────────
+
+interface ImportedInstanceConfig {
+  instanceId: string
+  templates: string[]
+  preferredRatio: number
+  profilesConfig: ProfileConfig[]
+  scoreOverrides: ScoreOverride[]
+  userCfNames: UserCf[]
+  deleteOldCfs: boolean
+}
+
+function findInstanceForYamlKey(key: string, type: 'radarr' | 'sonarr', instances: ArrInstanceRow[]): ArrInstanceRow | undefined {
+  const typed = instances.filter(i => i.type === type)
+  return typed.find(i => i.id === key) ?? typed.find(i => i.name === key) ?? (typed.length === 1 ? typed[0] : undefined)
+}
+
+function importYamlConfig(yamlContent: string, instances: ArrInstanceRow[]): ImportedInstanceConfig[] {
+  const doc = parseYaml(yamlContent) as Record<string, unknown>
+  const results: ImportedInstanceConfig[] = []
+
+  for (const mediaType of ['radarr', 'sonarr'] as const) {
+    const section = doc[mediaType]
+    if (!section || typeof section !== 'object') continue
+
+    for (const [key, value] of Object.entries(section as Record<string, unknown>)) {
+      if (!value || typeof value !== 'object') continue
+      const instanceConfig = value as Record<string, unknown>
+
+      const inst = findInstanceForYamlKey(key, mediaType, instances)
+      if (!inst) continue
+
+      // Extract templates from include[]
+      const templates: string[] = []
+      const include = instanceConfig.include
+      if (Array.isArray(include)) {
+        for (const item of include) {
+          if (item && typeof item === 'object' && typeof (item as Record<string, unknown>).template === 'string') {
+            templates.push((item as Record<string, unknown>).template as string)
+          }
+        }
+      }
+
+      // Extract preferred_ratio from quality_definition
+      let preferredRatio = 0.0
+      const qd = instanceConfig.quality_definition
+      if (qd && typeof qd === 'object') {
+        const qdObj = qd as Record<string, unknown>
+        if (typeof qdObj.preferred_ratio === 'number') {
+          preferredRatio = qdObj.preferred_ratio
+        }
+      }
+
+      // Extract profiles_config from quality_profiles
+      const profilesConfig: ProfileConfig[] = []
+      const qp = instanceConfig.quality_profiles
+      if (Array.isArray(qp)) {
+        for (const profile of qp) {
+          if (!profile || typeof profile !== 'object') continue
+          const p = profile as Record<string, unknown>
+          const profileName = typeof p.name === 'string' ? p.name : null
+          if (!profileName) continue
+          // Match profile name to template slug via display name
+          const matchedSlug = templates.find(t => deriveDisplayName(t) === profileName) ?? profileName
+          const pc: ProfileConfig = {
+            slug: matchedSlug,
+            reset_unmatched_scores_enabled: true,
+            reset_unmatched_scores_except: [],
+          }
+          if (typeof p.min_format_score === 'number') {
+            pc.min_format_score = p.min_format_score
+          }
+          const rus = p.reset_unmatched_scores
+          if (rus && typeof rus === 'object') {
+            const rusObj = rus as Record<string, unknown>
+            if (typeof rusObj.enabled === 'boolean') {
+              pc.reset_unmatched_scores_enabled = rusObj.enabled
+            }
+            if (Array.isArray(rusObj.except)) {
+              pc.reset_unmatched_scores_except = rusObj.except.filter((e): e is string => typeof e === 'string')
+            }
+          }
+          profilesConfig.push(pc)
+        }
+      }
+
+      // Extract score_overrides and user_cf_names from custom_formats
+      const scoreOverrides: ScoreOverride[] = []
+      const userCfNames: UserCf[] = []
+      const cf = instanceConfig.custom_formats
+      if (Array.isArray(cf)) {
+        for (const entry of cf) {
+          if (!entry || typeof entry !== 'object') continue
+          const e = entry as Record<string, unknown>
+          const trashIds = Array.isArray(e.trash_ids) ? e.trash_ids.filter((t): t is string => typeof t === 'string') : []
+          const assignScores = Array.isArray(e.assign_scores) ? e.assign_scores : []
+          for (const tid of trashIds) {
+            const isTrashId = /^[0-9a-f]{24,40}$/i.test(tid)
+            for (const as_ of assignScores) {
+              if (!as_ || typeof as_ !== 'object') continue
+              const asObj = as_ as Record<string, unknown>
+              const profileNameVal = typeof asObj.name === 'string' ? asObj.name : ''
+              const score = typeof asObj.score === 'number' ? asObj.score : 0
+              if (isTrashId) {
+                scoreOverrides.push({ trash_id: tid, name: tid, score, profileName: profileNameVal })
+              } else {
+                userCfNames.push({ name: tid, score, profileName: profileNameVal })
+              }
+            }
+          }
+        }
+      }
+
+      // Extract delete_old_custom_formats
+      const deleteOldCfs = instanceConfig.delete_old_custom_formats === true
+
+      results.push({ instanceId: inst.id, templates, preferredRatio, profilesConfig, scoreOverrides, userCfNames, deleteOldCfs })
+    }
+  }
+
+  return results
+}
+
 // ─── YAML generation ─────────────────────────────────────────────────────────
 
 interface RecyclarrConfig {
@@ -363,6 +593,15 @@ interface RecyclarrConfig {
   templates: string[]
   scoreOverrides: ScoreOverride[]
   userCfNames: UserCf[]
+  preferredRatio: number
+  profilesConfig: ProfileConfig[]
+  deleteOldCfs: boolean
+}
+
+function deriveQdType(instType: string, templates: string[]): string {
+  if (instType === 'radarr') return 'movie'
+  if (templates.some(t => t.includes('anime'))) return 'anime'
+  return 'series'
 }
 
 function generateRecyclarrYaml(configs: RecyclarrConfig[], instances: ArrInstanceRow[]): string {
@@ -403,7 +642,41 @@ function generateRecyclarrYaml(configs: RecyclarrConfig[], instances: ArrInstanc
       })
     }
 
-    const instanceConfig: Record<string, unknown> = { include }
+    // Quality profiles with advanced settings
+    const qualityProfiles: unknown[] = []
+    for (const pc of cfg.profilesConfig) {
+      if (!cfg.templates.includes(pc.slug)) continue
+      const profileName = deriveDisplayName(pc.slug)
+      const hasSettings = pc.min_format_score != null ||
+        !pc.reset_unmatched_scores_enabled ||
+        pc.reset_unmatched_scores_except.length > 0
+      if (!hasSettings) continue
+
+      const entry: Record<string, unknown> = { name: profileName }
+      if (pc.min_format_score != null) entry.min_format_score = pc.min_format_score
+      const rusObj: Record<string, unknown> = { enabled: pc.reset_unmatched_scores_enabled }
+      if (pc.reset_unmatched_scores_except.length > 0) {
+        rusObj.except = pc.reset_unmatched_scores_except
+      }
+      entry.reset_unmatched_scores = rusObj
+      qualityProfiles.push(entry)
+    }
+
+    const instanceConfig: Record<string, unknown> = {
+      delete_old_custom_formats: cfg.deleteOldCfs,
+      include,
+    }
+
+    // Quality definition — output only when preferred_ratio > 0 and QD template selected
+    const hasQdTemplate = cfg.templates.some(t => t.includes('quality-definition'))
+    if (hasQdTemplate && cfg.preferredRatio > 0) {
+      instanceConfig.quality_definition = {
+        type: deriveQdType(inst.type, cfg.templates),
+        preferred_ratio: cfg.preferredRatio,
+      }
+    }
+
+    if (qualityProfiles.length > 0) instanceConfig.quality_profiles = qualityProfiles
     if (customFormats.length > 0) instanceConfig.custom_formats = customFormats
 
     const key = inst.id
@@ -425,6 +698,28 @@ async function writeYaml(configs: RecyclarrConfig[], instances: ArrInstanceRow[]
     fs.mkdirSync(dir, { recursive: true })
   }
   fs.writeFileSync(RECYCLARR_CONFIG_PATH, yaml, 'utf8')
+}
+
+// ─── Helper: map DB row to API response object ────────────────────────────────
+
+function rowToConfig(row: RecyclarrConfigRow, instances: ArrInstanceRow[]) {
+  const inst = instances.find(i => i.id === row.instance_id)
+  return {
+    instanceId: row.instance_id,
+    instanceName: inst?.name ?? row.instance_id,
+    instanceType: (inst?.type ?? 'radarr') as 'radarr' | 'sonarr',
+    enabled: row.enabled === 1,
+    templates: JSON.parse(row.templates) as string[],
+    scoreOverrides: JSON.parse(row.score_overrides) as ScoreOverride[],
+    userCfNames: JSON.parse(row.user_cf_names) as UserCf[],
+    preferredRatio: row.preferred_ratio ?? 0.0,
+    profilesConfig: JSON.parse(row.profiles_config ?? '[]') as ProfileConfig[],
+    syncSchedule: row.sync_schedule ?? 'manual',
+    lastSyncedAt: row.last_synced_at ?? null,
+    lastSyncSuccess: row.last_sync_success == null ? null : row.last_sync_success === 1,
+    deleteOldCfs: row.delete_old_cfs === 1,
+    isSyncing: row.is_syncing === 1,
+  }
 }
 
 // ─── Route plugin ─────────────────────────────────────────────────────────────
@@ -452,25 +747,56 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
   )
 
   // GET /api/recyclarr/config — authenticate
+  // One-time import of existing recyclarr.yml if table is empty
   app.get('/api/recyclarr/config', { onRequest: [app.authenticate] }, async (_req, reply) => {
     const db = getDb()
-    const rows = db.prepare('SELECT * FROM recyclarr_config').all() as RecyclarrConfigRow[]
     const instances = db.prepare('SELECT id, name, type FROM arr_instances').all() as ArrInstanceRow[]
 
-    const result = rows.map(row => {
-      const inst = instances.find(i => i.id === row.instance_id)
-      return {
-        instanceId: row.instance_id,
-        instanceName: inst?.name ?? row.instance_id,
-        instanceType: inst?.type ?? 'radarr',
-        enabled: row.enabled === 1,
-        templates: JSON.parse(row.templates) as string[],
-        scoreOverrides: JSON.parse(row.score_overrides) as ScoreOverride[],
-        userCfNames: JSON.parse(row.user_cf_names) as UserCf[],
+    // One-time YAML import if table is empty and file exists
+    const importAttempted = getSettingStr(IMPORT_ATTEMPTED_KEY)
+    if (!importAttempted) {
+      const count = (db.prepare('SELECT COUNT(*) as c FROM recyclarr_config').get() as { c: number }).c
+      if (count === 0 && fs.existsSync(RECYCLARR_CONFIG_PATH)) {
+        setSettingStr(IMPORT_ATTEMPTED_KEY, 'true')
+        try {
+          const yamlContent = fs.readFileSync(RECYCLARR_CONFIG_PATH, 'utf8')
+          const imported = importYamlConfig(yamlContent, instances)
+          if (imported.length > 0) {
+            for (const cfg of imported) {
+              db.prepare(`
+                INSERT OR IGNORE INTO recyclarr_config
+                  (id, instance_id, enabled, templates, score_overrides, user_cf_names, preferred_ratio, profiles_config, sync_schedule, delete_old_cfs)
+                VALUES (?, ?, 1, ?, ?, ?, ?, ?, 'manual', ?)
+              `).run(
+                nanoid(),
+                cfg.instanceId,
+                JSON.stringify(cfg.templates),
+                JSON.stringify(cfg.scoreOverrides),
+                JSON.stringify(cfg.userCfNames),
+                cfg.preferredRatio,
+                JSON.stringify(cfg.profilesConfig),
+                cfg.deleteOldCfs ? 1 : 0,
+              )
+            }
+            app.log.info({ count: imported.length }, 'recyclarr: imported existing recyclarr.yml')
+          } else {
+            app.log.warn('recyclarr: YAML file found but no matching instances — skipping import')
+            setSettingStr(IMPORT_WARNING_KEY, 'true')
+          }
+        } catch (e) {
+          app.log.warn({ err: e }, 'recyclarr: could not import existing recyclarr.yml')
+          setSettingStr(IMPORT_WARNING_KEY, 'true')
+        }
       }
-    })
+    }
 
-    return reply.send(result)
+    const rows = db.prepare('SELECT * FROM recyclarr_config').all() as RecyclarrConfigRow[]
+    const configs = rows.map(row => rowToConfig(row, instances))
+    const importWarning = getSettingStr(IMPORT_WARNING_KEY) === 'true'
+      ? 'Bestehende recyclarr.yml konnte nicht importiert werden — bitte Einstellungen manuell übertragen'
+      : undefined
+
+    return reply.send({ configs, importWarning })
   })
 
   // PUT /api/recyclarr/config/:instanceId — requireAdmin
@@ -480,21 +806,60 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
     async (req, reply) => {
       const db = getDb()
       const { instanceId } = req.params
-      const { enabled, templates, scoreOverrides, userCfNames } = req.body
+      const { enabled, templates, scoreOverrides, userCfNames, preferredRatio, profilesConfig, syncSchedule, deleteOldCfs } = req.body
+
+      // Validate cron expression if not manual
+      if (syncSchedule && syncSchedule !== 'manual' && !cron.validate(syncSchedule)) {
+        return reply.status(400).send({ error: 'Invalid cron expression' })
+      }
+
+      const effectiveRatio = typeof preferredRatio === 'number' ? preferredRatio : 0.0
+      const effectiveSchedule = syncSchedule || 'manual'
+      const deleteOldCfsVal = deleteOldCfs ? 1 : 0
 
       const existing = db.prepare('SELECT id FROM recyclarr_config WHERE instance_id = ?').get(instanceId) as { id: string } | undefined
       if (existing) {
         db.prepare(`
           UPDATE recyclarr_config
-          SET enabled = ?, templates = ?, score_overrides = ?, user_cf_names = ?, updated_at = datetime('now')
+          SET enabled = ?, templates = ?, score_overrides = ?, user_cf_names = ?,
+              preferred_ratio = ?, profiles_config = ?, sync_schedule = ?,
+              delete_old_cfs = ?, updated_at = datetime('now')
           WHERE instance_id = ?
-        `).run(enabled ? 1 : 0, JSON.stringify(templates), JSON.stringify(scoreOverrides), JSON.stringify(userCfNames), instanceId)
+        `).run(
+          enabled ? 1 : 0,
+          JSON.stringify(templates),
+          JSON.stringify(scoreOverrides),
+          JSON.stringify(userCfNames),
+          effectiveRatio,
+          JSON.stringify(profilesConfig ?? []),
+          effectiveSchedule,
+          deleteOldCfsVal,
+          instanceId,
+        )
       } else {
         db.prepare(`
-          INSERT INTO recyclarr_config (id, instance_id, enabled, templates, score_overrides, user_cf_names)
-          VALUES (?, ?, ?, ?, ?, ?)
-        `).run(nanoid(), instanceId, enabled ? 1 : 0, JSON.stringify(templates), JSON.stringify(scoreOverrides), JSON.stringify(userCfNames))
+          INSERT INTO recyclarr_config
+            (id, instance_id, enabled, templates, score_overrides, user_cf_names, preferred_ratio, profiles_config, sync_schedule, delete_old_cfs)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          nanoid(),
+          instanceId,
+          enabled ? 1 : 0,
+          JSON.stringify(templates),
+          JSON.stringify(scoreOverrides),
+          JSON.stringify(userCfNames),
+          effectiveRatio,
+          JSON.stringify(profilesConfig ?? []),
+          effectiveSchedule,
+          deleteOldCfsVal,
+        )
       }
+
+      // Clear import warning once user explicitly saves
+      delSetting(IMPORT_WARNING_KEY)
+
+      // Update cron scheduler for this instance
+      scheduleRecyclarrSync(instanceId, effectiveSchedule, app.log)
 
       // Regenerate YAML
       const allRows = db.prepare('SELECT * FROM recyclarr_config').all() as RecyclarrConfigRow[]
@@ -505,6 +870,9 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
         templates: JSON.parse(r.templates) as string[],
         scoreOverrides: JSON.parse(r.score_overrides) as ScoreOverride[],
         userCfNames: JSON.parse(r.user_cf_names) as UserCf[],
+        preferredRatio: r.preferred_ratio ?? 0.0,
+        profilesConfig: JSON.parse(r.profiles_config ?? '[]') as ProfileConfig[],
+        deleteOldCfs: r.delete_old_cfs === 1,
       }))
       try {
         await writeYaml(configs, allInstances)
@@ -545,8 +913,6 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
     { onRequest: [app.requireAdmin] },
     async (req, reply) => {
       const { instanceId } = req.query
-      const args = ['exec', RECYCLARR_CONTAINER_NAME, 'recyclarr', 'sync']
-      if (instanceId) args.push('--instance', instanceId)
 
       reply.hijack()
       reply.raw.setHeader('Content-Type', 'text/event-stream')
@@ -560,6 +926,24 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
           reply.raw.write(`data: ${JSON.stringify(data)}\n\n`)
         }
       }
+
+      const db = getDb()
+
+      // Guard: skip if target instance already syncing
+      if (instanceId) {
+        const row = db.prepare('SELECT is_syncing FROM recyclarr_config WHERE instance_id = ?').get(instanceId) as { is_syncing: number } | undefined
+        if (row?.is_syncing === 1) {
+          sendEvent({ error: 'Sync bereits in Ausführung für diese Instanz', done: true, exitCode: 1, success: false })
+          if (!reply.raw.destroyed) reply.raw.end()
+          return
+        }
+        db.prepare("UPDATE recyclarr_config SET is_syncing = 1 WHERE instance_id = ?").run(instanceId)
+      } else {
+        db.prepare("UPDATE recyclarr_config SET is_syncing = 1 WHERE enabled = 1").run()
+      }
+
+      const args = ['exec', RECYCLARR_CONTAINER_NAME, 'recyclarr', 'sync']
+      if (instanceId) args.push('--instance', instanceId)
 
       const proc = spawn('docker', args)
 
@@ -587,16 +971,57 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
 
       await new Promise<void>(resolve => {
         proc.on('close', code => {
+          // Track sync completion in DB + clear is_syncing
+          try {
+            const now = new Date().toISOString()
+            const success = code === 0 ? 1 : 0
+            if (instanceId) {
+              db.prepare("UPDATE recyclarr_config SET last_synced_at = ?, last_sync_success = ?, is_syncing = 0 WHERE instance_id = ?")
+                .run(now, success, instanceId)
+            } else {
+              db.prepare("UPDATE recyclarr_config SET last_synced_at = ?, last_sync_success = ?, is_syncing = 0")
+                .run(now, success)
+            }
+          } catch { /* ignore */ }
+
           sendEvent({ done: true, exitCode: code ?? 1, success: code === 0 })
           if (!reply.raw.destroyed) reply.raw.end()
           resolve()
         })
         proc.on('error', err => {
+          try {
+            if (instanceId) {
+              db.prepare("UPDATE recyclarr_config SET is_syncing = 0 WHERE instance_id = ?").run(instanceId)
+            } else {
+              db.prepare("UPDATE recyclarr_config SET is_syncing = 0").run()
+            }
+          } catch { /* ignore */ }
           sendEvent({ error: err.message })
           if (!reply.raw.destroyed) reply.raw.end()
           resolve()
         })
       })
+    }
+  )
+
+  // PATCH /api/recyclarr/config/:instanceId/schedule — requireAdmin
+  app.patch<{ Params: { instanceId: string }; Body: { sync_schedule: string } }>(
+    '/api/recyclarr/config/:instanceId/schedule',
+    { onRequest: [app.requireAdmin] },
+    async (req, reply) => {
+      const db = getDb()
+      const { instanceId } = req.params
+      const { sync_schedule } = req.body
+      if (!sync_schedule) return reply.status(400).send({ error: 'sync_schedule required' })
+      if (sync_schedule !== 'manual' && !cron.validate(sync_schedule)) {
+        return reply.status(400).send({ error: 'Ungültiger Cron-Ausdruck' })
+      }
+      const existing = db.prepare('SELECT id FROM recyclarr_config WHERE instance_id = ?').get(instanceId) as { id: string } | undefined
+      if (!existing) return reply.status(404).send({ error: 'Not found' })
+      db.prepare("UPDATE recyclarr_config SET sync_schedule = ?, updated_at = datetime('now') WHERE instance_id = ?")
+        .run(sync_schedule, instanceId)
+      scheduleRecyclarrSync(instanceId, sync_schedule, app.log)
+      return reply.send({ ok: true })
     }
   )
 

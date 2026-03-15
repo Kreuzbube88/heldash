@@ -26,6 +26,13 @@ export interface RecyclarrUserCf {
   profileName: string
 }
 
+export interface RecyclarrProfileConfig {
+  slug: string
+  min_format_score?: number
+  reset_unmatched_scores_enabled: boolean
+  reset_unmatched_scores_except: string[]
+}
+
 export interface RecyclarrInstanceConfig {
   instanceId: string
   instanceName: string
@@ -34,6 +41,18 @@ export interface RecyclarrInstanceConfig {
   templates: string[]
   scoreOverrides: RecyclarrScoreOverride[]
   userCfNames: RecyclarrUserCf[]
+  preferredRatio: number
+  profilesConfig: RecyclarrProfileConfig[]
+  syncSchedule: string
+  lastSyncedAt: string | null
+  lastSyncSuccess: boolean | null
+  deleteOldCfs: boolean
+  isSyncing: boolean
+}
+
+export interface RecyclarrConfigsResponse {
+  configs: RecyclarrInstanceConfig[]
+  importWarning?: string
 }
 
 export interface RecyclarrCfEntry {

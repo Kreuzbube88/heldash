@@ -9,7 +9,7 @@ import type { DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, rectSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Pencil, Trash2, Check, X, RefreshCw, GripVertical, LayoutGrid, CalendarDays, Search, Compass, Database, AlertTriangle, Sliders, Plus } from 'lucide-react'
+import { Pencil, Trash2, Check, X, RefreshCw, GripVertical, LayoutGrid, CalendarDays, Search, Compass, Database, AlertTriangle, Sliders, Plus, ChevronDown, ChevronRight, Clock } from 'lucide-react'
 import type { ArrInstance, ArrCalendarItem, RadarrCalendarItem, SonarrCalendarItem, ProwlarrStats } from '../types/arr'
 import type { TmdbResult, TmdbFilters, TmdbDiscoverFilters } from '../types/tmdb'
 import { ArrCardContent, SabnzbdCardContent, SeerrCardContent } from '../components/MediaCard'
@@ -1950,12 +1950,51 @@ function DiscoverTab({ hasTmdbKey, onNavigate }: { hasTmdbKey: boolean; onNaviga
 
 // ── Recyclarr tab ─────────────────────────────────────────────────────────────
 
+type ScheduleMode = 'manual' | 'daily' | 'weekly' | 'custom'
+
+function parseCronExpression(expr: string): { mode: ScheduleMode; time: string; weekday: string; custom: string } {
+  if (!expr || expr === 'manual') return { mode: 'manual', time: '04:00', weekday: '1', custom: '' }
+  const parts = expr.trim().split(/\s+/)
+  if (parts.length === 5) {
+    const [m, h, dom, mon, dow] = parts
+    if (dom === '*' && mon === '*' && m !== undefined && h !== undefined) {
+      const time = `${h.padStart(2, '0')}:${m.padStart(2, '0')}`
+      if (dow === '*') return { mode: 'daily', time, weekday: '1', custom: '' }
+      if (/^[0-6]$/.test(dow ?? '')) return { mode: 'weekly', time, weekday: dow ?? '1', custom: '' }
+    }
+  }
+  return { mode: 'custom', time: '04:00', weekday: '1', custom: expr }
+}
+
+function buildCronExpression(mode: ScheduleMode, time: string, weekday: string, custom: string): string {
+  if (mode === 'manual') return 'manual'
+  if (mode === 'custom') return custom.trim()
+  const colonIdx = time.indexOf(':')
+  const h = colonIdx >= 0 ? time.slice(0, colonIdx) : '4'
+  const m = colonIdx >= 0 ? time.slice(colonIdx + 1) : '0'
+  const hNum = parseInt(h, 10) || 0
+  const mNum = parseInt(m, 10) || 0
+  if (mode === 'daily') return `${mNum} ${hNum} * * *`
+  return `${mNum} ${hNum} * * ${weekday}`
+}
+
+function formatRelativeTime(isoStr: string | null): string {
+  if (!isoStr) return ''
+  const ms = Date.now() - new Date(isoStr).getTime()
+  const mins = Math.floor(ms / 60_000)
+  if (mins < 1) return 'gerade eben'
+  if (mins < 60) return `vor ${mins}min`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `vor ${hrs}h`
+  return `vor ${Math.floor(hrs / 24)}d`
+}
+
 function RecyclarrTab() {
   const { isAdmin } = useStore()
   const { instances } = useArrStore()
   const {
     templates, templatesLastFetchedAt, templatesWarning,
-    configs, cfLists, syncLines, syncDone, syncExitCode, syncing, loading,
+    configs, importWarning, cfLists, syncLines, syncDone, syncExitCode, syncing, loading,
     loadTemplates, loadConfigs, saveConfig, loadCfList, sync, refreshTemplates, refreshCache,
   } = useRecyclarrStore()
 
@@ -1973,8 +2012,22 @@ function RecyclarrTab() {
   const [localTemplates, setLocalTemplates] = useState<string[]>([])
   const [localScoreOverrides, setLocalScoreOverrides] = useState<import('../types/recyclarr').RecyclarrScoreOverride[]>([])
   const [localUserCfs, setLocalUserCfs] = useState<import('../types/recyclarr').RecyclarrUserCf[]>([])
+  const [localPreferredRatio, setLocalPreferredRatio] = useState(0.0)
+  const [localProfilesConfig, setLocalProfilesConfig] = useState<import('../types/recyclarr').RecyclarrProfileConfig[]>([])
+  const [localDeleteOldCfs, setLocalDeleteOldCfs] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
+
+  // UI state for expandable sections
+  const [qdExpanded, setQdExpanded] = useState(false)
+  const [expandedProfiles, setExpandedProfiles] = useState<Set<string>>(new Set())
+  const [newExceptInputs, setNewExceptInputs] = useState<Record<string, string>>({})
+
+  // Schedule state
+  const [scheduleMode, setScheduleMode] = useState<ScheduleMode>('manual')
+  const [scheduleTime, setScheduleTime] = useState('04:00')
+  const [scheduleWeekday, setScheduleWeekday] = useState('1')
+  const [scheduleCustom, setScheduleCustom] = useState('')
 
   // Add user CF form
   const [newCfName, setNewCfName] = useState('')
@@ -2009,28 +2062,64 @@ function RecyclarrTab() {
       setLocalTemplates(cfg.templates)
       setLocalScoreOverrides(cfg.scoreOverrides)
       setLocalUserCfs(cfg.userCfNames)
+      setLocalPreferredRatio(cfg.preferredRatio ?? 0.0)
+      setLocalProfilesConfig(cfg.profilesConfig ?? [])
+      setLocalDeleteOldCfs(cfg.deleteOldCfs ?? false)
+      const { mode, time, weekday, custom } = parseCronExpression(cfg.syncSchedule ?? 'manual')
+      setScheduleMode(mode)
+      setScheduleTime(time)
+      setScheduleWeekday(weekday)
+      setScheduleCustom(custom)
     } else {
-      // New instance — auto-check matching quality definition
       const inst = radarrSonarrInstances.find(i => i.id === instanceId)
       const matchingQd = templates.find(t => t.type === 'quality_definition' && t.mediaType === inst?.type)
       setLocalEnabled(true)
       setLocalTemplates(matchingQd ? [matchingQd.slug] : [])
       setLocalScoreOverrides([])
       setLocalUserCfs([])
+      setLocalPreferredRatio(0.0)
+      setLocalProfilesConfig([])
+      setLocalDeleteOldCfs(false)
+      setScheduleMode('manual')
+      setScheduleTime('04:00')
+      setScheduleWeekday('1')
+      setScheduleCustom('')
     }
+    setQdExpanded(false)
+    setExpandedProfiles(new Set())
+    setNewExceptInputs({})
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [instanceId, configs, templates])
+
+  // Profile config helpers
+  const getProfileConfig = (slug: string): import('../types/recyclarr').RecyclarrProfileConfig =>
+    localProfilesConfig.find(pc => pc.slug === slug) ?? {
+      slug, reset_unmatched_scores_enabled: true, reset_unmatched_scores_except: [],
+    }
+
+  const updateProfileConfig = (slug: string, updates: Partial<import('../types/recyclarr').RecyclarrProfileConfig>) => {
+    setLocalProfilesConfig(prev => {
+      const existing = prev.find(pc => pc.slug === slug)
+      if (existing) return prev.map(pc => pc.slug === slug ? { ...pc, ...updates } : pc)
+      return [...prev, { slug, reset_unmatched_scores_enabled: true, reset_unmatched_scores_except: [], ...updates }]
+    })
+  }
 
   const handleSave = async () => {
     if (!instanceId) return
     setSaving(true)
     setSaveError('')
     try {
+      const syncSchedule = buildCronExpression(scheduleMode, scheduleTime, scheduleWeekday, scheduleCustom)
       await saveConfig(instanceId, {
         enabled: localEnabled,
         templates: localTemplates,
         scoreOverrides: localScoreOverrides,
         userCfNames: localUserCfs,
+        preferredRatio: localPreferredRatio,
+        profilesConfig: localProfilesConfig.filter(pc => localTemplates.includes(pc.slug)),
+        syncSchedule,
+        deleteOldCfs: localDeleteOldCfs,
       })
     } catch (e: unknown) {
       setSaveError(e instanceof Error ? e.message : 'Save failed')
@@ -2042,37 +2131,22 @@ function RecyclarrTab() {
   const handleLoadCfs = async () => {
     if (!instanceId) return
     setLoadingCfs(true)
-    try {
-      await loadCfList(instanceId)
-    } finally {
-      setLoadingCfs(false)
-    }
+    try { await loadCfList(instanceId) } finally { setLoadingCfs(false) }
   }
 
   const handleRefreshTemplates = async () => {
     setRefreshingTemplates(true)
-    try {
-      await refreshTemplates()
-    } finally {
-      setRefreshingTemplates(false)
-    }
+    try { await refreshTemplates() } finally { setRefreshingTemplates(false) }
   }
 
   const handleRefreshCache = async () => {
     setRefreshingCache(true)
-    try {
-      await refreshCache()
-    } finally {
-      setRefreshingCache(false)
-    }
+    try { await refreshCache() } finally { setRefreshingCache(false) }
   }
 
   const handleAddUserCf = () => {
     if (!newCfName.trim()) return
-    setLocalUserCfs(prev => [
-      ...prev,
-      { name: newCfName.trim(), score: parseInt(newCfScore, 10) || 0, profileName: newCfProfile },
-    ])
+    setLocalUserCfs(prev => [...prev, { name: newCfName.trim(), score: parseInt(newCfScore, 10) || 0, profileName: newCfProfile }])
     setNewCfName('')
     setNewCfScore('0')
     setNewCfProfile('')
@@ -2083,15 +2157,14 @@ function RecyclarrTab() {
   }
 
   const currentCfs = instanceId ? (cfLists[instanceId] ?? []) : []
+  const currentConfig = configs.find(c => c.instanceId === instanceId)
 
-  // Filter by selected instance mediaType
   const instMediaType = selectedInstance?.type as 'radarr' | 'sonarr' | undefined
   const filteredTemplates = instMediaType ? templates.filter(t => t.mediaType === instMediaType) : templates
   const profileTemplates = filteredTemplates.filter(t => t.type === 'profile')
   const cfTemplates = filteredTemplates.filter(t => t.type === 'custom_formats')
   const qdTemplates = filteredTemplates.filter(t => t.type === 'quality_definition')
 
-  // Group profiles by their group field
   const profileGroups = profileTemplates.reduce<Record<string, typeof profileTemplates>>((acc, t) => {
     const g = t.group ?? 'Standard'
     if (!acc[g]) acc[g] = []
@@ -2101,7 +2174,6 @@ function RecyclarrTab() {
   const profileGroupOrder = ['Standard', 'Anime', 'Deutsch (German)', 'French', 'Dutch']
   const sortedProfileGroups = [...new Set([...profileGroupOrder, ...Object.keys(profileGroups)])].filter(g => profileGroups[g]?.length)
 
-  // Compute templates last updated label
   const templatesAgeLabel = (() => {
     if (!templatesLastFetchedAt) return null
     const ms = Date.now() - new Date(templatesLastFetchedAt).getTime()
@@ -2111,6 +2183,30 @@ function RecyclarrTab() {
     if (hrs < 24) return `${hrs}h ago`
     return `${Math.floor(hrs / 24)}d ago`
   })()
+
+  // Cron validation helper (no regex exec)
+  const cronValid = (expr: string): boolean => {
+    if (!expr || expr === 'manual') return true
+    const p = expr.trim().split(/\s+/)
+    if (p.length !== 5) return false
+    const ranges = [[0,59],[0,23],[1,31],[1,12],[0,7]]
+    return p.every((part, i) => {
+      if (part === '*') return true
+      const n = parseInt(part, 10)
+      const range = ranges[i]
+      return !isNaN(n) && range !== undefined && n >= range[0] && n <= range[1]
+    })
+  }
+
+  const sStyle = {
+    background: 'rgba(var(--text-rgb), 0.06)',
+    border: '1px solid var(--border)',
+    borderRadius: 'var(--radius-sm)',
+    padding: '4px 8px',
+    fontSize: 12,
+    color: 'var(--text-primary)',
+    fontFamily: 'var(--font-sans)',
+  }
 
   if (radarrSonarrInstances.length === 0) {
     return (
@@ -2122,43 +2218,27 @@ function RecyclarrTab() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* Import warning banner */}
+      {importWarning && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 'var(--radius-md)' }}>
+          <AlertTriangle size={14} style={{ color: '#f59e0b', flexShrink: 0 }} />
+          <span style={{ fontSize: 12, color: '#f59e0b' }}>{importWarning}</span>
+        </div>
+      )}
+
       {/* Top bar */}
       {isAdmin && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <button
-              className="btn btn-ghost btn-sm"
-              onClick={handleRefreshTemplates}
-              disabled={refreshingTemplates}
-              style={{ fontSize: 12, gap: 6 }}
-            >
-              {refreshingTemplates
-                ? <div className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} />
-                : <RefreshCw size={12} />
-              }
+            <button className="btn btn-ghost btn-sm" onClick={handleRefreshTemplates} disabled={refreshingTemplates} style={{ fontSize: 12, gap: 6 }}>
+              {refreshingTemplates ? <div className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} /> : <RefreshCw size={12} />}
               Refresh templates
             </button>
-            {templatesAgeLabel && (
-              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                Last updated: {templatesAgeLabel}
-              </span>
-            )}
-            {templatesWarning && (
-              <span className="badge badge-warning" style={{ fontSize: 10 }}>
-                Using cached — GitHub unavailable
-              </span>
-            )}
+            {templatesAgeLabel && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Last updated: {templatesAgeLabel}</span>}
+            {templatesWarning && <span className="badge badge-warning" style={{ fontSize: 10 }}>Using cached — GitHub unavailable</span>}
           </div>
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={handleRefreshCache}
-            disabled={refreshingCache}
-            style={{ fontSize: 12, gap: 6 }}
-          >
-            {refreshingCache
-              ? <div className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} />
-              : <RefreshCw size={12} />
-            }
+          <button className="btn btn-ghost btn-sm" onClick={handleRefreshCache} disabled={refreshingCache} style={{ fontSize: 12, gap: 6 }}>
+            {refreshingCache ? <div className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} /> : <RefreshCw size={12} />}
             Refresh TRaSH cache
           </button>
         </div>
@@ -2168,57 +2248,62 @@ function RecyclarrTab() {
       {radarrSonarrInstances.length > 1 && (
         <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: '6px 8px', display: 'flex', gap: 2, alignSelf: 'flex-start' }}>
           {radarrSonarrInstances.map(i => (
-            <button
-              key={i.id}
-              onClick={() => setSelectedInstanceId(i.id)}
-              style={{
-                padding: '7px 14px', borderRadius: 'var(--radius-md)', fontSize: 13,
-                fontWeight: selectedInstanceId === i.id ? 600 : 400,
-                background: selectedInstanceId === i.id ? 'rgba(var(--accent-rgb), 0.12)' : 'transparent',
-                color: selectedInstanceId === i.id ? 'var(--accent)' : 'var(--text-secondary)',
-                border: selectedInstanceId === i.id ? '1px solid rgba(var(--accent-rgb), 0.25)' : '1px solid transparent',
-                cursor: 'pointer', transition: 'all 150ms ease', fontFamily: 'var(--font-sans)',
-              }}
-            >
-              {i.name}
-            </button>
+            <button key={i.id} onClick={() => setSelectedInstanceId(i.id)} style={{
+              padding: '7px 14px', borderRadius: 'var(--radius-md)', fontSize: 13,
+              fontWeight: selectedInstanceId === i.id ? 600 : 400,
+              background: selectedInstanceId === i.id ? 'rgba(var(--accent-rgb), 0.12)' : 'transparent',
+              color: selectedInstanceId === i.id ? 'var(--accent)' : 'var(--text-secondary)',
+              border: selectedInstanceId === i.id ? '1px solid rgba(var(--accent-rgb), 0.25)' : '1px solid transparent',
+              cursor: 'pointer', transition: 'all 150ms ease', fontFamily: 'var(--font-sans)',
+            }}>{i.name}</button>
           ))}
         </div>
       )}
 
       {instanceId && (
         <>
-          {/* Section A — Configuration */}
+          {/* ─ Section A: Configuration ─ */}
           <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <h4 style={{ fontSize: 14, fontWeight: 600, margin: 0, flex: 1 }}>Configuration</h4>
               {isAdmin && (
                 <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={localEnabled}
-                    onChange={e => setLocalEnabled(e.target.checked)}
-                  />
+                  <input type="checkbox" checked={localEnabled} onChange={e => setLocalEnabled(e.target.checked)} />
                   Enabled
                 </label>
               )}
               {isAdmin && (
-                <button
-                  className="btn btn-primary btn-sm"
-                  onClick={handleSave}
-                  disabled={saving}
-                  style={{ fontSize: 12, gap: 4 }}
-                >
+                <button className="btn btn-primary btn-sm" onClick={handleSave} disabled={saving} style={{ fontSize: 12, gap: 4 }}>
                   <Check size={12} />
                   {saving ? 'Saving…' : 'Save'}
                 </button>
               )}
             </div>
+
+            {/* Delete old CFs toggle */}
+            {isAdmin && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={localDeleteOldCfs} onChange={e => setLocalDeleteOldCfs(e.target.checked)} />
+                  Nicht mehr verwendete Custom Formats löschen
+                </label>
+                {localDeleteOldCfs
+                  ? <span className="badge badge-error" style={{ fontSize: 10, alignSelf: 'flex-start' }}>
+                      Löscht CFs die Recyclarr erstellt hat wenn sie aus der Config entfernt werden. Eigene CFs (z.B. Tdarr) sind nur geschützt wenn ihre Namen in "Reset Scores Ausnahmen" eingetragen sind.
+                    </span>
+                  : <span className="badge badge-success" style={{ fontSize: 10, alignSelf: 'flex-start' }}>
+                      Sicher — keine CFs werden automatisch gelöscht.
+                    </span>
+                }
+              </div>
+            )}
+
             {saveError && (
               <div style={{ fontSize: 12, color: 'var(--status-offline)', padding: '8px 12px', background: 'rgba(239,68,68,0.1)', borderRadius: 'var(--radius-md)' }}>
                 {saveError}
               </div>
             )}
+
             {loading ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />
@@ -2231,28 +2316,44 @@ function RecyclarrTab() {
                 {qdTemplates.length > 0 && (
                   <div>
                     <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4, fontWeight: 500 }}>Quality Definitions</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8 }}>
-                      Controls allowed file sizes per quality — recommended to always include
-                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8 }}>Controls allowed file sizes per quality — recommended to always include</div>
                     {qdTemplates.map(t => (
                       <label key={t.slug} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: isAdmin ? 'pointer' : 'default', userSelect: 'none', marginBottom: 4 }}>
-                        <input
-                          type="checkbox"
-                          checked={localTemplates.includes(t.slug)}
+                        <input type="checkbox" checked={localTemplates.includes(t.slug)}
                           onChange={e => {
                             if (!isAdmin) return
                             setLocalTemplates(prev => e.target.checked ? [...prev, t.slug] : prev.filter(s => s !== t.slug))
-                          }}
-                          disabled={!isAdmin}
-                        />
+                          }} disabled={!isAdmin} />
                         {t.name}
                         <span className="badge badge-accent" style={{ fontSize: 10 }}>Recommended</span>
                       </label>
                     ))}
+                    {/* QD preferred_ratio — collapsible */}
+                    {isAdmin && localTemplates.some(s => qdTemplates.some(t => t.slug === s)) && (
+                      <div style={{ marginTop: 4, marginLeft: 20 }}>
+                        <button onClick={() => setQdExpanded(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 0' }}>
+                          {qdExpanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+                          Quality Definition Einstellungen
+                        </button>
+                        {qdExpanded && (
+                          <div style={{ marginTop: 8, padding: '10px 12px', background: 'rgba(var(--text-rgb), 0.04)', borderRadius: 'var(--radius-sm)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                              <label style={{ fontSize: 12, color: 'var(--text-secondary)', minWidth: 130 }}>Preferred Ratio</label>
+                              <input type="number" min={0} max={1} step={0.1} value={localPreferredRatio}
+                                onChange={e => setLocalPreferredRatio(parseFloat(e.target.value) || 0)}
+                                style={{ ...sStyle, width: 80 }} />
+                            </div>
+                            <span className="badge badge-neutral" style={{ fontSize: 10, alignSelf: 'flex-start' }}>
+                              0.0 = Qualität bevorzugen, 1.0 = Dateigröße bevorzugen
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 
-                {/* Profiles — grouped */}
+                {/* Quality Profiles — grouped with per-profile advanced settings */}
                 {profileTemplates.length > 0 && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                     <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>Quality Profiles</div>
@@ -2261,52 +2362,134 @@ function RecyclarrTab() {
                         {sortedProfileGroups.length > 1 && (
                           <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4, fontStyle: 'italic' }}>{group}</div>
                         )}
-                        {(profileGroups[group] ?? []).map(t => (
-                          <label key={t.slug} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: isAdmin ? 'pointer' : 'default', userSelect: 'none', marginBottom: 4 }}>
-                            <input
-                              type="checkbox"
-                              checked={localTemplates.includes(t.slug)}
-                              onChange={e => {
-                                if (!isAdmin) return
-                                setLocalTemplates(prev => {
-                                  let next = e.target.checked ? [...prev, t.slug] : prev.filter(s => s !== t.slug)
-                                  // Auto-select paired CF template
-                                  if (t.pairedWith) {
-                                    if (e.target.checked && !next.includes(t.pairedWith)) {
-                                      next = [...next, t.pairedWith]
-                                    } else if (!e.target.checked) {
-                                      next = next.filter(s => s !== t.pairedWith)
-                                    }
-                                  }
-                                  return next
-                                })
-                              }}
-                              disabled={!isAdmin}
-                            />
-                            {t.name}
-                            {t.pairedWith && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>(includes CFs)</span>}
-                          </label>
-                        ))}
+                        {(profileGroups[group] ?? []).map(t => {
+                          const isSelected = localTemplates.includes(t.slug)
+                          const isExpanded = expandedProfiles.has(t.slug)
+                          const pc = getProfileConfig(t.slug)
+                          const exceptInput = newExceptInputs[t.slug] ?? ''
+                          return (
+                            <div key={t.slug} style={{ marginBottom: 6 }}>
+                              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: isAdmin ? 'pointer' : 'default', userSelect: 'none' }}>
+                                <input type="checkbox" checked={isSelected}
+                                  onChange={e => {
+                                    if (!isAdmin) return
+                                    setLocalTemplates(prev => {
+                                      let next = e.target.checked ? [...prev, t.slug] : prev.filter(s => s !== t.slug)
+                                      if (t.pairedWith) {
+                                        if (e.target.checked && !next.includes(t.pairedWith)) next = [...next, t.pairedWith]
+                                        else if (!e.target.checked) next = next.filter(s => s !== t.pairedWith)
+                                      }
+                                      return next
+                                    })
+                                  }} disabled={!isAdmin} />
+                                {t.name}
+                                {t.pairedWith && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>(includes CFs)</span>}
+                              </label>
+
+                              {/* Per-profile advanced settings */}
+                              {isAdmin && isSelected && (
+                                <div style={{ marginLeft: 20, marginTop: 4 }}>
+                                  <button onClick={() => setExpandedProfiles(prev => {
+                                    const next = new Set(prev)
+                                    if (next.has(t.slug)) next.delete(t.slug); else next.add(t.slug)
+                                    return next
+                                  })} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 0' }}>
+                                    {isExpanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+                                    Erweiterte Einstellungen
+                                  </button>
+                                  {isExpanded && (
+                                    <div style={{ marginTop: 6, padding: '10px 12px', background: 'rgba(var(--text-rgb), 0.04)', borderRadius: 'var(--radius-sm)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                      {/* Min Format Score */}
+                                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                        <label style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Min Format Score</label>
+                                        <input type="number" value={pc.min_format_score ?? ''} placeholder="Kein Minimum"
+                                          onChange={e => {
+                                            const v = e.target.value
+                                            updateProfileConfig(t.slug, { min_format_score: v === '' ? undefined : parseInt(v, 10) || 0 })
+                                          }} style={{ ...sStyle, width: 150 }} />
+                                        <span className="badge badge-neutral" style={{ fontSize: 10, alignSelf: 'flex-start' }}>
+                                          10000 = Englische Releases überspringen (nur Deutsch)
+                                        </span>
+                                      </div>
+
+                                      {/* Reset unmatched scores */}
+                                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                                          <input type="checkbox" checked={pc.reset_unmatched_scores_enabled}
+                                            onChange={e => updateProfileConfig(t.slug, { reset_unmatched_scores_enabled: e.target.checked })} />
+                                          Reset unmatched scores
+                                        </label>
+                                        <span className="badge badge-neutral" style={{ fontSize: 10, alignSelf: 'flex-start' }}>
+                                          Setzt Scores von Formaten die nicht im Profil sind auf 0
+                                        </span>
+
+                                        {pc.reset_unmatched_scores_enabled && (
+                                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
+                                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Ausnahmen (werden NICHT zurückgesetzt):</div>
+                                            {pc.reset_unmatched_scores_except.length > 0 && (
+                                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                                                {pc.reset_unmatched_scores_except.map((ex, idx) => (
+                                                  <span key={idx} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', background: 'rgba(var(--accent-rgb), 0.1)', border: '1px solid rgba(var(--accent-rgb), 0.25)', borderRadius: 'var(--radius-sm)', fontSize: 11, color: 'var(--accent)' }}>
+                                                    {ex}
+                                                    <button onClick={() => updateProfileConfig(t.slug, {
+                                                      reset_unmatched_scores_except: pc.reset_unmatched_scores_except.filter((_, i) => i !== idx)
+                                                    })} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'inherit', lineHeight: 1 }}>
+                                                      <X size={9} />
+                                                    </button>
+                                                  </span>
+                                                ))}
+                                              </div>
+                                            )}
+                                            <div style={{ display: 'flex', gap: 6 }}>
+                                              <input style={{ ...sStyle, flex: 1 }} placeholder='z.B. "TDARR"' value={exceptInput}
+                                                onChange={e => setNewExceptInputs(prev => ({ ...prev, [t.slug]: e.target.value }))}
+                                                onKeyDown={e => {
+                                                  if (e.key === 'Enter' && exceptInput.trim()) {
+                                                    if (!pc.reset_unmatched_scores_except.includes(exceptInput.trim())) {
+                                                      updateProfileConfig(t.slug, { reset_unmatched_scores_except: [...pc.reset_unmatched_scores_except, exceptInput.trim()] })
+                                                    }
+                                                    setNewExceptInputs(prev => ({ ...prev, [t.slug]: '' }))
+                                                  }
+                                                }} />
+                                              <button className="btn btn-ghost btn-sm" style={{ fontSize: 11, padding: '4px 8px' }}
+                                                onClick={() => {
+                                                  if (exceptInput.trim() && !pc.reset_unmatched_scores_except.includes(exceptInput.trim())) {
+                                                    updateProfileConfig(t.slug, { reset_unmatched_scores_except: [...pc.reset_unmatched_scores_except, exceptInput.trim()] })
+                                                  }
+                                                  setNewExceptInputs(prev => ({ ...prev, [t.slug]: '' }))
+                                                }}>
+                                                <Plus size={11} />
+                                              </button>
+                                            </div>
+                                            <span className="badge badge-warning" style={{ fontSize: 10, alignSelf: 'flex-start' }}>
+                                              Formate in dieser Liste werden NICHT zurückgesetzt — wichtig für eigene CFs wie Tdarr
+                                            </span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
                       </div>
                     ))}
                   </div>
                 )}
 
-                {/* Custom Formats (independent) */}
+                {/* Custom Formats standalone */}
                 {cfTemplates.filter(t => !profileTemplates.some(p => p.pairedWith === t.slug)).length > 0 && (
                   <div>
                     <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6, fontWeight: 500 }}>Custom Formats (standalone)</div>
                     {cfTemplates.filter(t => !profileTemplates.some(p => p.pairedWith === t.slug)).map(t => (
                       <label key={t.slug} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: isAdmin ? 'pointer' : 'default', userSelect: 'none', marginBottom: 4 }}>
-                        <input
-                          type="checkbox"
-                          checked={localTemplates.includes(t.slug)}
+                        <input type="checkbox" checked={localTemplates.includes(t.slug)}
                           onChange={e => {
                             if (!isAdmin) return
                             setLocalTemplates(prev => e.target.checked ? [...prev, t.slug] : prev.filter(s => s !== t.slug))
-                          }}
-                          disabled={!isAdmin}
-                        />
+                          }} disabled={!isAdmin} />
                         {t.name}
                       </label>
                     ))}
@@ -2316,28 +2499,17 @@ function RecyclarrTab() {
             )}
           </div>
 
-          {/* Section B — Score Overrides */}
+          {/* ─ Section B: Score Overrides ─ */}
           <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <h4 style={{ fontSize: 14, fontWeight: 600, margin: 0, flex: 1 }}>Score Overrides</h4>
-              <button
-                className="btn btn-ghost btn-sm"
-                onClick={handleLoadCfs}
-                disabled={loadingCfs}
-                style={{ fontSize: 12, gap: 4 }}
-              >
-                {loadingCfs
-                  ? <div className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} />
-                  : <RefreshCw size={12} />
-                }
+              <button className="btn btn-ghost btn-sm" onClick={handleLoadCfs} disabled={loadingCfs} style={{ fontSize: 12, gap: 4 }}>
+                {loadingCfs ? <div className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} /> : <RefreshCw size={12} />}
                 Load CFs
               </button>
             </div>
-
             {currentCfs.length === 0 ? (
-              <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                Click "Load CFs" to fetch custom format data for the selected templates.
-              </p>
+              <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Click "Load CFs" to fetch custom format data for the selected templates.</p>
             ) : (
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
@@ -2359,9 +2531,7 @@ function RecyclarrTab() {
                           <td style={{ padding: '7px 8px', textAlign: 'right', color: 'var(--text-secondary)' }}>{cf.defaultScore || '—'}</td>
                           <td style={{ padding: '7px 8px', textAlign: 'right' }}>
                             {isAdmin ? (
-                              <input
-                                type="number"
-                                value={override?.score ?? ''}
+                              <input type="number" value={override?.score ?? ''} placeholder="—"
                                 onChange={e => {
                                   const val = e.target.value
                                   setLocalScoreOverrides(prev => {
@@ -2370,16 +2540,7 @@ function RecyclarrTab() {
                                     return [...filtered, { trash_id: cf.trash_id, name: cf.name, score: parseInt(val, 10) || 0, profileName: cf.profileName }]
                                   })
                                 }}
-                                placeholder="—"
-                                style={{
-                                  width: 70, textAlign: 'right',
-                                  background: 'rgba(var(--text-rgb), 0.06)',
-                                  border: '1px solid var(--border)',
-                                  borderRadius: 'var(--radius-sm)',
-                                  padding: '3px 6px', fontSize: 12,
-                                  color: 'var(--text-primary)',
-                                }}
-                              />
+                                style={{ width: 70, textAlign: 'right', background: 'rgba(var(--text-rgb), 0.06)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '3px 6px', fontSize: 12, color: 'var(--text-primary)' }} />
                             ) : (
                               <span style={{ color: 'var(--text-secondary)' }}>{override?.score ?? '—'}</span>
                             )}
@@ -2393,13 +2554,12 @@ function RecyclarrTab() {
             )}
           </div>
 
-          {/* Section C — User Custom Formats */}
+          {/* ─ Section C: User Custom Formats ─ */}
           <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
             <h4 style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>User Custom Formats</h4>
             <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>
               Add custom format names that exist in your Arr instance. These will be assigned to a profile with a custom score.
             </p>
-
             {localUserCfs.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 {localUserCfs.map((ucf, idx) => (
@@ -2408,11 +2568,7 @@ function RecyclarrTab() {
                     <span style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{ucf.profileName || '—'}</span>
                     <span style={{ color: 'var(--accent)', fontSize: 12, minWidth: 40, textAlign: 'right' }}>{ucf.score}</span>
                     {isAdmin && (
-                      <button
-                        className="btn btn-danger btn-icon btn-sm"
-                        onClick={() => handleRemoveUserCf(idx)}
-                        style={{ width: 22, height: 22, padding: 3 }}
-                      >
+                      <button className="btn btn-danger btn-icon btn-sm" onClick={() => handleRemoveUserCf(idx)} style={{ width: 22, height: 22, padding: 3 }}>
                         <X size={10} />
                       </button>
                     )}
@@ -2420,70 +2576,33 @@ function RecyclarrTab() {
                 ))}
               </div>
             )}
-
             {isAdmin && (
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                <input
-                  className="form-input"
-                  placeholder="CF name"
-                  value={newCfName}
-                  onChange={e => setNewCfName(e.target.value)}
-                  style={{ flex: 2, minWidth: 120, fontSize: 12 }}
-                />
-                <input
-                  className="form-input"
-                  placeholder="Profile name"
-                  value={newCfProfile}
-                  onChange={e => setNewCfProfile(e.target.value)}
-                  style={{ flex: 2, minWidth: 120, fontSize: 12 }}
-                />
-                <input
-                  className="form-input"
-                  type="number"
-                  placeholder="Score"
-                  value={newCfScore}
-                  onChange={e => setNewCfScore(e.target.value)}
-                  style={{ flex: 1, minWidth: 70, fontSize: 12 }}
-                />
-                <button
-                  className="btn btn-ghost btn-sm"
-                  onClick={handleAddUserCf}
-                  style={{ fontSize: 12, gap: 4 }}
-                >
-                  <Plus size={12} />
-                  Add
+                <input className="form-input" placeholder="CF name" value={newCfName} onChange={e => setNewCfName(e.target.value)} style={{ flex: 2, minWidth: 120, fontSize: 12 }} />
+                <input className="form-input" placeholder="Profile name" value={newCfProfile} onChange={e => setNewCfProfile(e.target.value)} style={{ flex: 2, minWidth: 120, fontSize: 12 }} />
+                <input className="form-input" type="number" placeholder="Score" value={newCfScore} onChange={e => setNewCfScore(e.target.value)} style={{ flex: 1, minWidth: 70, fontSize: 12 }} />
+                <button className="btn btn-ghost btn-sm" onClick={handleAddUserCf} style={{ fontSize: 12, gap: 4 }}>
+                  <Plus size={12} />Add
                 </button>
               </div>
             )}
           </div>
 
-          {/* Section D — Sync */}
+          {/* ─ Section D: Sync (admin only) ─ */}
           {isAdmin && (
             <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
               <h4 style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>Sync</h4>
               <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>
-                Runs <code style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>recyclarr sync</code> inside the Recyclarr Docker container.
-                Save your configuration first.
+                Runs <code style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>recyclarr sync</code> inside the Recyclarr Docker container. Save first.
               </p>
+
+              {/* Sync buttons + session result */}
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                <button
-                  className="btn btn-primary btn-sm"
-                  onClick={() => sync(instanceId ?? undefined)}
-                  disabled={syncing}
-                  style={{ fontSize: 12, gap: 4 }}
-                >
-                  {syncing
-                    ? <div className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} />
-                    : <Check size={12} />
-                  }
+                <button className="btn btn-primary btn-sm" onClick={() => sync(instanceId ?? undefined)} disabled={syncing} style={{ fontSize: 12, gap: 4 }}>
+                  {syncing ? <div className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} /> : <Check size={12} />}
                   {syncing ? 'Syncing…' : 'Sync this instance'}
                 </button>
-                <button
-                  className="btn btn-ghost btn-sm"
-                  onClick={() => sync(undefined)}
-                  disabled={syncing}
-                  style={{ fontSize: 12, gap: 4 }}
-                >
+                <button className="btn btn-ghost btn-sm" onClick={() => sync(undefined)} disabled={syncing} style={{ fontSize: 12 }}>
                   Sync all
                 </button>
                 {syncDone && syncExitCode !== null && (
@@ -2492,29 +2611,82 @@ function RecyclarrTab() {
                     : <span className="badge badge-error" style={{ fontSize: 11 }}>Sync failed (exit {syncExitCode})</span>
                 )}
               </div>
+
+              {/* Last sync status (from DB, not current session) */}
+              {!syncDone && currentConfig?.lastSyncedAt && (
+                <div style={{ fontSize: 12 }}>
+                  {currentConfig.lastSyncSuccess === true
+                    ? <span className="badge badge-success" style={{ fontSize: 11 }}>Letzter Sync: {formatRelativeTime(currentConfig.lastSyncedAt)}</span>
+                    : currentConfig.lastSyncSuccess === false
+                    ? <span className="badge badge-error" style={{ fontSize: 11 }}>Letzter Sync fehlgeschlagen: {formatRelativeTime(currentConfig.lastSyncedAt)}</span>
+                    : <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>Noch kein Sync durchgeführt</span>
+                  }
+                </div>
+              )}
+              {!syncDone && !currentConfig?.lastSyncedAt && (
+                <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>Noch kein Sync durchgeführt</span>
+              )}
+
+              {/* Sync schedule */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, borderTop: '1px solid var(--border)', paddingTop: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 500 }}>
+                  <Clock size={13} style={{ color: 'var(--text-muted)' }} />
+                  Sync-Zeitplan
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
+                    <input type="radio" name={`sched-${instanceId}`} checked={scheduleMode === 'manual'} onChange={() => setScheduleMode('manual')} />
+                    Manuell (Standard)
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer', flexWrap: 'wrap' }}>
+                    <input type="radio" name={`sched-${instanceId}`} checked={scheduleMode === 'daily'} onChange={() => setScheduleMode('daily')} />
+                    Täglich um
+                    <input type="time" value={scheduleTime} onChange={e => setScheduleTime(e.target.value)} disabled={scheduleMode !== 'daily'}
+                      style={{ ...sStyle, width: 100, opacity: scheduleMode !== 'daily' ? 0.4 : 1 }} />
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer', flexWrap: 'wrap' }}>
+                    <input type="radio" name={`sched-${instanceId}`} checked={scheduleMode === 'weekly'} onChange={() => setScheduleMode('weekly')} />
+                    Wöchentlich
+                    <select value={scheduleWeekday} onChange={e => setScheduleWeekday(e.target.value)} disabled={scheduleMode !== 'weekly'}
+                      style={{ ...sStyle, opacity: scheduleMode !== 'weekly' ? 0.4 : 1 }}>
+                      <option value="1">Montag</option>
+                      <option value="2">Dienstag</option>
+                      <option value="3">Mittwoch</option>
+                      <option value="4">Donnerstag</option>
+                      <option value="5">Freitag</option>
+                      <option value="6">Samstag</option>
+                      <option value="0">Sonntag</option>
+                    </select>
+                    um
+                    <input type="time" value={scheduleTime} onChange={e => setScheduleTime(e.target.value)} disabled={scheduleMode !== 'weekly'}
+                      style={{ ...sStyle, width: 100, opacity: scheduleMode !== 'weekly' ? 0.4 : 1 }} />
+                  </label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
+                      <input type="radio" name={`sched-${instanceId}`} checked={scheduleMode === 'custom'} onChange={() => setScheduleMode('custom')} />
+                      Benutzerdefiniert
+                    </label>
+                    <input value={scheduleCustom} onChange={e => setScheduleCustom(e.target.value)} disabled={scheduleMode !== 'custom'}
+                      placeholder="0 4 * * *" style={{ ...sStyle, width: 130, fontFamily: 'var(--font-mono)', opacity: scheduleMode !== 'custom' ? 0.4 : 1 }} />
+                    {scheduleMode === 'custom' && scheduleCustom && (
+                      cronValid(scheduleCustom)
+                        ? <span className="badge badge-success" style={{ fontSize: 10 }}>Gültig</span>
+                        : <span className="badge badge-error" style={{ fontSize: 10 }}>Ungültig</span>
+                    )}
+                  </div>
+                </div>
+                <span className="badge badge-neutral" style={{ fontSize: 10, alignSelf: 'flex-start' }}>
+                  Zeitplan gilt auch nach Neustart. CRON_SCHEDULE im Recyclarr-Container muss deaktiviert sein — sonst laufen beide parallel.
+                </span>
+              </div>
+
+              {/* Sync output */}
               {(syncLines.length > 0 || syncing) && (
-                <pre
-                  ref={syncOutputRef}
-                  style={{
-                    fontFamily: 'var(--font-mono)', fontSize: 11,
-                    background: 'rgba(0,0,0,0.3)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 'var(--radius-md)',
-                    padding: 12, overflowY: 'auto', whiteSpace: 'pre-wrap',
-                    maxHeight: 320, margin: 0,
-                  }}
-                >
+                <pre ref={syncOutputRef} style={{ fontFamily: 'var(--font-mono)', fontSize: 11, background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: 12, overflowY: 'auto', whiteSpace: 'pre-wrap', maxHeight: 320, margin: 0 }}>
                   {syncLines.map((sl, i) => (
-                    <span
-                      key={i}
-                      style={{ display: 'block', color: sl.type === 'stderr' ? 'var(--status-offline)' : 'var(--text-primary)' }}
-                    >
-                      {sl.line}
-                    </span>
+                    <span key={i} style={{ display: 'block', color: sl.type === 'stderr' ? 'var(--status-offline)' : 'var(--text-primary)' }}>{sl.line}</span>
                   ))}
-                  {syncing && (
-                    <span style={{ color: 'var(--text-muted)', display: 'block' }}>…</span>
-                  )}
+                  {syncing && <span style={{ color: 'var(--text-muted)', display: 'block' }}>…</span>}
                 </pre>
               )}
             </div>

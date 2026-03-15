@@ -1346,7 +1346,7 @@ function DiscoverTab({ hasTmdbKey, onNavigate }: { hasTmdbKey: boolean; onNaviga
   }
 
   // Determine per-item request status
-  const getItemStatus = (item: TmdbResult): 'available' | 'pending' | 'missing_seasons' | null => {
+  const getItemStatus = (item: TmdbResult): 'available' | 'pending' | 'missing_seasons' | 'missing_seasons_all_requested' | null => {
     if (!seerrInstance) return null
     const mt = getEffectiveMediaType(item)
     if (!mt) return null
@@ -1359,10 +1359,18 @@ function DiscoverTab({ hasTmdbKey, onNavigate }: { hasTmdbKey: boolean; onNaviga
       return null  // status 1 = not in Radarr
     }
     if (mt === 'tv' && seerrTvStatus[item.id] !== undefined) {
-      const s = seerrTvStatus[item.id].status
+      const tvStatus = seerrTvStatus[item.id]
+      const s = tvStatus.status
       if (s === 5) return 'available'
-      if (s === 4) return 'missing_seasons'
       if (s === 2 || s === 3) return 'pending'
+      if (s === 4) {
+        const seasonList = tvStatus.seasons ?? []
+        const nonAvailable = seasonList.filter(se => se.status !== 5)
+        if (nonAvailable.length > 0 && nonAvailable.every(se => se.status === 2 || se.status === 3)) {
+          return 'missing_seasons_all_requested'
+        }
+        return 'missing_seasons'
+      }
       return null  // status 1 = not in Sonarr
     }
 
@@ -1707,13 +1715,13 @@ function DiscoverTab({ hasTmdbKey, onNavigate }: { hasTmdbKey: boolean; onNaviga
           const overview = item.overview ? item.overview.slice(0, 100) + (item.overview.length > 100 ? '...' : '') : ''
           const itemStatus = getItemStatus(item)
           const canRequest = !!seerrInstance && !!mt && (itemStatus === null || itemStatus === 'missing_seasons')
+          const isYellowStatus = itemStatus === 'pending' || itemStatus === 'missing_seasons' || itemStatus === 'missing_seasons_all_requested'
           const itemKey = `${mt ?? item.media_type ?? 'unknown'}-${item.id}`
 
           const btnLabel = requesting === itemKey
             ? 'Requesting…'
             : itemStatus === 'available' ? '✓ Available'
-            : itemStatus === 'pending' ? '⏳ Requested'
-            : itemStatus === 'missing_seasons' ? 'Request missing seasons'
+            : itemStatus === 'pending' || itemStatus === 'missing_seasons_all_requested' ? '⏳ Pending'
             : '+ Request'
 
           return (
@@ -1775,7 +1783,9 @@ function DiscoverTab({ hasTmdbKey, onNavigate }: { hasTmdbKey: boolean; onNaviga
                     color: '#fff', padding: '3px 7px', borderRadius: 'var(--radius-sm)',
                     fontSize: 10, fontWeight: 600, textTransform: 'uppercase', backdropFilter: 'blur(8px)',
                   }}>
-                    {itemStatus === 'available' ? '✓ Available' : '⏳ Requested'}
+                    {itemStatus === 'available' ? '✓ Available'
+                      : itemStatus === 'missing_seasons' ? '⚠ Partial'
+                      : '⏳ Pending'}
                   </div>
                 )}
               </div>
@@ -1803,8 +1813,16 @@ function DiscoverTab({ hasTmdbKey, onNavigate }: { hasTmdbKey: boolean; onNaviga
                       openRequestModal(item, mt)
                     }}
                     disabled={!canRequest || requesting === itemKey}
-                    className={canRequest ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'}
-                    style={{ fontSize: 12, padding: '6px 12px', marginTop: 'auto', opacity: canRequest ? 1 : 0.6, pointerEvents: canRequest ? undefined : 'none' }}
+                    className={itemStatus === 'available' ? 'btn btn-ghost btn-sm' : 'btn btn-primary btn-sm'}
+                    style={{
+                      fontSize: 12, padding: '6px 12px', marginTop: 'auto',
+                      pointerEvents: canRequest ? undefined : 'none',
+                      ...(isYellowStatus ? {
+                        color: '#f59e0b',
+                        borderColor: canRequest ? '#f59e0b' : 'rgba(245,158,11,0.4)',
+                        opacity: canRequest ? 1 : 0.7,
+                      } : !canRequest ? { opacity: 0.6 } : {}),
+                    }}
                   >
                     {btnLabel}
                   </button>

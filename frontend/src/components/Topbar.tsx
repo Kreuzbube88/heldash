@@ -5,7 +5,7 @@ import { useDashboardStore } from '../store/useDashboardStore'
 import { useWidgetStore } from '../store/useWidgetStore'
 import { useDockerStore } from '../store/useDockerStore'
 import { api } from '../api'
-import type { ThemeAccent, ServerStats, AdGuardStats, HaEntityState, NpmStats } from '../types'
+import type { ThemeAccent, ServerStats, AdGuardStats, HaEntityState, NpmStats, CalendarEntry } from '../types'
 import { containerCounts } from '../utils'
 
 interface Props {
@@ -201,6 +201,31 @@ export function Topbar({ page, onAddService, onAddInstance, onAddWidget, onCheck
                       {val(fmt(p.blocked_queries), 'var(--status-offline)')} {muted(`blocked (${p.blocked_percent}%)`)}
                     </>
                 }
+              </div>
+            )
+          }
+
+          if (w.type === 'calendar') {
+            const entries = Array.isArray(stats[w.id]) ? stats[w.id] as unknown as CalendarEntry[] : []
+            const upcoming = entries.slice(0, 3)
+            if (upcoming.length === 0) return null
+            const fmtDate = (d: string) => {
+              const today = new Date(); today.setHours(0, 0, 0, 0)
+              const dd = new Date(d + 'T00:00:00')
+              if (dd.getTime() === today.getTime()) return 'Today'
+              return dd.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
+            }
+            return (
+              <div key={w.id} style={pillStyle}>
+                {label('Cal:')}
+                {upcoming.map((e, i) => (
+                  <React.Fragment key={e.id}>
+                    {i > 0 && sep}
+                    {muted(fmtDate(e.date))}{' '}
+                    {val(e.title + (e.type === 'episode' && e.season_number != null ? ` S${String(e.season_number).padStart(2,'0')}E${String(e.episode_number ?? 0).padStart(2,'0')}` : ''))}
+                  </React.Fragment>
+                ))}
+                {entries.length > 3 && <>{sep}{muted(`+${entries.length - 3} more`)}</>}
               </div>
             )
           }

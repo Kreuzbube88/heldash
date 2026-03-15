@@ -4,8 +4,9 @@ import { useDockerStore } from '../store/useDockerStore'
 import { useDashboardStore } from '../store/useDashboardStore'
 import { useStore } from '../store/useStore'
 import { useHaStore } from '../store/useHaStore'
-import { Trash2, Pencil, X, Check, Plus, Minus, LayoutDashboard, Shield, ShieldOff, Upload, Container, Play, Square, RotateCcw, Zap, Sun, ZapOff, Flame, BatteryCharging } from 'lucide-react'
-import type { Widget, ServerStatusConfig, AdGuardHomeConfig, CustomButtonConfig, HomeAssistantConfig, NginxPMConfig, HomeAssistantEnergyConfig, ServerStats, AdGuardStats, HaEntityState, NpmStats, EnergyData } from '../types'
+import { useArrStore } from '../store/useArrStore'
+import { Trash2, Pencil, X, Check, Plus, Minus, LayoutDashboard, Shield, ShieldOff, Upload, Container, Play, Square, RotateCcw, Zap, Sun, ZapOff, Flame, BatteryCharging, Calendar, Film, Tv } from 'lucide-react'
+import type { Widget, ServerStatusConfig, AdGuardHomeConfig, CustomButtonConfig, HomeAssistantConfig, NginxPMConfig, HomeAssistantEnergyConfig, ServerStats, AdGuardStats, HaEntityState, NpmStats, EnergyData, CalendarWidgetConfig, CalendarEntry } from '../types'
 import { normalizeUrl, containerCounts } from '../utils'
 
 // ── Energy Widget compact view ─────────────────────────────────────────────────
@@ -72,6 +73,97 @@ export function HaEnergyWidgetView({ stats }: { stats: EnergyData }) {
         <SmallCircularGauge value={stats.self_sufficiency ?? 0} size={36} />
         <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{stats.period_label ?? 'Today'}</span>
       </div>
+    </div>
+  )
+}
+
+// ── Calendar widget content ────────────────────────────────────────────────────
+
+function formatCalendarDate(dateStr: string): string {
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1)
+  const d = new Date(dateStr + 'T00:00:00')
+  if (d.getTime() === today.getTime()) return 'Today'
+  if (d.getTime() === tomorrow.getTime()) return 'Tomorrow'
+  return d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })
+}
+
+export function CalendarWidgetContent({ entries, compact = false }: { entries: CalendarEntry[]; compact?: boolean }) {
+  if (compact) {
+    const upcoming = entries.slice(0, 3)
+    const more = entries.length - upcoming.length
+    if (upcoming.length === 0) {
+      return <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Nothing upcoming</span>
+    }
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        {upcoming.map(e => (
+          <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--accent)', minWidth: 52, flexShrink: 0 }}>{formatCalendarDate(e.date)}</span>
+            {e.instanceType === 'radarr'
+              ? <Film size={10} style={{ color: '#60a5fa', flexShrink: 0 }} />
+              : <Tv size={10} style={{ color: '#a78bfa', flexShrink: 0 }} />}
+            <span style={{ color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {e.title}{e.type === 'episode' && e.season_number != null ? ` S${String(e.season_number).padStart(2, '0')}E${String(e.episode_number ?? 0).padStart(2, '0')}` : ''}
+            </span>
+          </div>
+        ))}
+        {more > 0 && <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{more} more</span>}
+      </div>
+    )
+  }
+
+  if (entries.length === 0) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '16px 0', color: 'var(--text-muted)' }}>
+        <Calendar size={24} style={{ opacity: 0.4 }} />
+        <span style={{ fontSize: 12 }}>Nothing upcoming</span>
+      </div>
+    )
+  }
+
+  // Group by date
+  const grouped: { date: string; items: CalendarEntry[] }[] = []
+  for (const entry of entries) {
+    const last = grouped[grouped.length - 1]
+    if (last && last.date === entry.date) {
+      last.items.push(entry)
+    } else {
+      grouped.push({ date: entry.date, items: [entry] })
+    }
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 0, maxHeight: 320, overflowY: 'auto' }}>
+      {grouped.map(group => (
+        <div key={group.date}>
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', color: 'var(--text-secondary)', padding: '8px 0 4px', borderBottom: '1px solid var(--glass-border)', marginBottom: 4 }}>
+            {formatCalendarDate(group.date)}
+          </div>
+          {group.items.map(e => (
+            <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}>
+              <div style={{ width: 24, height: 24, borderRadius: 4, background: e.instanceType === 'radarr' ? 'rgba(96,165,250,0.12)' : 'rgba(167,139,250,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                {e.instanceType === 'radarr'
+                  ? <Film size={12} style={{ color: '#60a5fa' }} />
+                  : <Tv size={12} style={{ color: '#a78bfa' }} />}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {e.title}
+                </div>
+                {e.type === 'episode' && e.season_number != null && (
+                  <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+                    S{String(e.season_number).padStart(2, '0')}E{String(e.episode_number ?? 0).padStart(2, '0')}
+                  </div>
+                )}
+              </div>
+              <span style={{ fontSize: 10, color: e.instanceType === 'radarr' ? '#60a5fa' : '#a78bfa', fontWeight: 600, flexShrink: 0, fontFamily: 'var(--font-mono)' }}>
+                {e.instanceName}
+              </span>
+            </div>
+          ))}
+        </div>
+      ))}
     </div>
   )
 }
@@ -408,11 +500,12 @@ function WidgetForm({
   onCancel: () => void
 }) {
   const isEdit = !!initial
-  type WidgetFormType = 'server_status' | 'adguard_home' | 'docker_overview' | 'custom_button' | 'home_assistant' | 'pihole' | 'nginx_pm' | 'home_assistant_energy'
+  type WidgetFormType = 'server_status' | 'adguard_home' | 'docker_overview' | 'custom_button' | 'home_assistant' | 'pihole' | 'nginx_pm' | 'home_assistant_energy' | 'calendar'
   const [type, setType] = useState<WidgetFormType>(
     (initial?.type as WidgetFormType) ?? 'server_status'
   )
   const { instances: haInstances, loadInstances: loadHaInstances } = useHaStore()
+  const { instances: arrInstances, loadInstances: loadArrInstances } = useArrStore()
   const [name, setName] = useState(initial?.name ?? '')
   const [displayLocation, setDisplayLocation] = useState<'topbar' | 'sidebar' | 'none'>(
     (initial?.display_location ?? 'none') as 'topbar' | 'sidebar' | 'none'
@@ -456,6 +549,11 @@ function WidgetForm({
   const [energyInstanceId, setEnergyInstanceId] = useState(existingEnergy?.instance_id ?? '')
   const [energyPeriod, setEnergyPeriod] = useState<'day' | 'week' | 'month'>(existingEnergy?.period ?? 'day')
 
+  // calendar config
+  const existingCal = initial?.type === 'calendar' ? (initial.config as CalendarWidgetConfig) : null
+  const [calInstanceIds, setCalInstanceIds] = useState<string[]>(existingCal?.instance_ids ?? [])
+  const [calDaysAhead, setCalDaysAhead] = useState(existingCal?.days_ahead ?? 14)
+
   // icon
   const [pendingIcon, setPendingIcon] = useState<{ data: string; contentType: string; preview: string } | null>(null)
   const iconInputRef = useRef<HTMLInputElement>(null)
@@ -474,9 +572,10 @@ function WidgetForm({
     reader.readAsDataURL(file)
   }
 
-  // Load HA instances when energy type is selected
+  // Load HA instances when energy type is selected; ARR instances for calendar
   useEffect(() => {
     if (type === 'home_assistant_energy') loadHaInstances().catch(() => {})
+    if (type === 'calendar') loadArrInstances().catch(() => {})
   }, [type])
 
   // Update default name when type changes (only on create)
@@ -488,6 +587,7 @@ function WidgetForm({
     if (t === 'pihole') return 'Pi-hole'
     if (t === 'nginx_pm') return 'Nginx Proxy Manager'
     if (t === 'home_assistant_energy') return 'HA Energy'
+    if (t === 'calendar') return 'Upcoming'
     return 'Server Status'
   }
 
@@ -525,6 +625,10 @@ function WidgetForm({
     } else if (type === 'home_assistant_energy') {
       if (!energyInstanceId) return setError('HA Instance is required')
       config = { instance_id: energyInstanceId, period: energyPeriod }
+    } else if (type === 'calendar') {
+      if (calInstanceIds.length === 0) return setError('Select at least one Radarr/Sonarr instance')
+      const days = Math.max(1, Math.min(30, calDaysAhead))
+      config = { instance_ids: calInstanceIds, days_ahead: days }
     } else {
       if (!agUrl.trim()) return setError('URL is required')
       if (!agUsername.trim()) return setError('Username is required')
@@ -574,6 +678,7 @@ function WidgetForm({
               onChange={e => handleTypeChange(e.target.value as WidgetFormType)}
             >
               <option value="adguard_home">AdGuard Home</option>
+              <option value="calendar">Calendar</option>
               <option value="custom_button">Custom Buttons</option>
               <option value="docker_overview">Docker Overview</option>
               <option value="home_assistant">Home Assistant</option>
@@ -846,6 +951,48 @@ function WidgetForm({
             </div>
           </div>
         )}
+
+        {/* calendar config */}
+        {type === 'calendar' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div>
+              <label className="form-label" style={{ fontSize: 11 }}>Radarr / Sonarr Instances</label>
+              {arrInstances.filter(i => i.enabled && (i.type === 'radarr' || i.type === 'sonarr')).length === 0 && (
+                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>No Radarr/Sonarr instances found.</span>
+              )}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {arrInstances.filter(i => i.enabled && (i.type === 'radarr' || i.type === 'sonarr')).map(inst => (
+                  <label key={inst.id} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13 }}>
+                    <input
+                      type="checkbox"
+                      checked={calInstanceIds.includes(inst.id)}
+                      onChange={e => {
+                        if (e.target.checked) setCalInstanceIds(ids => [...ids, inst.id])
+                        else setCalInstanceIds(ids => ids.filter(id => id !== inst.id))
+                      }}
+                    />
+                    <span style={{ color: inst.type === 'radarr' ? '#60a5fa' : '#a78bfa', fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
+                      {inst.type === 'radarr' ? 'R' : 'S'}
+                    </span>
+                    {inst.name}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="form-label" style={{ fontSize: 11 }}>Days Ahead (1–30)</label>
+              <input
+                className="form-input"
+                type="number"
+                min={1}
+                max={30}
+                value={calDaysAhead}
+                onChange={e => setCalDaysAhead(Math.max(1, Math.min(30, parseInt(e.target.value) || 14)))}
+                style={{ fontSize: 13, width: 80 }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {error && <div style={{ fontSize: 12, color: 'var(--status-offline)' }}>{error}</div>}
@@ -911,7 +1058,7 @@ function WidgetCard({
           <div>
             <div style={{ fontWeight: 600, fontSize: 14 }}>{widget.name}</div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, display: 'flex', gap: 8 }}>
-              <span>{{ adguard_home: 'AdGuard Home', docker_overview: 'Docker Overview', custom_button: 'Custom Buttons', home_assistant: 'Home Assistant', home_assistant_energy: 'HA Energy', pihole: 'Pi-hole', nginx_pm: 'Nginx Proxy Manager' }[widget.type] ?? 'Server Status'}</span>
+              <span>{{ adguard_home: 'AdGuard Home', docker_overview: 'Docker Overview', custom_button: 'Custom Buttons', home_assistant: 'Home Assistant', home_assistant_energy: 'HA Energy', pihole: 'Pi-hole', nginx_pm: 'Nginx Proxy Manager', calendar: 'Calendar' }[widget.type] ?? 'Server Status'}</span>
               {widget.display_location === 'topbar' && <span style={{ color: 'var(--accent)' }}>· Topbar</span>}
               {widget.display_location === 'sidebar' && <span style={{ color: 'var(--accent)' }}>· Sidebar</span>}
             </div>
@@ -981,6 +1128,12 @@ function WidgetCard({
           <HaEnergyWidgetView stats={s as EnergyData} />
         ) : (
           <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '8px 0' }}>Loading stats…</div>
+        )
+      ) : widget.type === 'calendar' ? (
+        s ? (
+          <CalendarWidgetContent entries={s as CalendarEntry[]} />
+        ) : (
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '8px 0' }}>Loading calendar…</div>
         )
       ) : (
         // adguard_home

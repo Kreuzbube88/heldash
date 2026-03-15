@@ -6,8 +6,8 @@ import { useWidgetStore } from '../store/useWidgetStore'
 import { useDockerStore } from '../store/useDockerStore'
 import { ServiceCard } from '../components/ServiceCard'
 import { ArrCardContent, SabnzbdCardContent, SeerrCardContent } from '../components/MediaCard'
-import { AdGuardStatsView, DockerOverviewContent, HaStatsView, CustomButtonsView, StatBar, NginxPMStatsView, HaEnergyWidgetView } from './WidgetsPage'
-import type { Service, DashboardItem, DashboardServiceItem, DashboardArrItem, DashboardPlaceholderItem, DashboardWidgetItem, DashboardGroup, ServerStats, AdGuardStats, NpmStats, HaEntityState, AdGuardHomeConfig, Widget, EnergyData } from '../types'
+import { AdGuardStatsView, DockerOverviewContent, HaStatsView, CustomButtonsView, StatBar, NginxPMStatsView, HaEnergyWidgetView, CalendarWidgetContent } from './WidgetsPage'
+import type { Service, DashboardItem, DashboardServiceItem, DashboardArrItem, DashboardPlaceholderItem, DashboardWidgetItem, DashboardGroup, ServerStats, AdGuardStats, NpmStats, HaEntityState, AdGuardHomeConfig, Widget, EnergyData, CalendarEntry } from '../types'
 import { normalizeUrl } from '../utils'
 
 function DashboardWidgetIcon({ widget }: { widget: DashboardWidgetItem['widget'] }) {
@@ -319,6 +319,9 @@ function DashboardWidgetCard({ item, editMode, groups, colSpan = 2 }: {
         ) : item.widget.type === 'home_assistant_energy' ? (
           s ? <HaEnergyWidgetView stats={s as EnergyData} />
             : <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '8px 0' }}>Loading stats…</div>
+        ) : item.widget.type === 'calendar' ? (
+          s ? <CalendarWidgetContent entries={s as CalendarEntry[]} />
+            : <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '8px 0' }}>Loading calendar…</div>
         ) : null}
       </div>
       {editMode && (

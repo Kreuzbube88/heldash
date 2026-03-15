@@ -9,6 +9,91 @@ import { SabnzbdClient } from '../arr/sabnzbd'
 import { SeerrClient } from '../arr/seerr'
 import type { SeerrDiscoverResponse } from '../arr/seerr'
 
+// ── Calendar entry (combined endpoint + widget) ───────────────────────────────
+export interface CalendarEntry {
+  id: string
+  title: string
+  type: 'movie' | 'episode'
+  date: string        // YYYY-MM-DD
+  instanceId: string
+  instanceName: string
+  instanceType: 'radarr' | 'sonarr'
+  season_number?: number
+  episode_number?: number
+}
+
+/** Fetch and merge calendar items for the given instance IDs.
+ *  Skips instances that are unavailable or fail; deduplicates by title+date.
+ *  Pass daysAhead to filter from today onward. */
+export async function fetchCombinedCalendar(
+  instanceIds: string[],
+  groupId: string | null,
+  daysAhead?: number,
+): Promise<CalendarEntry[]> {
+  const db = getDb()
+  const start = new Date(); start.setDate(start.getDate() - 1)
+  const end   = new Date(); end.setDate(end.getDate() + 30)
+  const startStr = start.toISOString().slice(0, 10)
+  const endStr   = end.toISOString().slice(0, 10)
+
+  function isVisible(instanceId: string): boolean {
+    if (groupId === null || groupId === 'grp_admin') return true
+    return !db.prepare(
+      'SELECT 1 FROM group_arr_visibility WHERE group_id = ? AND instance_id = ?'
+    ).get(groupId, instanceId)
+  }
+
+  const items: CalendarEntry[] = []
+
+  await Promise.all(instanceIds.map(async (id) => {
+    const row = db.prepare(
+      'SELECT * FROM arr_instances WHERE id = ? AND enabled = 1'
+    ).get(id) as ArrInstanceRow | undefined
+    if (!row) return
+    if (row.type !== 'radarr' && row.type !== 'sonarr') return
+    if (!isVisible(id)) return
+
+    try {
+      if (row.type === 'radarr') {
+        const movies = await new RadarrClient(row.url, row.api_key).getCalendar(startStr, endStr) as Array<{
+          id: number; title: string; inCinemas?: string; digitalRelease?: string
+        }>
+        for (const movie of movies) {
+          const date = (movie.digitalRelease ?? movie.inCinemas ?? '').slice(0, 10)
+          if (!date) continue
+          items.push({ id: `radarr-${row.id}-${movie.id}`, title: movie.title, type: 'movie', date, instanceId: row.id, instanceName: row.name, instanceType: 'radarr' })
+        }
+      } else {
+        const episodes = await new SonarrClient(row.url, row.api_key).getCalendar(startStr, endStr) as Array<{
+          id: number; title: string; airDateUtc?: string; seasonNumber: number; episodeNumber: number; series?: { title: string }
+        }>
+        for (const ep of episodes) {
+          const date = (ep.airDateUtc ?? '').slice(0, 10)
+          if (!date) continue
+          items.push({ id: `sonarr-${row.id}-${ep.id}`, title: ep.series?.title ?? ep.title, type: 'episode', date, instanceId: row.id, instanceName: row.name, instanceType: 'sonarr', season_number: ep.seasonNumber, episode_number: ep.episodeNumber })
+        }
+      }
+    } catch { /* skip failing instance */ }
+  }))
+
+  // deduplicate by title+date, sort ascending
+  const seen = new Set<string>()
+  const deduped = items.filter(item => {
+    const key = `${item.title}|${item.date}`
+    if (seen.has(key)) return false
+    seen.add(key); return true
+  })
+  deduped.sort((a, b) => a.date.localeCompare(b.date))
+
+  if (daysAhead !== undefined) {
+    const today = new Date().toISOString().slice(0, 10)
+    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() + daysAhead)
+    const cutoffStr = cutoff.toISOString().slice(0, 10)
+    return deduped.filter(i => i.date >= today && i.date <= cutoffStr)
+  }
+  return deduped
+}
+
 // ── DB row type ───────────────────────────────────────────────────────────────
 interface ArrInstanceRow {
   id: string
@@ -400,6 +485,16 @@ export async function arrRoutes(app: FastifyInstance) {
     } catch (e: unknown) {
       return reply.status(502).send({ error: 'Upstream error', detail: (e as Error).message })
     }
+  })
+
+  // GET /api/arr/calendar/combined?instanceIds=id1,id2
+  app.get('/api/arr/calendar/combined', { preHandler: [app.authenticate] }, async (req, reply) => {
+    const { instanceIds } = req.query as { instanceIds?: string }
+    if (!instanceIds?.trim()) return reply.status(400).send({ error: 'instanceIds query param required' })
+    const ids = instanceIds.split(',').map(s => s.trim()).filter(Boolean)
+    const groupId = await _callerGroupId(req)
+    const items = await fetchCombinedCalendar(ids, groupId)
+    return reply.send({ items, fetched_at: new Date().toISOString() })
   })
 
   // GET /api/arr/:id/calendar

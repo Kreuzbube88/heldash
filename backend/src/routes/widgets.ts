@@ -354,7 +354,7 @@ export async function widgetsRoutes(app: FastifyInstance) {
   // POST /api/widgets — create (admin only)
   app.post('/api/widgets', { preHandler: [app.requireAdmin] }, async (req, reply) => {
     const { type, name, config = {}, show_in_topbar = false, display_location = 'none' } = req.body as CreateWidgetBody
-    if (!['server_status', 'adguard_home', 'docker_overview', 'custom_button', 'home_assistant', 'pihole', 'nginx_pm', 'home_assistant_energy'].includes(type)) {
+    if (!['server_status', 'adguard_home', 'docker_overview', 'custom_button', 'home_assistant', 'pihole', 'nginx_pm', 'home_assistant_energy', 'calendar'].includes(type)) {
       return reply.status(400).send({ error: 'Invalid widget type' })
     }
     if (!name?.trim()) return reply.status(400).send({ error: 'name is required' })
@@ -524,6 +524,15 @@ export async function widgetsRoutes(app: FastifyInstance) {
       } catch (err) {
         return { configured: false, error: (err as Error).message }
       }
+    }
+
+    if (row.type === 'calendar') {
+      const instanceIds: string[] = Array.isArray(config.instance_ids) ? config.instance_ids : []
+      const daysAhead: number = typeof config.days_ahead === 'number' ? config.days_ahead : 14
+      if (instanceIds.length === 0) return []
+      const callerGroup = await callerGroupId(req)
+      const { fetchCombinedCalendar } = await import('./arr')
+      return await fetchCombinedCalendar(instanceIds, callerGroup, daysAhead)
     }
 
     // server_status (default)

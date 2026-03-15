@@ -143,6 +143,23 @@ export interface HomeAssistantEnergyConfig {
   period: 'day' | 'week' | 'month'
 }
 
+export interface CalendarWidgetConfig {
+  instance_ids: string[]
+  days_ahead: number
+}
+
+export interface CalendarEntry {
+  id: string
+  title: string
+  type: 'movie' | 'episode'
+  date: string        // YYYY-MM-DD
+  instanceId: string
+  instanceName: string
+  instanceType: 'radarr' | 'sonarr'
+  season_number?: number
+  episode_number?: number
+}
+
 export interface EnergyData {
   configured: boolean
   period?: string
@@ -165,9 +182,9 @@ export interface EnergyData {
 
 export interface Widget {
   id: string
-  type: 'server_status' | 'adguard_home' | 'docker_overview' | 'custom_button' | 'home_assistant' | 'pihole' | 'nginx_pm' | 'home_assistant_energy'
+  type: 'server_status' | 'adguard_home' | 'docker_overview' | 'custom_button' | 'home_assistant' | 'pihole' | 'nginx_pm' | 'home_assistant_energy' | 'calendar'
   name: string
-  config: ServerStatusConfig | AdGuardHomeConfig | CustomButtonConfig | HomeAssistantConfig | PiholeConfig | NginxPMConfig | Record<string, never>
+  config: ServerStatusConfig | AdGuardHomeConfig | CustomButtonConfig | HomeAssistantConfig | PiholeConfig | NginxPMConfig | CalendarWidgetConfig | Record<string, never>
   position: number
   show_in_topbar: boolean  // deprecated: use display_location
   display_location: 'topbar' | 'sidebar' | 'none'
@@ -196,7 +213,7 @@ export interface NpmStats {
   cert_expiring_soon: number  // expires within 30 days
 }
 
-export type WidgetStats = ServerStats | AdGuardStats | HaEntityState[] | NpmStats
+export type WidgetStats = ServerStats | AdGuardStats | HaEntityState[] | NpmStats | CalendarEntry[]
 
 export interface DashboardWidgetItem {
   id: string

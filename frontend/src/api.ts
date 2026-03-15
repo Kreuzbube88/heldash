@@ -1,4 +1,4 @@
-import type { Service, Group, Settings, AuthUser, UserRecord, UserGroup, DashboardItem, DashboardGroup, DashboardResponse, Widget, WidgetStats, DockerContainer, ContainerStats, Background, HaInstance, HaPanel, HaEntityFull, EnergyData } from './types'
+import type { Service, Group, Settings, AuthUser, UserRecord, UserGroup, DashboardItem, DashboardGroup, DashboardResponse, Widget, WidgetStats, DockerContainer, ContainerStats, Background, HaInstance, HaPanel, HaEntityFull, EnergyData, CalendarEntry } from './types'
 import type { ArrInstance, ArrStatus, ArrStats, ArrQueueResponse, ArrCalendarItem, ProwlarrIndexer, SabnzbdQueueData, SabnzbdHistoryData, SeerrRequest, SeerrRequestsResponse, RadarrMovie, SonarrSeries, ArrCustomFormat, ArrCFSpecification, ArrQualityProfile } from './types/arr'
 import type { TmdbPage, TmdbGenre, TmdbProvider, TmdbTvDetail, TmdbDiscoverFilters } from './types/tmdb'
 
@@ -144,6 +144,8 @@ export const api = {
       updateScores: (id: string, profileId: number, scores: { formatId: number; score: number }[]) =>
         req<{ ok: boolean }>(`/arr/${id}/quality-profiles/${profileId}/scores`, { method: 'PUT', body: JSON.stringify({ scores }) }),
     },
+    calendarCombined: (instanceIds: string[]) =>
+      req<{ items: CalendarEntry[]; fetched_at: string }>(`/arr/calendar/combined?instanceIds=${instanceIds.join(',')}`),
   },
 
   tmdb: {

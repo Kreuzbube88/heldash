@@ -7,7 +7,7 @@ import { useStore } from '../store/useStore'
 import { useArrStore } from '../store/useArrStore'
 import { useWidgetStore } from '../store/useWidgetStore'
 import { useDockerStore } from '../store/useDockerStore'
-import type { Widget, ServerStats, AdGuardStats, HaEntityState, NpmStats } from '../types'
+import type { Widget, ServerStats, AdGuardStats, HaEntityState, NpmStats, CalendarEntry } from '../types'
 import { containerCounts } from '../utils'
 import { LS_SIDEBAR_COLLAPSED } from '../constants'
 
@@ -282,6 +282,28 @@ function SidebarWidget({ widget }: { widget: Widget }) {
       {row('Streams', String(npm.streams))}
       {row('Certs', String(npm.certificates), npm.cert_expiring_soon > 0 ? '#f59e0b' : undefined)}
       {npm.cert_expiring_soon > 0 && row('Expiring', String(npm.cert_expiring_soon), '#f59e0b')}
+    </>
+  } else if (widget.type === 'calendar' && Array.isArray(s)) {
+    const entries = s as CalendarEntry[]
+    const upcoming = entries.slice(0, 3)
+    if (upcoming.length === 0) return null
+    const fmtDate = (d: string) => {
+      const today = new Date(); today.setHours(0, 0, 0, 0)
+      const dd = new Date(d + 'T00:00:00')
+      if (dd.getTime() === today.getTime()) return 'Today'
+      if (dd.getTime() === today.getTime() + 86400000) return 'Tomorrow'
+      return dd.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })
+    }
+    body = <>
+      {upcoming.map(e => (
+        <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 4 }}>
+          <span style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)', fontSize: 10, flexShrink: 0 }}>{fmtDate(e.date)}</span>
+          <span style={{ color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, textAlign: 'right' }}>
+            {e.title}{e.type === 'episode' && e.season_number != null ? ` S${String(e.season_number).padStart(2,'0')}E${String(e.episode_number ?? 0).padStart(2,'0')}` : ''}
+          </span>
+        </div>
+      ))}
+      {entries.length > 3 && <span style={{ color: 'var(--text-muted)', fontSize: 10 }}>+{entries.length - 3} more</span>}
     </>
   } else {
     return null

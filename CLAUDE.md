@@ -19,8 +19,6 @@ Personal homelab dashboard: service tiles, DnD layout, Media (Radarr/Sonarr/Prow
 | Registry | ghcr.io/kreuzbube88/heldash |
 | CI | GitHub Actions (workflow_dispatch only) |
 
-## Docs → docs/dev/structure.md | docs/dev/data-model.md | docs/dev/api-reference.md | docs/dev/architecture.md
-
 ## Architecture
 
 - Single container: Fastify serves `/api/*` + React SPA. No nginx inside container.

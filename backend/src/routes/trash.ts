@@ -1,7 +1,8 @@
 import { FastifyInstance, FastifyReply } from 'fastify'
 import { nanoid } from 'nanoid'
-import { getDb } from '../db/database'
+import { getDb, safeJson } from '../db/database'
 import { fetchTrashData, getTrashCacheInfo } from '../trash/github-fetcher'
+import type { TrashProfile } from '../trash/github-fetcher'
 import { computeChangeset } from '../trash/sync-engine'
 import type { UserCustomFormat, FormatOverride } from '../trash/sync-engine'
 import { RadarrClient, ArrCustomFormat, ArrQualityProfile } from '../arr/radarr'
@@ -22,6 +23,7 @@ interface ArrInstanceRow {
 interface TrashInstanceConfigRow {
   instance_id: string
   profile_slug: string | null
+  profile_slugs: string | null
   updated_at: string
 }
 
@@ -44,7 +46,7 @@ interface TrashFormatOverrideRow {
 // ── Request body types ────────────────────────────────────────────────────────
 
 interface SaveConfigBody {
-  profile_slug: string | null
+  profile_slugs: string[]
 }
 
 interface CreateCFBody {
@@ -103,6 +105,35 @@ function getOverrides(db: ReturnType<typeof getDb>, instanceId: string): FormatO
   }))
 }
 
+/** Read profile_slugs from DB, auto-migrating old single profile_slug if needed. */
+function getProfileSlugs(db: ReturnType<typeof getDb>, instanceId: string): string[] {
+  const config = db.prepare(
+    'SELECT profile_slug, profile_slugs FROM trash_instance_config WHERE instance_id = ?'
+  ).get(instanceId) as { profile_slug: string | null; profile_slugs: string | null } | undefined
+  let slugs = safeJson<string[]>(config?.profile_slugs ?? null, [])
+  if (slugs.length === 0 && config?.profile_slug) slugs = [config.profile_slug]
+  return slugs
+}
+
+/** Merge multiple TRaSH profiles into one virtual profile (max score per format name). */
+function mergeTrashProfiles(profiles: TrashProfile[]): TrashProfile | null {
+  if (profiles.length === 0) return null
+  if (profiles.length === 1) return profiles[0]
+  const merged = new Map<string, { name: string; score: number }>()
+  for (const p of profiles) {
+    for (const fi of p.formatItems) {
+      const ex = merged.get(fi.name)
+      if (!ex || fi.score > ex.score) merged.set(fi.name, fi)
+    }
+  }
+  return {
+    slug: profiles[0].slug,
+    name: profiles[0].name,
+    type: profiles[0].type,
+    formatItems: Array.from(merged.values()),
+  }
+}
+
 function getCustomFormats(db: ReturnType<typeof getDb>, instanceId: string): UserCustomFormat[] {
   const rows = db.prepare(
     'SELECT id, name, specifications FROM trash_custom_formats WHERE instance_id = ?'
@@ -148,11 +179,8 @@ export async function trashRoutes(app: FastifyInstance) {
       const row = getArrInstance(db, req.params.id)
       if (!requireRadarrSonarr(row, reply)) return
 
-      const config = db.prepare(
-        'SELECT instance_id, profile_slug, updated_at FROM trash_instance_config WHERE instance_id = ?'
-      ).get(req.params.id) as TrashInstanceConfigRow | undefined
-
-      return reply.send({ profile_slug: config?.profile_slug ?? null })
+      const slugs = getProfileSlugs(db, req.params.id)
+      return reply.send({ profile_slugs: slugs })
     }
   )
 
@@ -164,16 +192,16 @@ export async function trashRoutes(app: FastifyInstance) {
       const row = getArrInstance(db, req.params.id)
       if (!requireRadarrSonarr(row, reply)) return
 
-      const { profile_slug } = req.body
+      const profile_slugs = req.body.profile_slugs ?? []
       db.prepare(`
-        INSERT INTO trash_instance_config (instance_id, profile_slug, updated_at)
+        INSERT INTO trash_instance_config (instance_id, profile_slugs, updated_at)
         VALUES (?, ?, datetime('now'))
         ON CONFLICT(instance_id) DO UPDATE SET
-          profile_slug = excluded.profile_slug,
+          profile_slugs = excluded.profile_slugs,
           updated_at = excluded.updated_at
-      `).run(req.params.id, profile_slug ?? null)
+      `).run(req.params.id, JSON.stringify(profile_slugs))
 
-      return reply.send({ ok: true, profile_slug: profile_slug ?? null })
+      return reply.send({ ok: true, profile_slugs })
     }
   )
 
@@ -293,18 +321,37 @@ export async function trashRoutes(app: FastifyInstance) {
         return reply.status(502).send({ error: `Failed to fetch TRaSH data: ${msg}` })
       }
 
-      const trashFormats = row.type === 'radarr'
-        ? trashData.radarrCFs
-        : trashData.sonarrCFs
+      const selectedSlugs = getProfileSlugs(db, req.params.id)
+      if (selectedSlugs.length === 0) {
+        return reply.status(400).send({ error: 'No profiles selected' })
+      }
 
-      const config = db.prepare(
-        'SELECT profile_slug FROM trash_instance_config WHERE instance_id = ?'
-      ).get(req.params.id) as { profile_slug: string | null } | undefined
-
+      const trashFormats = row.type === 'radarr' ? trashData.radarrCFs : trashData.sonarrCFs
       const profiles = row.type === 'radarr' ? trashData.radarrProfiles : trashData.sonarrProfiles
-      const selectedProfile = config?.profile_slug
-        ? profiles.find(p => p.slug === config.profile_slug)
-        : null
+      const selectedProfiles = profiles.filter(p => selectedSlugs.includes(p.slug))
+
+      // Build map: format name → [profile names that reference it]
+      const formatToProfiles = new Map<string, string[]>()
+      for (const profile of selectedProfiles) {
+        for (const fi of profile.formatItems) {
+          const existing = formatToProfiles.get(fi.name) ?? []
+          existing.push(profile.name)
+          formatToProfiles.set(fi.name, existing)
+        }
+      }
+
+      // Merged score: max score across all profiles that reference this format
+      const getMergedScore = (cfName: string): number => {
+        let maxScore = 0
+        for (const profile of selectedProfiles) {
+          const fi = profile.formatItems.find(f => f.name === cfName)
+          if (fi && fi.score > maxScore) maxScore = fi.score
+        }
+        return maxScore
+      }
+
+      // Only include TRaSH formats referenced in selected profiles
+      const filteredTrashFormats = trashFormats.filter(cf => formatToProfiles.has(cf.name))
 
       const overrides = getOverrides(db, req.params.id)
       const overrideMap = new Map(overrides.map(o => [o.format_slug, o]))
@@ -314,28 +361,32 @@ export async function trashRoutes(app: FastifyInstance) {
       ).all(req.params.id) as TrashCustomFormatRow[]
 
       const result = [
-        ...trashFormats.map(cf => {
+        ...filteredTrashFormats.map(cf => {
           const override = overrideMap.get(cf.slug)
-          const profileScore = selectedProfile?.formatItems.find(fi => fi.name === cf.name)?.score ?? 0
           return {
             slug: cf.slug,
             name: cf.name,
             source: 'trash' as const,
-            defaultScore: profileScore,
+            defaultScore: getMergedScore(cf.name),
             scoreOverride: override?.score_override ?? null,
             excluded: (override?.excluded ?? 0) === 1,
             specifications: cf.specifications,
+            inProfiles: formatToProfiles.get(cf.name) ?? [],
           }
         }),
-        ...userCFs.map(cf => ({
-          slug: cf.id,
-          name: cf.name,
-          source: 'custom' as const,
-          defaultScore: 0,
-          scoreOverride: null,
-          excluded: false,
-          specifications: JSON.parse(cf.specifications || '[]') as object[],
-        })),
+        ...userCFs.map(cf => {
+          const override = overrideMap.get(cf.id)
+          return {
+            slug: cf.id,
+            name: cf.name,
+            source: 'custom' as const,
+            defaultScore: 0,
+            scoreOverride: override?.score_override ?? null,
+            excluded: (override?.excluded ?? 0) === 1,
+            specifications: JSON.parse(cf.specifications || '[]') as object[],
+            inProfiles: [] as string[],
+          }
+        }),
       ]
 
       return reply.send(result)
@@ -376,12 +427,9 @@ export async function trashRoutes(app: FastifyInstance) {
       const row = getArrInstance(db, req.params.id)
       if (!requireRadarrSonarr(row, reply)) return
 
-      const config = db.prepare(
-        'SELECT profile_slug FROM trash_instance_config WHERE instance_id = ?'
-      ).get(req.params.id) as { profile_slug: string | null } | undefined
-
-      if (!config?.profile_slug) {
-        return reply.status(400).send({ error: 'No profile configured for this instance' })
+      const selectedSlugs = getProfileSlugs(db, req.params.id)
+      if (selectedSlugs.length === 0) {
+        return reply.status(400).send({ error: 'No profiles configured for this instance' })
       }
 
       let trashResult
@@ -393,9 +441,14 @@ export async function trashRoutes(app: FastifyInstance) {
       }
 
       const { data: trashData, previousSlugs } = trashResult
-      const trashFormats = row.type === 'radarr' ? trashData.radarrCFs : trashData.sonarrCFs
+      const allTrashFormats = row.type === 'radarr' ? trashData.radarrCFs : trashData.sonarrCFs
       const profiles = row.type === 'radarr' ? trashData.radarrProfiles : trashData.sonarrProfiles
-      const trashProfile = profiles.find(p => p.slug === config.profile_slug) ?? null
+      const selectedProfiles = profiles.filter(p => selectedSlugs.includes(p.slug))
+      const mergedProfile = mergeTrashProfiles(selectedProfiles)
+
+      // Filter TRaSH formats to only those referenced in selected profiles
+      const profileCfNames = new Set(selectedProfiles.flatMap(p => p.formatItems.map(fi => fi.name)))
+      const trashFormats = allTrashFormats.filter(cf => profileCfNames.has(cf.name))
 
       const client = getArrClient(row)
       let arrFormats: ArrCustomFormat[]
@@ -403,12 +456,11 @@ export async function trashRoutes(app: FastifyInstance) {
 
       try {
         arrFormats = await client.getCustomFormats()
-        const allProfiles = await client.getQualityProfiles()
-        // Try to find the quality profile by name matching the TRaSH profile
-        if (trashProfile) {
-          arrProfile = allProfiles.find(p => p.name.toLowerCase() === trashProfile.name.toLowerCase()) ?? null
-          // Fallback: first profile
-          if (!arrProfile && allProfiles.length > 0) arrProfile = allProfiles[0]
+        const allArrProfiles = await client.getQualityProfiles()
+        // Try to find quality profile matching any selected TRaSH profile name
+        for (const tp of selectedProfiles) {
+          arrProfile = allArrProfiles.find(p => p.name.toLowerCase() === tp.name.toLowerCase()) ?? null
+          if (arrProfile) break
         }
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e)
@@ -420,7 +472,7 @@ export async function trashRoutes(app: FastifyInstance) {
 
       const changeset = computeChangeset({
         trashFormats,
-        trashProfile,
+        trashProfile: mergedProfile,
         userCustomFormats: customFormats,
         overrides,
         arrFormats,
@@ -440,26 +492,31 @@ export async function trashRoutes(app: FastifyInstance) {
       const row = getArrInstance(db, req.params.id)
       if (!requireRadarrSonarr(row, reply)) return
 
-      const config = db.prepare(
-        'SELECT profile_slug FROM trash_instance_config WHERE instance_id = ?'
-      ).get(req.params.id) as { profile_slug: string | null } | undefined
-
-      if (!config?.profile_slug) {
-        return reply.status(400).send({ error: 'No profile configured for this instance' })
+      const selectedSlugs = getProfileSlugs(db, req.params.id)
+      if (selectedSlugs.length === 0) {
+        return reply.status(400).send({ error: 'No profiles configured for this instance' })
       }
+
+      req.log.info({ instanceId: req.params.id, profile_slugs: selectedSlugs }, 'TRaSH apply started')
 
       let trashResult
       try {
         trashResult = await fetchTrashData()
       } catch (e: unknown) {
+        req.log.error({ err: e, instanceId: req.params.id }, 'TRaSH apply: failed to fetch TRaSH data')
         const msg = e instanceof Error ? e.message : String(e)
         return reply.status(502).send({ error: `Failed to fetch TRaSH data: ${msg}` })
       }
 
       const { data: trashData, previousSlugs } = trashResult
-      const trashFormats = row.type === 'radarr' ? trashData.radarrCFs : trashData.sonarrCFs
+      const allTrashFormats = row.type === 'radarr' ? trashData.radarrCFs : trashData.sonarrCFs
       const profiles = row.type === 'radarr' ? trashData.radarrProfiles : trashData.sonarrProfiles
-      const trashProfile = profiles.find(p => p.slug === config.profile_slug) ?? null
+      const selectedProfiles = profiles.filter(p => selectedSlugs.includes(p.slug))
+      const mergedProfile = mergeTrashProfiles(selectedProfiles)
+
+      // Filter TRaSH formats to only those referenced in selected profiles
+      const profileCfNames = new Set(selectedProfiles.flatMap(p => p.formatItems.map(fi => fi.name)))
+      const trashFormats = allTrashFormats.filter(cf => profileCfNames.has(cf.name))
 
       const client = getArrClient(row)
       let arrFormats: ArrCustomFormat[]
@@ -468,15 +525,18 @@ export async function trashRoutes(app: FastifyInstance) {
       try {
         arrFormats = await client.getCustomFormats()
         arrProfiles = await client.getQualityProfiles()
+        req.log.info({ instanceId: req.params.id, arrFormatsCount: arrFormats.length, arrProfilesCount: arrProfiles.length }, 'TRaSH apply: fetched Arr data')
       } catch (e: unknown) {
+        req.log.error({ err: e, instanceId: req.params.id }, 'TRaSH apply: failed to reach Arr instance')
         const msg = e instanceof Error ? e.message : String(e)
         return reply.status(502).send({ error: `Cannot reach ${row.name}: ${msg}` })
       }
 
+      // Find matching Arr quality profile for any selected TRaSH profile name
       let arrProfile: ArrQualityProfile | null = null
-      if (trashProfile) {
-        arrProfile = arrProfiles.find(p => p.name.toLowerCase() === trashProfile.name.toLowerCase()) ?? null
-        if (!arrProfile && arrProfiles.length > 0) arrProfile = arrProfiles[0]
+      for (const tp of selectedProfiles) {
+        arrProfile = arrProfiles.find(p => p.name.toLowerCase() === tp.name.toLowerCase()) ?? null
+        if (arrProfile) break
       }
 
       const overrides = getOverrides(db, req.params.id)
@@ -484,13 +544,20 @@ export async function trashRoutes(app: FastifyInstance) {
 
       const changeset = computeChangeset({
         trashFormats,
-        trashProfile,
+        trashProfile: mergedProfile,
         userCustomFormats: customFormats,
         overrides,
         arrFormats,
         arrProfile,
         previousSlugs: row.type === 'radarr' ? previousSlugs.radarrCFs : previousSlugs.sonarrCFs,
       })
+
+      req.log.info({
+        instanceId: req.params.id,
+        toCreate: changeset.toCreate.length,
+        toUpdate: changeset.toUpdate.length,
+        toUpdateScores: changeset.toUpdateScores.length,
+      }, 'TRaSH apply: changeset computed')
 
       let created = 0
       let updated = 0
@@ -512,6 +579,7 @@ export async function trashRoutes(app: FastifyInstance) {
           nameToArrId.set(created_cf.name, created_cf.id)
           created++
         } catch (e: unknown) {
+          req.log.error({ err: e, slug: item.slug }, 'TRaSH apply phase A: create CF failed')
           errors.push(`Create ${item.name}: ${e instanceof Error ? e.message : String(e)}`)
         }
       }
@@ -526,6 +594,7 @@ export async function trashRoutes(app: FastifyInstance) {
           await client.updateCustomFormat(arrId, { name: cf.name, specifications: cf.specifications })
           updated++
         } catch (e: unknown) {
+          req.log.error({ err: e, slug: item.slug, arrId }, 'TRaSH apply phase B: update CF failed')
           errors.push(`Update ${item.name}: ${e instanceof Error ? e.message : String(e)}`)
         }
       }
@@ -539,6 +608,7 @@ export async function trashRoutes(app: FastifyInstance) {
           nameToArrId.set(created_cf.name, created_cf.id)
           created++
         } catch (e: unknown) {
+          req.log.error({ err: e, slug: item.slug }, 'TRaSH apply phase C: create custom CF failed')
           errors.push(`Create custom ${item.name}: ${e instanceof Error ? e.message : String(e)}`)
         }
       }
@@ -553,56 +623,60 @@ export async function trashRoutes(app: FastifyInstance) {
           await client.updateCustomFormat(arrId, { name: cf.name, specifications: cf.specifications })
           updated++
         } catch (e: unknown) {
+          req.log.error({ err: e, slug: item.slug, arrId }, 'TRaSH apply phase D: update custom CF failed')
           errors.push(`Update custom ${item.name}: ${e instanceof Error ? e.message : String(e)}`)
         }
       }
 
       // Phase E: Update quality profile scores
-      if (changeset.toUpdateScores.length > 0 && arrProfile) {
-        // Re-fetch formats to get fresh IDs (some may have been created above)
-        let freshFormats: ArrCustomFormat[] = []
-        try {
-          freshFormats = await client.getCustomFormats()
-        } catch {
-          // fall back to old list
-          freshFormats = arrFormats
-        }
-        const freshNameToId = new Map<string, number>()
-        for (const af of freshFormats) {
-          freshNameToId.set(af.name, af.id)
-        }
+      if (changeset.toUpdateScores.length > 0) {
+        if (!arrProfile) {
+          const profileNames = selectedProfiles.map(p => `'${p.name}'`).join(', ')
+          req.log.warn({ instanceId: req.params.id, selectedProfiles: profileNames }, 'TRaSH apply phase E: no matching quality profile found')
+          errors.push(`No matching quality profile found for ${profileNames} in ${row.name}`)
+        } else {
+          // Re-fetch formats to get fresh IDs (some may have been created above)
+          let freshFormats: ArrCustomFormat[] = []
+          try {
+            freshFormats = await client.getCustomFormats()
+          } catch {
+            freshFormats = arrFormats
+          }
+          const freshNameToId = new Map<string, number>()
+          for (const af of freshFormats) {
+            freshNameToId.set(af.name, af.id)
+          }
 
-        // Build updated profile
-        const updatedProfile: ArrQualityProfile = {
-          ...arrProfile,
-          formatItems: arrProfile.formatItems.map(fi => {
-            const scoreChange = changeset.toUpdateScores.find(sc => {
-              const arrId = freshNameToId.get(sc.name)
-              return arrId === fi.format
-            })
-            if (scoreChange) return { ...fi, score: scoreChange.newScore }
-            return fi
-          }),
-        }
+          // Build updated profile
+          const updatedProfile: ArrQualityProfile = {
+            ...arrProfile,
+            formatItems: arrProfile.formatItems.map(fi => {
+              const scoreChange = changeset.toUpdateScores.find(sc => freshNameToId.get(sc.name) === fi.format)
+              if (scoreChange) return { ...fi, score: scoreChange.newScore }
+              return fi
+            }),
+          }
 
-        // Add format items for newly created formats
-        for (const sc of changeset.toUpdateScores) {
-          const arrId = freshNameToId.get(sc.name)
-          if (!arrId) continue
-          const alreadyInProfile = updatedProfile.formatItems.some(fi => fi.format === arrId)
-          if (!alreadyInProfile) {
+          // Add format items for newly created formats not yet in the profile
+          for (const sc of changeset.toUpdateScores) {
+            const arrId = freshNameToId.get(sc.name)
+            if (!arrId) continue
+            if (updatedProfile.formatItems.some(fi => fi.format === arrId)) continue
             updatedProfile.formatItems.push({ format: arrId, score: sc.newScore, name: sc.name })
           }
-        }
 
-        try {
-          await client.updateQualityProfile(arrProfile.id, updatedProfile)
-          scoresUpdated = changeset.toUpdateScores.length
-        } catch (e: unknown) {
-          errors.push(`Update quality profile: ${e instanceof Error ? e.message : String(e)}`)
+          try {
+            await client.updateQualityProfile(arrProfile.id, updatedProfile)
+            scoresUpdated = changeset.toUpdateScores.length
+            req.log.info({ instanceId: req.params.id, profileId: arrProfile.id, scoresUpdated }, 'TRaSH apply phase E: quality profile updated')
+          } catch (e: unknown) {
+            req.log.error({ err: e, instanceId: req.params.id, profileId: arrProfile.id }, 'TRaSH apply phase E: update quality profile failed')
+            errors.push(`Update quality profile '${arrProfile.name}': ${e instanceof Error ? e.message : String(e)}`)
+          }
         }
       }
 
+      req.log.info({ instanceId: req.params.id, created, updated, scoresUpdated, skipped, errors: errors.length }, 'TRaSH apply completed')
       return reply.send({ created, updated, scoresUpdated, skipped, errors })
     }
   )

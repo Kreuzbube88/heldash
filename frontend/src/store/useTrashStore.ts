@@ -20,7 +20,7 @@ interface TrashState {
 
   loadProfiles: (instanceId: string) => Promise<void>
   loadConfig: (instanceId: string) => Promise<void>
-  saveProfileSlug: (instanceId: string, slug: string | null) => Promise<void>
+  saveProfileSlugs: (instanceId: string, slugs: string[]) => Promise<void>
   loadFormatList: (instanceId: string) => Promise<void>
   loadCustomFormats: (instanceId: string) => Promise<void>
   saveOverrides: (instanceId: string, overrides: Array<{ format_slug: string; score_override: number | null; excluded: boolean }>) => Promise<void>
@@ -58,9 +58,9 @@ export const useTrashStore = create<TrashState>((set, get) => ({
     set(s => ({ configs: { ...s.configs, [instanceId]: config } }))
   },
 
-  saveProfileSlug: async (instanceId, slug) => {
-    await api.trash.saveConfig(instanceId, slug)
-    set(s => ({ configs: { ...s.configs, [instanceId]: { profile_slug: slug } } }))
+  saveProfileSlugs: async (instanceId, slugs) => {
+    await api.trash.saveConfig(instanceId, slugs)
+    set(s => ({ configs: { ...s.configs, [instanceId]: { profile_slugs: slugs } } }))
   },
 
   loadFormatList: async (instanceId) => {

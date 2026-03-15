@@ -4,7 +4,7 @@ export interface TRaSHProfile {
 }
 
 export interface TrashInstanceConfig {
-  profile_slug: string | null
+  profile_slugs: string[]
 }
 
 export interface TrashFormatListEntry {
@@ -15,6 +15,7 @@ export interface TrashFormatListEntry {
   scoreOverride: number | null
   excluded: boolean
   specifications?: object[]
+  inProfiles?: string[]
 }
 
 export interface TrashChangeItem {

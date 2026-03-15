@@ -58,6 +58,8 @@ function runMigrations(db: Database.Database): number {
     'ALTER TABLE widgets ADD COLUMN display_location TEXT NOT NULL DEFAULT \'none\'',
     // Dashboard groups: named containers for dashboard items
     'ALTER TABLE dashboard_items ADD COLUMN group_id TEXT',
+    // TRaSH: multiple profiles per instance (array of slugs)
+    'ALTER TABLE trash_instance_config ADD COLUMN profile_slugs TEXT DEFAULT \'[]\'',
   ]
   for (const sql of migrations) {
     try {

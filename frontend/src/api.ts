@@ -272,9 +272,9 @@ export const api = {
   trash: {
     profiles: (instanceId: string) => req<TRaSHProfile[]>(`/trash/instances/${instanceId}/profiles`),
     config: (instanceId: string) => req<TrashInstanceConfig>(`/trash/instances/${instanceId}/config`),
-    saveConfig: (instanceId: string, profile_slug: string | null) =>
-      req<{ ok: boolean; profile_slug: string | null }>(`/trash/instances/${instanceId}/config`, {
-        method: 'PATCH', body: JSON.stringify({ profile_slug }),
+    saveConfig: (instanceId: string, profile_slugs: string[]) =>
+      req<{ ok: boolean; profile_slugs: string[] }>(`/trash/instances/${instanceId}/config`, {
+        method: 'PATCH', body: JSON.stringify({ profile_slugs }),
       }),
     customFormats: (instanceId: string) =>
       req<Array<{ id: string; name: string; specifications: object[]; instance_id: string; created_at: string | null; updated_at: string | null }>>(

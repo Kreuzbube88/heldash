@@ -1946,7 +1946,7 @@ function TRaSHTab() {
   const {
     profiles, configs, formatLists, previews, loading, applying, cacheInfo,
     loadProfiles, loadConfig, loadFormatList, loadCustomFormats,
-    saveProfileSlug, saveOverrides, createCustomFormat, updateCustomFormat,
+    saveProfileSlugs, saveOverrides, createCustomFormat, updateCustomFormat,
     deleteCustomFormat, loadPreview, applyChangeset, refreshGithub, loadCacheInfo,
     customFormats,
   } = useTrashStore()
@@ -1958,7 +1958,7 @@ function TRaSHTab() {
   )
   const [refreshing, setRefreshing] = useState(false)
   const [savingProfile, setSavingProfile] = useState(false)
-  const [localProfileSlug, setLocalProfileSlug] = useState<string>('')
+  const [localProfileSlugs, setLocalProfileSlugs] = useState<string[]>([])
   const [showCustomModal, setShowCustomModal] = useState(false)
   const [editingCF, setEditingCF] = useState<{ id: string; name: string; specifications: string } | null>(null)
   const [cfName, setCfName] = useState('')
@@ -1972,6 +1972,8 @@ function TRaSHTab() {
   const [trashUpdatesOpen, setTrashUpdatesOpen] = useState(false)
   const [changesetOpen, setChangesetOpen] = useState(false)
   const [applyError, setApplyError] = useState('')
+  const [applyErrors, setApplyErrors] = useState<string[]>([])
+  const [applyErrorsOpen, setApplyErrorsOpen] = useState(false)
 
   const instanceId = selectedInstanceId
 
@@ -1990,7 +1992,7 @@ function TRaSHTab() {
   useEffect(() => {
     if (!instanceId) return
     const config = configs[instanceId]
-    setLocalProfileSlug(config?.profile_slug ?? '')
+    setLocalProfileSlugs(config?.profile_slugs ?? [])
   }, [instanceId, configs])
 
   useEffect(() => {
@@ -1998,11 +2000,9 @@ function TRaSHTab() {
     const list = formatLists[instanceId] ?? []
     const overrides: Record<string, { score: string; excluded: boolean }> = {}
     for (const entry of list) {
-      if (entry.source === 'trash') {
-        overrides[entry.slug] = {
-          score: entry.scoreOverride !== null ? String(entry.scoreOverride) : '',
-          excluded: entry.excluded,
-        }
+      overrides[entry.slug] = {
+        score: entry.scoreOverride !== null ? String(entry.scoreOverride) : '',
+        excluded: entry.excluded,
       }
     }
     setLocalOverrides(overrides)
@@ -2028,8 +2028,8 @@ function TRaSHTab() {
     if (!instanceId) return
     setSavingProfile(true)
     try {
-      await saveProfileSlug(instanceId, localProfileSlug || null)
-      await loadFormatList(instanceId)
+      await saveProfileSlugs(instanceId, localProfileSlugs)
+      await loadFormatList(instanceId).catch(() => {})
     } finally {
       setSavingProfile(false)
     }
@@ -2110,16 +2110,19 @@ function TRaSHTab() {
     if (!instanceId) return
     if (!confirm('Apply TRaSH Guides changes to Arr? This will create/update custom formats and quality profile scores.')) return
     setApplyError('')
+    setApplyErrors([])
+    setApplyErrorsOpen(false)
     try {
       const result = await applyChangeset(instanceId)
       const msg = `Applied: ${result.created} created, ${result.updated} updated, ${result.scoresUpdated} scores updated.`
+      setApplyErrors(result.errors)
       if (result.errors.length > 0) {
-        setApplyError(`${msg} Errors: ${result.errors.slice(0, 3).join('; ')}`)
+        setApplyError(`Partial success: ${msg}`)
       } else {
+        setApplyError('')
         alert(msg)
       }
-      // Reload format list after apply
-      await loadFormatList(instanceId)
+      await loadFormatList(instanceId).catch(() => {})
     } catch (e: unknown) {
       setApplyError(e instanceof Error ? e.message : 'Apply failed')
     }
@@ -2208,20 +2211,8 @@ function TRaSHTab() {
         <>
           {/* Section A — Configuration */}
           <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <h4 style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>Configuration</h4>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-              <select
-                className="form-input"
-                value={localProfileSlug}
-                onChange={e => setLocalProfileSlug(e.target.value)}
-                style={{ fontSize: 13, padding: '6px 10px', flex: 1, minWidth: 200 }}
-                disabled={!isAdmin}
-              >
-                <option value="">— Select quality profile —</option>
-                {instanceProfiles.map(p => (
-                  <option key={p.slug} value={p.slug}>{p.name}</option>
-                ))}
-              </select>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <h4 style={{ fontSize: 14, fontWeight: 600, margin: 0, flex: 1 }}>Configuration</h4>
               {isAdmin && (
                 <button
                   className="btn btn-primary btn-sm"
@@ -2234,6 +2225,34 @@ function TRaSHTab() {
                 </button>
               )}
             </div>
+            {loading[`profiles_${instanceId}`] ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />
+                <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Loading profiles…</span>
+              </div>
+            ) : instanceProfiles.length === 0 ? (
+              <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No profiles available. Try refreshing TRaSH data from GitHub.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 2 }}>Select one or more quality profiles to sync:</div>
+                {instanceProfiles.map(p => (
+                  <label key={p.slug} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: isAdmin ? 'pointer' : 'default', userSelect: 'none' }}>
+                    <input
+                      type="checkbox"
+                      checked={localProfileSlugs.includes(p.slug)}
+                      onChange={e => {
+                        if (!isAdmin) return
+                        setLocalProfileSlugs(prev =>
+                          e.target.checked ? [...prev, p.slug] : prev.filter(s => s !== p.slug)
+                        )
+                      }}
+                      disabled={!isAdmin}
+                    />
+                    {p.name}
+                  </label>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Section B — Format customization */}
@@ -2270,7 +2289,7 @@ function TRaSHTab() {
               </div>
             ) : formatList.length === 0 ? (
               <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                {configs[instanceId]?.profile_slug
+                {(configs[instanceId]?.profile_slugs?.length ?? 0) > 0
                   ? 'No formats found. Try refreshing TRaSH data from GitHub.'
                   : 'Select a quality profile above to see formats.'}
               </p>
@@ -2281,6 +2300,7 @@ function TRaSHTab() {
                     <tr style={{ borderBottom: '1px solid var(--border)' }}>
                       <th style={{ textAlign: 'left', padding: '6px 8px', color: 'var(--text-muted)', fontWeight: 500 }}>Name</th>
                       <th style={{ textAlign: 'left', padding: '6px 8px', color: 'var(--text-muted)', fontWeight: 500 }}>Source</th>
+                      <th style={{ textAlign: 'left', padding: '6px 8px', color: 'var(--text-muted)', fontWeight: 500 }}>In Profile(s)</th>
                       <th style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--text-muted)', fontWeight: 500 }}>Default Score</th>
                       <th style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--text-muted)', fontWeight: 500 }}>Your Score</th>
                       <th style={{ textAlign: 'center', padding: '6px 8px', color: 'var(--text-muted)', fontWeight: 500 }}>Excluded</th>
@@ -2290,10 +2310,7 @@ function TRaSHTab() {
                   <tbody>
                     {formatList.map(entry => {
                       const overrideVal = localOverrides[entry.slug]
-                      const isOverridden = entry.source === 'trash' && (
-                        (overrideVal?.score !== undefined && overrideVal.score !== '') ||
-                        overrideVal?.excluded
-                      )
+                      const isOverridden = (overrideVal?.score !== undefined && overrideVal.score !== '') || overrideVal?.excluded
                       const rowBg = isOverridden ? 'var(--accent-ghost)' : 'transparent'
                       return (
                         <tr
@@ -2310,51 +2327,50 @@ function TRaSHTab() {
                               : <span className="badge badge-accent" style={{ fontSize: 10 }}>Custom</span>
                             }
                           </td>
+                          <td style={{ padding: '7px 8px', color: 'var(--text-secondary)', fontSize: 11 }}>
+                            {entry.inProfiles && entry.inProfiles.length > 0 ? entry.inProfiles.join(', ') : '—'}
+                          </td>
                           <td style={{ padding: '7px 8px', textAlign: 'right', color: 'var(--text-secondary)' }}>
                             {entry.defaultScore !== 0 ? entry.defaultScore : '—'}
                           </td>
                           <td style={{ padding: '7px 8px', textAlign: 'right' }}>
-                            {entry.source === 'trash' ? (
-                              <input
-                                type="number"
-                                value={overrideVal?.score ?? ''}
-                                onChange={e => {
-                                  if (!isAdmin) return
-                                  setLocalOverrides(prev => ({
-                                    ...prev,
-                                    [entry.slug]: { ...prev[entry.slug], score: e.target.value },
-                                  }))
-                                  setOverridesDirty(true)
-                                }}
-                                placeholder="default"
-                                disabled={!isAdmin}
-                                style={{
-                                  width: 70, textAlign: 'right',
-                                  background: 'rgba(var(--text-rgb), 0.06)',
-                                  border: '1px solid var(--border)',
-                                  borderRadius: 'var(--radius-sm)',
-                                  padding: '3px 6px', fontSize: 12,
-                                  color: 'var(--text-primary)',
-                                }}
-                              />
-                            ) : '—'}
+                            <input
+                              type="number"
+                              value={overrideVal?.score ?? ''}
+                              onChange={e => {
+                                if (!isAdmin) return
+                                setLocalOverrides(prev => ({
+                                  ...prev,
+                                  [entry.slug]: { ...prev[entry.slug], score: e.target.value },
+                                }))
+                                setOverridesDirty(true)
+                              }}
+                              placeholder="default"
+                              disabled={!isAdmin}
+                              style={{
+                                width: 70, textAlign: 'right',
+                                background: 'rgba(var(--text-rgb), 0.06)',
+                                border: '1px solid var(--border)',
+                                borderRadius: 'var(--radius-sm)',
+                                padding: '3px 6px', fontSize: 12,
+                                color: 'var(--text-primary)',
+                              }}
+                            />
                           </td>
                           <td style={{ padding: '7px 8px', textAlign: 'center' }}>
-                            {entry.source === 'trash' ? (
-                              <input
-                                type="checkbox"
-                                checked={overrideVal?.excluded ?? false}
-                                onChange={e => {
-                                  if (!isAdmin) return
-                                  setLocalOverrides(prev => ({
-                                    ...prev,
-                                    [entry.slug]: { ...prev[entry.slug], excluded: e.target.checked },
-                                  }))
-                                  setOverridesDirty(true)
-                                }}
-                                disabled={!isAdmin}
-                              />
-                            ) : '—'}
+                            <input
+                              type="checkbox"
+                              checked={overrideVal?.excluded ?? false}
+                              onChange={e => {
+                                if (!isAdmin) return
+                                setLocalOverrides(prev => ({
+                                  ...prev,
+                                  [entry.slug]: { ...prev[entry.slug], excluded: e.target.checked },
+                                }))
+                                setOverridesDirty(true)
+                              }}
+                              disabled={!isAdmin}
+                            />
                           </td>
                           {isAdmin && (
                             <td style={{ padding: '7px 8px' }}>
@@ -2401,7 +2417,7 @@ function TRaSHTab() {
               <button
                 className="btn btn-ghost btn-sm"
                 onClick={handlePreview}
-                disabled={isLoadingPreview || !configs[instanceId]?.profile_slug}
+                disabled={isLoadingPreview || !(configs[instanceId]?.profile_slugs?.length ?? 0)}
                 style={{ fontSize: 12, gap: 4 }}
               >
                 {isLoadingPreview
@@ -2537,6 +2553,24 @@ function TRaSHTab() {
                   <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Nothing to apply</span>
                 )}
               </div>
+              {applyErrors.length > 0 && (
+                <div>
+                  <button
+                    onClick={() => setApplyErrorsOpen(v => !v)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 500, cursor: 'pointer', background: 'none', border: 'none', color: 'var(--status-offline)', padding: 0 }}
+                  >
+                    {applyErrorsOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                    {applyErrors.length} error{applyErrors.length > 1 ? 's' : ''} occurred
+                  </button>
+                  {applyErrorsOpen && (
+                    <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4, paddingLeft: 18, fontSize: 12 }}>
+                      {applyErrors.map((e, i) => (
+                        <div key={i} style={{ color: 'var(--status-offline)', fontFamily: 'var(--font-mono)', fontSize: 11 }}>{e}</div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </>

@@ -2119,8 +2119,14 @@ function RecyclarrWizard({
               <input type="radio" name="wizard-instance" value={inst.id} checked={selectedInstanceId === inst.id} onChange={() => setSelectedInstanceId(inst.id)} />
               <span style={{ fontWeight: 500, fontSize: 13 }}>{inst.name}</span>
               <span className="badge-neutral" style={{ fontSize: 11, textTransform: 'uppercase' }}>{inst.type}</span>
+              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{inst.url}</span>
             </label>
           ))}
+          {selectedInstanceId && (
+            <div style={{ padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'rgba(var(--accent-rgb), 0.06)', border: '1px solid rgba(var(--accent-rgb), 0.2)' }}>
+              <span className="badge-success" style={{ fontSize: 11 }}>Verbindung bereits konfiguriert — API Key wird automatisch übernommen</span>
+            </div>
+          )}
         </div>
       )
 
@@ -2280,12 +2286,15 @@ function RecyclarrWizard({
           </div>
           {wizCfError && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 'var(--radius-md)' }}>
-              <AlertTriangle size={13} style={{ color: '#f87171' }} />
-              <span style={{ fontSize: 12, color: '#f87171' }}>{wizCfError}</span>
+              <AlertTriangle size={13} style={{ color: 'var(--status-offline)' }} />
+              <span style={{ fontSize: 12, color: 'var(--status-offline)' }}>{wizCfError}</span>
+              <button className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto', fontSize: 11 }} onClick={handleLoadWizCfs}>Wiederholen</button>
             </div>
           )}
           {wizCfLoaded && currentCfs.length === 0 && (
-            <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Keine Formate für die ausgewählten Profile gefunden.</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span className="badge-neutral" style={{ fontSize: 11 }}>Keine TRaSH Formate für diese Profile gefunden — TRaSH Cache neu laden?</span>
+            </div>
           )}
           {wizCfLoaded && currentCfs.length > 0 && (
             <div style={{ overflowX: 'auto', maxHeight: 340, overflowY: 'auto' }}>
@@ -3481,21 +3490,20 @@ function CfRow({
   const [hovered, setHovered] = useState(false)
   return (
     <div
+      className="glass"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        background: 'rgba(var(--bg-secondary-rgb), 0.4)',
         borderRadius: 'var(--radius-md)',
-        padding: '8px 12px',
+        padding: 'var(--spacing-md) var(--spacing-lg)',
         display: 'flex',
         alignItems: 'center',
         gap: 8,
         flexWrap: 'wrap',
         position: 'relative',
-        border: '1px solid rgba(var(--border-rgb), 0.08)',
       }}
     >
-      <span style={{ fontWeight: 500, fontSize: 13, flex: 1, minWidth: 100 }}>{cf.name}</span>
+      <span style={{ fontWeight: 600, fontSize: 13, flex: 1, minWidth: 100, fontFamily: 'var(--font-sans)' }}>{cf.name}</span>
       <span className="badge-neutral" style={{ fontSize: 11 }}>{cf.specifications.length} Conditions</span>
       {profiles.map(p => {
         const score = scores[p.id]
@@ -3689,13 +3697,10 @@ function CfEditModal({
           {error && <p style={{ color: '#f87171', fontSize: 13, margin: 0 }}>{error}</p>}
 
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
-            <button
-              onClick={onClose}
-              style={{ padding: '7px 16px', borderRadius: 'var(--radius-md)', background: 'transparent', border: '1px solid rgba(var(--border-rgb), 0.2)', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: 13 }}
-            >
+            <button onClick={onClose} className="btn btn-ghost">
               Abbrechen
             </button>
-            <button onClick={handleSave} disabled={saving} className="btn-primary" style={{ padding: '7px 16px', fontSize: 13 }}>
+            <button onClick={handleSave} disabled={saving} className="btn btn-primary">
               {saving ? 'Speichern…' : 'Speichern'}
             </button>
           </div>
@@ -3929,11 +3934,10 @@ function CfManagerTab() {
               setActiveProfileId(null)
               setCfSearch('')
             }}
-            className={activeInstance === inst.id ? 'badge-accent' : 'badge-neutral'}
-            style={{ cursor: 'pointer', fontSize: 13, padding: '4px 12px', border: 'none', display: 'flex', alignItems: 'center', gap: 6 }}
+            className={`btn btn-sm ${activeInstance === inst.id ? 'btn-primary' : 'btn-ghost'}`}
           >
             {inst.name}
-            <span style={{ opacity: 0.6, fontSize: 11 }}>({inst.type})</span>
+            <span style={{ opacity: 0.6, fontSize: 11, marginLeft: 4 }}>({inst.type})</span>
           </button>
         ))}
       </div>
@@ -3967,8 +3971,7 @@ function CfManagerTab() {
               {isAdmin && (
                 <button
                   onClick={() => setEditingCf('new')}
-                  className="btn-primary"
-                  style={{ fontSize: 12, padding: '4px 12px', display: 'flex', alignItems: 'center', gap: 4 }}
+                  className="btn btn-primary btn-sm"
                 >
                   <Plus size={12} /> Erstellen
                 </button>
@@ -4039,13 +4042,12 @@ function CfManagerTab() {
             ) : (
               <>
                 {/* Profile tabs */}
-                <div style={{ display: 'flex', gap: 6, overflowX: 'auto', marginBottom: 14, paddingBottom: 4 }}>
+                <div className="tabs" style={{ marginBottom: 14 }}>
                   {profiles.map(p => (
                     <button
                       key={p.id}
                       onClick={() => setActiveProfileId(p.id)}
-                      className={activeProfileId === p.id ? 'badge-accent' : 'badge-neutral'}
-                      style={{ whiteSpace: 'nowrap', cursor: 'pointer', fontSize: 12, padding: '3px 10px', border: 'none', flexShrink: 0 }}
+                      className={`tab${activeProfileId === p.id ? ' active' : ''}`}
                     >
                       {p.name}
                     </button>
@@ -4059,13 +4061,13 @@ function CfManagerTab() {
 
                 {/* Score table */}
                 {activeProfile != null && (
-                  <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                  <div className="table-responsive">
+                    <table className="data-table">
                       <thead>
-                        <tr style={{ borderBottom: '1px solid rgba(var(--border-rgb), 0.15)' }}>
-                          <th style={{ textAlign: 'left', padding: '6px 8px', color: 'var(--text-secondary)', fontWeight: 500 }}>Name</th>
-                          <th style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--text-secondary)', fontWeight: 500, whiteSpace: 'nowrap' }}>Aktuell</th>
-                          <th style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--text-secondary)', fontWeight: 500 }}>Neu</th>
+                        <tr>
+                          <th style={{ textAlign: 'left' }}>Name</th>
+                          <th style={{ textAlign: 'right' }}>Aktuell</th>
+                          <th style={{ textAlign: 'right' }}>Neu</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -4076,8 +4078,8 @@ function CfManagerTab() {
                           const editNum = parseInt(editScore, 10)
                           const isProtected = protectedCfNames.has(cf.name)
                           return (
-                            <tr key={cf.id} style={{ borderBottom: '1px solid rgba(var(--border-rgb), 0.06)' }}>
-                              <td style={{ padding: '5px 8px' }}>
+                            <tr key={cf.id}>
+                              <td>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                                   <span style={{ fontSize: 12 }}>{cf.name}</span>
                                   {isProtected && (
@@ -4094,21 +4096,13 @@ function CfManagerTab() {
                               <td style={{ padding: '5px 8px', textAlign: 'right', fontSize: 12, color: currentScore > 0 ? '#10b981' : currentScore < 0 ? '#f87171' : 'var(--text-muted)' }}>
                                 {currentScore}
                               </td>
-                              <td style={{ padding: '5px 8px', textAlign: 'right' }}>
+                              <td style={{ textAlign: 'right' }}>
                                 <input
                                   type="number"
+                                  className="form-input"
                                   value={editScore}
                                   onChange={e => setScoreEdits(prev => ({ ...prev, [cf.id]: e.target.value }))}
-                                  style={{
-                                    width: 70,
-                                    padding: '2px 6px',
-                                    fontSize: 12,
-                                    textAlign: 'right',
-                                    borderRadius: 'var(--radius-sm)',
-                                    background: 'rgba(var(--bg-secondary-rgb), 0.5)',
-                                    color: 'var(--text)',
-                                    border: `1px solid ${!isNaN(editNum) && editNum > 0 ? 'var(--status-online)' : !isNaN(editNum) && editNum < 0 ? 'var(--status-offline)' : 'rgba(var(--border-rgb), 0.2)'}`,
-                                  }}
+                                  style={{ width: 80, textAlign: 'right' }}
                                 />
                               </td>
                             </tr>
@@ -4135,8 +4129,8 @@ function CfManagerTab() {
                   <button
                     onClick={handleSaveScores}
                     disabled={scoreSaving}
-                    className="btn-primary"
-                    style={{ width: '100%', marginTop: 12, padding: '8px', fontSize: 13 }}
+                    className="btn btn-primary"
+                    style={{ width: '100%', marginTop: 12 }}
                   >
                     {scoreSaving ? 'Speichern…' : 'Alle Scores speichern'}
                   </button>
@@ -4173,7 +4167,7 @@ function CfManagerTab() {
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
               <button
                 onClick={() => setConfirmDeleteCfId(null)}
-                style={{ padding: '6px 14px', borderRadius: 'var(--radius-md)', background: 'transparent', border: '1px solid rgba(var(--border-rgb), 0.2)', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: 13 }}
+                className="btn btn-ghost"
               >
                 Abbrechen
               </button>

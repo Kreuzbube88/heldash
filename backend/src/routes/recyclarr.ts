@@ -238,6 +238,8 @@ interface ArrInstanceRow {
   id: string
   name: string
   type: string
+  url: string
+  api_key: string
 }
 
 interface ScoreOverride {
@@ -614,11 +616,56 @@ function generateRecyclarrYaml(configs: RecyclarrConfig[], instances: ArrInstanc
     if (!inst) continue
     if (inst.type !== 'radarr' && inst.type !== 'sonarr') continue
 
-    const include = cfg.templates.map(slug => ({ template: slug }))
+    // Separate templates into profile, CF, and quality definition
+    const profileSlugs = cfg.templates.filter(t => t.includes('quality-profile'))
+    const cfSlugs = cfg.templates.filter(t => t.includes('custom-formats'))
+    const qdSlugs = cfg.templates.filter(t => t.includes('quality-definition'))
 
+    // Build include list: QD first, then profile+CF pairs
+    const include: { template: string }[] = []
+    for (const slug of qdSlugs) {
+      include.push({ template: slug })
+    }
+    for (const slug of profileSlugs) {
+      include.push({ template: slug })
+      // Add paired CF template if it exists in selected templates
+      const pairedCfSlug = slug.replace('quality-profile', 'custom-formats')
+      if (cfSlugs.includes(pairedCfSlug)) {
+        include.push({ template: pairedCfSlug })
+      }
+    }
+    // Add any CF slugs not already added via pairing
+    for (const slug of cfSlugs) {
+      const pairedProfileSlug = slug.replace('custom-formats', 'quality-profile')
+      if (!profileSlugs.includes(pairedProfileSlug)) {
+        include.push({ template: slug })
+      }
+    }
+
+    // Quality profiles section — only for profile templates (not CF or QD)
+    const qualityProfiles: unknown[] = []
+    for (const pc of cfg.profilesConfig) {
+      // Only include if it's a profile template slug
+      if (!profileSlugs.includes(pc.slug)) continue
+      const profileName = deriveDisplayName(pc.slug)
+      const entry: Record<string, unknown> = { name: profileName }
+      if (pc.min_format_score != null && pc.min_format_score > 0) {
+        entry.min_format_score = pc.min_format_score
+      }
+      if (pc.reset_unmatched_scores_enabled) {
+        const rusObj: Record<string, unknown> = { enabled: true }
+        if (pc.reset_unmatched_scores_except.length > 0) {
+          rusObj.except = pc.reset_unmatched_scores_except
+        }
+        entry.reset_unmatched_scores = rusObj
+      }
+      qualityProfiles.push(entry)
+    }
+
+    // Custom formats section — score overrides + user CFs
     const customFormats: unknown[] = []
 
-    // Score overrides grouped by profileName + score
+    // Group score overrides by profileName + score
     const groupedOverrides: Record<string, { trash_ids: string[]; profileName: string; score: number }> = {}
     for (const o of cfg.scoreOverrides) {
       const key = `${o.profileName}__${o.score}`
@@ -630,7 +677,7 @@ function generateRecyclarrYaml(configs: RecyclarrConfig[], instances: ArrInstanc
     for (const g of Object.values(groupedOverrides)) {
       customFormats.push({
         trash_ids: g.trash_ids,
-        assign_scores: [{ name: g.profileName, score: g.score }],
+        assign_scores_to: [{ name: g.profileName, score: g.score }],
       })
     }
 
@@ -638,50 +685,22 @@ function generateRecyclarrYaml(configs: RecyclarrConfig[], instances: ArrInstanc
     for (const ucf of cfg.userCfNames) {
       customFormats.push({
         trash_ids: [ucf.name],
-        assign_scores: [{ name: ucf.profileName, score: ucf.score }],
+        assign_scores_to: [{ name: ucf.profileName, score: ucf.score }],
       })
     }
 
-    // Quality profiles with advanced settings
-    const qualityProfiles: unknown[] = []
-    for (const pc of cfg.profilesConfig) {
-      if (!cfg.templates.includes(pc.slug)) continue
-      const profileName = deriveDisplayName(pc.slug)
-      const hasSettings = pc.min_format_score != null ||
-        !pc.reset_unmatched_scores_enabled ||
-        pc.reset_unmatched_scores_except.length > 0
-      if (!hasSettings) continue
-
-      const entry: Record<string, unknown> = { name: profileName }
-      if (pc.min_format_score != null) entry.min_format_score = pc.min_format_score
-      const rusObj: Record<string, unknown> = { enabled: pc.reset_unmatched_scores_enabled }
-      if (pc.reset_unmatched_scores_except.length > 0) {
-        rusObj.except = pc.reset_unmatched_scores_except
-      }
-      entry.reset_unmatched_scores = rusObj
-      qualityProfiles.push(entry)
-    }
-
+    const instanceKey = inst.name.replace(/\s+/g, '-')
     const instanceConfig: Record<string, unknown> = {
-      delete_old_custom_formats: cfg.deleteOldCfs,
+      base_url: inst.url,
+      api_key: inst.api_key,
       include,
-    }
-
-    // Quality definition — output only when preferred_ratio > 0 and QD template selected
-    const hasQdTemplate = cfg.templates.some(t => t.includes('quality-definition'))
-    if (hasQdTemplate && cfg.preferredRatio > 0) {
-      instanceConfig.quality_definition = {
-        type: deriveQdType(inst.type, cfg.templates),
-        preferred_ratio: cfg.preferredRatio,
-      }
     }
 
     if (qualityProfiles.length > 0) instanceConfig.quality_profiles = qualityProfiles
     if (customFormats.length > 0) instanceConfig.custom_formats = customFormats
 
-    const key = inst.id
-    if (inst.type === 'radarr') radarr[key] = instanceConfig
-    else sonarr[key] = instanceConfig
+    if (inst.type === 'radarr') radarr[instanceKey] = instanceConfig
+    else sonarr[instanceKey] = instanceConfig
   }
 
   const doc: Record<string, unknown> = {}
@@ -698,6 +717,116 @@ async function writeYaml(configs: RecyclarrConfig[], instances: ArrInstanceRow[]
     fs.mkdirSync(dir, { recursive: true })
   }
   fs.writeFileSync(RECYCLARR_CONFIG_PATH, yaml, 'utf8')
+}
+
+// ─── Profile JSON fetch ────────────────────────────────────────────────────────
+
+interface TRaSHProfileCf {
+  trash_id: string
+  score: number
+}
+
+interface TRaSHProfileJson {
+  trash_id?: string
+  name?: string
+  custom_formats?: TRaSHProfileCf[]
+}
+
+async function fetchProfileCfsFromTRaSH(
+  profileSlug: string,
+  mediaType: 'radarr' | 'sonarr',
+  forceRefresh = false
+): Promise<{ cfs: TRaSHProfileCf[]; profileName: string }> {
+  const cacheKey = `profile_cfs__${profileSlug}`
+  const cached = cfCache.get(cacheKey)
+  if (!forceRefresh && cached && Date.now() - cached.fetchedAt < CF_CACHE_TTL) {
+    const profileName = cached.entries[0]?.profileName ?? profileSlug
+    return { cfs: cached.entries.map(e => ({ trash_id: e.trash_id, score: e.defaultScore })), profileName }
+  }
+
+  const baseDir = mediaType === 'radarr'
+    ? 'docs/json/radarr/quality-profiles'
+    : 'docs/json/sonarr/quality-profiles'
+  const url = `https://raw.githubusercontent.com/TRaSH-Guides/Guides/master/${baseDir}/${profileSlug}.json`
+
+  try {
+    const resp = await fetch(url, {
+      headers: { 'User-Agent': 'heldash/1.0' },
+      signal: AbortSignal.timeout(10_000),
+    })
+    if (!resp.ok) return { cfs: [], profileName: profileSlug }
+    const json = await resp.json() as TRaSHProfileJson
+    const profileName = json.name ?? profileSlug
+    const cfs = Array.isArray(json.custom_formats) ? json.custom_formats : []
+    // Store in cache as CfEntry array
+    const entries: CfEntry[] = cfs.map(cf => ({
+      trash_id: cf.trash_id,
+      name: cf.trash_id, // name will be resolved from CF cache separately
+      defaultScore: cf.score,
+      profileName,
+    }))
+    cfCache.set(cacheKey, { entries, fetchedAt: Date.now() })
+    saveCacheToDisk()
+    return { cfs, profileName }
+  } catch {
+    if (cached) {
+      const profileName = cached.entries[0]?.profileName ?? profileSlug
+      return { cfs: cached.entries.map(e => ({ trash_id: e.trash_id, score: e.defaultScore })), profileName }
+    }
+    return { cfs: [], profileName: profileSlug }
+  }
+}
+
+// Fetch CF name by trash_id from TRaSH cache
+const trashIdToNameCache: Map<string, string> = new Map()
+
+async function resolveTrashIdNames(
+  trashIds: string[],
+  mediaType: 'radarr' | 'sonarr'
+): Promise<Map<string, string>> {
+  const unresolved = trashIds.filter(id => !trashIdToNameCache.has(id))
+  if (unresolved.length === 0) {
+    const result = new Map<string, string>()
+    for (const id of trashIds) result.set(id, trashIdToNameCache.get(id) ?? id)
+    return result
+  }
+
+  // Fetch CF list from TRaSH for the media type to resolve names
+  const cfDir = mediaType === 'radarr' ? 'docs/json/radarr/cf' : 'docs/json/sonarr/cf'
+  try {
+    const treeResp = await fetch('https://api.github.com/repos/TRaSH-Guides/Guides/git/trees/master?recursive=1', {
+      headers: { 'User-Agent': 'heldash/1.0', Accept: 'application/vnd.github.v3+json' },
+      signal: AbortSignal.timeout(15_000),
+    })
+    if (!treeResp.ok) {
+      const result = new Map<string, string>()
+      for (const id of trashIds) result.set(id, trashIdToNameCache.get(id) ?? id)
+      return result
+    }
+    interface GitTreeItem { path: string; type: string }
+    interface GitTree { tree: GitTreeItem[] }
+    const tree = await treeResp.json() as GitTree
+    const cfFiles = tree.tree.filter(
+      (item: GitTreeItem) => item.type === 'blob' && item.path.startsWith(cfDir) && item.path.endsWith('.json')
+    )
+    // Batch fetch to resolve names
+    await Promise.all(cfFiles.slice(0, 200).map(async (item: GitTreeItem) => {
+      try {
+        const rawUrl = `https://raw.githubusercontent.com/TRaSH-Guides/Guides/master/${item.path}`
+        const resp = await fetch(rawUrl, { headers: { 'User-Agent': 'heldash/1.0' }, signal: AbortSignal.timeout(8_000) })
+        if (!resp.ok) return
+        interface CfJson { name?: string; trash_id?: string }
+        const cf = await resp.json() as CfJson
+        if (cf.name && cf.trash_id) {
+          trashIdToNameCache.set(cf.trash_id, cf.name)
+        }
+      } catch { /* skip */ }
+    }))
+  } catch { /* ignore */ }
+
+  const result = new Map<string, string>()
+  for (const id of trashIds) result.set(id, trashIdToNameCache.get(id) ?? id)
+  return result
 }
 
 // ─── Helper: map DB row to API response object ────────────────────────────────
@@ -750,7 +879,7 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
   // One-time import of existing recyclarr.yml if table is empty
   app.get('/api/recyclarr/config', { onRequest: [app.authenticate] }, async (_req, reply) => {
     const db = getDb()
-    const instances = db.prepare('SELECT id, name, type FROM arr_instances').all() as ArrInstanceRow[]
+    const instances = db.prepare('SELECT id, name, type, url, api_key FROM arr_instances').all() as ArrInstanceRow[]
 
     // One-time YAML import if table is empty and file exists
     const importAttempted = getSettingStr(IMPORT_ATTEMPTED_KEY)
@@ -863,7 +992,7 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
 
       // Regenerate YAML
       const allRows = db.prepare('SELECT * FROM recyclarr_config').all() as RecyclarrConfigRow[]
-      const allInstances = db.prepare('SELECT id, name, type FROM arr_instances').all() as ArrInstanceRow[]
+      const allInstances = db.prepare('SELECT id, name, type, url, api_key FROM arr_instances').all() as ArrInstanceRow[]
       const configs: RecyclarrConfig[] = allRows.map(r => ({
         instanceId: r.instance_id,
         enabled: r.enabled === 1,
@@ -891,19 +1020,64 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
     async (req, reply) => {
       const db = getDb()
       const { instanceId } = req.params
-      const row = db.prepare('SELECT templates FROM recyclarr_config WHERE instance_id = ?').get(instanceId) as { templates: string } | undefined
-      if (!row) return reply.send([])
 
-      const templates = JSON.parse(row.templates) as string[]
-      const cfTemplates = templates.filter(t => TEMPLATE_CF_PATHS[t])
+      const configRow = db.prepare('SELECT templates FROM recyclarr_config WHERE instance_id = ?').get(instanceId) as { templates: string } | undefined
+      if (!configRow) return reply.send([])
 
-      const allEntries: CfEntry[] = []
-      await Promise.all(cfTemplates.map(async t => {
-        const entries = await fetchCfListForTemplate(t)
-        allEntries.push(...entries)
-      }))
+      const templates = JSON.parse(configRow.templates) as string[]
+      const profileSlugs = templates.filter(t => t.includes('quality-profile'))
 
-      return reply.send(allEntries)
+      if (profileSlugs.length === 0) {
+        return reply.status(400).send({ error: 'Keine Profile konfiguriert — bitte zuerst Profile in Schritt 2 auswählen' })
+      }
+
+      const instRow = db.prepare('SELECT type FROM arr_instances WHERE id = ?').get(instanceId) as { type: string } | undefined
+      const mediaType: 'radarr' | 'sonarr' = (instRow?.type === 'sonarr') ? 'sonarr' : 'radarr'
+
+      app.log.info({ instanceId, profileSlugs, mediaType }, 'recyclarr: loading CFs for profiles')
+
+      // Load CFs from each profile JSON
+      const profileResults = await Promise.all(
+        profileSlugs.map(slug => fetchProfileCfsFromTRaSH(slug, mediaType))
+      )
+
+      app.log.info({ profileCount: profileResults.length }, 'recyclarr: profiles fetched from TRaSH')
+
+      // Collect all unique trash_ids and their data
+      const cfMap = new Map<string, { defaultScore: number; inProfiles: string[] }>()
+      for (let i = 0; i < profileSlugs.length; i++) {
+        const { cfs, profileName } = profileResults[i]
+        for (const cf of cfs) {
+          if (!cfMap.has(cf.trash_id)) {
+            cfMap.set(cf.trash_id, { defaultScore: cf.score, inProfiles: [profileName] })
+          } else {
+            cfMap.get(cf.trash_id)!.inProfiles.push(profileName)
+          }
+        }
+      }
+
+      app.log.info({ cfCount: cfMap.size }, 'recyclarr: unique CFs extracted from profiles')
+
+      if (cfMap.size === 0) {
+        return reply.send([])
+      }
+
+      // Resolve trash_ids to names (best-effort from cache)
+      const allIds = Array.from(cfMap.keys())
+      const nameMap = await resolveTrashIdNames(allIds, mediaType)
+
+      const entries = allIds.map(trashId => {
+        const data = cfMap.get(trashId)!
+        return {
+          trash_id: trashId,
+          name: nameMap.get(trashId) ?? trashId,
+          defaultScore: data.defaultScore,
+          profileName: data.inProfiles[0] ?? '',
+          inProfiles: data.inProfiles,
+        }
+      })
+
+      return reply.send(entries)
     }
   )
 

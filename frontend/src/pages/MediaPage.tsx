@@ -1308,11 +1308,20 @@ function DiscoverTab({ hasTmdbKey, onNavigate }: { hasTmdbKey: boolean; onNaviga
     return results
   })()
 
+  // Infer effective media type — discover/movie and discover/tv endpoints don't include media_type
+  const getEffectiveMediaType = (item: TmdbResult): 'movie' | 'tv' | null => {
+    if (item.media_type === 'movie' || item.media_type === 'tv') return item.media_type
+    if (tab === 'movies') return 'movie'
+    if (tab === 'tv') return 'tv'
+    return null
+  }
+
   // Determine per-item request status (from Seerr requests if available)
   const getItemStatus = (item: TmdbResult): 'available' | 'pending' | 'missing_seasons' | null => {
     if (!seerrInstance) return null
+    const mt = getEffectiveMediaType(item)
+    if (!mt) return null
     const requests = seerrRequests[seerrInstance.id]?.results ?? []
-    const mt = item.media_type as 'movie' | 'tv'
     const req = requests.find(r => r.media.mediaType === mt && r.media.tmdbId === item.id)
     if (!req) return null
     if (req.media.status === 5) return 'available'
@@ -1353,11 +1362,10 @@ function DiscoverTab({ hasTmdbKey, onNavigate }: { hasTmdbKey: boolean; onNaviga
     setLoading(false)
   }
 
-  const openRequestModal = async (item: TmdbResult) => {
-    const mt = item.media_type as 'movie' | 'tv'
-    setConfirmRequest({ item, mediaType: mt, mediaId: item.id })
+  const openRequestModal = async (item: TmdbResult, mediaType: 'movie' | 'tv') => {
+    setConfirmRequest({ item, mediaType, mediaId: item.id })
     setSelectedSeasons([])
-    if (mt === 'tv') {
+    if (mediaType === 'tv') {
       if (!tvDetail[item.id]) {
         setTvDetailLoading(true)
         await loadTvDetail(item.id)
@@ -1639,15 +1647,17 @@ function DiscoverTab({ hasTmdbKey, onNavigate }: { hasTmdbKey: boolean; onNaviga
       {/* Results grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 14 }}>
         {allResults.map(item => {
+          const mt = getEffectiveMediaType(item)
           const posterUrl = item.poster_path ? `https://image.tmdb.org/t/p/w300${item.poster_path}` : null
           const title = item.title ?? item.name ?? 'Unknown'
           const year = item.release_date?.slice(0, 4) ?? item.first_air_date?.slice(0, 4) ?? ''
           const rating = item.vote_average ? Math.round(item.vote_average * 10) / 10 : null
           const overview = item.overview ? item.overview.slice(0, 100) + (item.overview.length > 100 ? '...' : '') : ''
           const itemStatus = getItemStatus(item)
-          const canRequest = !!seerrInstance && (itemStatus === null || itemStatus === 'missing_seasons')
+          const canRequest = !!seerrInstance && !!mt && (itemStatus === null || itemStatus === 'missing_seasons')
+          const itemKey = `${mt ?? item.media_type ?? 'unknown'}-${item.id}`
 
-          const btnLabel = requesting === `${item.media_type}-${item.id}`
+          const btnLabel = requesting === itemKey
             ? 'Requesting…'
             : itemStatus === 'available' ? '✓ Available'
             : itemStatus === 'pending' ? '⏳ Requested'
@@ -1656,7 +1666,7 @@ function DiscoverTab({ hasTmdbKey, onNavigate }: { hasTmdbKey: boolean; onNaviga
 
           return (
             <div
-              key={`${item.media_type}-${item.id}`}
+              key={itemKey}
               className="glass"
               style={{
                 borderRadius: 'var(--radius-lg)', overflow: 'hidden',
@@ -1680,7 +1690,7 @@ function DiscoverTab({ hasTmdbKey, onNavigate }: { hasTmdbKey: boolean; onNaviga
                 backgroundSize: 'cover', backgroundPosition: 'center',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative',
               }}>
-                {!posterUrl && <span style={{ fontSize: 32 }}>{item.media_type === 'movie' ? '🎬' : '📺'}</span>}
+                {!posterUrl && <span style={{ fontSize: 32 }}>{mt === 'movie' ? '🎬' : '📺'}</span>}
 
                 {/* Media type badge */}
                 <div style={{
@@ -1689,7 +1699,7 @@ function DiscoverTab({ hasTmdbKey, onNavigate }: { hasTmdbKey: boolean; onNaviga
                   padding: '3px 7px', borderRadius: 'var(--radius-sm)',
                   fontSize: 10, fontWeight: 600, textTransform: 'uppercase', backdropFilter: 'blur(8px)',
                 }}>
-                  {item.media_type === 'movie' ? 'Movie' : 'TV'}
+                  {mt === 'movie' ? 'Movie' : 'TV'}
                 </div>
 
                 {/* Rating badge */}
@@ -1733,16 +1743,16 @@ function DiscoverTab({ hasTmdbKey, onNavigate }: { hasTmdbKey: boolean; onNaviga
                   </div>
                 )}
 
-                {seerrInstance && (
+                {seerrInstance && !!mt && (
                   <button
                     onClick={e => {
                       e.stopPropagation()
                       if (!canRequest) return
-                      openRequestModal(item)
+                      openRequestModal(item, mt)
                     }}
-                    disabled={!canRequest || requesting === `${item.media_type}-${item.id}`}
+                    disabled={!canRequest || requesting === itemKey}
                     className={canRequest ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'}
-                    style={{ fontSize: 12, padding: '6px 12px', marginTop: 'auto', opacity: canRequest ? 1 : 0.6 }}
+                    style={{ fontSize: 12, padding: '6px 12px', marginTop: 'auto', opacity: canRequest ? 1 : 0.6, pointerEvents: canRequest ? undefined : 'none' }}
                   >
                     {btnLabel}
                   </button>

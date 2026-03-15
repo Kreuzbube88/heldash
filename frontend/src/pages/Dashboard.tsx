@@ -233,10 +233,11 @@ function DashboardArrCard({ item, editMode, groups }: {
 }
 
 // ── Widget card ───────────────────────────────────────────────────────────────
-function DashboardWidgetCard({ item, editMode, groups }: {
+function DashboardWidgetCard({ item, editMode, groups, colSpan = 2 }: {
   item: DashboardWidgetItem
   editMode: boolean
   groups?: DashboardGroup[]
+  colSpan?: 1 | 2
 }) {
   const { isAdmin } = useStore()
   const { removeItem, moveItemToGroup } = useDashboardStore()
@@ -266,13 +267,14 @@ function DashboardWidgetCard({ item, editMode, groups }: {
 
   return (
     <div
+      className="dashboard-widget-card"
       ref={setNodeRef}
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
         opacity: isDragging ? 0.4 : 1,
         position: 'relative',
-        gridColumn: 'span 2',
+        gridColumn: `span ${colSpan}`,
       }}
       onMouseEnter={() => setShowHandle(true)}
       onMouseLeave={() => setShowHandle(false)}
@@ -401,7 +403,8 @@ function renderDashboardItem(
   item: DashboardItem,
   editMode: boolean,
   onEdit: (s: Service) => void,
-  groups?: DashboardGroup[]
+  groups?: DashboardGroup[],
+  widgetColSpan?: 1 | 2
 ) {
   if (item.type === 'service') {
     return (
@@ -431,6 +434,7 @@ function renderDashboardItem(
         item={item as DashboardWidgetItem}
         editMode={editMode}
         groups={groups}
+        colSpan={widgetColSpan}
       />
     )
   }
@@ -772,7 +776,7 @@ export function Dashboard({ onEdit }: Props) {
             {/* Widget strip — ungrouped widgets rendered above apps */}
             {items.some(i => i.type === 'widget') && (
               <div className="widget-strip">
-                {items.filter(i => i.type === 'widget').map(item => renderDashboardItem(item, editMode, onEdit, groups))}
+                {items.filter(i => i.type === 'widget').map(item => renderDashboardItem(item, editMode, onEdit, groups, 1))}
               </div>
             )}
             {/* Ungrouped apps/arr/placeholders */}

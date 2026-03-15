@@ -799,9 +799,13 @@ h4 { font-size: 15px; line-height: 1.5; }
 /* ─── Widget Strip ────────────────────────────────────────────────────────── */
 .widget-strip {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: var(--spacing-xl);
   margin-bottom: var(--spacing-2xl);
+}
+
+.dashboard-widget-card {
+  max-width: 480px;
 }
 .section-header {
   font-size: 11px;
@@ -1660,6 +1664,19 @@ select.form-input option {
 }
 
 /* ─── Design tokens: Sidebar Style ───────────────────────────────────────── */
+[data-sidebar="minimal"] .topbar {
+  background: transparent;
+  border-bottom: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+[data-sidebar="floating"] .topbar {
+  background: transparent;
+  border-bottom: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  margin-left: 12px;
+}
 [data-sidebar="minimal"] .sidebar {
   background: transparent;
   border-right: none;

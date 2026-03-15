@@ -648,7 +648,12 @@ function generateRecyclarrYaml(configs: RecyclarrConfig[], instances: ArrInstanc
       // Only include if it's a profile template slug
       if (!profileSlugs.includes(pc.slug)) continue
       const profileName = deriveDisplayName(pc.slug)
-      const entry: Record<string, unknown> = { name: profileName }
+      // Use trash_id if available (fetched from TRaSH), otherwise fall back to name
+      const trashIdEntry = cfCache.get(`profile_trash_id__${pc.slug}`)
+      const profileTrashId = trashIdEntry?.entries[0]?.trash_id
+      const entry: Record<string, unknown> = profileTrashId
+        ? { trash_id: profileTrashId }
+        : { name: profileName }
       if (pc.min_format_score != null && pc.min_format_score > 0) {
         entry.min_format_score = pc.min_format_score
       }
@@ -744,10 +749,21 @@ async function fetchProfileCfsFromTRaSH(
     return { cfs: cached.entries.map(e => ({ trash_id: e.trash_id, score: e.defaultScore })), profileName }
   }
 
+  // Strip known prefixes to derive the TRaSH JSON filename
+  const slugPrefixes = [
+    'radarr-quality-profile-',
+    'sonarr-v4-quality-profile-',
+    'sonarr-quality-profile-',
+  ]
+  let baseSlug = profileSlug
+  for (const p of slugPrefixes) {
+    if (baseSlug.startsWith(p)) { baseSlug = baseSlug.slice(p.length); break }
+  }
+
   const baseDir = mediaType === 'radarr'
     ? 'docs/json/radarr/quality-profiles'
     : 'docs/json/sonarr/quality-profiles'
-  const url = `https://raw.githubusercontent.com/TRaSH-Guides/Guides/master/${baseDir}/${profileSlug}.json`
+  const url = `https://raw.githubusercontent.com/TRaSH-Guides/Guides/master/${baseDir}/${baseSlug}.json`
 
   try {
     const resp = await fetch(url, {
@@ -766,6 +782,13 @@ async function fetchProfileCfsFromTRaSH(
       profileName,
     }))
     cfCache.set(cacheKey, { entries, fetchedAt: Date.now() })
+    // Also store the profile's own trash_id for YAML generation
+    if (json.trash_id) {
+      cfCache.set(`profile_trash_id__${profileSlug}`, {
+        entries: [{ trash_id: json.trash_id, name: profileName, defaultScore: 0, profileName }],
+        fetchedAt: Date.now(),
+      })
+    }
     saveCacheToDisk()
     return { cfs, profileName }
   } catch {
@@ -1213,6 +1236,31 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
     async (_req, reply) => {
       cfCache.clear()
       saveCacheToDisk()
+      return reply.send({ ok: true })
+    }
+  )
+
+  // DELETE /api/recyclarr/config/reset — requireAdmin
+  app.delete(
+    '/api/recyclarr/config/reset',
+    { onRequest: [app.requireAdmin] },
+    async (_req, reply) => {
+      const db = getDb()
+      db.prepare('DELETE FROM recyclarr_config').run()
+      delSetting(IMPORT_ATTEMPTED_KEY)
+      delSetting(IMPORT_WARNING_KEY)
+      // Stop all scheduled cron tasks
+      const ids = Array.from(scheduledTasks.keys())
+      for (const id of ids) {
+        scheduledTasks.get(id)?.stop()
+        scheduledTasks.delete(id)
+      }
+      // Rename YAML to .bak so it won't be re-imported
+      try {
+        if (fs.existsSync(RECYCLARR_CONFIG_PATH)) {
+          fs.renameSync(RECYCLARR_CONFIG_PATH, RECYCLARR_CONFIG_PATH + '.bak')
+        }
+      } catch { /* ignore — dir may not exist */ }
       return reply.send({ ok: true })
     }
   )

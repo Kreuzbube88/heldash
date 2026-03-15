@@ -2286,14 +2286,32 @@ function RecyclarrWizard({
                         <input style={{ ...sStyle, flex: 1 }} value={exceptInput} placeholder='z.B. "TDARR"'
                           onChange={e => setExceptInputs(prev => ({ ...prev, [slug]: e.target.value }))}
                           onKeyDown={e => {
-                            if (e.key === 'Enter' && exceptInput.trim()) {
-                              if (!excepts.includes(exceptInput.trim())) setExceptLists(prev => ({ ...prev, [slug]: [...excepts, exceptInput.trim()] }))
-                              setExceptInputs(prev => ({ ...prev, [slug]: '' }))
+                            if (e.key === 'Enter') {
+                              setExceptInputs(prev => {
+                                const val = (prev[slug] ?? '').trim()
+                                if (val) {
+                                  setExceptLists(prev2 => {
+                                    const cur = prev2[slug] ?? []
+                                    if (!cur.includes(val)) return { ...prev2, [slug]: [...cur, val] }
+                                    return prev2
+                                  })
+                                }
+                                return { ...prev, [slug]: '' }
+                              })
                             }
                           }} />
                         <button className="btn btn-ghost btn-sm" style={{ fontSize: 11, padding: '4px 8px' }} onClick={() => {
-                          if (exceptInput.trim() && !excepts.includes(exceptInput.trim())) setExceptLists(prev => ({ ...prev, [slug]: [...excepts, exceptInput.trim()] }))
-                          setExceptInputs(prev => ({ ...prev, [slug]: '' }))
+                          setExceptInputs(prev => {
+                            const val = (prev[slug] ?? '').trim()
+                            if (val) {
+                              setExceptLists(prev2 => {
+                                const cur = prev2[slug] ?? []
+                                if (!cur.includes(val)) return { ...prev2, [slug]: [...cur, val] }
+                                return prev2
+                              })
+                            }
+                            return { ...prev, [slug]: '' }
+                          })
                         }}><Plus size={11} /></button>
                       </div>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
@@ -2397,7 +2415,13 @@ function RecyclarrWizard({
       )
 
       case 5: {
-        const instanceArrCfs = arrCustomFormats[selectedInstanceId] ?? []
+        const instanceArrCfs = [...(arrCustomFormats[selectedInstanceId] ?? [])].sort((a, b) => {
+          const aNum = /^\d/.test(a.name)
+          const bNum = /^\d/.test(b.name)
+          if (aNum && !bNum) return -1
+          if (!aNum && bNum) return 1
+          return a.name.localeCompare(b.name)
+        })
         const profileDisplayNames = selectedProfiles.map(slug => {
           const tpl = profileTemplates.find(t => t.slug === slug)
           return { slug, name: tpl?.name ?? slug }
@@ -2830,7 +2854,7 @@ function RecyclarrTab() {
   const {
     templates, templatesLastFetchedAt, templatesWarning,
     configs, importWarning, cfLists, syncLines, syncDone, syncExitCode, syncing, loading,
-    loadTemplates, loadConfigs, saveConfig, loadCfList, sync, refreshTemplates, refreshCache,
+    loadTemplates, loadConfigs, saveConfig, loadCfList, sync, refreshTemplates, refreshCache, resetConfig,
   } = useRecyclarrStore()
 
   const radarrSonarrInstances = instances.filter(i => (i.type === 'radarr' || i.type === 'sonarr') && i.enabled)
@@ -2840,6 +2864,7 @@ function RecyclarrTab() {
   )
   const [refreshingTemplates, setRefreshingTemplates] = useState(false)
   const [refreshingCache, setRefreshingCache] = useState(false)
+  const [resetting, setResetting] = useState(false)
   const [loadingCfs, setLoadingCfs] = useState(false)
   const [cfError, setCfError] = useState<string | null>(null)
   const [cfLoaded, setCfLoaded] = useState(false)
@@ -2992,6 +3017,17 @@ function RecyclarrTab() {
     try { await refreshCache() } finally { setRefreshingCache(false) }
   }
 
+  const handleReset = async () => {
+    if (!window.confirm('Alle Recyclarr-Einstellungen werden gelöscht.\nDie recyclarr.yml wird beim nächsten Speichern neu generiert.\n\nFortfahren?')) return
+    setResetting(true)
+    try {
+      await resetConfig()
+      await loadConfigs()
+    } catch { /* ignore */ } finally {
+      setResetting(false)
+    }
+  }
+
   const handleAddUserCf = () => {
     if (!newCfName.trim()) return
     setLocalUserCfs(prev => [...prev, { name: newCfName.trim(), score: parseInt(newCfScore, 10) || 0, profileName: newCfProfile }])
@@ -3091,6 +3127,16 @@ function RecyclarrTab() {
           </button>
           <div style={{ flex: 1 }} />
           <button
+            className="btn btn-ghost btn-sm"
+            onClick={handleReset}
+            disabled={resetting}
+            style={{ fontSize: 12, gap: 6, color: '#f87171', borderColor: 'rgba(248,113,113,0.3)' }}
+            title="Alle Recyclarr-Einstellungen löschen und neu einrichten"
+          >
+            {resetting ? <div className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} /> : <X size={12} />}
+            Config zurücksetzen
+          </button>
+          <button
             className="btn btn-primary btn-sm"
             onClick={() => setShowWizard(true)}
             style={{ fontSize: 12, gap: 6 }}
@@ -3098,6 +3144,35 @@ function RecyclarrTab() {
             <Plus size={12} />
             {configs.some(c => c.instanceId === selectedInstanceId) ? 'Neu einrichten' : 'Konfiguration einrichten'}
           </button>
+        </div>
+      )}
+
+      {/* ─ Global Sync Section ─ */}
+      {isAdmin && (
+        <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <h4 style={{ fontSize: 14, fontWeight: 600, margin: 0, flex: 1 }}>Synchronisation</h4>
+            <span className="badge-neutral" style={{ fontSize: 10 }}>Synchronisiert alle konfigurierten Instanzen gleichzeitig</span>
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <button className="btn btn-primary btn-sm" onClick={() => sync(undefined)} disabled={syncing} style={{ fontSize: 12, gap: 4 }}>
+              {syncing ? <div className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} /> : <Check size={12} />}
+              {syncing ? 'Syncing…' : 'Sync jetzt'}
+            </button>
+            {syncDone && syncExitCode !== null && (
+              syncExitCode === 0
+                ? <span className="badge-success" style={{ fontSize: 11 }}>Sync abgeschlossen</span>
+                : <span className="badge-error" style={{ fontSize: 11 }}>Sync fehlgeschlagen (exit {syncExitCode})</span>
+            )}
+          </div>
+          {(syncLines.length > 0 || syncing) && (
+            <pre ref={syncOutputRef} style={{ fontFamily: 'var(--font-mono)', fontSize: 11, background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: 12, overflowY: 'auto', whiteSpace: 'pre-wrap', maxHeight: 240, margin: 0 }}>
+              {syncLines.map((sl, i) => (
+                <span key={i} style={{ display: 'block', color: sl.type === 'stderr' ? 'var(--status-offline)' : 'var(--text-primary)' }}>{sl.line}</span>
+              ))}
+              {syncing && <span style={{ color: 'var(--text-muted)', display: 'block' }}>…</span>}
+            </pre>
+          )}
         </div>
       )}
 
@@ -3464,107 +3539,69 @@ function RecyclarrTab() {
             )}
           </div>
 
-          {/* ─ Section D: Sync (admin only) ─ */}
+          {/* ─ Section D: Sync-Zeitplan (admin only) ─ */}
           {isAdmin && (
             <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <h4 style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>Sync</h4>
-              <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>
-                Runs <code style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>recyclarr sync</code> inside the Recyclarr Docker container. Save first.
-              </p>
-
-              {/* Sync buttons + session result */}
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                <button className="btn btn-primary btn-sm" onClick={() => sync(instanceId ?? undefined)} disabled={syncing} style={{ fontSize: 12, gap: 4 }}>
-                  {syncing ? <div className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} /> : <Check size={12} />}
-                  {syncing ? 'Syncing…' : 'Sync this instance'}
-                </button>
-                <button className="btn btn-ghost btn-sm" onClick={() => sync(undefined)} disabled={syncing} style={{ fontSize: 12 }}>
-                  Sync all
-                </button>
-                {syncDone && syncExitCode !== null && (
-                  syncExitCode === 0
-                    ? <span className="badge badge-success" style={{ fontSize: 11 }}>Sync complete</span>
-                    : <span className="badge badge-error" style={{ fontSize: 11 }}>Sync failed (exit {syncExitCode})</span>
-                )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, fontWeight: 600 }}>
+                <Clock size={14} style={{ color: 'var(--text-muted)' }} />
+                Sync-Zeitplan
               </div>
-
-              {/* Last sync status (from DB, not current session) */}
-              {!syncDone && currentConfig?.lastSyncedAt && (
+              <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>
+                Automatischer Zeitplan für diese Instanz. CRON_SCHEDULE im Recyclarr-Container muss deaktiviert sein.
+              </p>
+              {/* Last sync status */}
+              {currentConfig?.lastSyncedAt && (
                 <div style={{ fontSize: 12 }}>
                   {currentConfig.lastSyncSuccess === true
-                    ? <span className="badge badge-success" style={{ fontSize: 11 }}>Letzter Sync: {formatRelativeTime(currentConfig.lastSyncedAt)}</span>
+                    ? <span className="badge-success" style={{ fontSize: 11 }}>Letzter Sync: {formatRelativeTime(currentConfig.lastSyncedAt)}</span>
                     : currentConfig.lastSyncSuccess === false
-                    ? <span className="badge badge-error" style={{ fontSize: 11 }}>Letzter Sync fehlgeschlagen: {formatRelativeTime(currentConfig.lastSyncedAt)}</span>
+                    ? <span className="badge-error" style={{ fontSize: 11 }}>Letzter Sync fehlgeschlagen: {formatRelativeTime(currentConfig.lastSyncedAt)}</span>
                     : <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>Noch kein Sync durchgeführt</span>
                   }
                 </div>
               )}
-              {!syncDone && !currentConfig?.lastSyncedAt && (
-                <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>Noch kein Sync durchgeführt</span>
-              )}
-
-              {/* Sync schedule */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, borderTop: '1px solid var(--border)', paddingTop: 12 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 500 }}>
-                  <Clock size={13} style={{ color: 'var(--text-muted)' }} />
-                  Sync-Zeitplan
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
+                  <input type="radio" name={`sched-${instanceId}`} checked={scheduleMode === 'manual'} onChange={() => setScheduleMode('manual')} />
+                  Manuell (Standard)
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer', flexWrap: 'wrap' }}>
+                  <input type="radio" name={`sched-${instanceId}`} checked={scheduleMode === 'daily'} onChange={() => setScheduleMode('daily')} />
+                  Täglich um
+                  <input type="time" value={scheduleTime} onChange={e => setScheduleTime(e.target.value)} disabled={scheduleMode !== 'daily'}
+                    style={{ ...sStyle, width: 100, opacity: scheduleMode !== 'daily' ? 0.4 : 1 }} />
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer', flexWrap: 'wrap' }}>
+                  <input type="radio" name={`sched-${instanceId}`} checked={scheduleMode === 'weekly'} onChange={() => setScheduleMode('weekly')} />
+                  Wöchentlich
+                  <select value={scheduleWeekday} onChange={e => setScheduleWeekday(e.target.value)} disabled={scheduleMode !== 'weekly'}
+                    style={{ ...sStyle, opacity: scheduleMode !== 'weekly' ? 0.4 : 1 }}>
+                    <option value="1">Montag</option>
+                    <option value="2">Dienstag</option>
+                    <option value="3">Mittwoch</option>
+                    <option value="4">Donnerstag</option>
+                    <option value="5">Freitag</option>
+                    <option value="6">Samstag</option>
+                    <option value="0">Sonntag</option>
+                  </select>
+                  um
+                  <input type="time" value={scheduleTime} onChange={e => setScheduleTime(e.target.value)} disabled={scheduleMode !== 'weekly'}
+                    style={{ ...sStyle, width: 100, opacity: scheduleMode !== 'weekly' ? 0.4 : 1 }} />
+                </label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
-                    <input type="radio" name={`sched-${instanceId}`} checked={scheduleMode === 'manual'} onChange={() => setScheduleMode('manual')} />
-                    Manuell (Standard)
+                    <input type="radio" name={`sched-${instanceId}`} checked={scheduleMode === 'custom'} onChange={() => setScheduleMode('custom')} />
+                    Benutzerdefiniert
                   </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer', flexWrap: 'wrap' }}>
-                    <input type="radio" name={`sched-${instanceId}`} checked={scheduleMode === 'daily'} onChange={() => setScheduleMode('daily')} />
-                    Täglich um
-                    <input type="time" value={scheduleTime} onChange={e => setScheduleTime(e.target.value)} disabled={scheduleMode !== 'daily'}
-                      style={{ ...sStyle, width: 100, opacity: scheduleMode !== 'daily' ? 0.4 : 1 }} />
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer', flexWrap: 'wrap' }}>
-                    <input type="radio" name={`sched-${instanceId}`} checked={scheduleMode === 'weekly'} onChange={() => setScheduleMode('weekly')} />
-                    Wöchentlich
-                    <select value={scheduleWeekday} onChange={e => setScheduleWeekday(e.target.value)} disabled={scheduleMode !== 'weekly'}
-                      style={{ ...sStyle, opacity: scheduleMode !== 'weekly' ? 0.4 : 1 }}>
-                      <option value="1">Montag</option>
-                      <option value="2">Dienstag</option>
-                      <option value="3">Mittwoch</option>
-                      <option value="4">Donnerstag</option>
-                      <option value="5">Freitag</option>
-                      <option value="6">Samstag</option>
-                      <option value="0">Sonntag</option>
-                    </select>
-                    um
-                    <input type="time" value={scheduleTime} onChange={e => setScheduleTime(e.target.value)} disabled={scheduleMode !== 'weekly'}
-                      style={{ ...sStyle, width: 100, opacity: scheduleMode !== 'weekly' ? 0.4 : 1 }} />
-                  </label>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
-                      <input type="radio" name={`sched-${instanceId}`} checked={scheduleMode === 'custom'} onChange={() => setScheduleMode('custom')} />
-                      Benutzerdefiniert
-                    </label>
-                    <input value={scheduleCustom} onChange={e => setScheduleCustom(e.target.value)} disabled={scheduleMode !== 'custom'}
-                      placeholder="0 4 * * *" style={{ ...sStyle, width: 130, fontFamily: 'var(--font-mono)', opacity: scheduleMode !== 'custom' ? 0.4 : 1 }} />
-                    {scheduleMode === 'custom' && scheduleCustom && (
-                      cronValid(scheduleCustom)
-                        ? <span className="badge badge-success" style={{ fontSize: 10 }}>Gültig</span>
-                        : <span className="badge badge-error" style={{ fontSize: 10 }}>Ungültig</span>
-                    )}
-                  </div>
+                  <input value={scheduleCustom} onChange={e => setScheduleCustom(e.target.value)} disabled={scheduleMode !== 'custom'}
+                    placeholder="0 4 * * *" style={{ ...sStyle, width: 130, fontFamily: 'var(--font-mono)', opacity: scheduleMode !== 'custom' ? 0.4 : 1 }} />
+                  {scheduleMode === 'custom' && scheduleCustom && (
+                    cronValid(scheduleCustom)
+                      ? <span className="badge-success" style={{ fontSize: 10 }}>Gültig</span>
+                      : <span className="badge-error" style={{ fontSize: 10 }}>Ungültig</span>
+                  )}
                 </div>
-                <span className="badge badge-neutral" style={{ fontSize: 10, alignSelf: 'flex-start' }}>
-                  Zeitplan gilt auch nach Neustart. CRON_SCHEDULE im Recyclarr-Container muss deaktiviert sein — sonst laufen beide parallel.
-                </span>
               </div>
-
-              {/* Sync output */}
-              {(syncLines.length > 0 || syncing) && (
-                <pre ref={syncOutputRef} style={{ fontFamily: 'var(--font-mono)', fontSize: 11, background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: 12, overflowY: 'auto', whiteSpace: 'pre-wrap', maxHeight: 320, margin: 0 }}>
-                  {syncLines.map((sl, i) => (
-                    <span key={i} style={{ display: 'block', color: sl.type === 'stderr' ? 'var(--status-offline)' : 'var(--text-primary)' }}>{sl.line}</span>
-                  ))}
-                  {syncing && <span style={{ color: 'var(--text-muted)', display: 'block' }}>…</span>}
-                </pre>
-              )}
             </div>
           )}
         </>
@@ -4250,7 +4287,7 @@ function CfManagerTab() {
 
                 {/* Score table */}
                 {activeProfile != null && (
-                  <div className="table-responsive">
+                  <div className="table-responsive" style={{ padding: '0 var(--spacing-lg)' }}>
                     <table className="data-table">
                       <thead>
                         <tr>

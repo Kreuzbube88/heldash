@@ -48,6 +48,7 @@ interface RecyclarrState {
   sync: (instanceId?: string) => void
   refreshTemplates: () => Promise<void>
   refreshCache: () => Promise<void>
+  resetConfig: () => Promise<void>
 }
 
 export const useRecyclarrStore = create<RecyclarrState>((set, get) => ({
@@ -146,5 +147,10 @@ export const useRecyclarrStore = create<RecyclarrState>((set, get) => ({
 
   refreshCache: async () => {
     await api.recyclarr.refreshCache()
+  },
+
+  resetConfig: async () => {
+    await api.recyclarr.resetConfig()
+    set({ configs: [], importWarning: null })
   },
 }))

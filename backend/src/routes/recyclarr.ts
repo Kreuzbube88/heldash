@@ -357,17 +357,17 @@ export function scheduleRecyclarrSync(instanceId: string, schedule: string, logg
     logger.info({ instanceId }, 'Running scheduled recyclarr sync')
     try {
       const db = getDb()
-      const row = db.prepare('SELECT * FROM recyclarr_configs WHERE instance_id = ?').get(instanceId) as RecyclarrConfigRow | undefined
+      const row = db.prepare('SELECT * FROM recyclarr_config WHERE instance_id = ?').get(instanceId) as RecyclarrConfigRow | undefined
       if (!row || !row.enabled) return
-      const inUse = db.prepare('SELECT 1 FROM recyclarr_configs WHERE is_syncing = 1').get()
+      const inUse = db.prepare('SELECT 1 FROM recyclarr_config WHERE is_syncing = 1').get()
       if (inUse) { logger.warn({ instanceId }, 'Recyclarr sync already running, skipping'); return }
-      db.prepare('UPDATE recyclarr_configs SET is_syncing = 1 WHERE instance_id = ?').run(instanceId)
+      db.prepare('UPDATE recyclarr_config SET is_syncing = 1 WHERE instance_id = ?').run(instanceId)
       const { containerName } = getRecyclarrSettings()
       try {
         await runDockerCommand(['exec', containerName, 'recyclarr', 'sync'])
-        db.prepare("UPDATE recyclarr_configs SET is_syncing = 0, last_synced_at = datetime('now'), last_sync_success = 1 WHERE instance_id = ?").run(instanceId)
+        db.prepare("UPDATE recyclarr_config SET is_syncing = 0, last_synced_at = datetime('now'), last_sync_success = 1 WHERE instance_id = ?").run(instanceId)
       } catch (e) {
-        db.prepare("UPDATE recyclarr_configs SET is_syncing = 0, last_synced_at = datetime('now'), last_sync_success = 0 WHERE instance_id = ?").run(instanceId)
+        db.prepare("UPDATE recyclarr_config SET is_syncing = 0, last_synced_at = datetime('now'), last_sync_success = 0 WHERE instance_id = ?").run(instanceId)
         logger.error({ instanceId, err: e }, 'Scheduled recyclarr sync failed')
       }
     } catch (e) {
@@ -381,7 +381,7 @@ export function scheduleRecyclarrSync(instanceId: string, schedule: string, logg
 export function initRecyclarrSchedulers(logger: SimpleLogger): void {
   try {
     const db = getDb()
-    const rows = db.prepare('SELECT * FROM recyclarr_configs WHERE enabled = 1').all() as RecyclarrConfigRow[]
+    const rows = db.prepare('SELECT * FROM recyclarr_config WHERE enabled = 1').all() as RecyclarrConfigRow[]
     for (const row of rows) {
       if (row.sync_schedule && row.sync_schedule !== 'manual') {
         scheduleRecyclarrSync(row.instance_id, row.sync_schedule, logger)
@@ -432,7 +432,7 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
     const db = getDb()
     const rows = db.prepare(`
       SELECT rc.*, ai.name as instance_name, ai.type as instance_type
-      FROM recyclarr_configs rc
+      FROM recyclarr_config rc
       JOIN arr_instances ai ON rc.instance_id = ai.id
       WHERE ai.type IN ('radarr','sonarr')
       ORDER BY ai.name
@@ -469,10 +469,10 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
       if (inst.type !== 'radarr' && inst.type !== 'sonarr') return reply.status(400).send({ error: 'Only radarr/sonarr instances supported' })
 
       const body = req.body
-      const existing = db.prepare('SELECT id FROM recyclarr_configs WHERE instance_id = ?').get(instanceId) as { id: string } | undefined
+      const existing = db.prepare('SELECT id FROM recyclarr_config WHERE instance_id = ?').get(instanceId) as { id: string } | undefined
 
       if (existing) {
-        db.prepare(`UPDATE recyclarr_configs SET
+        db.prepare(`UPDATE recyclarr_config SET
           enabled = ?, templates = ?, score_overrides = ?, user_cf_names = ?,
           preferred_ratio = ?, profiles_config = ?, sync_schedule = ?, delete_old_cfs = ?,
           updated_at = datetime('now')
@@ -489,7 +489,7 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
         )
       } else {
         const id = nanoid()
-        db.prepare(`INSERT INTO recyclarr_configs
+        db.prepare(`INSERT INTO recyclarr_config
           (id, instance_id, enabled, templates, score_overrides, user_cf_names, preferred_ratio, profiles_config, sync_schedule, delete_old_cfs, is_syncing, updated_at)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, datetime('now'))`).run(
           id, instanceId,
@@ -507,7 +507,7 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
       scheduleRecyclarrSync(instanceId, body.syncSchedule ?? 'manual', app.log)
 
       try {
-        const allRows = db.prepare('SELECT * FROM recyclarr_configs WHERE enabled = 1').all() as RecyclarrConfigRow[]
+        const allRows = db.prepare('SELECT * FROM recyclarr_config WHERE enabled = 1').all() as RecyclarrConfigRow[]
         const allInsts = db.prepare('SELECT * FROM arr_instances').all() as ArrInstanceRow[]
         const allConfigs = allRows.map(rowToConfig)
         await writeYaml(allConfigs, allInsts)
@@ -522,7 +522,7 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
   // GET /api/recyclarr/yaml-preview
   app.get('/api/recyclarr/yaml-preview', { onRequest: [app.authenticate] }, async (req, reply) => {
     const db = getDb()
-    const rows = db.prepare('SELECT * FROM recyclarr_configs WHERE enabled = 1').all() as RecyclarrConfigRow[]
+    const rows = db.prepare('SELECT * FROM recyclarr_config WHERE enabled = 1').all() as RecyclarrConfigRow[]
     const insts = db.prepare('SELECT * FROM arr_instances').all() as ArrInstanceRow[]
     const configs = rows.map(rowToConfig)
     const yaml = generateRecyclarrYaml(configs, insts)
@@ -532,7 +532,7 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
   // POST /api/recyclarr/reset
   app.post('/api/recyclarr/reset', { onRequest: [app.requireAdmin] }, async (req, reply) => {
     const db = getDb()
-    db.prepare('UPDATE recyclarr_configs SET enabled = 0, templates = ?, score_overrides = ?, user_cf_names = ?, preferred_ratio = 0, profiles_config = ?, sync_schedule = ?, delete_old_cfs = 0 WHERE 1=1').run(
+    db.prepare('UPDATE recyclarr_config SET enabled = 0, templates = ?, score_overrides = ?, user_cf_names = ?, preferred_ratio = 0, profiles_config = ?, sync_schedule = ?, delete_old_cfs = 0 WHERE 1=1').run(
       JSON.stringify([]), JSON.stringify([]), JSON.stringify([]), JSON.stringify([]), 'manual'
     )
     for (const [, task] of scheduledTasks.entries()) {
@@ -547,8 +547,8 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
     return reply.send({ ok: true })
   })
 
-  // POST /api/recyclarr/sync/:instanceId  (SSE streaming)
-  app.post<{ Params: { instanceId: string } }>(
+  // GET /api/recyclarr/sync/:instanceId  (SSE streaming)
+  app.get<{ Params: { instanceId: string } }>(
     '/api/recyclarr/sync/:instanceId',
     { onRequest: [app.authenticate] },
     async (req, reply) => {
@@ -557,10 +557,10 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
       const inst = db.prepare('SELECT * FROM arr_instances WHERE id = ?').get(instanceId) as ArrInstanceRow | undefined
       if (!inst) return reply.status(404).send({ error: 'Instance not found' })
 
-      const inUse = db.prepare('SELECT 1 FROM recyclarr_configs WHERE is_syncing = 1').get()
+      const inUse = db.prepare('SELECT 1 FROM recyclarr_config WHERE is_syncing = 1').get()
       if (inUse) return reply.status(409).send({ error: 'A sync is already running' })
 
-      db.prepare('UPDATE recyclarr_configs SET is_syncing = 1 WHERE instance_id = ?').run(instanceId)
+      db.prepare('UPDATE recyclarr_config SET is_syncing = 1 WHERE instance_id = ?').run(instanceId)
 
       reply.hijack()
       const raw = reply.raw
@@ -587,23 +587,23 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
       })
       proc.on('close', code => {
         const success = code === 0
-        db.prepare("UPDATE recyclarr_configs SET is_syncing = 0, last_synced_at = datetime('now'), last_sync_success = ? WHERE instance_id = ?").run(success ? 1 : 0, instanceId)
+        db.prepare("UPDATE recyclarr_config SET is_syncing = 0, last_synced_at = datetime('now'), last_sync_success = ? WHERE instance_id = ?").run(success ? 1 : 0, instanceId)
         if (success) send('Sync completed successfully', 'done')
         else send(`Sync failed with exit code ${code}`, 'error')
         raw.end()
       })
       proc.on('error', err => {
-        db.prepare('UPDATE recyclarr_configs SET is_syncing = 0 WHERE instance_id = ?').run(instanceId)
+        db.prepare('UPDATE recyclarr_config SET is_syncing = 0 WHERE instance_id = ?').run(instanceId)
         send(err.message, 'error')
         raw.end()
       })
     }
   )
 
-  // POST /api/recyclarr/global-sync  (SSE streaming)
-  app.post('/api/recyclarr/global-sync', { onRequest: [app.authenticate] }, async (req, reply) => {
+  // GET /api/recyclarr/global-sync  (SSE streaming)
+  app.get('/api/recyclarr/global-sync', { onRequest: [app.authenticate] }, async (req, reply) => {
     const db = getDb()
-    const inUse = db.prepare('SELECT 1 FROM recyclarr_configs WHERE is_syncing = 1').get()
+    const inUse = db.prepare('SELECT 1 FROM recyclarr_config WHERE is_syncing = 1').get()
     if (inUse) return reply.status(409).send({ error: 'A sync is already running' })
 
     reply.hijack()
@@ -617,7 +617,7 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
       raw.write(`data: ${JSON.stringify({ line, type })}\n\n`)
     }
 
-    db.prepare('UPDATE recyclarr_configs SET is_syncing = 1 WHERE enabled = 1').run()
+    db.prepare('UPDATE recyclarr_config SET is_syncing = 1 WHERE enabled = 1').run()
     const { containerName } = getRecyclarrSettings()
     const proc = spawn('docker', ['exec', containerName, 'recyclarr', 'sync'])
     if (proc.stdout) proc.stdout.on('data', (chunk: Buffer) => {
@@ -632,13 +632,13 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
     })
     proc.on('close', code => {
       const success = code === 0
-      db.prepare("UPDATE recyclarr_configs SET is_syncing = 0, last_synced_at = datetime('now'), last_sync_success = ? WHERE enabled = 1").run(success ? 1 : 0)
+      db.prepare("UPDATE recyclarr_config SET is_syncing = 0, last_synced_at = datetime('now'), last_sync_success = ? WHERE enabled = 1").run(success ? 1 : 0)
       if (success) send('Global sync completed successfully', 'done')
       else send(`Global sync failed with exit code ${code}`, 'error')
       raw.end()
     })
     proc.on('error', err => {
-      db.prepare('UPDATE recyclarr_configs SET is_syncing = 0 WHERE enabled = 1').run()
+      db.prepare('UPDATE recyclarr_config SET is_syncing = 0 WHERE enabled = 1').run()
       send(err.message, 'error')
       raw.end()
     })

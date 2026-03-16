@@ -85,7 +85,7 @@ export const useRecyclarrStore = create<RecyclarrState>((set, get) => ({
     const patch: Record<string, string> = {}
     if (settings.containerName !== undefined) patch.recyclarr_container_name = settings.containerName
     if (settings.configPath !== undefined) patch.recyclarr_config_path = settings.configPath
-    await api.settings.patch(patch)
+    await api.settings.update(patch as Partial<import('../types').Settings>)
     await get().loadSettings()
   },
 

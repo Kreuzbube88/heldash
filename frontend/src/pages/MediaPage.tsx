@@ -2057,6 +2057,10 @@ function RecyclarrWizard({
   const [preferredRatio, setPreferredRatio] = useState(0)
   const [deleteOldCfs, setDeleteOldCfs] = useState(false)
 
+  // Step 2 — profile loading state
+  const [profilesLoading, setProfilesLoading] = useState(false)
+  const [profilesLoadError, setProfilesLoadError] = useState<string | null>(null)
+
   // Step 4 — score overrides using TRaSH CFs
   const [cfLoading, setCfLoading] = useState(false)
   const [cfLoadError, setCfLoadError] = useState<string | null>(null)
@@ -2103,10 +2107,22 @@ function RecyclarrWizard({
 
   const selectedProfileObjs = instProfiles.filter(p => selectedProfileTrashIds.includes(p.trash_id))
 
+  const doLoadProfiles = async (type: 'radarr' | 'sonarr') => {
+    setProfilesLoading(true)
+    setProfilesLoadError(null)
+    try {
+      await loadProfiles(type)
+    } catch (e: unknown) {
+      setProfilesLoadError(e instanceof Error ? e.message : 'Failed to load profiles from container')
+    } finally {
+      setProfilesLoading(false)
+    }
+  }
+
   // Auto-load profiles/CFs when instance selected
   useEffect(() => {
     if (!instType) return
-    if (instProfiles.length === 0) loadProfiles(instType).catch(() => {})
+    if (instProfiles.length === 0) doLoadProfiles(instType)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [instType])
 
@@ -2273,11 +2289,22 @@ function RecyclarrWizard({
           <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0 }}>
             Select quality profiles for Recyclarr to manage. At least one is required.
           </p>
-          {instProfiles.length === 0 && (
+          {profilesLoading && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <div className="spinner" style={{ width: 13, height: 13, borderWidth: 2 }} />
               <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Loading profiles from container…</span>
             </div>
+          )}
+          {!profilesLoading && profilesLoadError && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)' }}>
+              <span style={{ fontSize: 13, color: '#f87171' }}>Could not load profiles from container. Is Recyclarr running?</span>
+              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{profilesLoadError}</span>
+              <button className="btn-primary" style={{ alignSelf: 'flex-start', fontSize: 12, padding: '4px 12px' }}
+                onClick={() => instType && doLoadProfiles(instType)}>Retry</button>
+            </div>
+          )}
+          {!profilesLoading && !profilesLoadError && instProfiles.length === 0 && (
+            <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>No profiles found for this instance type.</span>
           )}
           {sortedProfileGroupKeys.map(group => (
             <div key={group}>

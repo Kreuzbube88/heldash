@@ -4,8 +4,138 @@ import { getDb } from '../db/database'
 import { stringify } from 'yaml'
 import * as fs from 'fs'
 import * as path from 'path'
-import { spawn } from 'child_process'
+import { Pool } from 'undici'
 import * as cron from 'node-cron'
+
+const dockerPool = new Pool('http://localhost', {
+  socketPath: '/var/run/docker.sock',
+  connections: 5,
+})
+
+async function dockerExecInContainer(
+  containerName: string,
+  cmd: string[],
+  timeoutMs = 30_000
+): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+  const createRes = await dockerPool.request({
+    path: `/v1.41/containers/${containerName}/exec`,
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ AttachStdout: true, AttachStderr: true, Cmd: cmd }),
+  })
+  if (createRes.statusCode === 404) {
+    await createRes.body.dump()
+    throw new Error(`Container '${containerName}' not found. Check container name in settings.`)
+  }
+  if (createRes.statusCode !== 201) {
+    const body = await createRes.body.text()
+    throw new Error(`Docker exec create failed (${createRes.statusCode}): ${body}`)
+  }
+  const { Id: execId } = await createRes.body.json() as { Id: string }
+
+  const startRes = await dockerPool.request({
+    path: `/v1.41/exec/${execId}/start`,
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ Detach: false, Tty: false }),
+  })
+  if (startRes.statusCode !== 200) {
+    const body = await startRes.body.text()
+    throw new Error(`Docker exec start failed (${startRes.statusCode}): ${body}`)
+  }
+
+  const stdoutChunks: Buffer[] = []
+  const stderrChunks: Buffer[] = []
+  let buf = Buffer.alloc(0)
+
+  const timeout = setTimeout(() => startRes.body.destroy(), timeoutMs)
+  try {
+    for await (const chunk of startRes.body) {
+      buf = Buffer.concat([buf, chunk as Buffer])
+      while (true) {
+        if (buf.length < 8) break
+        const streamByte = buf[0]
+        const size = buf.readUInt32BE(4)
+        if (buf.length < 8 + size) break
+        const payload = buf.subarray(8, 8 + size)
+        buf = buf.subarray(8 + size)
+        if (streamByte === 2) stderrChunks.push(payload)
+        else stdoutChunks.push(payload)
+      }
+    }
+  } finally {
+    clearTimeout(timeout)
+  }
+
+  const inspectRes = await dockerPool.request({ path: `/v1.41/exec/${execId}/json`, method: 'GET' })
+  const inspectJson = await inspectRes.body.json() as { ExitCode: number; Running: boolean }
+
+  return {
+    stdout: Buffer.concat(stdoutChunks).toString('utf8'),
+    stderr: Buffer.concat(stderrChunks).toString('utf8'),
+    exitCode: inspectJson.ExitCode ?? 1,
+  }
+}
+
+async function streamingDockerExec(
+  containerName: string,
+  cmd: string[],
+  onLine: (stream: 'stdout' | 'stderr', line: string) => void,
+  timeoutMs = 300_000
+): Promise<number> {
+  const createRes = await dockerPool.request({
+    path: `/v1.41/containers/${containerName}/exec`,
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ AttachStdout: true, AttachStderr: true, Cmd: cmd }),
+  })
+  if (createRes.statusCode === 404) {
+    await createRes.body.dump()
+    throw new Error(`Container '${containerName}' not found. Check container name in settings.`)
+  }
+  if (createRes.statusCode !== 201) {
+    const body = await createRes.body.text()
+    throw new Error(`Docker exec create failed (${createRes.statusCode}): ${body}`)
+  }
+  const { Id: execId } = await createRes.body.json() as { Id: string }
+
+  const startRes = await dockerPool.request({
+    path: `/v1.41/exec/${execId}/start`,
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ Detach: false, Tty: false }),
+  })
+  if (startRes.statusCode !== 200) {
+    const body = await startRes.body.text()
+    throw new Error(`Docker exec start failed (${startRes.statusCode}): ${body}`)
+  }
+
+  let buf = Buffer.alloc(0)
+  const timeout = setTimeout(() => startRes.body.destroy(), timeoutMs)
+  try {
+    for await (const chunk of startRes.body) {
+      buf = Buffer.concat([buf, chunk as Buffer])
+      while (true) {
+        if (buf.length < 8) break
+        const streamByte = buf[0]
+        const size = buf.readUInt32BE(4)
+        if (buf.length < 8 + size) break
+        const payload = buf.subarray(8, 8 + size)
+        buf = buf.subarray(8 + size)
+        const stream = streamByte === 2 ? 'stderr' : 'stdout'
+        for (const line of payload.toString('utf8').split('\n')) {
+          if (line.trim()) onLine(stream, line)
+        }
+      }
+    }
+  } finally {
+    clearTimeout(timeout)
+  }
+
+  const inspectRes = await dockerPool.request({ path: `/v1.41/exec/${execId}/json`, method: 'GET' })
+  const inspectJson = await inspectRes.body.json() as { ExitCode: number; Running: boolean }
+  return inspectJson.ExitCode ?? 1
+}
 
 interface RecyclarrProfile {
   trash_id: string
@@ -127,23 +257,6 @@ function getRecyclarrSettings(): { containerName: string; configPath: string } {
   }
 }
 
-function runDockerCommand(args: string[]): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const proc = spawn('docker', args)
-    let stdout = ''
-    let stderr = ''
-    if (proc.stdout) proc.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString('utf8') })
-    if (proc.stderr) proc.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString('utf8') })
-    proc.on('close', code => {
-      if (code !== 0) {
-        reject(new Error(stderr.trim() || `docker exited with code ${code}`))
-      } else {
-        resolve(stdout)
-      }
-    })
-    proc.on('error', err => reject(err))
-  })
-}
 
 function deriveGroup(name: string): string {
   const lower = name.toLowerCase()
@@ -199,7 +312,8 @@ async function getQualityProfiles(
     }
   }
   try {
-    const stdout = await runDockerCommand(['exec', containerName, 'recyclarr', 'list', 'quality-profiles', service, '--raw'])
+    const { stdout, exitCode } = await dockerExecInContainer(containerName, ['recyclarr', 'list', 'quality-profiles', service, '--raw'], 15_000)
+    if (exitCode !== 0) throw new Error(`recyclarr list quality-profiles failed (exit ${exitCode})`)
     const profiles = parseQualityProfiles(stdout, service, 'container')
     const entry: ProfilesCacheEntry = { profiles, fetchedAt: new Date().toISOString() }
     setSettingJson(cacheKey, entry)
@@ -226,7 +340,8 @@ async function getCustomFormats(
     }
   }
   try {
-    const stdout = await runDockerCommand(['exec', containerName, 'recyclarr', 'list', 'custom-formats', service, '--raw'])
+    const { stdout, exitCode } = await dockerExecInContainer(containerName, ['recyclarr', 'list', 'custom-formats', service, '--raw'], 15_000)
+    if (exitCode !== 0) throw new Error(`recyclarr list custom-formats failed (exit ${exitCode})`)
     const cfs = parseCustomFormats(stdout, service)
     const entry: CfsCacheEntry = { cfs, fetchedAt: new Date().toISOString() }
     setSettingJson(cacheKey, entry)
@@ -357,8 +472,9 @@ export function scheduleRecyclarrSync(instanceId: string, schedule: string, logg
       db.prepare('UPDATE recyclarr_config SET is_syncing = 1 WHERE instance_id = ?').run(instanceId)
       const { containerName } = getRecyclarrSettings()
       try {
-        await runDockerCommand(['exec', containerName, 'recyclarr', 'sync'])
-        db.prepare("UPDATE recyclarr_config SET is_syncing = 0, last_synced_at = datetime('now'), last_sync_success = 1 WHERE instance_id = ?").run(instanceId)
+        const { exitCode } = await dockerExecInContainer(containerName, ['recyclarr', 'sync'], 300_000)
+        const success = exitCode === 0 ? 1 : 0
+        db.prepare("UPDATE recyclarr_config SET is_syncing = 0, last_synced_at = datetime('now'), last_sync_success = ? WHERE instance_id = ?").run(success, instanceId)
       } catch (e) {
         db.prepare("UPDATE recyclarr_config SET is_syncing = 0, last_synced_at = datetime('now'), last_sync_success = 0 WHERE instance_id = ?").run(instanceId)
         logger.error({ instanceId, err: e }, 'Scheduled recyclarr sync failed')
@@ -567,29 +683,22 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
       }
 
       const { containerName } = getRecyclarrSettings()
-      const proc = spawn('docker', ['exec', containerName, 'recyclarr', 'sync', '--app', inst.type])
-      if (proc.stdout) proc.stdout.on('data', (chunk: Buffer) => {
-        for (const line of chunk.toString('utf8').split('\n')) {
-          if (line.trim()) send(line, 'stdout')
-        }
-      })
-      if (proc.stderr) proc.stderr.on('data', (chunk: Buffer) => {
-        for (const line of chunk.toString('utf8').split('\n')) {
-          if (line.trim()) send(line, 'stderr')
-        }
-      })
-      proc.on('close', code => {
-        const success = code === 0
+      try {
+        const exitCode = await streamingDockerExec(
+          containerName,
+          ['recyclarr', 'sync', '--app', inst.type],
+          (stream, line) => send(line, stream),
+          300_000
+        )
+        const success = exitCode === 0
         db.prepare("UPDATE recyclarr_config SET is_syncing = 0, last_synced_at = datetime('now'), last_sync_success = ? WHERE instance_id = ?").run(success ? 1 : 0, instanceId)
         if (success) send('Sync completed successfully', 'done')
-        else send(`Sync failed with exit code ${code}`, 'error')
-        raw.end()
-      })
-      proc.on('error', err => {
+        else send(`Sync failed with exit code ${exitCode}`, 'error')
+      } catch (e) {
         db.prepare('UPDATE recyclarr_config SET is_syncing = 0 WHERE instance_id = ?').run(instanceId)
-        send(err.message, 'error')
-        raw.end()
-      })
+        send(e instanceof Error ? e.message : 'Sync error', 'error')
+      }
+      raw.end()
     }
   )
 
@@ -612,29 +721,22 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
 
     db.prepare('UPDATE recyclarr_config SET is_syncing = 1 WHERE enabled = 1').run()
     const { containerName } = getRecyclarrSettings()
-    const proc = spawn('docker', ['exec', containerName, 'recyclarr', 'sync'])
-    if (proc.stdout) proc.stdout.on('data', (chunk: Buffer) => {
-      for (const line of chunk.toString('utf8').split('\n')) {
-        if (line.trim()) send(line, 'stdout')
-      }
-    })
-    if (proc.stderr) proc.stderr.on('data', (chunk: Buffer) => {
-      for (const line of chunk.toString('utf8').split('\n')) {
-        if (line.trim()) send(line, 'stderr')
-      }
-    })
-    proc.on('close', code => {
-      const success = code === 0
+    try {
+      const exitCode = await streamingDockerExec(
+        containerName,
+        ['recyclarr', 'sync'],
+        (stream, line) => send(line, stream),
+        300_000
+      )
+      const success = exitCode === 0
       db.prepare("UPDATE recyclarr_config SET is_syncing = 0, last_synced_at = datetime('now'), last_sync_success = ? WHERE enabled = 1").run(success ? 1 : 0)
       if (success) send('Global sync completed successfully', 'done')
-      else send(`Global sync failed with exit code ${code}`, 'error')
-      raw.end()
-    })
-    proc.on('error', err => {
+      else send(`Global sync failed with exit code ${exitCode}`, 'error')
+    } catch (e) {
       db.prepare('UPDATE recyclarr_config SET is_syncing = 0 WHERE enabled = 1').run()
-      send(err.message, 'error')
-      raw.end()
-    })
+      send(e instanceof Error ? e.message : 'Sync error', 'error')
+    }
+    raw.end()
   })
 
   // GET /api/recyclarr/trash-cf-names?service=radarr|sonarr

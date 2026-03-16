@@ -2036,7 +2036,7 @@ function RecyclarrWizard({
   onClose: () => void
   instances: import('../types/arr').ArrInstance[]
 }) {
-  const { qualityProfiles, loadQualityProfiles } = useArrStore()
+  const { qualityProfiles, loadQualityProfiles, customFormats: arrCustomFormats, loadCustomFormats } = useArrStore()
   const { profiles, cfs, loadProfiles, loadCfs, saveConfig } = useRecyclarrStore()
 
   const [step, setStep] = useState(1)
@@ -2074,6 +2074,12 @@ function RecyclarrWizard({
   const [newUserCfName, setNewUserCfName] = useState('')
   const [newUserCfScore, setNewUserCfScore] = useState('0')
   const [newUserCfProfileTrashId, setNewUserCfProfileTrashId] = useState('')
+  const [showManualAdd, setShowManualAdd] = useState(false)
+
+  // Steps 3+5 — arr CF loading (for dynamic suggestions + checkbox list)
+  const [arrCfsLoaded, setArrCfsLoaded] = useState(false)
+  const [arrCfsLoading, setArrCfsLoading] = useState(false)
+  const [trashCfNameSet, setTrashCfNameSet] = useState<Set<string>>(new Set())
 
   // Step 6 — schedule
   const [scheduleType, setScheduleType] = useState<'manual' | 'daily' | 'weekly' | 'cron'>('manual')
@@ -2130,6 +2136,25 @@ function RecyclarrWizard({
   useEffect(() => {
     if (step === 4 && !cfLoaded && !cfLoading && instType) {
       handleLoadCfs()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step])
+
+  // Load arr CFs + TRaSH CF names when entering steps 3 or 5
+  useEffect(() => {
+    if ((step === 3 || step === 5) && !arrCfsLoaded && !arrCfsLoading && selectedInstanceId && instType) {
+      setArrCfsLoading(true)
+      const service = instType
+      loadCustomFormats(selectedInstanceId)
+        .then(() => (cfs[service] ?? []).length === 0 ? loadCfs(service) : Promise.resolve())
+        .then(() => {
+          const latestCfs = useRecyclarrStore.getState().cfs
+          const trashNames = new Set((latestCfs[service] ?? []).map(c => c.name))
+          setTrashCfNameSet(trashNames)
+          setArrCfsLoaded(true)
+        })
+        .catch(() => {})
+        .finally(() => setArrCfsLoading(false))
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step])
@@ -2370,7 +2395,12 @@ function RecyclarrWizard({
             const reset = resetScores[tid] !== false
             const excepts = exceptLists[tid] ?? []
             const exceptInput = exceptInputs[tid] ?? ''
-            const EXCEPT_SUGGESTIONS = ['TDARR', 'TDARR no 1080p', 'x265 no DL']
+            const userOnlyNamesForExcept = arrCfsLoaded
+              ? (arrCustomFormats[selectedInstanceId] ?? [])
+                  .filter(cf => !trashCfNameSet.has(cf.name))
+                  .map(cf => cf.name)
+                  .slice(0, 10)
+              : []
             return (
               <div key={tid} style={{ padding: '12px 14px', background: 'rgba(var(--text-rgb), 0.04)', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div style={{ fontSize: 13, fontWeight: 600 }}>{p.name}</div>
@@ -2426,8 +2456,11 @@ function RecyclarrWizard({
                           setExceptInputs(prev => ({ ...prev, [tid]: '' }))
                         }}><Plus size={11} /></button>
                       </div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                        {EXCEPT_SUGGESTIONS.filter(s => !excepts.includes(s)).map(s => (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center' }}>
+                        {arrCfsLoading && (
+                          <div className="spinner" style={{ width: 11, height: 11, borderWidth: 2 }} />
+                        )}
+                        {userOnlyNamesForExcept.filter(s => !excepts.includes(s)).map(s => (
                           <button key={s} onClick={() => setExceptLists(prev => ({ ...prev, [tid]: [...excepts, s] }))}
                             style={{ padding: '2px 8px', fontSize: 11, borderRadius: 'var(--radius-sm)', background: 'rgba(var(--text-rgb), 0.06)', border: '1px solid var(--border)', color: 'var(--text-secondary)', cursor: 'pointer' }}>
                             + {s}
@@ -2542,50 +2575,105 @@ function RecyclarrWizard({
         </div>
       )
 
-      case 5: return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0 }}>
-            Optional: Füge eigene Custom Formats hinzu, die bereits in deiner Arr-Instanz existieren. Diese werden mit einem Score einem Profil zugewiesen.
-          </p>
-          {userCfs.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {userCfs.map((ucf, idx) => (
-                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, padding: '8px 10px', background: 'rgba(var(--text-rgb), 0.04)', borderRadius: 'var(--radius-sm)' }}>
-                  <span style={{ flex: 1 }}>{ucf.name}</span>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
-                    {selectedProfileObjs.find(p => p.trash_id === ucf.profileTrashId)?.name ?? ucf.profileName ?? '—'}
-                  </span>
-                  <span style={{ color: 'var(--accent)', fontSize: 12, minWidth: 40, textAlign: 'right' }}>{ucf.score}</span>
-                  <button className="btn btn-danger btn-icon btn-sm" onClick={() => setUserCfs(prev => prev.filter((_, i) => i !== idx))} style={{ width: 22, height: 22, padding: 3 }}>
-                    <X size={10} />
+      case 5: {
+        const allArrCfs = arrCustomFormats[selectedInstanceId] ?? []
+        const userArrCfs = allArrCfs.filter(cf => !trashCfNameSet.has(cf.name))
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0 }}>
+              Optional: Füge eigene Custom Formats aus deiner Instanz hinzu. Diese werden mit einem Score versehen und gelten für alle ausgewählten Profile.
+            </p>
+
+            {/* Section 1: Checkbox list from arr instance */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-secondary)' }}>
+                User Custom Formats in {selectedInstance?.name ?? 'Instanz'}
+              </div>
+              {arrCfsLoading && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} />
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Lade Custom Formats…</span>
+                </div>
+              )}
+              {!arrCfsLoading && arrCfsLoaded && userArrCfs.length === 0 && (
+                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Keine User Custom Formats in dieser Instanz gefunden.</span>
+              )}
+              {!arrCfsLoading && arrCfsLoaded && userArrCfs.length > 0 && (
+                <div style={{ maxHeight: 200, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {userArrCfs.map(cf => {
+                    const checked = userCfs.some(u => u.name === cf.name)
+                    const currentScore = userCfs.find(u => u.name === cf.name)?.score ?? 0
+                    return (
+                      <div key={cf.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: checked ? 'rgba(var(--accent-rgb), 0.06)' : 'rgba(var(--text-rgb), 0.03)', borderRadius: 'var(--radius-sm)', border: checked ? '1px solid rgba(var(--accent-rgb), 0.2)' : '1px solid transparent' }}>
+                        <input type="checkbox" checked={checked} onChange={e => {
+                          if (e.target.checked) {
+                            setUserCfs(prev => [...prev, { name: cf.name, score: 0, profileTrashId: '', profileName: '' }])
+                          } else {
+                            setUserCfs(prev => prev.filter(u => u.name !== cf.name))
+                          }
+                        }} />
+                        <span style={{ flex: 1, fontSize: 13 }}>{cf.name}</span>
+                        {checked && (
+                          <input
+                            type="number"
+                            value={currentScore}
+                            onChange={e => setUserCfs(prev => prev.map(u => u.name === cf.name ? { ...u, score: parseInt(e.target.value, 10) || 0 } : u))}
+                            style={{ width: 70, textAlign: 'right', background: 'rgba(var(--text-rgb), 0.06)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '2px 6px', fontSize: 12, color: 'var(--text-primary)' }}
+                          />
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Section 2: Manual add (collapsible) */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <button
+                onClick={() => setShowManualAdd(v => !v)}
+                style={{ alignSelf: 'flex-start', fontSize: 12, background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 4 }}
+              >
+                {showManualAdd ? '▾' : '▸'} CF nicht in der Liste? Manuell hinzufügen
+              </button>
+              {showManualAdd && (
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', paddingLeft: 12 }}>
+                  <input className="form-input" placeholder="CF-Name" value={newUserCfName} onChange={e => setNewUserCfName(e.target.value)} style={{ flex: 2, minWidth: 120, fontSize: 12 }} />
+                  <input className="form-input" type="number" placeholder="Score" value={newUserCfScore} onChange={e => setNewUserCfScore(e.target.value)} style={{ flex: 1, minWidth: 70, fontSize: 12 }} />
+                  <button className="btn btn-ghost btn-sm" onClick={() => {
+                    if (!newUserCfName.trim()) return
+                    if (userCfs.some(u => u.name === newUserCfName.trim())) return
+                    setUserCfs(prev => [...prev, { name: newUserCfName.trim(), score: parseInt(newUserCfScore, 10) || 0, profileTrashId: '', profileName: '' }])
+                    setNewUserCfName(''); setNewUserCfScore('0')
+                  }} style={{ fontSize: 12, gap: 4 }}>
+                    <Plus size={12} /> Hinzufügen
                   </button>
                 </div>
-              ))}
+              )}
             </div>
-          )}
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            <input className="form-input" placeholder="CF-Name" value={newUserCfName} onChange={e => setNewUserCfName(e.target.value)} style={{ flex: 2, minWidth: 120, fontSize: 12 }} />
-            <select value={newUserCfProfileTrashId} onChange={e => setNewUserCfProfileTrashId(e.target.value)} style={{ ...sStyle, flex: 2, minWidth: 120 }}>
-              <option value="">Profil wählen…</option>
-              {selectedProfileObjs.map(p => (
-                <option key={p.trash_id} value={p.trash_id}>{p.name}</option>
-              ))}
-            </select>
-            <input className="form-input" type="number" placeholder="Score" value={newUserCfScore} onChange={e => setNewUserCfScore(e.target.value)} style={{ flex: 1, minWidth: 70, fontSize: 12 }} />
-            <button className="btn btn-ghost btn-sm" onClick={() => {
-              if (!newUserCfName.trim()) return
-              const profName = selectedProfileObjs.find(p => p.trash_id === newUserCfProfileTrashId)?.name ?? ''
-              setUserCfs(prev => [...prev, { name: newUserCfName.trim(), score: parseInt(newUserCfScore, 10) || 0, profileTrashId: newUserCfProfileTrashId, profileName: profName }])
-              setNewUserCfName(''); setNewUserCfScore('0'); setNewUserCfProfileTrashId('')
-            }} style={{ fontSize: 12, gap: 4 }}>
-              <Plus size={12} /> Hinzufügen
+
+            {/* Summary of selected user CFs */}
+            {userCfs.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Ausgewählt ({userCfs.length}):</div>
+                {userCfs.map((ucf, idx) => (
+                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, padding: '4px 8px', background: 'rgba(var(--text-rgb), 0.04)', borderRadius: 'var(--radius-sm)' }}>
+                    <span style={{ flex: 1 }}>{ucf.name}</span>
+                    <span style={{ color: 'var(--accent)', minWidth: 40, textAlign: 'right' }}>{ucf.score}</span>
+                    <button className="btn btn-danger btn-icon btn-sm" onClick={() => setUserCfs(prev => prev.filter((_, i) => i !== idx))} style={{ width: 20, height: 20, padding: 2 }}>
+                      <X size={9} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <button className="btn btn-ghost btn-sm" onClick={() => setStep(s => s + 1)} style={{ alignSelf: 'flex-start', fontSize: 12, color: 'var(--text-muted)' }}>
+              Überspringen →
             </button>
           </div>
-          <button className="btn btn-ghost btn-sm" onClick={() => setStep(s => s + 1)} style={{ alignSelf: 'flex-start', fontSize: 12, color: 'var(--text-muted)' }}>
-            Überspringen →
-          </button>
-        </div>
-      )
+        )
+      }
 
       case 6: return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>

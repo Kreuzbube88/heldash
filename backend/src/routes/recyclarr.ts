@@ -269,28 +269,66 @@ function deriveGroup(name: string): string {
 
 function parseQualityProfiles(stdout: string, mediaType: 'radarr' | 'sonarr', source: 'container' | 'cache'): RecyclarrProfile[] {
   const profiles: RecyclarrProfile[] = []
+  const seen = new Set<string>()
   for (const line of stdout.split('\n')) {
     const trimmed = line.trim()
     if (!trimmed) continue
+    // Try tab-separated --raw format: trash_id\tname
     const parts = trimmed.split('\t')
-    const trash_id = parts[0]?.trim() ?? ''
-    const name = parts[1]?.trim() ?? ''
-    if (!/^[0-9a-f]{32}$/i.test(trash_id) || !name) continue
-    profiles.push({ trash_id, name, mediaType, group: deriveGroup(name), source })
+    const trash_id_tab = parts[0]?.trim() ?? ''
+    const name_tab = parts[1]?.trim() ?? ''
+    if (/^[0-9a-f]{32}$/i.test(trash_id_tab) && name_tab && !seen.has(trash_id_tab)) {
+      seen.add(trash_id_tab)
+      profiles.push({ trash_id: trash_id_tab, name: name_tab, mediaType, group: deriveGroup(name_tab), source })
+      continue
+    }
+    // Fallback: table format (box-drawing characters)
+    const clean = trimmed.replace(/[│┌└─┐┘]/g, '').trim()
+    if (!clean) continue
+    const tableParts = clean.split(/\s{2,}/)
+    const hexPart = tableParts.find(p => /^[0-9a-f]{32}$/i.test(p.trim()))
+    if (hexPart) {
+      const trash_id = hexPart.trim()
+      const name = tableParts.find(p => p.trim() && !/^[0-9a-f]{32}$/i.test(p.trim()))?.trim()
+      if (trash_id && name && !seen.has(trash_id)) {
+        seen.add(trash_id)
+        profiles.push({ trash_id, name, mediaType, group: deriveGroup(name), source })
+      }
+    }
   }
   return profiles
 }
 
-const CF_LINE_RE = /^\s*-\s+([0-9a-f]{32})\s+#\s+(.+)$/i
+const CF_LINE_RE_RAW = /^\s*-\s+([0-9a-f]{32})\s+#\s+(.+)$/i
 
 function parseCustomFormats(stdout: string, mediaType: 'radarr' | 'sonarr'): RecyclarrCf[] {
   const cfs: RecyclarrCf[] = []
+  const seen = new Set<string>()
   for (const line of stdout.split('\n')) {
-    const m = CF_LINE_RE.exec(line)
-    if (!m) continue
-    const trash_id = m[1]
-    const name = m[2]?.trim()
-    if (trash_id && name) cfs.push({ trash_id, name, mediaType })
+    // Try plain --raw format first: "  - <hash> # <name>"
+    const m = CF_LINE_RE_RAW.exec(line)
+    if (m) {
+      const trash_id = m[1]!
+      const name = m[2]!.trim()
+      if (trash_id && name && !seen.has(trash_id)) {
+        seen.add(trash_id)
+        cfs.push({ trash_id, name, mediaType })
+      }
+      continue
+    }
+    // Fallback: table format (box-drawing chars, without --raw or older recyclarr)
+    const clean = line.replace(/[│┌└─┐┘]/g, '').trim()
+    if (!clean) continue
+    const parts = clean.split(/\s{2,}/)
+    const hexPart = parts.find(p => /^[0-9a-f]{32}$/i.test(p.trim()))
+    if (hexPart) {
+      const trash_id = hexPart.trim()
+      const name = parts.find(p => p.trim() && !/^[0-9a-f]{32}$/i.test(p.trim()))?.trim()
+      if (trash_id && name && !seen.has(trash_id)) {
+        seen.add(trash_id)
+        cfs.push({ trash_id, name, mediaType })
+      }
+    }
   }
   return cfs
 }
@@ -792,6 +830,30 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
       delSetting(`recyclarr_profiles_cache_${service}`)
       delSetting(`recyclarr_cf_cache_${service}`)
       return reply.send({ ok: true })
+    }
+  )
+
+  // GET /api/recyclarr/debug/cf-raw?service=radarr|sonarr
+  app.get<{ Querystring: { service?: string } }>(
+    '/api/recyclarr/debug/cf-raw',
+    { onRequest: [app.requireAdmin] },
+    async (req, reply) => {
+      const service = req.query.service as 'radarr' | 'sonarr' | undefined
+      if (service !== 'radarr' && service !== 'sonarr') return reply.status(400).send({ error: 'service must be radarr or sonarr' })
+      const { containerName } = getRecyclarrSettings()
+      try {
+        const { stdout, stderr, exitCode } = await dockerExecInContainer(containerName, ['recyclarr', 'list', 'custom-formats', service, '--raw'], 15_000)
+        const parsed = parseCustomFormats(stdout, service)
+        return reply.send({
+          stdout,
+          stderr,
+          exitCode,
+          parsed_count: parsed.length,
+          first_10_lines: stdout.split('\n').slice(0, 10),
+        })
+      } catch (e) {
+        return reply.status(500).send({ error: e instanceof Error ? e.message : 'Failed' })
+      }
     }
   )
 }

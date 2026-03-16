@@ -291,13 +291,6 @@ function generateRecyclarrYaml(configs: RecyclarrConfig[], instances: ArrInstanc
       })
     }
 
-    for (const ucf of cfg.userCfNames) {
-      customFormats.push({
-        trash_ids: [ucf.name],
-        assign_scores_to: [{ trash_id: ucf.profileTrashId, score: ucf.score }],
-      })
-    }
-
     const instanceKey = inst.name.replace(/\s+/g, '-')
     const instanceConfig: Record<string, unknown> = {
       base_url: inst.url,
@@ -643,6 +636,49 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
       raw.end()
     })
   })
+
+  // GET /api/recyclarr/trash-cf-names?service=radarr|sonarr
+  app.get<{ Querystring: { service?: string } }>(
+    '/api/recyclarr/trash-cf-names',
+    { onRequest: [app.authenticate] },
+    async (req, reply) => {
+      const service = req.query.service as 'radarr' | 'sonarr' | undefined
+      if (service !== 'radarr' && service !== 'sonarr') return reply.status(400).send({ error: 'service must be radarr or sonarr' })
+      const { containerName } = getRecyclarrSettings()
+      try {
+        const { cfs, warning } = await getCustomFormats(service, containerName, false)
+        return reply.send({ names: cfs.map(cf => cf.name), cached: false, warning: warning ? 'Container unreachable, using cached data' : undefined })
+      } catch (e) {
+        return reply.status(500).send({ error: e instanceof Error ? e.message : 'Failed to fetch CF names' })
+      }
+    }
+  )
+
+  // POST /api/recyclarr/preview-yaml/:instanceId
+  app.post<{ Params: { instanceId: string }; Body: SaveConfigBody }>(
+    '/api/recyclarr/preview-yaml/:instanceId',
+    { onRequest: [app.authenticate] },
+    async (req, reply) => {
+      const { instanceId } = req.params
+      const db = getDb()
+      const inst = db.prepare('SELECT * FROM arr_instances WHERE id = ?').get(instanceId) as ArrInstanceRow | undefined
+      if (!inst) return reply.status(404).send({ error: 'Instance not found' })
+      if (inst.type !== 'radarr' && inst.type !== 'sonarr') return reply.status(400).send({ error: 'Only radarr/sonarr instances supported' })
+      const body = req.body
+      const tempConfig: RecyclarrConfig = {
+        instanceId,
+        enabled: body.enabled,
+        selectedProfiles: body.selectedProfiles ?? [],
+        scoreOverrides: body.scoreOverrides ?? [],
+        userCfNames: body.userCfNames ?? [],
+        preferredRatio: body.preferredRatio ?? 0,
+        profilesConfig: body.profilesConfig ?? [],
+        deleteOldCfs: body.deleteOldCfs ?? false,
+      }
+      const yaml = generateRecyclarrYaml([tempConfig], [inst])
+      return reply.send({ yaml })
+    }
+  )
 
   // DELETE /api/recyclarr/cache/:service
   app.delete<{ Params: { service: string } }>(

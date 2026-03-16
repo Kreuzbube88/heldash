@@ -2036,6 +2036,7 @@ function RecyclarrWizard({
   onClose: () => void
   instances: import('../types/arr').ArrInstance[]
 }) {
+  const { qualityProfiles, loadQualityProfiles } = useArrStore()
   const { profiles, cfs, loadProfiles, loadCfs, saveConfig } = useRecyclarrStore()
 
   const [step, setStep] = useState(1)
@@ -2076,6 +2077,11 @@ function RecyclarrWizard({
   const [scheduleDay, setScheduleDay] = useState('1')
   const [scheduleCron, setScheduleCron] = useState('')
 
+  // Step 6 — YAML preview
+  const [yamlPreview, setYamlPreview] = useState<string | null>(null)
+  const [yamlPreviewLoading, setYamlPreviewLoading] = useState(false)
+  const [yamlPreviewError, setYamlPreviewError] = useState<string | null>(null)
+
   // Saving
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -2111,6 +2117,47 @@ function RecyclarrWizard({
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step])
+
+  // Load arr quality profiles when entering step 2 (for adoption warning)
+  useEffect(() => {
+    if (step !== 2 || !selectedInstanceId) return
+    if (!qualityProfiles[selectedInstanceId] || qualityProfiles[selectedInstanceId].length === 0) {
+      loadQualityProfiles(selectedInstanceId).catch(() => {})
+    }
+  }, [step, selectedInstanceId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load YAML preview when entering step 6
+  useEffect(() => {
+    if (step !== 6 || !selectedInstanceId) return
+    setYamlPreviewLoading(true)
+    setYamlPreviewError(null)
+    setYamlPreview(null)
+    const profilesConfigData = selectedProfileObjs.map(p => ({
+      trash_id: p.trash_id,
+      name: p.name,
+      min_format_score: minScores[p.trash_id] ? parseInt(minScores[p.trash_id], 10) : undefined,
+      reset_unmatched_scores_enabled: resetScores[p.trash_id] !== false,
+      reset_unmatched_scores_except: exceptLists[p.trash_id] ?? [],
+    }))
+    import('../api').then(({ api }) =>
+      api.recyclarr.previewYamlForInstance(selectedInstanceId, {
+        enabled: true,
+        selectedProfiles: selectedProfileTrashIds,
+        scoreOverrides,
+        userCfNames: userCfs,
+        preferredRatio,
+        profilesConfig: profilesConfigData,
+        syncSchedule: buildScheduleStr(),
+        deleteOldCfs,
+      })
+    ).then(res => {
+      setYamlPreview(res.yaml)
+    }).catch((e: Error) => {
+      setYamlPreviewError(e.message ?? 'Preview failed')
+    }).finally(() => {
+      setYamlPreviewLoading(false)
+    })
+  }, [step]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleLoadCfs = async () => {
     if (!instType) return
@@ -2239,15 +2286,28 @@ function RecyclarrWizard({
               )}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {(profileGroups[group] ?? []).map(p => (
-                  <label key={p.trash_id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 'var(--radius-md)', cursor: 'pointer', background: selectedProfileTrashIds.includes(p.trash_id) ? 'rgba(var(--accent-rgb), 0.1)' : 'rgba(var(--text-rgb), 0.04)', border: selectedProfileTrashIds.includes(p.trash_id) ? '1px solid rgba(var(--accent-rgb), 0.3)' : '1px solid transparent', transition: 'all 150ms ease' }}>
-                    <input type="checkbox" checked={selectedProfileTrashIds.includes(p.trash_id)} onChange={e => {
-                      setSelectedProfileTrashIds(prev =>
-                        e.target.checked ? [...prev, p.trash_id] : prev.filter(id => id !== p.trash_id)
+                  <div key={p.trash_id} style={{ display: 'flex', flexDirection: 'column' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 'var(--radius-md)', cursor: 'pointer', background: selectedProfileTrashIds.includes(p.trash_id) ? 'rgba(var(--accent-rgb), 0.1)' : 'rgba(var(--text-rgb), 0.04)', border: selectedProfileTrashIds.includes(p.trash_id) ? '1px solid rgba(var(--accent-rgb), 0.3)' : '1px solid transparent', transition: 'all 150ms ease' }}>
+                      <input type="checkbox" checked={selectedProfileTrashIds.includes(p.trash_id)} onChange={e => {
+                        setSelectedProfileTrashIds(prev =>
+                          e.target.checked ? [...prev, p.trash_id] : prev.filter(id => id !== p.trash_id)
+                        )
+                      }} />
+                      <span style={{ fontSize: 13 }}>{p.name}</span>
+                      {p.source === 'cache' && <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>cached</span>}
+                    </label>
+                    {(() => {
+                      const arrProfiles = qualityProfiles[selectedInstanceId] ?? []
+                      const matchingArrProfile = arrProfiles.find(ap => ap.name === p.name)
+                      if (!matchingArrProfile || !selectedProfileTrashIds.includes(p.trash_id)) return null
+                      return (
+                        <div style={{ marginLeft: 22, marginTop: 2, fontSize: 11, color: '#f59e0b', display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <AlertTriangle size={11} />
+                          Profil existiert bereits in {selectedInstance?.name ?? 'der Instanz'} — direkt nach dem Speichern syncen, um Duplikat zu vermeiden.
+                        </div>
                       )
-                    }} />
-                    <span style={{ fontSize: 13 }}>{p.name}</span>
-                    {p.source === 'cache' && <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>cached</span>}
-                  </label>
+                    })()}
+                  </div>
                 ))}
               </div>
             </div>
@@ -2566,6 +2626,29 @@ function RecyclarrWizard({
               <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)' }}>{buildScheduleStr()}</span>
             </div>
           </div>
+          <details style={{ marginTop: 4 }}>
+            <summary style={{ fontSize: 12, cursor: 'pointer', color: 'var(--text-secondary)', userSelect: 'none', padding: '4px 0' }}>
+              Generiertes YAML anzeigen
+            </summary>
+            <div style={{ marginTop: 8 }}>
+              {yamlPreviewLoading && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 8 }}>
+                  <div className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} />
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Lade YAML-Vorschau…</span>
+                </div>
+              )}
+              {yamlPreviewError && (
+                <div style={{ fontSize: 12, color: '#f87171', padding: '6px 8px', background: 'rgba(248,113,113,0.08)', borderRadius: 'var(--radius-sm)' }}>
+                  Preview nicht verfügbar: {yamlPreviewError}
+                </div>
+              )}
+              {yamlPreview && (
+                <pre style={{ fontSize: 11, fontFamily: 'var(--font-mono)', background: 'rgba(var(--text-rgb), 0.04)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: 12, overflowX: 'auto', maxHeight: 300, overflowY: 'auto', margin: 0 }}>
+                  {yamlPreview}
+                </pre>
+              )}
+            </div>
+          </details>
           {saveError && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 'var(--radius-md)' }}>
               <AlertTriangle size={13} style={{ color: '#f87171' }} />
@@ -2739,6 +2822,9 @@ function RecyclarrTab() {
   const [scoreSearch, setScoreSearch] = useState('')
   const [showOnlyOverridden, setShowOnlyOverridden] = useState(false)
 
+  // Active profile tab for score overrides
+  const [activeScoreProfileId, setActiveScoreProfileId] = useState('')
+
   // User CFs add form
   const [newCfName, setNewCfName] = useState('')
   const [newCfScore, setNewCfScore] = useState('0')
@@ -2817,6 +2903,13 @@ function RecyclarrTab() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [instanceId, configs])
 
+  // Sync active score profile tab when selected profiles change
+  useEffect(() => {
+    if (localSelectedProfiles.length > 0 && (!activeScoreProfileId || !localSelectedProfiles.includes(activeScoreProfileId))) {
+      setActiveScoreProfileId(localSelectedProfiles[0] ?? '')
+    }
+  }, [localSelectedProfiles]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const selectedProfileObjs = instProfiles.filter(p => localSelectedProfiles.includes(p.trash_id))
 
   // Profile config helpers (keyed by trash_id)
@@ -2884,11 +2977,43 @@ function RecyclarrTab() {
 
   const handleAddUserCf = () => {
     if (!newCfName.trim()) return
+    const cfNameTrimmed = newCfName.trim()
     const profName = instProfiles.find(p => p.trash_id === newCfProfileTrashId)?.name ?? ''
-    setLocalUserCfs(prev => [...prev, { name: newCfName.trim(), score: parseInt(newCfScore, 10) || 0, profileTrashId: newCfProfileTrashId, profileName: profName }])
+    setLocalUserCfs(prev => [...prev, { name: cfNameTrimmed, score: parseInt(newCfScore, 10) || 0, profileTrashId: newCfProfileTrashId, profileName: profName }])
+    // Auto-protect: add CF name to all selected profiles' except list
+    setLocalProfilesConfig(prev => {
+      const existingTrashIds = new Set(prev.map(pc => pc.trash_id))
+      const updated = prev.map(pc => {
+        if (!pc.reset_unmatched_scores_except.includes(cfNameTrimmed)) {
+          return { ...pc, reset_unmatched_scores_except: [...pc.reset_unmatched_scores_except, cfNameTrimmed] }
+        }
+        return pc
+      })
+      for (const tid of localSelectedProfiles) {
+        if (!existingTrashIds.has(tid)) {
+          const name = instProfiles.find(p => p.trash_id === tid)?.name ?? tid
+          updated.push({ trash_id: tid, name, reset_unmatched_scores_enabled: true, reset_unmatched_scores_except: [cfNameTrimmed] })
+        }
+      }
+      return updated
+    })
     setNewCfName('')
     setNewCfScore('0')
     setNewCfProfileTrashId('')
+  }
+
+  const handleRemoveUserCf = (idx: number) => {
+    setLocalUserCfs(prev => {
+      const ucf = prev[idx]
+      const remaining = prev.filter((_, i) => i !== idx)
+      if (ucf && !remaining.some(u => u.name === ucf.name)) {
+        setLocalProfilesConfig(pcs => pcs.map(pc => ({
+          ...pc,
+          reset_unmatched_scores_except: pc.reset_unmatched_scores_except.filter(n => n !== ucf.name),
+        })))
+      }
+      return remaining
+    })
   }
 
   const currentConfig = configs.find(c => c.instanceId === instanceId)
@@ -3212,6 +3337,32 @@ function RecyclarrTab() {
               Überschreibe TRaSH-Standard-Scores für bestimmte Custom Formats. Leer lassen = TRaSH-Standard-Score verwenden.
             </p>
 
+            {/* Profile tabs */}
+            {selectedProfileObjs.length > 1 && (
+              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                {selectedProfileObjs.map(p => (
+                  <button
+                    key={p.trash_id}
+                    onClick={() => setActiveScoreProfileId(p.trash_id)}
+                    style={{
+                      padding: '4px 12px', borderRadius: 'var(--radius-md)', fontSize: 12, cursor: 'pointer',
+                      background: activeScoreProfileId === p.trash_id ? 'rgba(var(--accent-rgb), 0.12)' : 'transparent',
+                      color: activeScoreProfileId === p.trash_id ? 'var(--accent)' : 'var(--text-secondary)',
+                      border: activeScoreProfileId === p.trash_id ? '1px solid rgba(var(--accent-rgb), 0.25)' : '1px solid rgba(var(--border-rgb), 0.2)',
+                      transition: 'all 150ms ease',
+                    }}
+                  >
+                    {p.name}
+                    {localScoreOverrides.filter(o => o.profileTrashId === p.trash_id).length > 0 && (
+                      <span style={{ marginLeft: 6, fontSize: 10, opacity: 0.7 }}>
+                        {localScoreOverrides.filter(o => o.profileTrashId === p.trash_id).length}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {instCfs.length === 0 ? (
               <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>
                 {loading ? 'Lade CFs…' : 'Keine TRaSH Custom Formats verfügbar. Cache leeren und erneut versuchen.'}
@@ -3230,47 +3381,24 @@ function RecyclarrTab() {
                     <thead>
                       <tr style={{ borderBottom: '1px solid var(--border)' }}>
                         <th style={{ textAlign: 'left', padding: '6px 8px', color: 'var(--text-muted)', fontWeight: 500 }}>Name</th>
-                        <th style={{ textAlign: 'left', padding: '6px 8px', color: 'var(--text-muted)', fontWeight: 500 }}>Profil</th>
                         <th style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--text-muted)', fontWeight: 500 }}>Override Score</th>
                       </tr>
                     </thead>
                     <tbody>
                       {filteredCfs.map(cf => {
-                        const override = localScoreOverrides.find(o => o.trash_id === cf.trash_id)
-                        const overrideProfile = override ? selectedProfileObjs.find(p => p.trash_id === override.profileTrashId) : selectedProfileObjs[0]
-                        const defaultProfile = selectedProfileObjs[0]
+                        const tabId = activeScoreProfileId || (selectedProfileObjs[0]?.trash_id ?? '')
+                        const override = localScoreOverrides.find(o => o.trash_id === cf.trash_id && o.profileTrashId === tabId)
                         return (
                           <tr key={cf.trash_id} style={{ borderBottom: '1px solid rgba(var(--text-rgb), 0.06)', background: override ? 'rgba(var(--accent-rgb), 0.04)' : 'transparent' }}>
                             <td style={{ padding: '6px 8px', color: 'var(--text-primary)' }}>{cf.name}</td>
-                            <td style={{ padding: '6px 8px' }}>
-                              {isAdmin ? (
-                                <select value={overrideProfile?.trash_id ?? (defaultProfile?.trash_id ?? '')}
-                                  onChange={e => {
-                                    const ptid = e.target.value
-                                    setLocalScoreOverrides(prev => {
-                                      const filtered = prev.filter(o => o.trash_id !== cf.trash_id)
-                                      const existing = prev.find(o => o.trash_id === cf.trash_id)
-                                      if (!existing) return filtered
-                                      return [...filtered, { ...existing, profileTrashId: ptid }]
-                                    })
-                                  }}
-                                  style={{ ...sStyle, fontSize: 11 }}>
-                                  {selectedProfileObjs.map(p => (
-                                    <option key={p.trash_id} value={p.trash_id}>{p.name}</option>
-                                  ))}
-                                </select>
-                              ) : (
-                                <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{overrideProfile?.name ?? '—'}</span>
-                              )}
-                            </td>
                             <td style={{ padding: '6px 8px', textAlign: 'right' }}>
                               {isAdmin ? (
                                 <input type="number" value={override?.score ?? ''} placeholder="—"
                                   onChange={e => {
                                     const val = e.target.value
-                                    const ptid = overrideProfile?.trash_id ?? (defaultProfile?.trash_id ?? '')
+                                    const ptid = tabId
                                     setLocalScoreOverrides(prev => {
-                                      const filtered = prev.filter(o => o.trash_id !== cf.trash_id)
+                                      const filtered = prev.filter(o => !(o.trash_id === cf.trash_id && o.profileTrashId === ptid))
                                       if (val === '') return filtered
                                       return [...filtered, { trash_id: cf.trash_id, name: cf.name, score: parseInt(val, 10) || 0, profileTrashId: ptid }]
                                     })
@@ -3306,7 +3434,7 @@ function RecyclarrTab() {
                     </span>
                     <span style={{ color: 'var(--accent)', fontSize: 12, minWidth: 40, textAlign: 'right' }}>{ucf.score}</span>
                     {isAdmin && (
-                      <button className="btn btn-danger btn-icon btn-sm" onClick={() => setLocalUserCfs(prev => prev.filter((_, i) => i !== idx))} style={{ width: 22, height: 22, padding: 3 }}>
+                      <button className="btn btn-danger btn-icon btn-sm" onClick={() => handleRemoveUserCf(idx)} style={{ width: 22, height: 22, padding: 3 }}>
                         <X size={10} />
                       </button>
                     )}
@@ -3506,6 +3634,7 @@ function CfRow({
   profiles,
   scores,
   isProtected,
+  isTrashed,
   isAdmin,
   onEdit,
   onDelete,
@@ -3515,6 +3644,7 @@ function CfRow({
   profiles: ArrQualityProfile[]
   scores: Record<number, number>
   isProtected: boolean
+  isTrashed: boolean
   isAdmin: boolean
   onEdit: () => void
   onDelete: () => void
@@ -3534,6 +3664,7 @@ function CfRow({
         gap: 8,
         flexWrap: 'wrap',
         position: 'relative',
+        background: isTrashed ? 'rgba(var(--text-rgb), 0.02)' : undefined,
       }}
     >
       <span style={{ fontWeight: 600, fontSize: 13, flex: 1, minWidth: 100, fontFamily: 'var(--font-sans)' }}>{cf.name}</span>
@@ -3552,10 +3683,15 @@ function CfRow({
           </span>
         )
       })}
-      {isProtected && (
-        <span className="badge-accent" style={{ fontSize: 11 }}>Recyclarr: geschützt</span>
+      {isTrashed ? (
+        <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 'var(--radius-sm)', background: 'rgba(var(--text-rgb), 0.08)', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>TRaSH</span>
+      ) : (
+        <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 'var(--radius-sm)', background: 'rgba(var(--accent-rgb), 0.08)', color: 'var(--accent)', fontFamily: 'var(--font-mono)' }}>User</span>
       )}
-      {isAdmin && onExceptToggle && (
+      {isProtected && (
+        <span className="badge-accent" style={{ fontSize: 11 }}>geschützt</span>
+      )}
+      {isAdmin && onExceptToggle && !isTrashed && (
         <button
           className={`btn btn-sm btn-icon ${isProtected ? 'btn-primary' : 'btn-ghost'}`}
           onClick={e => { e.stopPropagation(); onExceptToggle() }}
@@ -3565,7 +3701,7 @@ function CfRow({
           <Shield size={12} />
         </button>
       )}
-      {isAdmin && hovered && (
+      {isAdmin && hovered && !isTrashed && (
         <div style={{ display: 'flex', gap: 4, marginLeft: 4 }}>
           <button
             onClick={onEdit}
@@ -3768,6 +3904,7 @@ function CfManagerTab() {
   const [editingCf, setEditingCf] = useState<ArrCustomFormat | 'new' | null>(null)
   const [confirmDeleteCfId, setConfirmDeleteCfId] = useState<number | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [trashCfNames, setTrashCfNames] = useState<Set<string>>(new Set())
 
   // Init active instance
   useEffect(() => {
@@ -3781,14 +3918,21 @@ function CfManagerTab() {
     if (configs.length === 0) loadConfigs().catch(() => {})
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Load CFs + profiles when active instance changes
+  // Load CFs + profiles + trash CF names when active instance changes
   useEffect(() => {
     if (!activeInstance) return
     setLoadError(null)
+    const inst = arrInstances.find(i => i.id === activeInstance)
+    const service = inst?.type as 'radarr' | 'sonarr' | undefined
     Promise.all([
       loadCustomFormats(activeInstance),
       loadQualityProfiles(activeInstance),
     ]).catch(e => setLoadError((e as Error).message ?? 'Ladefehler'))
+    if (service) {
+      import('../api').then(({ api }) => api.recyclarr.trashCfNames(service))
+        .then(res => setTrashCfNames(new Set(res.names)))
+        .catch(() => {}) // silently ignore — classification degrades gracefully
+    }
   }, [activeInstance]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Protected CF names from recyclarr config (based on selectedProfiles)
@@ -3873,14 +4017,6 @@ function CfManagerTab() {
   const cfs = customFormats[activeInstance ?? ''] ?? []
   const profiles = qualityProfiles[activeInstance ?? ''] ?? []
 
-  // TRaSH CF names from recyclarr config for this instance
-  const recyclarrCfNames = useMemo(() => {
-    if (!activeInstance) return new Set<string>()
-    const config = configs.find(c => c.instanceId === activeInstance)
-    if (!config) return new Set<string>()
-    // User CFs explicitly listed in userCfNames are "User"
-    return new Set(config.userCfNames.map(u => u.name))
-  }, [configs, activeInstance])
 
   if (arrInstances.length === 0) {
     return (
@@ -3971,26 +4107,20 @@ function CfManagerTab() {
           </p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {filteredCfs.map(cf => {
-              const isUserCf = recyclarrCfNames.has(cf.name)
-              return (
-                <div key={cf.id} style={{ position: 'relative' }}>
-                  {isUserCf && (
-                    <span className="badge-accent" style={{ position: 'absolute', top: 8, right: 8, fontSize: 9, zIndex: 1 }}>User</span>
-                  )}
-                  <CfRow
-                    cf={cf}
-                    profiles={profiles}
-                    scores={profileScoreMap[cf.id] ?? {}}
-                    isProtected={protectedCfNames.has(cf.name)}
-                    isAdmin={isAdmin}
-                    onEdit={() => setEditingCf(cf)}
-                    onDelete={() => setConfirmDeleteCfId(cf.id)}
-                    onExceptToggle={() => handleExceptToggle(cf.name)}
-                  />
-                </div>
-              )
-            })}
+            {filteredCfs.map(cf => (
+              <CfRow
+                key={cf.id}
+                cf={cf}
+                profiles={profiles}
+                scores={profileScoreMap[cf.id] ?? {}}
+                isProtected={protectedCfNames.has(cf.name)}
+                isTrashed={trashCfNames.has(cf.name)}
+                isAdmin={isAdmin}
+                onEdit={() => setEditingCf(cf)}
+                onDelete={() => setConfirmDeleteCfId(cf.id)}
+                onExceptToggle={() => handleExceptToggle(cf.name)}
+              />
+            ))}
           </div>
         )}
       </div>

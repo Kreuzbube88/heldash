@@ -309,6 +309,18 @@ export const api = {
       deleteOldCfs: boolean
     }) => req<{ ok: boolean }>(`/recyclarr/configs/${instanceId}`, { method: 'POST', body: JSON.stringify(data) }),
     previewYaml: () => req<{ yaml: string }>('/recyclarr/yaml-preview'),
+    previewYamlForInstance: (instanceId: string, data: {
+      enabled: boolean
+      selectedProfiles: string[]
+      scoreOverrides: import('./types/recyclarr').RecyclarrScoreOverride[]
+      userCfNames: import('./types/recyclarr').RecyclarrUserCf[]
+      preferredRatio: number
+      profilesConfig: import('./types/recyclarr').RecyclarrProfileConfig[]
+      syncSchedule: string
+      deleteOldCfs: boolean
+    }) => req<{ yaml: string }>(`/recyclarr/preview-yaml/${instanceId}`, { method: 'POST', body: JSON.stringify(data) }),
+    trashCfNames: (service: 'radarr' | 'sonarr') =>
+      req<{ names: string[]; cached: boolean; warning?: string }>(`/recyclarr/trash-cf-names?service=${service}`),
     resetConfig: () => req<{ ok: boolean }>('/recyclarr/reset', { method: 'POST', body: JSON.stringify({}) }),
     clearCache: (service: 'radarr' | 'sonarr') => req<{ ok: boolean }>(`/recyclarr/cache/${service}`, { method: 'DELETE', body: JSON.stringify({}) }),
   },

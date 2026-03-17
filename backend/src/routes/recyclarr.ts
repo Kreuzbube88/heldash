@@ -518,13 +518,6 @@ function generateRecyclarrYaml(configs: RecyclarrConfig[], instances: ArrInstanc
     const qualityDefinition: Record<string, unknown> = { type: qdType }
     if (cfg.preferredRatio > 0) qualityDefinition.preferred_ratio = cfg.preferredRatio
 
-    // Collect user CF trash_ids for auto-protect in reset_unmatched_scores.except
-    const userCfTids: string[] = []
-    for (const ucf of cfg.userCfNames) {
-      const tid = (ucf.trash_id && ucf.trash_id.trim()) ? ucf.trash_id : ucf.name
-      if (tid) userCfTids.push(tid)
-    }
-
     const qualityProfiles = cfg.profilesConfig.map(pc => {
       const entry: Record<string, unknown> = { trash_id: pc.trash_id }
       if (pc.min_format_score != null && pc.min_format_score > 0) {
@@ -532,7 +525,11 @@ function generateRecyclarrYaml(configs: RecyclarrConfig[], instances: ArrInstanc
       }
       if (pc.reset_unmatched_scores_enabled) {
         const rusObj: Record<string, unknown> = { enabled: true }
-        const allExcept = [...new Set([...pc.reset_unmatched_scores_except, ...userCfTids])]
+        const userCfNames = cfg.userCfNames
+          .filter(u => !u.profileTrashId || u.profileTrashId === pc.trash_id)
+          .map(u => u.name)
+          .filter(Boolean)
+        const allExcept = [...new Set([...pc.reset_unmatched_scores_except, ...userCfNames])]
         if (allExcept.length > 0) {
           rusObj.except = allExcept
         }

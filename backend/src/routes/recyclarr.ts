@@ -295,6 +295,41 @@ function ensureUserCfFolders(): void {
   fs.mkdirSync(`${USER_CF_BASE}/sonarr`, { recursive: true })
 }
 
+const RESOLUTION_MIGRATE_MAP: Record<string, number> = {
+  R360p: 360, R480p: 480, R540p: 540, R576p: 576,
+  R720p: 720, R1080p: 1080, R2160p: 2160,
+}
+
+function migrateUserCfFiles(dir: string): void {
+  if (!fs.existsSync(dir)) return
+  const files = fs.readdirSync(dir).filter(f => f.endsWith('.json'))
+  for (const file of files) {
+    const p = path.join(dir, file)
+    try {
+      const cf = JSON.parse(fs.readFileSync(p, 'utf8')) as { specifications?: { implementation: string; fields: unknown }[] }
+      let changed = false
+      for (const spec of cf.specifications ?? []) {
+        // Fix array fields → object
+        if (Array.isArray(spec.fields)) {
+          spec.fields = Object.fromEntries(
+            (spec.fields as { name: string; value: unknown }[]).map(f => [f.name, f.value])
+          )
+          changed = true
+        }
+        // Fix ResolutionSpecification string → integer
+        if (spec.implementation === 'ResolutionSpecification') {
+          const fields = spec.fields as Record<string, unknown>
+          if (typeof fields.value === 'string' && RESOLUTION_MIGRATE_MAP[fields.value]) {
+            fields.value = RESOLUTION_MIGRATE_MAP[fields.value]
+            changed = true
+          }
+        }
+      }
+      if (changed) fs.writeFileSync(p, JSON.stringify(cf, null, 2), 'utf8')
+    } catch { /* skip malformed files */ }
+  }
+}
+
 function writeSettingsYml(): void {
   const content = [
     '# yaml-language-server: $schema=https://raw.githubusercontent.com/recyclarr/recyclarr/master/schemas/settings-schema.json',
@@ -642,6 +677,8 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
   // Init user CF folders and settings.yml on startup
   try {
     ensureUserCfFolders()
+    migrateUserCfFiles(`${USER_CF_BASE}/radarr`)
+    migrateUserCfFiles(`${USER_CF_BASE}/sonarr`)
     writeSettingsYml()
   } catch (e) {
     app.log.warn({ err: e }, 'Could not init user CF folders or settings.yml')

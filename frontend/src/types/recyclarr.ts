@@ -37,7 +37,7 @@ export interface UserCfSpecification {
   implementation: string
   negate: boolean
   required: boolean
-  fields: { name: string; value: unknown }[]
+  fields: Record<string, unknown>
 }
 
 export interface UserCfFile {

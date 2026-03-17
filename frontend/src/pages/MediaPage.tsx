@@ -3463,10 +3463,26 @@ function initDraftSpec(): DraftSpec {
   }
 }
 
+const RESOLUTION_REVERSE_MAP: Record<number, string> = {
+  360: 'R360p', 480: 'R480p', 540: 'R540p', 576: 'R576p',
+  720: 'R720p', 1080: 'R1080p', 2160: 'R2160p',
+}
+
 function toDraftSpec(spec: ArrCFSpecification): DraftSpec {
   const isUnknown = !KNOWN_SPEC_IMPLS.has(spec.implementation)
-  const valueField = spec.fields.find(f => f.name === 'value')
-  const value = valueField == null ? '' : typeof valueField.value === 'string' ? valueField.value : String(valueField.value)
+  // fields may be array (Radarr API / old format) or object (new file format)
+  const fields = spec.fields as unknown
+  let value = ''
+  if (Array.isArray(fields)) {
+    const valueField = (fields as { name: string; value: unknown }[]).find(f => f.name === 'value')
+    value = valueField == null ? '' : typeof valueField.value === 'string' ? valueField.value : String(valueField.value)
+  } else if (fields && typeof fields === 'object') {
+    const v = (fields as Record<string, unknown>).value
+    value = v == null ? '' : typeof v === 'string' ? v : String(v)
+  }
+  if (spec.implementation === 'ResolutionSpecification') {
+    value = RESOLUTION_REVERSE_MAP[Number(value)] ?? value
+  }
   return {
     name: spec.name,
     implementation: spec.implementation,
@@ -3475,26 +3491,35 @@ function toDraftSpec(spec: ArrCFSpecification): DraftSpec {
     value,
     isUnknown,
     rawJson: isUnknown ? JSON.stringify(spec.fields, null, 2) : '[]',
-    originalFields: spec.fields,
+    originalFields: Array.isArray(fields) ? (fields as { name: string; value: unknown }[]) : [],
   }
+}
+
+const RESOLUTION_MAP: Record<string, number> = {
+  R360p: 360, R480p: 480, R540p: 540, R576p: 576,
+  R720p: 720, R1080p: 1080, R2160p: 2160,
 }
 
 function buildSpecPayload(ds: DraftSpec): ArrCFSpecification {
   if (ds.isUnknown) {
-    let fields: { name: string; value: unknown }[] = []
-    try { fields = JSON.parse(ds.rawJson) as { name: string; value: unknown }[] } catch { fields = [] }
-    return { name: ds.name, implementation: ds.implementation, implementationName: ds.implementation, negate: ds.negate, required: ds.required, fields }
+    let fields: Record<string, unknown> = {}
+    try {
+      const arr = JSON.parse(ds.rawJson) as { name: string; value: unknown }[]
+      fields = Object.fromEntries(arr.map(f => [f.name, f.value]))
+    } catch { fields = {} }
+    return { name: ds.name, implementation: ds.implementation, implementationName: ds.implementation, negate: ds.negate, required: ds.required, fields: fields as unknown as { name: string; value: unknown }[] }
   }
-  const updatedFields = ds.originalFields.length > 0
-    ? ds.originalFields.map(f => f.name === 'value' ? { ...f, value: ds.value } : f)
-    : [{ name: 'value', value: ds.value }]
+  let specValue: unknown = ds.value
+  if (ds.implementation === 'ResolutionSpecification') {
+    specValue = RESOLUTION_MAP[ds.value] ?? parseInt(ds.value, 10) || 0
+  }
   return {
     name: ds.name,
     implementation: ds.implementation,
     implementationName: SPEC_TYPE_NAMES[ds.implementation] ?? ds.implementation,
     negate: ds.negate,
     required: ds.required,
-    fields: updatedFields,
+    fields: { value: specValue } as unknown as { name: string; value: unknown }[],
   }
 }
 
@@ -3555,7 +3580,7 @@ function UserCfEditModal({
 }) {
   const [name, setName] = useState(initial?.name ?? '')
   const [specs, setSpecs] = useState<DraftSpec[]>(
-    initial ? initial.specifications.map(s => toDraftSpec(s as ArrCFSpecification)) : []
+    initial ? initial.specifications.map(s => toDraftSpec(s as unknown as ArrCFSpecification)) : []
   )
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -3677,11 +3702,27 @@ function UserCfEditModal({
                     <label style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>
                       {spec.implementation === 'ReleaseTitleSpecification' || spec.implementation === 'ReleaseGroupSpecification' ? 'Regex' : 'Wert'}
                     </label>
-                    <input
-                      value={spec.value}
-                      onChange={e => updateSpec(idx, s => ({ ...s, value: e.target.value }))}
-                      style={{ width: '100%', padding: '4px 6px', borderRadius: 'var(--radius-sm)', fontSize: 12, background: 'rgba(var(--bg-secondary-rgb), 0.8)', color: 'var(--text)', border: '1px solid rgba(var(--border-rgb), 0.2)', boxSizing: 'border-box' }}
-                    />
+                    {spec.implementation === 'ResolutionSpecification' ? (
+                      <select
+                        value={spec.value}
+                        onChange={e => updateSpec(idx, s => ({ ...s, value: e.target.value }))}
+                        style={{ width: '100%', padding: '4px 6px', borderRadius: 'var(--radius-sm)', fontSize: 12, background: 'rgba(var(--bg-secondary-rgb), 0.8)', color: 'var(--text)', border: '1px solid rgba(var(--border-rgb), 0.2)', boxSizing: 'border-box' }}
+                      >
+                        <option value="R360p">360p</option>
+                        <option value="R480p">480p</option>
+                        <option value="R540p">540p</option>
+                        <option value="R576p">576p</option>
+                        <option value="R720p">720p</option>
+                        <option value="R1080p">1080p</option>
+                        <option value="R2160p">2160p</option>
+                      </select>
+                    ) : (
+                      <input
+                        value={spec.value}
+                        onChange={e => updateSpec(idx, s => ({ ...s, value: e.target.value }))}
+                        style={{ width: '100%', padding: '4px 6px', borderRadius: 'var(--radius-sm)', fontSize: 12, background: 'rgba(var(--bg-secondary-rgb), 0.8)', color: 'var(--text)', border: '1px solid rgba(var(--border-rgb), 0.2)', boxSizing: 'border-box' }}
+                      />
+                    )}
                   </div>
                 )}
               </div>

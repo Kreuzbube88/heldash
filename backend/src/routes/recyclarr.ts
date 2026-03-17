@@ -296,21 +296,21 @@ function ensureUserCfFolders(): void {
 }
 
 function writeSettingsYml(): void {
-  const content =
-    'resource_providers:\n' +
-    '  - name: user-cfs-radarr\n' +
-    '    type: custom-formats\n' +
-    '    path: /recyclarr/user-cfs/radarr\n' +
-    '    service: radarr\n' +
-    '  - name: user-cfs-sonarr\n' +
-    '    type: custom-formats\n' +
-    '    path: /recyclarr/user-cfs/sonarr\n' +
-    '    service: sonarr\n'
+  const content = [
+    '# yaml-language-server: $schema=https://raw.githubusercontent.com/recyclarr/recyclarr/master/schemas/settings-schema.json',
+    'resource_providers:',
+    '  - name: user-cfs-radarr',
+    '    type: custom-formats',
+    '    path: /recyclarr/user-cfs/radarr',
+    '    service: radarr',
+    '  - name: user-cfs-sonarr',
+    '    type: custom-formats',
+    '    path: /recyclarr/user-cfs/sonarr',
+    '    service: sonarr',
+  ].join('\n') + '\n'
   const dir = path.dirname(SETTINGS_YML_PATH)
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-  if (!fs.existsSync(SETTINGS_YML_PATH)) {
-    fs.writeFileSync(SETTINGS_YML_PATH, content, 'utf8')
-  }
+  fs.writeFileSync(SETTINGS_YML_PATH, content, 'utf8')
 }
 
 function listUserCfs(service: 'radarr' | 'sonarr'): UserCfFile[] {
@@ -998,6 +998,7 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
         specifications: specifications ?? [],
       }
       fs.writeFileSync(path.join(USER_CF_BASE, service, `${trashId}.json`), JSON.stringify(cf, null, 2), 'utf8')
+      writeSettingsYml()
       return reply.status(201).send({ cf })
     }
   )
@@ -1036,6 +1037,7 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
       const filePath = path.join(USER_CF_BASE, service, `${trashId}.json`)
       if (!fs.existsSync(filePath)) return reply.status(404).send({ error: 'CF not found' })
       fs.unlinkSync(filePath)
+      writeSettingsYml()
       // Remove references from recyclarr_config in DB
       const db = getDb()
       const rows = db.prepare('SELECT id, user_cf_names FROM recyclarr_config').all() as { id: string; user_cf_names: string }[]

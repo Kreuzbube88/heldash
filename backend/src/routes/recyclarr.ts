@@ -525,11 +525,14 @@ function generateRecyclarrYaml(configs: RecyclarrConfig[], instances: ArrInstanc
       }
       if (pc.reset_unmatched_scores_enabled) {
         const rusObj: Record<string, unknown> = { enabled: true }
-        const userCfNames = cfg.userCfNames
+        const userCfDisplayNames = cfg.userCfNames
           .filter(u => !u.profileTrashId || u.profileTrashId === pc.trash_id)
           .map(u => u.name)
           .filter(Boolean)
-        const allExcept = [...new Set([...pc.reset_unmatched_scores_except, ...userCfNames])]
+        const userCfTrashIds = new Set(cfg.userCfNames.map(u => u.trash_id).filter(Boolean))
+        const cleanedExcept = pc.reset_unmatched_scores_except
+          .filter(e => !userCfTrashIds.has(e))
+        const allExcept = [...new Set([...cleanedExcept, ...userCfDisplayNames])]
         if (allExcept.length > 0) {
           rusObj.except = allExcept
         }
@@ -757,6 +760,13 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
       if (inst.type !== 'radarr' && inst.type !== 'sonarr') return reply.status(400).send({ error: 'Only radarr/sonarr instances supported' })
 
       const body = req.body
+      const userCfTrashIdsForSave = new Set((body.userCfNames ?? []).map((u: UserCf) => u.trash_id).filter(Boolean))
+      const cleanedProfilesConfig = (body.profilesConfig ?? []).map((pc: ProfileConfig) => ({
+        ...pc,
+        reset_unmatched_scores_except: pc.reset_unmatched_scores_except
+          .filter((e: string) => !userCfTrashIdsForSave.has(e))
+      }))
+
       const existing = db.prepare('SELECT id FROM recyclarr_config WHERE instance_id = ?').get(instanceId) as { id: string } | undefined
 
       if (existing) {
@@ -770,7 +780,7 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
           JSON.stringify(body.scoreOverrides ?? []),
           JSON.stringify(body.userCfNames ?? []),
           body.preferredRatio ?? 0,
-          JSON.stringify(body.profilesConfig ?? []),
+          JSON.stringify(cleanedProfilesConfig),
           body.syncSchedule ?? 'manual',
           body.deleteOldCfs ? 1 : 0,
           instanceId
@@ -786,7 +796,7 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
           JSON.stringify(body.scoreOverrides ?? []),
           JSON.stringify(body.userCfNames ?? []),
           body.preferredRatio ?? 0,
-          JSON.stringify(body.profilesConfig ?? []),
+          JSON.stringify(cleanedProfilesConfig),
           body.syncSchedule ?? 'manual',
           body.deleteOldCfs ? 1 : 0
         )

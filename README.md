@@ -19,6 +19,16 @@ Home Assistant und mehr — alles in einer Oberfläche.
 
 ---
 
+## Sprache / Language
+
+> 🇩🇪 Das Dashboard ist aktuell nur auf Deutsch verfügbar.
+> Contributions für weitere Sprachen (i18n) sind willkommen.
+>
+> 🇬🇧 The dashboard is currently available in German only.
+> i18n contributions for additional languages are welcome.
+
+---
+
 ## Features
 
 **Dashboard**

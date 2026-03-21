@@ -15,6 +15,7 @@ import type { ArrInstance, ArrCalendarItem, RadarrCalendarItem, SonarrCalendarIt
 import type { UserCfFile, UserCfSpecification } from '../types/recyclarr'
 import type { TmdbResult, TmdbFilters, TmdbDiscoverFilters } from '../types/tmdb'
 import { ArrCardContent, SabnzbdCardContent, SeerrCardContent } from '../components/MediaCard'
+import { LS_RECYCLARR_GROUPS_COLLAPSED } from '../constants'
 // ── Tab type ──────────────────────────────────────────────────────────────────
 
 type MediaTab = 'instances' | 'library' | 'calendar' | 'indexers' | 'discover' | 'recyclarr' | 'cf-manager'
@@ -2368,6 +2369,34 @@ function RecyclarrTab() {
   const [userCfsCollapsed, setUserCfsCollapsed] = useState(false)
   const [advancedCollapsed, setAdvancedCollapsed] = useState(true)
   const [historyOpen, setHistoryOpen] = useState(false)
+
+  // ── Per-group collapse (TRaSH CFs) ──
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
+  useEffect(() => {
+    if (!instanceId || !selectedProfileId) { setCollapsedGroups(new Set()); return }
+    try {
+      const stored = localStorage.getItem(LS_RECYCLARR_GROUPS_COLLAPSED)
+      const map = stored ? (JSON.parse(stored) as Record<string, string[]>) : {}
+      setCollapsedGroups(new Set(map[`${instanceId}:${selectedProfileId}`] ?? []))
+    } catch { setCollapsedGroups(new Set()) }
+  }, [instanceId, selectedProfileId])
+
+  const toggleGroup = (groupName: string) => {
+    setCollapsedGroups(prev => {
+      const next = new Set(prev)
+      if (next.has(groupName)) next.delete(groupName)
+      else next.add(groupName)
+      if (instanceId && selectedProfileId) {
+        try {
+          const stored = localStorage.getItem(LS_RECYCLARR_GROUPS_COLLAPSED)
+          const map: Record<string, string[]> = stored ? JSON.parse(stored) : {}
+          map[`${instanceId}:${selectedProfileId}`] = Array.from(next)
+          localStorage.setItem(LS_RECYCLARR_GROUPS_COLLAPSED, JSON.stringify(map))
+        } catch {}
+      }
+      return next
+    })
+  }
   const [backupsOpen, setBackupsOpen] = useState(false)
   const [restoringBackup, setRestoringBackup] = useState('')
   const [restoreSuccess, setRestoreSuccess] = useState('')
@@ -3176,14 +3205,23 @@ function RecyclarrTab() {
                                       .filter(cf => cf.groups.includes(group.name))
                                       .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
                                     if (groupCfs.length === 0) return null
+                                    const isCollapsed = collapsedGroups.has(group.name)
                                     return (
                                       <div key={group.name} style={{ marginBottom: 8 }}>
-                                        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', padding: '2px 8px 4px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        <button
+                                          onClick={() => toggleGroup(group.name)}
+                                          style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: 11, fontWeight: 600, padding: '2px 8px 4px', fontFamily: 'var(--font-sans)' }}
+                                        >
+                                          {isCollapsed ? <ChevronRight size={11} /> : <ChevronDown size={11} />}
                                           {group.name}
-                                          <span className="badge-neutral" style={{ fontSize: 9 }}>{groupCfs.length}</span>
-                                        </div>
-                                        {colHeader}
-                                        {groupCfs.map(cfRow)}
+                                          <span className="badge-neutral" style={{ fontSize: 9 }}>{groupCfs.length} CFs</span>
+                                        </button>
+                                        {!isCollapsed && (
+                                          <>
+                                            {colHeader}
+                                            {groupCfs.map(cfRow)}
+                                          </>
+                                        )}
                                       </div>
                                     )
                                   })}

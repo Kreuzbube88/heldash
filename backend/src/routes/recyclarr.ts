@@ -1633,7 +1633,18 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
           toRemove.add(i)
         }
       }
-      const finalCfs = cfs.filter((_, i) => !toRemove.has(i))
+      const afterStep6 = cfs.filter((_, i) => !toRemove.has(i))
+
+      // Step 7: Ungrouped CFs with score 0 are likely spillover from other profiles — move to notInProfile
+      const toRemove2 = new Set<number>()
+      for (let i = 0; i < afterStep6.length; i++) {
+        const cf = afterStep6[i]!
+        if (cf.groups.length === 0 && cf.currentScore === 0) {
+          notInProfile.push({ arrId: cf.arrId, name: cf.name, currentScore: 0 })
+          toRemove2.add(i)
+        }
+      }
+      const finalCfs = afterStep6.filter((_, i) => !toRemove2.has(i))
 
       app.log.info({
         recyclarrCfCount: recyclarrCfs.length,

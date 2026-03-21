@@ -110,9 +110,11 @@ export function initDockerPoller(): void {
       for (const [id] of containerStates) {
         if (!currentIds.has(id)) containerStates.delete(id)
       }
-      // Fast follow-up poll to catch rapid transitions (running→restarting→running)
+      // Fast follow-up polls to catch rapid transitions (running→restarting→running)
       if (anyStateChange) {
-        setTimeout(() => poll().catch(() => {}), 3_000)
+        setTimeout(() => poll().catch(() => {}), 1_000)
+        setTimeout(() => poll().catch(() => {}), 5_000)
+        setTimeout(() => poll().catch(() => {}), 10_000)
       }
     } catch { /* docker socket unavailable */ }
   }

@@ -483,6 +483,7 @@ export async function arrRoutes(app: FastifyInstance) {
           .map(h => ({ type: h.type, message: h.message })),
       }
     } catch (e: unknown) {
+      app.log.error({ detail: (e as Error).message, url: req.url, method: req.method }, 'Upstream error')
       return reply.status(502).send({ error: 'Upstream error', detail: (e as Error).message })
     }
   })
@@ -502,6 +503,7 @@ export async function arrRoutes(app: FastifyInstance) {
         : new SonarrClient(row.url, row.api_key)
       return await client.getQueue()
     } catch (e: unknown) {
+      app.log.error({ detail: (e as Error).message, url: req.url, method: req.method }, 'Upstream error')
       return reply.status(502).send({ error: 'Upstream error', detail: (e as Error).message })
     }
   })
@@ -515,6 +517,7 @@ export async function arrRoutes(app: FastifyInstance) {
       const { history } = await new SabnzbdClient(row.url, row.api_key).getHistory(0, 10)
       return history
     } catch (e: unknown) {
+      app.log.error({ detail: (e as Error).message, url: req.url, method: req.method }, 'Upstream error')
       return reply.status(502).send({ error: 'Upstream error', detail: (e as Error).message })
     }
   })
@@ -541,6 +544,7 @@ export async function arrRoutes(app: FastifyInstance) {
         : new SonarrClient(row.url, row.api_key)
       return await client.getCalendar(start, end)
     } catch (e: unknown) {
+      app.log.error({ detail: (e as Error).message, url: req.url, method: req.method }, 'Upstream error')
       return reply.status(502).send({ error: 'Upstream error', detail: (e as Error).message })
     }
   })
@@ -553,6 +557,7 @@ export async function arrRoutes(app: FastifyInstance) {
     try {
       return await new ProwlarrClient(row.url, row.api_key).getIndexers()
     } catch (e: unknown) {
+      app.log.error({ detail: (e as Error).message, url: req.url, method: req.method }, 'Upstream error')
       return reply.status(502).send({ error: 'Upstream error', detail: (e as Error).message })
     }
   })
@@ -565,6 +570,7 @@ export async function arrRoutes(app: FastifyInstance) {
     try {
       return await new RadarrClient(row.url, row.api_key).getMovies()
     } catch (e: unknown) {
+      app.log.error({ detail: (e as Error).message, url: req.url, method: req.method }, 'Upstream error')
       return reply.status(502).send({ error: 'Upstream error', detail: (e as Error).message })
     }
   })
@@ -577,6 +583,7 @@ export async function arrRoutes(app: FastifyInstance) {
     try {
       return await new SonarrClient(row.url, row.api_key).getSeries()
     } catch (e: unknown) {
+      app.log.error({ detail: (e as Error).message, url: req.url, method: req.method }, 'Upstream error')
       return reply.status(502).send({ error: 'Upstream error', detail: (e as Error).message })
     }
   })
@@ -596,6 +603,7 @@ export async function arrRoutes(app: FastifyInstance) {
       try {
         return await makeClient(row).getCustomFormats()
       } catch (e: unknown) {
+        app.log.error({ detail: (e as Error).message, url: req.url, method: req.method }, 'Upstream error')
         return reply.status(502).send({ error: 'Upstream error', detail: (e as Error).message })
       }
     }
@@ -664,6 +672,7 @@ export async function arrRoutes(app: FastifyInstance) {
         }
         return result
       } catch (e: unknown) {
+        app.log.error({ detail: (e as Error).message, url: req.url, method: req.method }, 'Upstream error')
         return reply.status(502).send({ error: 'Upstream error', detail: (e as Error).message })
       }
     }
@@ -713,6 +722,7 @@ export async function arrRoutes(app: FastifyInstance) {
         }
         return reply.status(204).send()
       } catch (e: unknown) {
+        app.log.error({ detail: (e as Error).message, url: req.url, method: req.method }, 'Upstream error')
         return reply.status(502).send({ error: 'Upstream error', detail: (e as Error).message })
       }
     }
@@ -733,6 +743,7 @@ export async function arrRoutes(app: FastifyInstance) {
       try {
         return await makeClient(row).getQualityProfiles()
       } catch (e: unknown) {
+        app.log.error({ detail: (e as Error).message, url: req.url, method: req.method }, 'Upstream error')
         return reply.status(502).send({ error: 'Upstream error', detail: (e as Error).message })
       }
     }
@@ -779,6 +790,7 @@ export async function arrRoutes(app: FastifyInstance) {
         await client.updateQualityProfile(profileId, updatedProfile)
         return { ok: true }
       } catch (e: unknown) {
+        app.log.error({ detail: (e as Error).message, url: req.url, method: req.method }, 'Upstream error')
         return reply.status(502).send({ error: 'Upstream error', detail: (e as Error).message })
       }
     }
@@ -801,6 +813,7 @@ export async function arrRoutes(app: FastifyInstance) {
         cfSchemaCache.set(req.params.id, { data: schema, ts: Date.now() })
         return schema
       } catch (e: unknown) {
+        app.log.error({ detail: (e as Error).message, url: req.url, method: req.method }, 'Upstream error')
         return reply.status(502).send({ error: 'Upstream error', detail: (e as Error).message })
       }
     }
@@ -863,6 +876,7 @@ export async function arrRoutes(app: FastifyInstance) {
           })),
         }
       } catch (e: unknown) {
+        app.log.error({ detail: (e as Error).message, url: req.url, method: req.method }, 'Upstream error')
         return reply.status(502).send({ error: 'Upstream error', detail: (e as Error).message })
       }
     }
@@ -879,6 +893,7 @@ export async function arrRoutes(app: FastifyInstance) {
       try {
         return await new SeerrClient(row.url, row.api_key).approveRequest(parseInt(req.params.requestId, 10))
       } catch (e: unknown) {
+        app.log.error({ detail: (e as Error).message, url: req.url, method: req.method }, 'Upstream error')
         return reply.status(502).send({ error: 'Upstream error', detail: (e as Error).message })
       }
     }
@@ -895,6 +910,7 @@ export async function arrRoutes(app: FastifyInstance) {
       try {
         return await new SeerrClient(row.url, row.api_key).declineRequest(parseInt(req.params.requestId, 10))
       } catch (e: unknown) {
+        app.log.error({ detail: (e as Error).message, url: req.url, method: req.method }, 'Upstream error')
         return reply.status(502).send({ error: 'Upstream error', detail: (e as Error).message })
       }
     }
@@ -912,6 +928,7 @@ export async function arrRoutes(app: FastifyInstance) {
         await new SeerrClient(row.url, row.api_key).deleteRequest(parseInt(req.params.requestId, 10))
         return reply.status(204).send()
       } catch (e: unknown) {
+        app.log.error({ detail: (e as Error).message, url: req.url, method: req.method }, 'Upstream error')
         return reply.status(502).send({ error: 'Upstream error', detail: (e as Error).message })
       }
     }
@@ -938,6 +955,7 @@ export async function arrRoutes(app: FastifyInstance) {
         }
         return await new SeerrClient(row.url, row.api_key).getDiscoverMovies(page, sortBy, filters)
       } catch (e: unknown) {
+        app.log.error({ detail: (e as Error).message, url: req.url, method: req.method }, 'Upstream error')
         return reply.status(502).send({ error: 'Upstream error', detail: (e as Error).message })
       }
     }
@@ -964,6 +982,7 @@ export async function arrRoutes(app: FastifyInstance) {
         }
         return await new SeerrClient(row.url, row.api_key).getDiscoverTv(page, sortBy, filters)
       } catch (e: unknown) {
+        app.log.error({ detail: (e as Error).message, url: req.url, method: req.method }, 'Upstream error')
         return reply.status(502).send({ error: 'Upstream error', detail: (e as Error).message })
       }
     }
@@ -979,6 +998,7 @@ export async function arrRoutes(app: FastifyInstance) {
       try {
         return await new SeerrClient(row.url, row.api_key).getTrending()
       } catch (e: unknown) {
+        app.log.error({ detail: (e as Error).message, url: req.url, method: req.method }, 'Upstream error')
         return reply.status(502).send({ error: 'Upstream error', detail: (e as Error).message })
       }
     }
@@ -996,6 +1016,7 @@ export async function arrRoutes(app: FastifyInstance) {
         const page = Math.max(1, parseInt(req.query.page ?? '1', 10))
         return await new SeerrClient(row.url, row.api_key).search(req.query.query, req.query.language, page)
       } catch (e: unknown) {
+        app.log.error({ detail: (e as Error).message, url: req.url, method: req.method }, 'Upstream error')
         return reply.status(502).send({ error: 'Upstream error', detail: (e as Error).message })
       }
     }
@@ -1014,6 +1035,7 @@ export async function arrRoutes(app: FastifyInstance) {
         const result = await new SeerrClient(row.url, row.api_key).requestMedia(req.body.mediaType, req.body.mediaId, req.body.seasons)
         return result
       } catch (e: unknown) {
+        app.log.error({ detail: (e as Error).message, url: req.url, method: req.method }, 'Upstream error')
         return reply.status(502).send({ error: 'Upstream error', detail: (e as Error).message })
       }
     }
@@ -1031,6 +1053,7 @@ export async function arrRoutes(app: FastifyInstance) {
       try {
         return await new SeerrClient(row.url, row.api_key).getGenres(mt)
       } catch (e: unknown) {
+        app.log.error({ detail: (e as Error).message, url: req.url, method: req.method }, 'Upstream error')
         return reply.status(502).send({ error: 'Upstream error', detail: (e as Error).message })
       }
     }
@@ -1048,6 +1071,7 @@ export async function arrRoutes(app: FastifyInstance) {
       try {
         return await new SeerrClient(row.url, row.api_key).getWatchProviders(mt)
       } catch (e: unknown) {
+        app.log.error({ detail: (e as Error).message, url: req.url, method: req.method }, 'Upstream error')
         return reply.status(502).send({ error: 'Upstream error', detail: (e as Error).message })
       }
     }
@@ -1065,6 +1089,7 @@ export async function arrRoutes(app: FastifyInstance) {
       try {
         return await new SeerrClient(row.url, row.api_key).getMovieDetailFull(tmdbId)
       } catch (e: unknown) {
+        app.log.error({ detail: (e as Error).message, url: req.url, method: req.method }, 'Upstream error')
         return reply.status(502).send({ error: 'Upstream error', detail: (e as Error).message })
       }
     }
@@ -1082,6 +1107,7 @@ export async function arrRoutes(app: FastifyInstance) {
       try {
         return await new SeerrClient(row.url, row.api_key).getTvDetailFull(tmdbId)
       } catch (e: unknown) {
+        app.log.error({ detail: (e as Error).message, url: req.url, method: req.method }, 'Upstream error')
         return reply.status(502).send({ error: 'Upstream error', detail: (e as Error).message })
       }
     }

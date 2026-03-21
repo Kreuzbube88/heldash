@@ -224,6 +224,16 @@ async function start() {
   // ── Recyclarr scheduled sync ─────────────────────────────────────────────────
   initRecyclarrSchedulers(app.log)
 
+  // ── Global error handler — catches unhandled throws in route handlers ─────────
+  app.setErrorHandler((error, request, reply) => {
+    app.log.error({
+      err: error,
+      url: request.url,
+      method: request.method,
+    }, 'Unhandled error')
+    reply.status(500).send({ error: 'Internal server error', detail: error.message })
+  })
+
   // ── SPA fallback – serve index.html for all non-API routes ───────────────────
   app.setNotFoundHandler(async (req, reply) => {
     if (req.url.startsWith('/api')) {

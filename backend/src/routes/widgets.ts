@@ -609,8 +609,9 @@ export async function widgetsRoutes(app: FastifyInstance) {
       const res = await fetch(button.url, { method: button.method ?? 'GET' })
       return { ok: true, status: res.status }
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Unknown error'
-      return reply.status(502).send({ error: `Failed: ${msg}` })
+      const detail = e instanceof Error ? e.message : 'Unknown error'
+      app.log.error({ detail, url: req.url, method: req.method }, 'Upstream error')
+      return reply.status(502).send({ error: 'Upstream error', detail })
     }
   })
 

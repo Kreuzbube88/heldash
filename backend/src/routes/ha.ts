@@ -205,8 +205,9 @@ export async function haRoutes(app: FastifyInstance) {
       const data = await res.json()
       return data
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Connection failed'
-      return reply.status(502).send({ error: msg })
+      const detail = err instanceof Error ? err.message : 'Connection failed'
+      app.log.error({ detail, url: req.url, method: req.method }, 'Upstream error')
+      return reply.status(502).send({ error: 'Upstream error', detail })
     }
   })
 
@@ -257,8 +258,9 @@ export async function haRoutes(app: FastifyInstance) {
       if (!res.ok) return reply.status(502).send({ error: `HA returned HTTP ${res.status}` })
       return { ok: true }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Connection failed'
-      return reply.status(502).send({ error: msg })
+      const detail = err instanceof Error ? err.message : 'Connection failed'
+      app.log.error({ detail, url: req.url, method: req.method }, 'Upstream error')
+      return reply.status(502).send({ error: 'Upstream error', detail })
     }
   })
 
@@ -397,8 +399,9 @@ export async function haRoutes(app: FastifyInstance) {
       const client = getHaWsClient(row.id, row.url, row.token)
       return await fetchEnergyData(client, period)
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Energy fetch failed'
-      return reply.status(502).send({ error: msg })
+      const detail = err instanceof Error ? err.message : 'Energy fetch failed'
+      app.log.error({ detail, url: req.url, method: req.method }, 'Upstream error')
+      return reply.status(502).send({ error: 'Upstream error', detail })
     }
   })
 }

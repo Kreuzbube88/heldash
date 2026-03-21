@@ -784,6 +784,7 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
         const result = await getQualityProfiles(service, containerName, forceRefresh)
         return reply.send(result)
       } catch (e) {
+        app.log.error({ detail: e instanceof Error ? e.message : 'Failed to fetch profiles', url: req.url, method: req.method }, 'Upstream error')
         return reply.status(500).send({ error: e instanceof Error ? e.message : 'Failed to fetch profiles' })
       }
     }
@@ -801,6 +802,7 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
         const result = await getCustomFormats(service, containerName, forceRefresh)
         return reply.send(result)
       } catch (e) {
+        app.log.error({ detail: e instanceof Error ? e.message : 'Failed to fetch custom formats', url: req.url, method: req.method }, 'Upstream error')
         return reply.status(500).send({ error: e instanceof Error ? e.message : 'Failed to fetch custom formats' })
       }
     }
@@ -1065,6 +1067,7 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
         const { cfs, warning } = await getCustomFormats(service, containerName, false)
         return reply.send({ names: cfs.map(cf => cf.name), cached: false, warning: warning ? 'Container unreachable, using cached data' : undefined })
       } catch (e) {
+        app.log.error({ detail: e instanceof Error ? e.message : 'Failed to fetch CF names', url: req.url, method: req.method }, 'Upstream error')
         return reply.status(500).send({ error: e instanceof Error ? e.message : 'Failed to fetch CF names' })
       }
     }
@@ -1131,6 +1134,7 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
           first_10_lines: stdout.split('\n').slice(0, 10),
         })
       } catch (e) {
+        app.log.error({ detail: e instanceof Error ? e.message : 'Failed', url: req.url, method: req.method }, 'Upstream error')
         return reply.status(500).send({ error: e instanceof Error ? e.message : 'Failed' })
       }
     }
@@ -1145,6 +1149,7 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
       )
       return reply.send({ ok: exitCode === 0, output: stdout + stderr })
     } catch (e) {
+      app.log.error({ detail: e instanceof Error ? e.message : 'Adopt failed', url: req.url, method: req.method }, 'Upstream error')
       return reply.status(500).send({ error: e instanceof Error ? e.message : 'Adopt failed' })
     }
   })
@@ -1161,6 +1166,7 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
       try {
         return reply.send({ cfs: listUserCfs(service) })
       } catch (e) {
+        app.log.error({ detail: e instanceof Error ? e.message : 'Failed to list user CFs', url: req.url, method: req.method }, 'Upstream error')
         return reply.status(500).send({ error: e instanceof Error ? e.message : 'Failed to list user CFs' })
       }
     }
@@ -1278,6 +1284,7 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
         const customFormats = await cfsRes.body.json() as ArrCustomFormat[]
         return reply.send({ profiles, customFormats })
       } catch (e) {
+        app.log.error({ detail: e instanceof Error ? e.message : 'Failed to reach instance', url: req.url, method: req.method }, 'Upstream error')
         return reply.send({ profiles: [], customFormats: [], error: e instanceof Error ? e.message : 'Failed to reach instance' })
       }
     }
@@ -1363,6 +1370,7 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
         const parsed = parseQualityProfiles(stdout, inst.type, 'container')
         return reply.send({ profiles: parsed.map(p => ({ trash_id: p.trash_id, name: p.name })) })
       } catch (e) {
+        app.log.error({ detail: e instanceof Error ? e.message : 'Failed to list profiles', url: req.url, method: req.method }, 'Upstream error')
         return reply.status(500).send({ error: e instanceof Error ? e.message : 'Failed to list profiles' })
       }
     }
@@ -1393,6 +1401,7 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
           .filter(l => !/^\s*$/.test(l))
         return reply.send({ scoreSets })
       } catch (e) {
+        app.log.error({ detail: e instanceof Error ? e.message : 'Failed to list score sets', url: req.url, method: req.method }, 'Upstream error')
         return reply.status(500).send({ error: e instanceof Error ? e.message : 'Failed to list score sets' })
       }
     }

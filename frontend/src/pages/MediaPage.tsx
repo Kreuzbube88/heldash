@@ -3534,10 +3534,18 @@ function UserCfRow({
 
 // ── CF Edit Modal ─────────────────────────────────────────────────────────────
 
+function parseCfApiError(msg: string): string {
+  if (msg.includes('Must be unique')) return 'Name bereits vergeben — ein CF mit diesem Namen existiert bereits'
+  if (msg.includes('Regex Pattern must not be empty')) return 'Regex-Wert darf nicht leer sein'
+  if (/Condition name.{0,5}cannot be empty/i.test(msg)) return 'Condition Name ist Pflichtfeld'
+  return msg
+}
+
 function CfEditModal({
   initial,
   initialTrashId,
   schema,
+  existingNames,
   onClose,
   onSave,
   onSwitchToRecyclarr,
@@ -3545,6 +3553,7 @@ function CfEditModal({
   initial: { name: string; includeCustomFormatWhenRenaming: boolean; specifications: ArrCFSpecification[] } | null
   initialTrashId: string | null
   schema: ArrCFSchema[]
+  existingNames: string[]
   onClose: () => void
   onSave: (data: { name: string; trash_id: string; includeCustomFormatWhenRenaming: boolean; specifications: ArrCFSpecification[] }) => Promise<void>
   onSwitchToRecyclarr: () => void
@@ -3602,7 +3611,18 @@ function CfEditModal({
   }
 
   async function handleSave() {
-    if (!name.trim()) { setError('Name ist erforderlich'); return }
+    const trimmedName = name.trim()
+    if (!trimmedName) { setError('Name ist erforderlich'); return }
+
+    // Client-side duplicate check
+    const isDuplicate = existingNames.some(n =>
+      n.toLowerCase() === trimmedName.toLowerCase() &&
+      (!isEdit || n.toLowerCase() !== (initial?.name ?? '').toLowerCase())
+    )
+    if (isDuplicate) {
+      setError(`Ein Custom Format mit diesem Namen existiert bereits`)
+      return
+    }
 
     const errors: Record<number, { name?: string; field?: string }> = {}
     specs.forEach((spec, idx) => {
@@ -3639,7 +3659,7 @@ function CfEditModal({
       })
       setSaved(true)
     } catch (e: unknown) {
-      setError((e as Error).message)
+      setError(parseCfApiError((e as Error).message))
       setSaving(false)
     }
   }
@@ -3674,7 +3694,7 @@ function CfEditModal({
             <input
               className="form-input"
               value={name}
-              onChange={e => setName(e.target.value)}
+              onChange={e => { setName(e.target.value); if (error) setError(null) }}
               style={{ width: '100%', boxSizing: 'border-box' }}
             />
             {displayTrashId && (
@@ -4023,6 +4043,7 @@ function CfManagerTab({ onSwitchTab }: { onSwitchTab: (tab: MediaTab) => void })
           }}
           initialTrashId={editingCf === 'new' ? null : (editingCf as { file: UserCfFile; arrId: number }).file.trash_id}
           schema={schema}
+          existingNames={arrCfList.map(cf => cf.name)}
           onClose={() => setEditingCf(null)}
           onSwitchToRecyclarr={() => onSwitchTab('recyclarr')}
           onSave={async data => {

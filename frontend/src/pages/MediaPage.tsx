@@ -2383,7 +2383,7 @@ function RecyclarrTab() {
   const [userCfsFromFsLoading, setUserCfsFromFsLoading] = useState(false)
 
   // ── CF groups (for grouped TRaSH CF view) ──
-  const [profileCfs, setProfileCfs] = useState<{ arrId: number; name: string; currentScore: number; groups: string[]; inMultipleGroups: boolean }[]>([])
+  const [profileCfs, setProfileCfs] = useState<{ arrId: number; name: string; currentScore: number; groups: string[]; inMultipleGroups: boolean; managedByRecyclarr: boolean }[]>([])
   const [profileCfGroups, setProfileCfGroups] = useState<{ name: string; cfNames: string[]; syncEnabled: boolean }[]>([])
   const [profileCfNotInProfile, setProfileCfNotInProfile] = useState<{ arrId: number; name: string; currentScore: number }[]>([])
   const [profileCfGroupsWarning, setProfileCfGroupsWarning] = useState(false)
@@ -3118,13 +3118,17 @@ function RecyclarrTab() {
                           }
 
                           // ── List view: grouped or flat ──
-                          const cfRow = (item: { arrId: number; name: string; currentScore: number }) => {
+                          const cfRow = (item: { arrId: number; name: string; currentScore: number; managedByRecyclarr?: boolean }) => {
                             const cfTid = String(item.arrId)
                             const override = getOverride(cfTid, selectedProfileId)
                             const isOverridden = override !== null && override !== item.currentScore
+                            const notManaged = item.managedByRecyclarr === false
                             return (
-                              <div key={item.arrId} style={{ display: 'grid', gridTemplateColumns: '1fr 80px 100px 100px', gap: 8, padding: '6px 8px', background: isOverridden ? 'rgba(var(--accent-rgb), 0.06)' : 'rgba(var(--text-rgb), 0.03)', borderRadius: 'var(--radius-sm)', alignItems: 'center' }}>
-                                <span style={{ fontSize: 13 }}>{item.name}</span>
+                              <div key={item.arrId} style={{ display: 'grid', gridTemplateColumns: '1fr 80px 100px 100px', gap: 8, padding: '6px 8px', background: isOverridden ? 'rgba(var(--accent-rgb), 0.06)' : 'rgba(var(--text-rgb), 0.03)', borderRadius: 'var(--radius-sm)', alignItems: 'center', opacity: notManaged ? 0.7 : 1 }}>
+                                <span style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                  {item.name}
+                                  {notManaged && <span className="badge-neutral" style={{ fontSize: 9 }}>Nicht von Recyclarr verwaltet</span>}
+                                </span>
                                 <span style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'right' }}>{item.currentScore}</span>
                                 <input
                                   type="number"

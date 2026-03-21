@@ -1505,25 +1505,23 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
         a.name.toLowerCase().localeCompare(b.name.toLowerCase())
       )
 
-      // Step 3: Cross-reference formatItems with Recyclarr-managed CFs
-      type CfEntry = { arrId: number; name: string; currentScore: number; groups: string[]; inMultipleGroups: boolean }
+      // Step 3: Show ALL formatItems from this quality profile; mark managedByRecyclarr per entry
+      type CfEntry = { arrId: number; name: string; currentScore: number; groups: string[]; inMultipleGroups: boolean; managedByRecyclarr: boolean }
       type NotInProfileEntry = { arrId: number; name: string; currentScore: number }
 
       const cfs: CfEntry[] = []
       const notInProfile: NotInProfileEntry[] = []
 
-      if (warning && recyclarrCfNameSet.size === 0) {
-        // Recyclarr data unavailable — return all profile CFs as-is
-        for (const item of formatItems) {
-          cfs.push({ arrId: item.format, name: item.name, currentScore: item.score, groups: [], inMultipleGroups: false })
-        }
-      } else {
-        for (const item of formatItems) {
-          if (recyclarrCfNameSet.has(item.name.toLowerCase())) {
-            cfs.push({ arrId: item.format, name: item.name, currentScore: item.score, groups: [], inMultipleGroups: false })
-          } else {
-            notInProfile.push({ arrId: item.format, name: item.name, currentScore: item.score })
-          }
+      // All profile CFs are shown; managedByRecyclarr distinguishes Recyclarr-owned ones
+      for (const item of formatItems) {
+        const managedByRecyclarr = recyclarrCfNameSet.has(item.name.toLowerCase())
+        cfs.push({ arrId: item.format, name: item.name, currentScore: item.score, groups: [], inMultipleGroups: false, managedByRecyclarr })
+      }
+      // notInProfile: Recyclarr-managed CFs that are NOT yet in this quality profile
+      const profileItemNames = new Set(formatItems.map(i => i.name.toLowerCase()))
+      for (const rcf of recyclarrCfs) {
+        if (!profileItemNames.has(rcf.name.toLowerCase())) {
+          notInProfile.push({ arrId: 0, name: rcf.name, currentScore: 0 })
         }
       }
 
@@ -1536,12 +1534,33 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
         parsedGroups = groupCached.groups
       } else {
         try {
-          const { stdout: groupStdout, exitCode: groupExit } = await dockerExecInContainer(
+          // Try --raw first for simpler output; fallback to standard output if it fails
+          let groupStdout: string
+          let groupExit: number
+          const rawResult = await dockerExecInContainer(
             containerName,
-            ['recyclarr', 'list', 'custom-format-groups', service],
+            ['recyclarr', 'list', 'custom-format-groups', service, '--raw', '--config', '/config/recyclarr.yml'],
             15_000
           )
-          app.log.info({ stdout: groupStdout.slice(0, 500), exitCode: groupExit, service }, 'CF groups raw output')
+          if (rawResult.exitCode === 0) {
+            groupStdout = rawResult.stdout
+            groupExit = rawResult.exitCode
+          } else {
+            const normalResult = await dockerExecInContainer(
+              containerName,
+              ['recyclarr', 'list', 'custom-format-groups', service, '--config', '/config/recyclarr.yml'],
+              15_000
+            )
+            groupStdout = normalResult.stdout
+            groupExit = normalResult.exitCode
+          }
+
+          app.log.info({
+            stdout: groupStdout,
+            exitCode: groupExit,
+            service,
+            lineCount: groupStdout.split('\n').length
+          }, 'CF groups full raw output')
 
           if (groupExit === 0 && groupStdout.trim()) {
             const lines = groupStdout.split('\n')
@@ -1572,6 +1591,31 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
                 }
               }
             }
+            // If still no groups parsed, try JSON output format
+            if (parsedGroups.length === 0) {
+              try {
+                const jsonResult = await dockerExecInContainer(
+                  containerName,
+                  ['recyclarr', 'list', 'custom-format-groups', service, '--output', 'json', '--config', '/config/recyclarr.yml'],
+                  15_000
+                )
+                if (jsonResult.exitCode === 0 && jsonResult.stdout.trim()) {
+                  const jsonData = JSON.parse(jsonResult.stdout) as unknown
+                  if (Array.isArray(jsonData)) {
+                    for (const entry of jsonData as Array<Record<string, unknown>>) {
+                      const name = typeof entry['name'] === 'string' ? entry['name'] : undefined
+                      const cfs = entry['custom_formats'] ?? entry['cfNames'] ?? entry['cfs']
+                      if (name && Array.isArray(cfs)) {
+                        const cfNames = (cfs as unknown[]).filter((c): c is string => typeof c === 'string')
+                        if (cfNames.length > 0) parsedGroups.push({ name, cfNames })
+                      }
+                    }
+                  }
+                }
+              } catch (_e) {
+                // JSON output not supported by this Recyclarr version — ignore
+              }
+            }
             if (parsedGroups.length > 0) {
               cfGroupsCache.set(groupCacheKey, { groups: parsedGroups, fetchedAt: Date.now() })
             }
@@ -1597,6 +1641,11 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
       for (const cf of cfs) {
         cf.inMultipleGroups = cf.groups.length > 1
       }
+      app.log.info({
+        cfsWithGroups: cfs.filter(c => c.groups.length > 0).length,
+        totalCfs: cfs.length,
+        groupCount: parsedGroups.length
+      }, 'CF group assignment result')
 
       const responseGroups = parsedGroups.map(g => ({
         name: g.name,

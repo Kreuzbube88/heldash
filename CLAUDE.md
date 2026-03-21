@@ -7,7 +7,7 @@ Personal homelab dashboard: service tiles, DnD layout, Media (Radarr/Sonarr/Prow
 | Layer | Technology |
 |---|---|
 | Frontend | React 18, TypeScript (strict), Vite 5 |
-| State | Zustand (useStore + useArrStore + useDockerStore + useWidgetStore + useDashboardStore + useHaStore + useTrashStore) |
+| State | Zustand (useStore + useArrStore + useDockerStore + useWidgetStore + useDashboardStore + useHaStore + useRecyclarrStore) |
 | Drag & Drop | @dnd-kit/core + @dnd-kit/sortable + @dnd-kit/utilities |
 | Icons | lucide-react |
 | Styling | Vanilla CSS (CSS custom properties, glass morphism) |
@@ -35,7 +35,9 @@ Personal homelab dashboard: service tiles, DnD layout, Media (Radarr/Sonarr/Prow
 - Media proxy: `api_key` stripped by `sanitize()`; `rejectUnauthorized:false` for self-signed certs.
 - SABnzbd: `/api?mode=X&apikey=KEY&output=json`; `SabnzbdClient` does NOT extend `ArrBaseClient`.
 - HA WS bridge: `HaWsClient` per instanceId in `HaWsManager`; SSE fans events; backoff 5s→60s; invalidated on PATCH/DELETE.
-- TRaSH: incremental GitHub fetch → two-pass parser → merge engine (pure fn) → rate-limited executor (5 req/s) → phases A–E each try/catch; notify mode stores preview 24h.
+- Recyclarr: generates recyclarr.yml from DB; writes user CF JSON files to {RECYCLARR_CONFIG_DIR}/user-cfs/{service}/; manages settings.yml resource_providers; syncs via docker exec; SSE stream; score change detection vs last_known_scores.
+- CF Manager: user-created CFs only; creates/updates/deletes in Arr AND JSON files; schema from GET /api/v3/customformat/schema (memory-cached 1h per instance); trash_id = "user-{slug}", generated once on create, never changes.
+- HA Areas: panels grouped by area_id; areas via WS config/area_registry/list; entity area auto-detected via config/entity_registry/get.
 - `sanitize()` strips `api_key`, `password_hash`, `token`, widget passwords — never expose in API responses.
 
 ## Coding Rules
@@ -60,6 +62,9 @@ Personal homelab dashboard: service tiles, DnD layout, Media (Radarr/Sonarr/Prow
 - Return `RowType | undefined` from `.get()` — never `unknown` or `any`.
 - `reply.status(N).send({ error: '...' })` for all errors (before hijack).
 - HTTP codes: 400 bad input, 404 not found, 413 too large, 415 unsupported type.
+- Recyclarr YAML: v8 only — no include blocks; quality_profiles/assign_scores_to by trash_id; omit fields equal to defaults.
+- User CF trash_id: "user-{slug}" — frozen on create, never changed on rename.
+- settings.yml paths: always /config/... (Recyclarr container perspective).
 
 ## CSS System
 
@@ -86,7 +91,7 @@ All colors via CSS variables. Theme switch: `data-theme` + `data-accent` on `<ht
 
 **Radius**: `--radius-sm` 8px → `--radius-md` 12px → `--radius-lg` 16px → `--radius-xl` 24px → `--radius-2xl` 32px
 
-**Components**: cards lift 4px + icon 1.08x on hover; status dots pulse (online) / breathe (offline); `@media (prefers-reduced-motion)` disables all animations. TrashPage uses hardcoded hex (`#10b981`, `#f59e0b`, `#f87171`) — no `--success/warning/error` vars.
+**Components**: cards lift 4px + icon 1.08x on hover; status dots pulse (online) / breathe (offline); `@media (prefers-reduced-motion)` disables all animations.
 
 ## Gotchas
 
@@ -112,16 +117,16 @@ All colors via CSS variables. Theme switch: `data-theme` + `data-accent` on `<ht
 - **HA panels reorder route**: `PATCH /api/ha/panels/reorder` must be registered BEFORE `PATCH /api/ha/panels/:id`.
 - **HA panel label**: stored as `null`; resolves `panel.label || friendly_name || entity_id` in frontend — never pre-fill.
 - **HA WS**: `auth_invalid` sets `destroyed=true` to stop retry loops; backoff 5s→60s cap.
-- **TRaSH sync guard**: `acquireSync()` → false if syncing; always `releaseSync` in `.finally()`. Routes return 409 if locked.
-- **TRaSH notify vs apply**: notify mode stores preview and returns early; apply route calls `runSync` with `trigger='user_confirm'`.
-- **TRaSH slug**: `toSlug(name)` from `trash-parser.ts` — use consistently, never derive from arr format names.
-- **TRaSH circular import**: `merge-engine.ts` uses inline `require('./format-id-resolver')` to avoid circular dep.
-- **TRaSH `toSlug` export**: import via `const { toSlug } = await import('../trash/trash-parser')` in routes.
+- **Recyclarr yaml_instance_key**: sanitized on first save (spaces→_, special chars removed), stored in DB, never regenerated.
+- **Recyclarr /config vs /recyclarr**: dashboard writes to {RECYCLARR_CONFIG_DIR}/* but settings.yml must use /config/* paths.
+- **Recyclarr api_key**: always from arr_instances — never stored in recyclarr_config.
+- **User CF trash_id freeze**: "user-{slug}" from original name at create. Never regenerate on rename.
+- **CF schema cache**: /api/arr/:id/custom-format-schema cached in memory 1h. Restart clears cache.
 - **string | null class field**: cast on assignment (`this.token = data.token as string`) when returning from method typed `Promise<string>`.
 - **FST_ERR_CTP_EMPTY_JSON_BODY**: custom content-type parser in server.ts accepts empty bodies; frontend sends `body: JSON.stringify({})`.
 
 ## Deploy
 
-1. Commit + push to `main` → GitHub Actions → "Build & Push Docker Image" → enter tag.
+1. Test builds: "Build & Push Docker Image" workflow → enter version tag (e.g. 0.9.9). Production: "Release Latest" workflow → bumps package.json, creates Git tag, sets latest.
 2. Unraid: `docker compose pull && docker compose up -d` from `/path/to/heldash`.
 3. Image: `ghcr.io/kreuzbube88/heldash:<tag>` | Data: `/mnt/cache/appdata/heldash:/data`.

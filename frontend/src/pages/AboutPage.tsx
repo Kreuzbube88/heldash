@@ -161,6 +161,7 @@ function TabOverview({ version }: { version: string | null }) {
     { icon: '🎬', title: 'Media', desc: 'Radarr, Sonarr, Prowlarr, SABnzbd' },
     { icon: '🔎', title: 'Discover', desc: 'TMDB-Suche, Seerr-Requests' },
     { icon: '📋', title: 'Recyclarr', desc: 'TRaSH Guides Sync via GUI' },
+    { icon: '⚙️', title: 'CF-Manager', desc: 'Eigene Custom Formats erstellen & verwalten' },
     { icon: '🏠', title: 'Home Assistant', desc: 'Entities, Panels, Energy' },
     { icon: '🧩', title: 'Widgets', desc: 'Systemstatus, AdGuard, Nginx PM' },
     { icon: '🎨', title: 'Design', desc: 'Anpassbares Erscheinungsbild' },
@@ -415,18 +416,18 @@ function TabTrash() {
   return (
     <>
       <DocSection title="Voraussetzungen">
-        <ul style={{ margin: '0 0 16px', paddingLeft: 20, lineHeight: 2, fontSize: 14, color: 'var(--text-secondary)' }}>
-          <li>Recyclarr läuft als separater Docker-Container</li>
-          <li>CRON_SCHEDULE in Recyclarr deaktiviert (siehe unten)</li>
+        <ul style={{ margin: '0 0 16px', paddingLeft: 20, lineHeight: 2, fontSize: 13, color: 'var(--text-secondary)' }}>
+          <li>Recyclarr Docker-Container läuft</li>
+          <li>CRON_SCHEDULE deaktiviert: <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>CRON_SCHEDULE=0 0 1 1 0</code></li>
           <li>Volume-Mount in HELDASH-Container:</li>
         </ul>
         <CodeBlock>{`-v /pfad/zu/recyclarr/config:/recyclarr`}</CodeBlock>
-        <p style={{ fontSize: 14, color: 'var(--text-secondary)', margin: '16px 0 8px' }}>Umgebungsvariablen in HELDASH setzen:</p>
+        <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7, margin: '16px 0 8px' }}>Umgebungsvariablen in HELDASH setzen:</p>
         <CodeBlock>{`RECYCLARR_CONFIG_PATH=/recyclarr/recyclarr.yml
 RECYCLARR_CONTAINER_NAME=recyclarr`}</CodeBlock>
       </DocSection>
 
-      <DocSection title="Recyclarr Container einrichten (falls noch nicht vorhanden)">
+      <DocSection title="Recyclarr Container (falls nicht vorhanden)">
         <CodeBlock>{`
 services:
   recyclarr:
@@ -436,121 +437,56 @@ services:
       - /mnt/cache/appdata/recyclarr:/config
     environment:
       - TZ=Europe/Berlin
-      # CRON_SCHEDULE deaktiviert — Sync wird über HELDASH gesteuert
-      # - CRON_SCHEDULE=@daily
+      - CRON_SCHEDULE=0 0 1 1 0
         `}</CodeBlock>
       </DocSection>
 
-      <DocSection title="Auto-Sync deaktivieren (wichtig!)">
-        <div style={{ marginBottom: 12 }}>
-          <span className="badge badge-warning">⚠️ Wenn Recyclarr mit CRON_SCHEDULE betrieben wird, läuft der Sync automatisch im Hintergrund — parallel zum Dashboard. Das kann zu Konflikten führen und sollte vermieden werden.</span>
-        </div>
-        <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.7, margin: '0 0 12px' }}>
-          Recyclarr ist ein CLI-Tool das standardmäßig nichts automatisch tut.
-          Auto-Sync wird nur aktiv wenn <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>CRON_SCHEDULE</code> gesetzt ist.
-        </p>
-        <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.7, margin: '0 0 16px' }}>
-          Damit ausschließlich das Dashboard den Sync steuert:<br />
-          <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>CRON_SCHEDULE</code> aus der Recyclarr <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>docker-compose.yml</code> entfernen oder auskommentieren.
-        </p>
-
-        <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>Vorher (Auto-Sync aktiv)</p>
-        <CodeBlock>{`
-environment:
-  - TZ=Europe/Berlin
-  - CRON_SCHEDULE=@daily   ← entfernen oder auskommentieren
-        `}</CodeBlock>
-
-        <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '16px 0 8px' }}>Nachher (Sync nur über HELDASH)</p>
-        <CodeBlock>{`
-environment:
-  - TZ=Europe/Berlin
-  # - CRON_SCHEDULE=@daily  ← deaktiviert
-        `}</CodeBlock>
-
+      <DocSection title="Ersteinrichtung — Wizard">
+        <ol style={{ margin: 0, paddingLeft: 20, lineHeight: 2, fontSize: 13, color: 'var(--text-secondary)' }}>
+          <li>Media → Recyclarr-Tab → Wizard</li>
+          <li>Instanz wählen</li>
+          <li>Qualitätsprofile wählen (Standard/Deutsch/Anime)</li>
+          <li>"Nur deutsche Releases" Toggle (setzt min. Score 10000)</li>
+          <li>Eigene CFs zuweisen (vorher im CF-Manager erstellen)</li>
+          <li>Konfiguration erstellen → ersten Sync ausführen</li>
+        </ol>
         <div style={{ marginTop: 12 }}>
-          <span className="badge badge-neutral">ℹ️ Ohne CRON_SCHEDULE bleibt der Container aktiv und wartet — Recyclarr wird nur ausgeführt wenn "Sync Now" im Dashboard geklickt wird.</span>
+          <span className="badge badge-neutral">Score-Overrides und erweiterte Einstellungen nach erstem Sync im Recyclarr-Tab</span>
         </div>
       </DocSection>
 
-      <DocSection title="Workflow">
-        <ol style={{ margin: 0, paddingLeft: 20, lineHeight: 2, fontSize: 14, color: 'var(--text-secondary)' }}>
-          <li><strong>Media-Seite → Tab "Recyclarr"</strong></li>
-          <li>Radarr oder Sonarr Instanz auswählen → aktivieren</li>
-          <li>Quality Definition aktivieren (empfohlen)</li>
-          <li>Ein oder mehrere Profile auswählen (z.B. "HD Bluray + WEB (German)")</li>
-          <li>Optional: Score-Overrides für einzelne Formate anpassen</li>
-          <li>Optional: Eigene Custom Formats hinzufügen (z.B. für Tdarr)</li>
-          <li><strong>"Sync Now"</strong> klicken → Live-Output wird angezeigt</li>
-        </ol>
-      </DocSection>
-
-      <DocSection title="Eigene Custom Formats (z.B. Tdarr)">
-        <div style={{ marginBottom: 12 }}>
-          <span className="badge badge-warning">⚠️ Der Name muss exakt mit dem Custom Format in Radarr/Sonarr übereinstimmen</span>
-        </div>
-        <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>Vorgehen</p>
-        <ol style={{ margin: 0, paddingLeft: 20, lineHeight: 2, fontSize: 14, color: 'var(--text-secondary)' }}>
-          <li>Custom Format zuerst manuell in Radarr/Sonarr anlegen</li>
-          <li>In HELDASH: <strong>Media → Recyclarr → Instanz → "Custom Formats" → + Hinzufügen</strong></li>
-          <li>Exakten Namen eintragen + Score + Profil zuordnen</li>
-          <li>Beim nächsten Sync wird der Score automatisch gesetzt und gehalten</li>
-        </ol>
+      <DocSection title="Profile verwalten">
+        <ul style={{ margin: 0, paddingLeft: 20, lineHeight: 2, fontSize: 13, color: 'var(--text-secondary)' }}>
+          <li>Profil auswählen → TRaSH CFs mit Guide-Scores anzeigen</li>
+          <li>Score-Override pro CF pro Profil (leer = Guide-Score)</li>
+          <li>Eigene CFs pro Profil aktivieren + Score setzen</li>
+          <li>Erweiterte Einstellungen: except, except_patterns (Regex), min_format_score, preferred_ratio, delete_old_custom_formats</li>
+        </ul>
       </DocSection>
 
       <DocSection title="Schutz eigener Custom Formats">
-        <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: 12 }}>
-          Recyclarr löscht standardmäßig nur Custom Formats, die es selbst angelegt hat — niemals manuell erstellte CFs.
-          Damit eigene CFs (z.B. Tdarr) bei jedem Sync ihren Score behalten, reichen zwei Einstellungen:
-        </p>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, marginBottom: 12 }}>
-          <thead>
-            <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-              <th style={{ textAlign: 'left', padding: '6px 12px 6px 0', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: 12 }}>Einstellung</th>
-              <th style={{ textAlign: 'left', padding: '6px 12px 6px 0', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: 12 }}>Wert</th>
-              <th style={{ textAlign: 'left', padding: '6px 0', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: 12 }}>Wo</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-              <td style={{ padding: '8px 12px 8px 0', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', fontSize: 12 }}>delete_old_custom_formats</td>
-              <td style={{ padding: '8px 12px 8px 0' }}><span className="badge badge-error">false</span></td>
-              <td style={{ padding: '8px 0', color: 'var(--text-secondary)', fontSize: 13 }}>Instanz-Einstellungen → "Alte CFs löschen" deaktiviert lassen</td>
-            </tr>
-            <tr>
-              <td style={{ padding: '8px 12px 8px 0', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', fontSize: 12 }}>reset_unmatched_scores</td>
-              <td style={{ padding: '8px 12px 8px 0' }}><span className="badge badge-error">false</span></td>
-              <td style={{ padding: '8px 0', color: 'var(--text-secondary)', fontSize: 13 }}>Profil-Einstellungen → "Unmatched Scores zurücksetzen" deaktiviert lassen</td>
-            </tr>
-          </tbody>
-        </table>
-        <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>Beispiel: Tdarr-Scores in Radarr schützen</p>
-        <pre style={{ background: 'var(--bg-tertiary)', borderRadius: 8, padding: '12px 16px', fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)', overflowX: 'auto', margin: '0 0 12px 0', lineHeight: 1.6 }}>{`# YAML (automatisch generiert von HELDASH)
-radarr:
-  my-radarr:
-    delete_old_custom_formats: false
-    quality_profiles:
-      - name: HD Bluray + WEB
-        reset_unmatched_scores:
-          enabled: false   # ← Tdarr-Score bleibt erhalten
-    custom_formats:
-      - trash_ids: [...]   # TRaSH-Formate
-      - assign_scores_to:
-          - name: HD Bluray + WEB
-        # Tdarr CF: manuell in Radarr angelegt, Score via HELDASH gesetzt`}</pre>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <span className="badge badge-success">✓ Mit diesen zwei Einstellungen sind alle eigenen CFs geschützt</span>
-          <span className="badge badge-neutral">ℹ️ Recyclarr löscht nur CFs, die es selbst erstellt hat — manuell angelegte CFs sind immer sicher</span>
+        <SimpleTable
+          headers={['Einstellung', 'Wert', 'Wo']}
+          rows={[
+            ['Nicht mehr verwendete CFs löschen', 'AUS (Standard)', 'Erweiterte Einstellungen'],
+            ['User CFs aktivieren', 'Mit Score eintragen', 'Recyclarr-Tab → Profil'],
+          ]}
+        />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
+          <span className="badge badge-success">User CFs mit Score in trash_ids werden nie zurückgesetzt</span>
+          <span className="badge badge-neutral">except-Liste nur für CFs komplett außerhalb Recyclarr's Kontrolle</span>
         </div>
       </DocSection>
 
-      <DocSection title="Templates automatisch aktualisieren">
-        <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.7, margin: 0 }}>
-          Templates werden alle 24h automatisch von GitHub (<code style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>recyclarr/config-templates</code>) aktualisiert.
-          Neue Profile und Custom Formats erscheinen automatisch nach dem nächsten Refresh.<br />
-          Manuell aktualisieren: <strong>"Refresh"</strong> Button oben im Recyclarr Tab (nur Admins).
+      <DocSection title="Sync-Zeitplan">
+        <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7, margin: '0 0 12px' }}>
+          Zeitplan-Tab: manuell, täglich, wöchentlich oder Cron-Ausdruck
         </p>
+        <div>
+          <span className="badge badge-warning">CRON_SCHEDULE im Recyclarr-Container = 0 0 1 1 0 (deaktiviert)</span>
+        </div>
       </DocSection>
+
     </>
   )
 }

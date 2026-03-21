@@ -22,6 +22,12 @@ import { haRoutes } from './routes/ha'
 import { tmdbRoutes } from './routes/tmdb'
 import recyclarrRoutes, { initRecyclarrSchedulers } from './routes/recyclarr'
 
+let _appVersion = '0.0.0'
+try {
+  const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '../package.json'), 'utf-8')) as { version: string }
+  _appVersion = pkg.version
+} catch { /* ignore */ }
+
 const PORT = parseInt(process.env.PORT ?? '8282', 10)
 const DATA_DIR = process.env.DATA_DIR ?? '/data'
 const LOG_LEVEL = process.env.LOG_LEVEL ?? 'info'
@@ -193,7 +199,7 @@ async function start() {
   // ── Health check — silent (polled every 30s by Docker healthcheck) ────────────
   app.get('/api/health', { logLevel: 'silent' }, async () => ({
     status: 'ok',
-    version: process.env.npm_package_version ?? '0.1.0',
+    version: _appVersion,
     uptime: process.uptime(),
   }))
 

@@ -62,18 +62,14 @@ Home Assistant und mehr — alles in einer Oberfläche.
 - 🟢 Intelligenter Request-Button — Live-Verfügbarkeit aus Seerr
 - ➕ Load more Pagination
 
-**Recyclarr / TRaSH Guides**
-- 🔄 Recyclarr GUI — TRaSH Guides Sync grafisch konfigurieren
-- 📋 Qualitätsprofil-Templates — Standard (EN), Deutsch und Anime,
-    mehrere Profile pro Instanz kombinierbar
-- 🎚️ Score-Overrides — individuelle Scores pro Format anpassen
-- ⛔ Eigene Custom Formats (z.B. Tdarr) — geschützt via
-    reset_unmatched_scores.except
-- 🛡️ delete_old_custom_formats konfigurierbar (Standard: deaktiviert)
-- 👁️ Preview-YAML vor dem Sync einsehen
-- ▶️ Live-Sync-Output als Echtzeit-Stream
-- ⏰ Sync-Zeitplan — manuell, täglich, wöchentlich oder Cron-Ausdruck
-- 🔃 Template-Refresh automatisch alle 24h von GitHub
+**Recyclarr**
+- 🔄 Recyclarr v8 GUI — recyclarr.yml automatisch generiert (v8 Syntax)
+- ⚙️ Wizard für Ersteinrichtung, Verwaltung danach im Recyclarr-Tab
+- 🎚️ Score-Overrides pro CF pro Profil (Guide-Score als Referenz)
+- 👤 Eigene CFs aus CF-Manager pro Profil aktivieren mit eigenem Score
+- 🛡️ reset_unmatched_scores + except + except_patterns (Regex-Unterstützung)
+- ⏰ Sync-Zeitplan: manuell, täglich, wöchentlich oder Cron
+- 🔍 Score-Change Detection bei manuellen Änderungen in Radarr/Sonarr
 
 **CF-Manager**
 - 📝 Custom Formats direkt in Radarr/Sonarr verwalten — Live-Daten
@@ -232,9 +228,8 @@ Vollständige Dokumentation direkt im Dashboard unter **About**.
         domain-aware Karten, Dimmer, Klima, Media Player, Cover, Sensoren
 - [x] HA Energie-Dashboard + Widget
 - [x] HA Räume/Areas — Panels nach HA-Bereichen gruppieren
-- [x] Recyclarr GUI — Templates, Score-Overrides, Sync-Zeitplan,
-        Live-Output, CF-Schutz, YAML-Import
-- [x] CF-Manager — Custom Formats in Radarr/Sonarr verwalten
+- [x] CF-Manager — Custom Formats in Radarr/Sonarr erstellen und verwalten
+- [x] Recyclarr v8 GUI — Wizard, Score-Management, YAML-Generierung
 - [x] Import/Export Services
 - [x] About-Seite als integriertes Doku-Center
 

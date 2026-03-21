@@ -87,10 +87,12 @@ export function initDockerPoller(): void {
       const res = await dockerReq('/v1.41/containers/json?all=true')
       if (!res.statusCode || res.statusCode >= 400) { await res.body.text().catch(() => {}); return }
       const containers = await res.body.json() as DockerContainerJson[]
+      let anyStateChange = false
       for (const c of containers) {
         const name = (c.Names[0] ?? c.Id).replace(/^\//, '')
         const prev = containerStates.get(c.Id)
         if (prev && prev.state !== c.State) {
+          anyStateChange = true
           if (c.State === 'restarting' && prev.state === 'running') {
             logActivity('docker', `Container '${name}' wird neugestartet`, 'info', { containerId: c.Id })
           } else if (c.State === 'running' && prev.state === 'restarting') {
@@ -108,12 +110,16 @@ export function initDockerPoller(): void {
       for (const [id] of containerStates) {
         if (!currentIds.has(id)) containerStates.delete(id)
       }
+      // Fast follow-up poll to catch rapid transitions (running→restarting→running)
+      if (anyStateChange) {
+        setTimeout(() => poll().catch(() => {}), 3_000)
+      }
     } catch { /* docker socket unavailable */ }
   }
-  // 10s startup delay so Docker socket is settled, then every 30s
+  // 10s startup delay so Docker socket is settled, then every 15s
   setTimeout(() => {
     poll().catch(() => {})
-    setInterval(() => poll().catch(() => {}), 30_000)
+    setInterval(() => poll().catch(() => {}), 15_000)
   }, 10_000)
 }
 

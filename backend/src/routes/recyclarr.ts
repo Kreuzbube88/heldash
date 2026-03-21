@@ -1531,21 +1531,15 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
       const cfs: CfEntry[] = []
       const notInProfile: NotInProfileEntry[] = []
 
-      // Only show managed (TRaSH) and user-created CFs in main list; unmanaged CFs go to notInProfile
+      // Only show TRaSH-managed CFs in main list; user CFs handled frontend-only; unmanaged → notInProfile
       for (const item of formatItems) {
         const managedByRecyclarr = recyclarrCfNameSet.has(item.name.toLowerCase())
         const isUserCf = userCfNameSet.has(item.name.toLowerCase())
-        if (managedByRecyclarr || isUserCf) {
-          cfs.push({ arrId: item.format, name: item.name, currentScore: item.score, groups: [], inMultipleGroups: false, managedByRecyclarr, isUserCf })
+        if (isUserCf) continue  // User CFs handled in frontend only
+        if (managedByRecyclarr) {
+          cfs.push({ arrId: item.format, name: item.name, currentScore: item.score, groups: [], inMultipleGroups: false, managedByRecyclarr: true, isUserCf: false })
         } else {
           notInProfile.push({ arrId: item.format, name: item.name, currentScore: item.score })
-        }
-      }
-      // Also add Recyclarr-managed CFs that are NOT yet in this quality profile
-      const profileItemNames = new Set(formatItems.map(i => i.name.toLowerCase()))
-      for (const rcf of recyclarrCfs) {
-        if (!profileItemNames.has(rcf.name.toLowerCase())) {
-          notInProfile.push({ arrId: 0, name: rcf.name, currentScore: 0 })
         }
       }
 
@@ -1553,13 +1547,16 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
       const groupCacheKey = service
       const groupCached = cfGroupsCache.get(groupCacheKey)
       let parsedGroups: { name: string; cfNames: string[] }[] = []
+      let allGroupsForEdgeCase: { name: string; cfNames: string[] }[] = []
       const profileCfNamesLower = new Set(formatItems.map(item => item.name.toLowerCase()))
 
       if (groupCached && Date.now() - groupCached.fetchedAt < CF_GROUPS_CACHE_TTL) {
-        // Filter cached groups to only those relevant to the active profile
-        parsedGroups = groupCached.groups.filter(g =>
-          g.cfNames.some(n => profileCfNamesLower.has(n.toLowerCase()))
-        )
+        // Filter cached groups: >= 50% of group CFs must be in this profile
+        allGroupsForEdgeCase = groupCached.groups
+        parsedGroups = groupCached.groups.filter(g => {
+          const matchCount = g.cfNames.filter(n => profileCfNamesLower.has(n.toLowerCase())).length
+          return matchCount > 0 && matchCount >= Math.ceil(g.cfNames.length * 0.5)
+        })
       } else {
         try {
           // --raw output format: paired lines per CF
@@ -1596,9 +1593,11 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
             if (groupMap.size > 0) {
               const allGroups = Array.from(groupMap.values())
               cfGroupsCache.set(groupCacheKey, { groups: allGroups, fetchedAt: Date.now() })
-              parsedGroups = allGroups.filter(g =>
-                g.cfNames.some(n => profileCfNamesLower.has(n.toLowerCase()))
-              )
+              allGroupsForEdgeCase = allGroups
+              parsedGroups = allGroups.filter(g => {
+                const matchCount = g.cfNames.filter(n => profileCfNamesLower.has(n.toLowerCase())).length
+                return matchCount > 0 && matchCount >= Math.ceil(g.cfNames.length * 0.5)
+              })
             }
           } else if (rawResult.exitCode !== 0) {
             app.log.warn({ exitCode: rawResult.exitCode, service }, 'recyclarr list custom-format-groups exited non-zero')
@@ -1617,17 +1616,33 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
           if (cfNamesLower.has(cf.name.toLowerCase())) cf.groups.push(group.name)
         }
       }
+
+      // Step 6: Edge case — filter irrelevant groups, move CFs-in-irrelevant-only-groups to notInProfile
+      const allGroupCfNamesLower = new Set(allGroupsForEdgeCase.flatMap(g => g.cfNames.map(n => n.toLowerCase())))
+      const relevantGroupNames = new Set(parsedGroups.map(g => g.name))
       for (const cf of cfs) {
+        cf.groups = cf.groups.filter(groupName => relevantGroupNames.has(groupName))
         cf.inMultipleGroups = cf.groups.length > 1
       }
+      const toRemove = new Set<number>()
+      for (let i = 0; i < cfs.length; i++) {
+        const cf = cfs[i]!
+        if (cf.groups.length === 0 && allGroupCfNamesLower.has(cf.name.toLowerCase())) {
+          // Belongs to irrelevant groups only — not relevant for this profile
+          notInProfile.push({ arrId: cf.arrId, name: cf.name, currentScore: cf.currentScore })
+          toRemove.add(i)
+        }
+      }
+      const finalCfs = cfs.filter((_, i) => !toRemove.has(i))
+
       app.log.info({
         recyclarrCfCount: recyclarrCfs.length,
         recyclarrCfNameSetSize: recyclarrCfNameSet.size,
         userCfCount: userCfNameSet.size,
         formatItemsCount: formatItems.length,
         groupsParsed: parsedGroups.length,
-        cfsWithGroups: cfs.filter(c => c.groups.length > 0).length,
-        totalCfs: cfs.length,
+        cfsWithGroups: finalCfs.filter(c => c.groups.length > 0).length,
+        totalCfs: finalCfs.length,
         notInProfileCount: notInProfile.length,
       }, 'profile-cfs result summary')
 
@@ -1637,7 +1652,7 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
         syncEnabled: true,
       }))
 
-      return reply.send({ cfs, groups: responseGroups, notInProfile, warning, warningMessage })
+      return reply.send({ cfs: finalCfs, groups: responseGroups, notInProfile, warning, warningMessage })
     }
   )
 

@@ -3210,14 +3210,17 @@ function RecyclarrTab() {
                                   {[...profileCfs].sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase())).map(cfRow)}
                                 </>
                               )}
-                              {/* CFs in Arr but not managed by Recyclarr */}
+                              {/* CFs in Arr but not managed by Recyclarr for this profile */}
                               {profileCfNotInProfile.length > 0 && (
                                 <details style={{ marginTop: 8 }}>
                                   <summary style={{ fontSize: 11, color: 'var(--text-muted)', cursor: 'pointer', padding: '2px 0' }}>
-                                    {profileCfNotInProfile.length} CFs nicht von Recyclarr verwaltet
+                                    Nicht im Profil ({profileCfNotInProfile.length})
                                   </summary>
+                                  <div style={{ padding: '4px 8px 2px' }}>
+                                    <span className="badge-neutral" style={{ fontSize: 9 }}>CFs in Radarr/Sonarr die Recyclarr für dieses Profil nicht verwaltet</span>
+                                  </div>
                                   <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 4 }}>
-                                    {profileCfNotInProfile.map(item => (
+                                    {[...profileCfNotInProfile].sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase())).map(item => (
                                       <div key={item.arrId} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 8px', fontSize: 12, color: 'var(--text-muted)', background: 'rgba(var(--text-rgb), 0.02)', borderRadius: 'var(--radius-sm)' }}>
                                         <span>{item.name}</span>
                                         <span>{item.currentScore}</span>

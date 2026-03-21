@@ -349,7 +349,13 @@ export const api = {
     acceptScoreChanges: (instanceId: string, changes: import('./types/recyclarr').ScoreChange[]) =>
       req<{ ok: boolean }>(`/recyclarr/accept-score-changes/${instanceId}`, { method: 'POST', body: JSON.stringify({ changes }) }),
     profileCfs: (instanceId: string, profileTrashId: string) =>
-      req<{ groups: { name: string; cfTrashIds: string[] }[]; warning: boolean }>(`/recyclarr/profile-cfs/${instanceId}?profileTrashId=${encodeURIComponent(profileTrashId)}`),
+      req<{
+        cfs: { arrId: number; name: string; currentScore: number; groups: string[]; inMultipleGroups: boolean }[];
+        groups: { name: string; cfNames: string[]; syncEnabled: boolean }[];
+        notInProfile: { arrId: number; name: string; currentScore: number }[];
+        warning: boolean;
+        warningMessage?: string;
+      }>(`/recyclarr/profile-cfs/${instanceId}?profileTrashId=${encodeURIComponent(profileTrashId)}`),
     listProfiles: (instanceId: string) =>
       req<{ profiles: { trash_id: string; name: string }[] }>(`/recyclarr/list-profiles/${instanceId}`),
     listScoreSets: (instanceId: string) =>

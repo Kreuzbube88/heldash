@@ -2383,8 +2383,11 @@ function RecyclarrTab() {
   const [userCfsFromFsLoading, setUserCfsFromFsLoading] = useState(false)
 
   // ── CF groups (for grouped TRaSH CF view) ──
-  const [profileCfGroups, setProfileCfGroups] = useState<{ name: string; cfTrashIds: string[] }[]>([])
+  const [profileCfs, setProfileCfs] = useState<{ arrId: number; name: string; currentScore: number; groups: string[]; inMultipleGroups: boolean }[]>([])
+  const [profileCfGroups, setProfileCfGroups] = useState<{ name: string; cfNames: string[]; syncEnabled: boolean }[]>([])
+  const [profileCfNotInProfile, setProfileCfNotInProfile] = useState<{ arrId: number; name: string; currentScore: number }[]>([])
   const [profileCfGroupsWarning, setProfileCfGroupsWarning] = useState(false)
+  const [profileCfGroupsWarningMsg, setProfileCfGroupsWarningMsg] = useState<string | undefined>(undefined)
   const [profileCfGroupsLoading, setProfileCfGroupsLoading] = useState(false)
 
   // ── Local config state init tracking ──
@@ -2563,19 +2566,28 @@ function RecyclarrTab() {
   // Effect: fetch CF groups when profile selection changes
   useEffect(() => {
     if (!instanceId || !selectedProfileId) {
+      setProfileCfs([])
       setProfileCfGroups([])
+      setProfileCfNotInProfile([])
       setProfileCfGroupsWarning(false)
+      setProfileCfGroupsWarningMsg(undefined)
       return
     }
     setProfileCfGroupsLoading(true)
     api.recyclarr.profileCfs(instanceId, selectedProfileId)
       .then(r => {
+        setProfileCfs(r.cfs)
         setProfileCfGroups(r.groups)
+        setProfileCfNotInProfile(r.notInProfile)
         setProfileCfGroupsWarning(r.warning)
+        setProfileCfGroupsWarningMsg(r.warningMessage)
       })
       .catch(() => {
+        setProfileCfs([])
         setProfileCfGroups([])
+        setProfileCfNotInProfile([])
         setProfileCfGroupsWarning(true)
+        setProfileCfGroupsWarningMsg(undefined)
       })
       .finally(() => setProfileCfGroupsLoading(false))
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -3024,10 +3036,8 @@ function RecyclarrTab() {
                         style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-primary)', padding: 0, flex: 1, textAlign: 'left' }}>
                         {trashCfsCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
                         TRaSH Custom Formats
-                        {currentArrData && (
-                          <span className="badge-neutral" style={{ fontSize: 10 }}>
-                            {(currentArrData.profiles.find(p => p.name === activeProfileConfig.name)?.formatItems ?? []).length}
-                          </span>
+                        {profileCfs.length > 0 && (
+                          <span className="badge-neutral" style={{ fontSize: 10 }}>{profileCfs.length}</span>
                         )}
                       </button>
                       {!trashCfsCollapsed && (
@@ -3044,46 +3054,48 @@ function RecyclarrTab() {
                     </div>
                     {!trashCfsCollapsed && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                        {currentArrDataLoading ? (
+                        {currentArrDataLoading || profileCfGroupsLoading ? (
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <div className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} />
-                            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Lade Arr-Daten…</span>
+                            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Lade CFs…</span>
                           </div>
                         ) : !currentArrData || currentArrData.profiles.length === 0 ? (
                           <span className="badge-neutral" style={{ fontSize: 11, alignSelf: 'flex-start' }}>
                             Noch kein Sync — CFs werden nach dem ersten Sync angezeigt
                           </span>
+                        ) : profileCfs.length === 0 && profileCfGroupsWarning ? (
+                          <span className="badge-warning" style={{ fontSize: 11, alignSelf: 'flex-start' }}>
+                            {profileCfGroupsWarningMsg ?? 'CF-Gruppen nicht verfügbar — alle verwalteten CFs werden angezeigt'}
+                          </span>
                         ) : (() => {
-                          const arrProfile = currentArrData.profiles.find(p => p.name === activeProfileConfig.name)
-                          const formatItems = [...(arrProfile?.formatItems ?? [])].sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
-                          if (formatItems.length === 0) return (
+                          if (profileCfs.length === 0) return (
                             <span className="badge-neutral" style={{ fontSize: 11, alignSelf: 'flex-start' }}>Keine CFs in diesem Profil</span>
                           )
                           if (heatmapView) {
-                            // ── Heatmap view ──
-                            const scores = formatItems.map(item => {
-                              const override = getOverride(String(item.format), selectedProfileId)
-                              return override !== null ? override : item.score
+                            // ── Heatmap view (uses profileCfs) ──
+                            const scores = profileCfs.map(item => {
+                              const override = getOverride(String(item.arrId), selectedProfileId)
+                              return override !== null ? override : item.currentScore
                             })
                             const maxAbs = Math.max(1, ...scores.map(Math.abs))
                             return (
                               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                                {formatItems.map(item => {
-                                  const cfTid = String(item.format)
+                                {profileCfs.map(item => {
+                                  const cfTid = String(item.arrId)
                                   const override = getOverride(cfTid, selectedProfileId)
-                                  const effective = override !== null ? override : item.score
+                                  const effective = override !== null ? override : item.currentScore
                                   const intensity = Math.abs(effective) / maxAbs
-                                  const hue = effective >= 0 ? '142' : '0'  // green for positive, red for negative
+                                  const hue = effective >= 0 ? '142' : '0'
                                   const bg = effective === 0
                                     ? 'rgba(128,128,128,0.15)'
                                     : `hsla(${hue}, 70%, 50%, ${0.1 + intensity * 0.5})`
-                                  const border = override !== null && override !== item.score
+                                  const border = override !== null && override !== item.currentScore
                                     ? '1px solid rgba(var(--accent-rgb), 0.5)'
                                     : '1px solid transparent'
                                   return (
                                     <div
-                                      key={item.format}
-                                      title={`${item.name}: ${effective}${override !== null && override !== item.score ? ` (Guide: ${item.score})` : ''}`}
+                                      key={item.arrId}
+                                      title={`${item.name}: ${effective}${override !== null && override !== item.currentScore ? ` (Guide: ${item.currentScore})` : ''}${item.groups.length > 0 ? ` [${item.groups.join(', ')}]` : ''}`}
                                       style={{
                                         background: bg, border, borderRadius: 'var(--radius-sm)',
                                         padding: '4px 8px', fontSize: 10, cursor: 'default',
@@ -3105,45 +3117,110 @@ function RecyclarrTab() {
                             )
                           }
 
+                          // ── List view: grouped or flat ──
+                          const cfRow = (item: { arrId: number; name: string; currentScore: number }) => {
+                            const cfTid = String(item.arrId)
+                            const override = getOverride(cfTid, selectedProfileId)
+                            const isOverridden = override !== null && override !== item.currentScore
+                            return (
+                              <div key={item.arrId} style={{ display: 'grid', gridTemplateColumns: '1fr 80px 100px 100px', gap: 8, padding: '6px 8px', background: isOverridden ? 'rgba(var(--accent-rgb), 0.06)' : 'rgba(var(--text-rgb), 0.03)', borderRadius: 'var(--radius-sm)', alignItems: 'center' }}>
+                                <span style={{ fontSize: 13 }}>{item.name}</span>
+                                <span style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'right' }}>{item.currentScore}</span>
+                                <input
+                                  type="number"
+                                  className="form-input"
+                                  placeholder={String(item.currentScore)}
+                                  value={override !== null ? override : ''}
+                                  onChange={e => {
+                                    const val = e.target.value
+                                    if (val === '') setOverride({ id: item.arrId, name: item.name, trash_id: cfTid }, selectedProfileId, null)
+                                    else {
+                                      const num = parseInt(val, 10)
+                                      if (num === item.currentScore) setOverride({ id: item.arrId, name: item.name, trash_id: cfTid }, selectedProfileId, null)
+                                      else setOverride({ id: item.arrId, name: item.name, trash_id: cfTid }, selectedProfileId, num)
+                                    }
+                                  }}
+                                  style={{ width: '100%', textAlign: 'right', fontSize: 12 }}
+                                />
+                                <div>
+                                  {isOverridden && <span className="badge-warning" style={{ fontSize: 10 }}>Override</span>}
+                                  {override !== null && override === item.currentScore && <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>= Guide</span>}
+                                </div>
+                              </div>
+                            )
+                          }
+
+                          const colHeader = (
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 100px 100px', gap: 8, padding: '4px 8px', fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>
+                              <span>Name</span><span style={{ textAlign: 'right' }}>Aktueller Score</span><span style={{ textAlign: 'right' }}>Override</span><span />
+                            </div>
+                          )
+
                           return (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                              {profileCfGroupsWarning && !profileCfGroupsLoading && (
-                                <span className="badge-warning" style={{ fontSize: 10, alignSelf: 'flex-start', marginBottom: 4 }}>Gruppen konnten nicht geladen werden</span>
+                              {profileCfGroupsWarning && (
+                                <span className="badge-warning" style={{ fontSize: 10, alignSelf: 'flex-start', marginBottom: 4 }}>
+                                  {profileCfGroupsWarningMsg ?? 'Gruppen konnten nicht geladen werden'}
+                                </span>
                               )}
-                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 100px 100px', gap: 8, padding: '4px 8px', fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>
-                                <span>Name</span><span style={{ textAlign: 'right' }}>Guide-Score</span><span style={{ textAlign: 'right' }}>Override</span><span />
-                              </div>
-                              {formatItems.map(item => {
-                                const cfTid = String(item.format)
-                                const override = getOverride(cfTid, selectedProfileId)
-                                const isOverridden = override !== null && override !== item.score
-                                return (
-                                  <div key={item.format} style={{ display: 'grid', gridTemplateColumns: '1fr 80px 100px 100px', gap: 8, padding: '6px 8px', background: isOverridden ? 'rgba(var(--accent-rgb), 0.06)' : 'rgba(var(--text-rgb), 0.03)', borderRadius: 'var(--radius-sm)', alignItems: 'center' }}>
-                                    <span style={{ fontSize: 13 }}>{item.name}</span>
-                                    <span style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'right' }}>{item.score}</span>
-                                    <input
-                                      type="number"
-                                      className="form-input"
-                                      placeholder={String(item.score)}
-                                      value={override !== null ? override : ''}
-                                      onChange={e => {
-                                        const val = e.target.value
-                                        if (val === '') setOverride({ id: item.format, name: item.name, trash_id: cfTid }, selectedProfileId, null)
-                                        else {
-                                          const num = parseInt(val, 10)
-                                          if (num === item.score) setOverride({ id: item.format, name: item.name, trash_id: cfTid }, selectedProfileId, null)
-                                          else setOverride({ id: item.format, name: item.name, trash_id: cfTid }, selectedProfileId, num)
-                                        }
-                                      }}
-                                      style={{ width: '100%', textAlign: 'right', fontSize: 12 }}
-                                    />
-                                    <div>
-                                      {isOverridden && <span className="badge-warning" style={{ fontSize: 10 }}>Override</span>}
-                                      {override !== null && override === item.score && <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>= Guide</span>}
-                                    </div>
+                              {profileCfGroups.length > 0 ? (
+                                // Grouped view
+                                <>
+                                  {profileCfGroups.map(group => {
+                                    const groupCfs = profileCfs
+                                      .filter(cf => cf.groups.includes(group.name))
+                                      .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
+                                    if (groupCfs.length === 0) return null
+                                    return (
+                                      <div key={group.name} style={{ marginBottom: 8 }}>
+                                        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', padding: '2px 8px 4px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                          {group.name}
+                                          <span className="badge-neutral" style={{ fontSize: 9 }}>{groupCfs.length}</span>
+                                        </div>
+                                        {colHeader}
+                                        {groupCfs.map(cfRow)}
+                                      </div>
+                                    )
+                                  })}
+                                  {/* Ungrouped CFs */}
+                                  {(() => {
+                                    const ungrouped = profileCfs.filter(cf => cf.groups.length === 0).sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
+                                    if (ungrouped.length === 0) return null
+                                    return (
+                                      <div style={{ marginBottom: 8 }}>
+                                        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', padding: '2px 8px 4px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                          Ohne Gruppe
+                                          <span className="badge-neutral" style={{ fontSize: 9 }}>{ungrouped.length}</span>
+                                        </div>
+                                        {colHeader}
+                                        {ungrouped.map(cfRow)}
+                                      </div>
+                                    )
+                                  })()}
+                                </>
+                              ) : (
+                                // Flat sorted list
+                                <>
+                                  {colHeader}
+                                  {[...profileCfs].sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase())).map(cfRow)}
+                                </>
+                              )}
+                              {/* CFs in Arr but not managed by Recyclarr */}
+                              {profileCfNotInProfile.length > 0 && (
+                                <details style={{ marginTop: 8 }}>
+                                  <summary style={{ fontSize: 11, color: 'var(--text-muted)', cursor: 'pointer', padding: '2px 0' }}>
+                                    {profileCfNotInProfile.length} CFs nicht von Recyclarr verwaltet
+                                  </summary>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 4 }}>
+                                    {profileCfNotInProfile.map(item => (
+                                      <div key={item.arrId} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 8px', fontSize: 12, color: 'var(--text-muted)', background: 'rgba(var(--text-rgb), 0.02)', borderRadius: 'var(--radius-sm)' }}>
+                                        <span>{item.name}</span>
+                                        <span>{item.currentScore}</span>
+                                      </div>
+                                    ))}
                                   </div>
-                                )
-                              })}
+                                </details>
+                              )}
                             </div>
                           )
                         })()}

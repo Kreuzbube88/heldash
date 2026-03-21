@@ -564,6 +564,8 @@ function parseCustomFormats(stdout: string, mediaType: 'radarr' | 'sonarr'): Rec
 interface ProfilesCacheEntry { profiles: RecyclarrProfile[]; fetchedAt: string }
 interface CfsCacheEntry { cfs: RecyclarrCf[]; fetchedAt: string }
 const CACHE_TTL = 24 * 60 * 60 * 1000
+const CF_GROUPS_CACHE_TTL = 5 * 60 * 1000
+const cfGroupsCache = new Map<string, { groups: { name: string; cfNames: string[] }[]; fetchedAt: number }>()
 
 async function getQualityProfiles(
   service: 'radarr' | 'sonarr',
@@ -1443,45 +1445,166 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
     { onRequest: [app.authenticate] },
     async (req, reply) => {
       const { instanceId } = req.params
+      const { profileTrashId } = req.query
+
+      if (!profileTrashId) return reply.status(400).send({ error: 'profileTrashId required' })
+
       const db = getDb()
       const inst = db.prepare('SELECT * FROM arr_instances WHERE id = ?').get(instanceId) as ArrInstanceRow | undefined
       if (!inst) return reply.status(404).send({ error: 'Instance not found' })
       if (inst.type !== 'radarr' && inst.type !== 'sonarr') return reply.status(400).send({ error: 'Only radarr/sonarr supported' })
+
       const service = inst.type as 'radarr' | 'sonarr'
       const { containerName } = getRecyclarrSettings()
 
-      let groups: { name: string; cfTrashIds: string[] }[] = []
+      // Step 1: Fetch CFs managed by Recyclarr (uses existing cached getCustomFormats)
+      let recyclarrCfs: RecyclarrCf[] = []
       let warning = false
+      let warningMessage: string | undefined
 
       try {
-        const { stdout, exitCode } = await dockerExecInContainer(
-          containerName,
-          ['recyclarr', 'list', 'custom-format-groups', service, '--raw'],
-          15_000
-        )
-        if (exitCode !== 0) {
-          app.log.warn({ exitCode, service }, 'recyclarr list custom-format-groups exited non-zero — groups unavailable')
-          warning = true
-        } else {
-          // Parse groups: expected format "groupName\ttrash_id1,trash_id2,..."
-          for (const line of stdout.split('\n')) {
-            const trimmed = line.trim()
-            if (!trimmed) continue
-            const parts = trimmed.split('\t')
-            const groupName = parts[0]?.trim()
-            const ids = (parts[1] ?? '').split(',').map(s => s.trim()).filter(Boolean)
-            if (groupName && ids.length > 0) {
-              groups.push({ name: groupName, cfTrashIds: ids })
-            }
-          }
-          if (groups.length === 0) warning = true
-        }
+        const result = await getCustomFormats(service, containerName)
+        recyclarrCfs = result.cfs
+        if (result.warning) warning = true
       } catch (e) {
-        app.log.error({ err: e, service }, 'Failed to fetch CF groups via docker exec — groups unavailable')
+        app.log.warn({ err: e }, 'Failed to fetch Recyclarr managed CFs for profile-cfs')
         warning = true
+        warningMessage = 'CF-Gruppen konnten nicht geladen werden'
+      }
+      const recyclarrCfNameSet = new Set(recyclarrCfs.map(c => c.name.toLowerCase()))
+
+      // Step 2: Fetch live quality profiles from Arr
+      const agent = new Agent({ connect: { rejectUnauthorized: false } })
+      const baseUrl = inst.url.replace(/\/$/, '')
+      const headers = { 'X-Api-Key': inst.api_key, 'Content-Type': 'application/json' }
+
+      let arrProfiles: ArrQualityProfile[] = []
+      try {
+        const profilesRes = await undiciRequest(`${baseUrl}/api/v3/qualityprofile`, { method: 'GET', headers, dispatcher: agent })
+        arrProfiles = await profilesRes.body.json() as ArrQualityProfile[]
+      } catch (e) {
+        app.log.error({ err: e }, 'Failed to reach Arr instance for profile-cfs')
+        return reply.status(502).send({ error: `Arr instance unreachable: ${e instanceof Error ? e.message : 'unknown'}` })
       }
 
-      return reply.send({ groups, warning })
+      // Find the matching Arr profile: first by trash_id, then by name from recyclarr_config
+      let arrProfile = arrProfiles.find(p => p.trash_id === profileTrashId)
+      if (!arrProfile) {
+        const cfgRow = db.prepare('SELECT profiles_config FROM recyclarr_config WHERE instance_id = ?').get(instanceId) as { profiles_config: string } | undefined
+        const profilesConfig = safeJson<ProfileConfig[]>(cfgRow?.profiles_config ?? '', [])
+        const configured = profilesConfig.find(p => p.trash_id === profileTrashId)
+        if (configured) {
+          arrProfile = arrProfiles.find(p => p.name === configured.name)
+        }
+      }
+      if (!arrProfile) {
+        return reply.status(400).send({ error: `Profile not found for trash_id: ${profileTrashId}` })
+      }
+
+      const formatItems = [...(arrProfile.formatItems ?? [])].sort((a, b) =>
+        a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+      )
+
+      // Step 3: Cross-reference formatItems with Recyclarr-managed CFs
+      type CfEntry = { arrId: number; name: string; currentScore: number; groups: string[]; inMultipleGroups: boolean }
+      type NotInProfileEntry = { arrId: number; name: string; currentScore: number }
+
+      const cfs: CfEntry[] = []
+      const notInProfile: NotInProfileEntry[] = []
+
+      if (warning && recyclarrCfNameSet.size === 0) {
+        // Recyclarr data unavailable — return all profile CFs as-is
+        for (const item of formatItems) {
+          cfs.push({ arrId: item.format, name: item.name, currentScore: item.score, groups: [], inMultipleGroups: false })
+        }
+      } else {
+        for (const item of formatItems) {
+          if (recyclarrCfNameSet.has(item.name.toLowerCase())) {
+            cfs.push({ arrId: item.format, name: item.name, currentScore: item.score, groups: [], inMultipleGroups: false })
+          } else {
+            notInProfile.push({ arrId: item.format, name: item.name, currentScore: item.score })
+          }
+        }
+      }
+
+      // Step 4: Fetch CF groups (5-min in-memory cache per service)
+      const groupCacheKey = service
+      const groupCached = cfGroupsCache.get(groupCacheKey)
+      let parsedGroups: { name: string; cfNames: string[] }[] = []
+
+      if (groupCached && Date.now() - groupCached.fetchedAt < CF_GROUPS_CACHE_TTL) {
+        parsedGroups = groupCached.groups
+      } else {
+        try {
+          const { stdout: groupStdout, exitCode: groupExit } = await dockerExecInContainer(
+            containerName,
+            ['recyclarr', 'list', 'custom-format-groups', service],
+            15_000
+          )
+          app.log.info({ stdout: groupStdout.slice(0, 500), exitCode: groupExit, service }, 'CF groups raw output')
+
+          if (groupExit === 0 && groupStdout.trim()) {
+            const lines = groupStdout.split('\n')
+            // Detect tab-separated format: "GroupName\tCFName1,CFName2"
+            const hasTabLines = lines.some(l => l.includes('\t') && !l.includes('│'))
+            if (hasTabLines) {
+              for (const line of lines) {
+                const trimmed = line.trim()
+                if (!trimmed) continue
+                const parts = trimmed.split('\t')
+                const groupName = parts[0]?.trim()
+                const cfNames = (parts[1] ?? '').split(',').map(s => s.trim()).filter(Boolean)
+                if (groupName && cfNames.length > 0) parsedGroups.push({ name: groupName, cfNames })
+              }
+            } else {
+              // Table format with box-drawing chars: strip borders and parse columns
+              for (const line of lines) {
+                const clean = line.replace(/[│┌└─┐┘├┤╞╡]/g, '').trim()
+                if (!clean || /^(Group|Name|CF Name)/i.test(clean)) continue
+                const parts = clean.split(/\s{2,}/)
+                if (parts.length >= 2) {
+                  const groupName = parts[0]?.trim()
+                  const cfPart = parts[1]?.trim()
+                  if (groupName && cfPart) {
+                    const cfNames = cfPart.split(/,\s*/).map(s => s.trim()).filter(Boolean)
+                    if (cfNames.length > 0) parsedGroups.push({ name: groupName, cfNames })
+                  }
+                }
+              }
+            }
+            if (parsedGroups.length > 0) {
+              cfGroupsCache.set(groupCacheKey, { groups: parsedGroups, fetchedAt: Date.now() })
+            }
+          }
+
+          if (parsedGroups.length === 0 && groupExit !== 0) {
+            app.log.warn({ exitCode: groupExit, service }, 'recyclarr list custom-format-groups exited non-zero')
+            if (!warning) { warning = true; warningMessage = 'CF-Gruppen konnten nicht geladen werden' }
+          }
+        } catch (e) {
+          app.log.error({ err: e, service }, 'Failed to fetch CF groups via docker exec')
+          if (!warning) { warning = true; warningMessage = 'CF-Gruppen konnten nicht geladen werden' }
+        }
+      }
+
+      // Step 5: Assign group membership to each CF entry
+      for (const group of parsedGroups) {
+        const cfNamesLower = new Set(group.cfNames.map(n => n.toLowerCase()))
+        for (const cf of cfs) {
+          if (cfNamesLower.has(cf.name.toLowerCase())) cf.groups.push(group.name)
+        }
+      }
+      for (const cf of cfs) {
+        cf.inMultipleGroups = cf.groups.length > 1
+      }
+
+      const responseGroups = parsedGroups.map(g => ({
+        name: g.name,
+        cfNames: g.cfNames,
+        syncEnabled: true,
+      }))
+
+      return reply.send({ cfs, groups: responseGroups, notInProfile, warning, warningMessage })
     }
   )
 

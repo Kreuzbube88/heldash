@@ -134,7 +134,7 @@ export function initDockerPoller(): void {
     setInterval(() => {
       console.log('[Docker Poller] Interval tick')
       poll().catch(e => console.error('[Docker Poller] Poll failed:', e))
-    }, 5_000)
+    }, 2_000)
   }, 10_000)
 }
 

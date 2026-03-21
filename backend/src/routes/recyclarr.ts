@@ -533,7 +533,20 @@ function parseCustomFormats(stdout: string, mediaType: 'radarr' | 'sonarr'): Rec
   const cfs: RecyclarrCf[] = []
   const seen = new Set<string>()
   for (const line of stdout.split('\n')) {
-    // Try plain --raw format first: "  - <hash> # <name>"
+    const trimmed = line.trim()
+    if (!trimmed) continue
+    // Primary: --raw format: trash_id<TAB>name[<TAB>category]
+    if (trimmed.includes('\t')) {
+      const parts = trimmed.split('\t')
+      const trash_id = parts[0]?.trim()
+      const name = parts[1]?.trim()
+      if (trash_id && name && !seen.has(trash_id)) {
+        seen.add(trash_id)
+        cfs.push({ trash_id, name, mediaType })
+      }
+      continue
+    }
+    // Fallback: old "  - <hash> # <name>" format
     const m = CF_LINE_RE_RAW.exec(line)
     if (m) {
       const trash_id = m[1]!
@@ -547,11 +560,11 @@ function parseCustomFormats(stdout: string, mediaType: 'radarr' | 'sonarr'): Rec
     // Fallback: table format (box-drawing chars, without --raw or older recyclarr)
     const clean = line.replace(/[│┌└─┐┘]/g, '').trim()
     if (!clean) continue
-    const parts = clean.split(/\s{2,}/)
-    const hexPart = parts.find(p => /^[0-9a-f]{32}$/i.test(p.trim()))
+    const tableParts = clean.split(/\s{2,}/)
+    const hexPart = tableParts.find(p => /^[0-9a-f]{32}$/i.test(p.trim()))
     if (hexPart) {
       const trash_id = hexPart.trim()
-      const name = parts.find(p => p.trim() && !/^[0-9a-f]{32}$/i.test(p.trim()))?.trim()
+      const name = tableParts.find(p => p.trim() && !/^[0-9a-f]{32}$/i.test(p.trim()))?.trim()
       if (trash_id && name && !seen.has(trash_id)) {
         seen.add(trash_id)
         cfs.push({ trash_id, name, mediaType })
@@ -1471,7 +1484,10 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
         warning = true
         warningMessage = 'CF-Gruppen konnten nicht geladen werden'
       }
-      const recyclarrCfNameSet = new Set(recyclarrCfs.map(c => c.name.toLowerCase()))
+      // TRaSH guide CFs (trash_id does not start with "user-")
+      const recyclarrCfNameSet = new Set(recyclarrCfs.filter(c => !c.trash_id.startsWith('user-')).map(c => c.name.toLowerCase()))
+      // User-created CFs (trash_id starts with "user-") — shown in profile but with different badge
+      const userCfNameSet = new Set(recyclarrCfs.filter(c => c.trash_id.startsWith('user-')).map(c => c.name.toLowerCase()))
 
       // Step 2: Fetch live quality profiles from Arr
       const agent = new Agent({ connect: { rejectUnauthorized: false } })
@@ -1505,17 +1521,18 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
         a.name.toLowerCase().localeCompare(b.name.toLowerCase())
       )
 
-      // Step 3: Show ALL formatItems from this quality profile; mark managedByRecyclarr per entry
-      type CfEntry = { arrId: number; name: string; currentScore: number; groups: string[]; inMultipleGroups: boolean; managedByRecyclarr: boolean }
+      // Step 3: Show ALL formatItems from this quality profile; mark managedByRecyclarr/isUserCf per entry
+      type CfEntry = { arrId: number; name: string; currentScore: number; groups: string[]; inMultipleGroups: boolean; managedByRecyclarr: boolean; isUserCf: boolean }
       type NotInProfileEntry = { arrId: number; name: string; currentScore: number }
 
       const cfs: CfEntry[] = []
       const notInProfile: NotInProfileEntry[] = []
 
-      // All profile CFs are shown; managedByRecyclarr distinguishes Recyclarr-owned ones
+      // All profile CFs are shown; managedByRecyclarr distinguishes TRaSH guide CFs, isUserCf distinguishes user-created CFs
       for (const item of formatItems) {
         const managedByRecyclarr = recyclarrCfNameSet.has(item.name.toLowerCase())
-        cfs.push({ arrId: item.format, name: item.name, currentScore: item.score, groups: [], inMultipleGroups: false, managedByRecyclarr })
+        const isUserCf = userCfNameSet.has(item.name.toLowerCase())
+        cfs.push({ arrId: item.format, name: item.name, currentScore: item.score, groups: [], inMultipleGroups: false, managedByRecyclarr, isUserCf })
       }
       // notInProfile: Recyclarr-managed CFs that are NOT yet in this quality profile
       const profileItemNames = new Set(formatItems.map(i => i.name.toLowerCase()))
@@ -1529,100 +1546,55 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
       const groupCacheKey = service
       const groupCached = cfGroupsCache.get(groupCacheKey)
       let parsedGroups: { name: string; cfNames: string[] }[] = []
+      const profileCfNamesLower = new Set(formatItems.map(item => item.name.toLowerCase()))
 
       if (groupCached && Date.now() - groupCached.fetchedAt < CF_GROUPS_CACHE_TTL) {
-        parsedGroups = groupCached.groups
+        // Filter cached groups to only those relevant to the active profile
+        parsedGroups = groupCached.groups.filter(g =>
+          g.cfNames.some(n => profileCfNamesLower.has(n.toLowerCase()))
+        )
       } else {
         try {
-          // Try --raw first for simpler output; fallback to standard output if it fails
-          let groupStdout: string
-          let groupExit: number
+          // --raw output format: paired lines per CF
+          //   Line N:   group_trash_id<TAB>group_name
+          //   Line N+1: cf_trash_id<TAB>cf_name<TAB>required<TAB>default
           const rawResult = await dockerExecInContainer(
             containerName,
-            ['recyclarr', 'list', 'custom-format-groups', service, '--raw', '--config', '/config/recyclarr.yml'],
+            ['recyclarr', 'list', 'custom-format-groups', service, '--raw'],
             15_000
           )
-          if (rawResult.exitCode === 0) {
-            groupStdout = rawResult.stdout
-            groupExit = rawResult.exitCode
-          } else {
-            const normalResult = await dockerExecInContainer(
-              containerName,
-              ['recyclarr', 'list', 'custom-format-groups', service, '--config', '/config/recyclarr.yml'],
-              15_000
-            )
-            groupStdout = normalResult.stdout
-            groupExit = normalResult.exitCode
-          }
 
-          app.log.info({
-            stdout: groupStdout,
-            exitCode: groupExit,
-            service,
-            lineCount: groupStdout.split('\n').length
-          }, 'CF groups full raw output')
-
-          if (groupExit === 0 && groupStdout.trim()) {
-            const lines = groupStdout.split('\n')
-            // Detect tab-separated format: "GroupName\tCFName1,CFName2"
-            const hasTabLines = lines.some(l => l.includes('\t') && !l.includes('│'))
-            if (hasTabLines) {
-              for (const line of lines) {
-                const trimmed = line.trim()
-                if (!trimmed) continue
-                const parts = trimmed.split('\t')
-                const groupName = parts[0]?.trim()
-                const cfNames = (parts[1] ?? '').split(',').map(s => s.trim()).filter(Boolean)
-                if (groupName && cfNames.length > 0) parsedGroups.push({ name: groupName, cfNames })
-              }
-            } else {
-              // Table format with box-drawing chars: strip borders and parse columns
-              for (const line of lines) {
-                const clean = line.replace(/[│┌└─┐┘├┤╞╡]/g, '').trim()
-                if (!clean || /^(Group|Name|CF Name)/i.test(clean)) continue
-                const parts = clean.split(/\s{2,}/)
-                if (parts.length >= 2) {
-                  const groupName = parts[0]?.trim()
-                  const cfPart = parts[1]?.trim()
-                  if (groupName && cfPart) {
-                    const cfNames = cfPart.split(/,\s*/).map(s => s.trim()).filter(Boolean)
-                    if (cfNames.length > 0) parsedGroups.push({ name: groupName, cfNames })
+          if (rawResult.exitCode === 0 && rawResult.stdout.trim()) {
+            const lines = rawResult.stdout.split('\n').filter(l => l.trim())
+            const groupMap = new Map<string, { name: string; cfNames: string[] }>()
+            let i = 0
+            while (i < lines.length) {
+              const groupParts = lines[i]!.split('\t')
+              const cfParts = lines[i + 1]?.split('\t')
+              if (groupParts.length >= 2 && cfParts && cfParts.length >= 2) {
+                const groupId = groupParts[0]!.trim()
+                const groupName = groupParts[1]!.trim()
+                const cfName = cfParts[1]!.trim()
+                if (groupId && groupName && cfName) {
+                  if (!groupMap.has(groupId)) {
+                    groupMap.set(groupId, { name: groupName, cfNames: [] })
                   }
+                  groupMap.get(groupId)!.cfNames.push(cfName)
                 }
+                i += 2
+              } else {
+                i++
               }
             }
-            // If still no groups parsed, try JSON output format
-            if (parsedGroups.length === 0) {
-              try {
-                const jsonResult = await dockerExecInContainer(
-                  containerName,
-                  ['recyclarr', 'list', 'custom-format-groups', service, '--output', 'json', '--config', '/config/recyclarr.yml'],
-                  15_000
-                )
-                if (jsonResult.exitCode === 0 && jsonResult.stdout.trim()) {
-                  const jsonData = JSON.parse(jsonResult.stdout) as unknown
-                  if (Array.isArray(jsonData)) {
-                    for (const entry of jsonData as Array<Record<string, unknown>>) {
-                      const name = typeof entry['name'] === 'string' ? entry['name'] : undefined
-                      const cfs = entry['custom_formats'] ?? entry['cfNames'] ?? entry['cfs']
-                      if (name && Array.isArray(cfs)) {
-                        const cfNames = (cfs as unknown[]).filter((c): c is string => typeof c === 'string')
-                        if (cfNames.length > 0) parsedGroups.push({ name, cfNames })
-                      }
-                    }
-                  }
-                }
-              } catch (_e) {
-                // JSON output not supported by this Recyclarr version — ignore
-              }
+            if (groupMap.size > 0) {
+              const allGroups = Array.from(groupMap.values())
+              cfGroupsCache.set(groupCacheKey, { groups: allGroups, fetchedAt: Date.now() })
+              parsedGroups = allGroups.filter(g =>
+                g.cfNames.some(n => profileCfNamesLower.has(n.toLowerCase()))
+              )
             }
-            if (parsedGroups.length > 0) {
-              cfGroupsCache.set(groupCacheKey, { groups: parsedGroups, fetchedAt: Date.now() })
-            }
-          }
-
-          if (parsedGroups.length === 0 && groupExit !== 0) {
-            app.log.warn({ exitCode: groupExit, service }, 'recyclarr list custom-format-groups exited non-zero')
+          } else if (rawResult.exitCode !== 0) {
+            app.log.warn({ exitCode: rawResult.exitCode, service }, 'recyclarr list custom-format-groups exited non-zero')
             if (!warning) { warning = true; warningMessage = 'CF-Gruppen konnten nicht geladen werden' }
           }
         } catch (e) {

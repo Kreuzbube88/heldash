@@ -80,6 +80,7 @@ function parseMuxedFrame(buf: Buffer): { consumed: number; stream: 'stdout' | 's
 // ── Docker Events stream ──────────────────────────────────────────────────────
 // Persistent stream to Docker Events API — no polling overhead.
 const containerNames = new Map<string, string>()  // id → name
+const pendingStops = new Map<string, ReturnType<typeof setTimeout>>()  // id → timer
 
 export function initDockerPoller(): void {
   console.log('[Docker Events] Starting event stream listener')
@@ -142,10 +143,24 @@ export function initDockerPoller(): void {
             if (attrs.name) containerNames.set(id, attrs.name)
 
             if (status === 'stop') {
-              logActivity('docker', `Container '${name}' gestoppt`, 'warning', { containerId: id })
+              // Delay logging — cancel if restart follows within 3s
+              const timer = setTimeout(() => {
+                pendingStops.delete(id)
+                logActivity('docker', `Container '${name}' gestoppt`, 'warning', { containerId: id })
+              }, 3_000)
+              pendingStops.set(id, timer)
             } else if (status === 'start') {
-              logActivity('docker', `Container '${name}' gestartet`, 'info', { containerId: id })
+              // Only log standalone starts (no pending stop = not part of a restart)
+              if (!pendingStops.has(id)) {
+                logActivity('docker', `Container '${name}' gestartet`, 'info', { containerId: id })
+              }
             } else if (status === 'restart') {
+              // Cancel pending stop log — this was a restart, not a stop
+              const timer = pendingStops.get(id)
+              if (timer) {
+                clearTimeout(timer)
+                pendingStops.delete(id)
+              }
               logActivity('docker', `Container '${name}' neugestartet`, 'info', { containerId: id })
             }
 

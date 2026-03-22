@@ -79,8 +79,12 @@ interface AppState {
   setGroupBackground: (groupId: string, backgroundId: string | null) => Promise<void>
 }
 
-function parseService<T extends { tags: string | string[] }>(s: T): T {
-  return { ...s, tags: typeof s.tags === 'string' ? JSON.parse(s.tags) : s.tags }
+function parseService<T extends { tags: string | string[], check_enabled: number | boolean }>(s: T): T {
+  return {
+    ...s,
+    tags: typeof s.tags === 'string' ? JSON.parse(s.tags) : s.tags,
+    check_enabled: Boolean(s.check_enabled),
+  }
 }
 
 let healthCheckInterval: ReturnType<typeof setInterval> | null = null

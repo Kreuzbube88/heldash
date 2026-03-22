@@ -40,6 +40,13 @@ interface ServiceRow {
   updated_at: string
 }
 
+function mapServiceRow(row: ServiceRow): ServiceRow {
+  return {
+    ...row,
+    last_status: row.check_enabled === 1 && row.last_status === null ? 'unknown' : row.last_status,
+  }
+}
+
 // ── Request body types ───────────────────────────────────────────────────────
 interface CreateServiceBody {
   name: string
@@ -113,16 +120,16 @@ export async function servicesRoutes(app: FastifyInstance) {
 
     // Admin group sees everything
     if (groupId === 'grp_admin') {
-      return db.prepare('SELECT * FROM services ORDER BY position_y, position_x').all()
+      return (db.prepare('SELECT * FROM services ORDER BY position_y, position_x').all() as ServiceRow[]).map(mapServiceRow)
     }
 
     // All other groups: LEFT JOIN filters hidden services in SQL (avoids loading all rows into memory)
-    return db.prepare(`
+    return (db.prepare(`
       SELECT s.* FROM services s
       LEFT JOIN group_service_visibility g ON s.id = g.service_id AND g.group_id = ?
       WHERE g.service_id IS NULL
       ORDER BY s.position_y, s.position_x
-    `).all(groupId)
+    `).all(groupId) as ServiceRow[]).map(mapServiceRow)
   })
 
   // GET /api/services/:id
@@ -148,7 +155,7 @@ export async function servicesRoutes(app: FastifyInstance) {
       if (hidden) return reply.status(404).send({ error: 'Not found' })
     }
 
-    return row
+    return mapServiceRow(row)
   })
 
   // POST /api/services
@@ -174,7 +181,7 @@ export async function servicesRoutes(app: FastifyInstance) {
     )
 
     app.log.info({ id, name }, 'Service created')
-    return reply.status(201).send(db.prepare('SELECT * FROM services WHERE id = ?').get(id))
+    return reply.status(201).send(mapServiceRow(db.prepare('SELECT * FROM services WHERE id = ?').get(id) as ServiceRow))
   })
 
   // PATCH /api/services/:id
@@ -209,7 +216,7 @@ export async function servicesRoutes(app: FastifyInstance) {
     values.push(req.params.id)
     db.prepare(`UPDATE services SET ${updates.join(', ')} WHERE id = ?`).run(...values)
 
-    return db.prepare('SELECT * FROM services WHERE id = ?').get(req.params.id)
+    return mapServiceRow(db.prepare('SELECT * FROM services WHERE id = ?').get(req.params.id) as ServiceRow)
   })
 
   // DELETE /api/services/:id

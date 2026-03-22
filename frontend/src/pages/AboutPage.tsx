@@ -341,10 +341,14 @@ function TabDocker() {
       <DocSection title="Funktionen">
         <ul style={{ margin: 0, paddingLeft: 20, lineHeight: 2, fontSize: 14, color: 'var(--text-secondary)' }}>
           <li>Container-Liste mit CPU/RAM-Auslastung</li>
+          <li>Echtzeit-Statusupdates via Docker Events stream — kein Polling</li>
           <li>Live-Log-Stream pro Container (stdout + stderr)</li>
           <li>Start / Stop / Restart (nur Admins)</li>
           <li>Docker Overview Widget für Dashboard/Topbar/Sidebar</li>
         </ul>
+        <div style={{ marginTop: 12 }}>
+          <span className="badge badge-neutral">ℹ️ Statuswechsel (start/stop/restart) werden automatisch im Aktivitäten-Feed erfasst</span>
+        </div>
       </DocSection>
 
       <DocSection title="Docker Overview Widget">
@@ -491,7 +495,8 @@ services:
 
       <DocSection title="Sync-Zeitplan">
         <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7, margin: '0 0 12px' }}>
-          Zeitplan-Tab: manuell, täglich, wöchentlich oder Cron-Ausdruck
+          Zeitplan-Tab: manuell, täglich, wöchentlich oder Cron-Ausdruck.
+          Der Zeitplan wird sofort nach dem Speichern aktiv — kein Neustart des Containers erforderlich.
         </p>
         <div>
           <span className="badge badge-warning">CRON_SCHEDULE im Recyclarr-Container = 0 0 1 1 0 (deaktiviert)</span>
@@ -503,11 +508,12 @@ services:
           CFs werden automatisch nach Gruppen gefiltert und gruppiert:
         </p>
         <ul style={{ margin: '0 0 16px', paddingLeft: 20, lineHeight: 2, fontSize: 14, color: 'var(--text-secondary)' }}>
-          <li>Nur Gruppen die zum konfigurierten Profil passen werden angezeigt</li>
+          <li>Nur Gruppen mit ≥50% Überschneidung zum konfigurierten Profil werden angezeigt</li>
           <li>Jede Gruppe ist ein-/ausklappbar</li>
           <li>Gruppen-Header zeigt: Name, CF-Anzahl, aktive Overrides, Sync-Toggle</li>
           <li>"Reset Group": alle Overrides dieser Gruppe zurücksetzen</li>
           <li>Suche filtert über alle Gruppen und klappt Treffer automatisch auf</li>
+          <li>Eigene CFs (CF-Manager) werden separat angezeigt und im Profil zugewiesen</li>
         </ul>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <span className="badge badge-neutral">CFs die keiner Gruppe angehören erscheinen unter "Nicht gruppiert"</span>

@@ -39,7 +39,7 @@ Personal homelab dashboard: service tiles, DnD layout, Media (Radarr/Sonarr/Prow
 - CF Manager: user-created CFs only; creates/updates/deletes in Arr AND JSON files; schema from GET /api/v3/customformat/schema (memory-cached 1h per instance); trash_id = "user-{slug}", generated once on create, never changes.
 - HA Areas: panels grouped by area_id; areas via WS config/area_registry/list; entity area auto-detected via config/entity_registry/get.
 - Activity Log: `activity_log` table (max 100 rows); logs HA state changes (light/switch/climate/cover/media_player/automation — rate-limited 1/entity/60s, never sensor/*), Docker container state transitions, service health transitions, Recyclarr sync results. Never logs api_key/token/password. Authenticated users only.
-- Service Health History: `service_health_history` table; persists every health check result; auto-cleanup > 7 days; aggregated by hour for uptime graph display.
+- Service Health History: `service_health_history` table; persists every health check result; auto-cleanup > 7 days; aggregated by hour for uptime graph display. Server-side scheduler writes `last_status` every 2 min; frontend reads every 30s.
 - Onboarding: one-time wizard on first admin login; skippable; re-openable from Settings.
 - `sanitize()` strips `api_key`, `password_hash`, `token`, widget passwords — never expose in API responses.
 
@@ -131,6 +131,13 @@ All colors via CSS variables. Theme switch: `data-theme` + `data-accent` on `<ht
 - **Recyclarr CF groups cache**: docker exec output cached 5min per instanceId in memory.
 - **Sync history**: stored in `recyclarr_sync_history` (max 10 rows) — SSE output not shown during sync, available via "Verlauf anzeigen" after completion.
 - **Health history cleanup**: DELETE on insert for entries > 7 days old for that service_id.
+- **Docker Events stream**: container state tracking uses `GET /v1.41/events?filters=...` SSE endpoint (not polling); `containerStates` Map populated silently on first list, transitions only logged to activity_log after that.
+- **Recyclarr scheduler hot-reload**: saving a schedule calls `restartRecyclarrScheduler()` — no restart needed; new cron takes effect immediately.
+- **recyclarr list --raw flag**: all `recyclarr list` commands use `--raw` (no `--config` flag exists). `--raw custom-formats` returns tab-separated `trash_id\tname[\tcategory]`; `--raw custom-format-groups` returns paired lines (group name line + CF line alternating).
+- **last_checked column**: column in `services` table is `last_checked` (NOT `last_checked_at`) — always use the correct name in SQL.
+- **Service health scheduler**: server writes `last_status` every 2 min server-side; frontend polls `/api/services` every 30s to read it — no client-side ping.
+- **CF groups 50% threshold**: profile-cfs route filters group relevance at ≥50% CF overlap; `allGroupCfNamesLower` Set used as fallback to include CFs that appear in any group.
+- **User CFs in profile-cfs**: user-created CFs are excluded from `cfs[]` array in the response — frontend receives them separately and merges for display.
 
 ## Deploy
 

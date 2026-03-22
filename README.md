@@ -52,7 +52,7 @@ Home Assistant und mehr — alles in einer Oberfläche.
 **Apps**
 - 📋 App-Liste gruppiert nach Kategorien
 - ➕ Hinzufügen, bearbeiten, löschen mit Icon (PNG/JPG/SVG oder Emoji)
-- 🔁 Automatische und manuelle Health-Checks per HTTP
+- 🔁 Automatische Health-Checks per HTTP — serverseitiger Scheduler (alle 2 min), Frontend liest alle 30s
 - 🏷️ Tags und Beschreibung pro App
 
 **Media**
@@ -75,12 +75,13 @@ Home Assistant und mehr — alles in einer Oberfläche.
 **Recyclarr**
 - 🔄 Recyclarr v8 GUI — recyclarr.yml automatisch generiert
 - ⚙️ Wizard für Ersteinrichtung, danach Verwaltung im Recyclarr-Tab
-- 📊 TRaSH CFs nach Custom Format Groups gruppiert und gefiltert (nur Profil-relevante)
+- 📊 TRaSH CFs nach Custom Format Groups gruppiert — nur Profil-relevante Gruppen (≥50% Überschneidung) angezeigt
+- 🔍 CF-Suche filtert über alle Gruppen, klappt Treffer automatisch auf
 - 🎚️ Score-Overrides pro CF pro Profil + Heatmap-Ansicht
 - 📊 Profil-Vergleich bei mehreren Profilen (Unterschiede hervorgehoben)
 - 👤 Eigene CFs aus CF-Manager pro Profil aktivieren mit eigenem Score
 - 🛡️ reset_unmatched_scores + except + except_patterns (Regex)
-- ⏰ Sync-Zeitplan: manuell, täglich, wöchentlich oder Cron
+- ⏰ Sync-Zeitplan: manuell, täglich, wöchentlich oder Cron — Zeitplan wird sofort aktiv (kein Neustart)
 - 🔍 Score-Change Detection bei manuellen Änderungen in Radarr/Sonarr
 - 📜 Sync-Verlauf der letzten 10 Syncs mit Output auf Anfrage
 - 💾 Automatisches Config-Backup vor jedem Sync (max 5 Backups)
@@ -99,6 +100,7 @@ Home Assistant und mehr — alles in einer Oberfläche.
 - 📋 Sortierbare Container-Tabelle
 - 📊 Übersichtsleiste — Total / Running / Stopped / Restarting
 - 📜 Live-Log-Streaming per SSE (stdout + stderr)
+- ⚡ Echtzeit-Statusupdates via Docker Events stream (kein Polling)
 - ▶️ Start / Stop / Restart (nur Admins)
 - 🔒 Docker-Seitenzugriff per Gruppe konfigurierbar
 
@@ -135,7 +137,7 @@ Home Assistant und mehr — alles in einer Oberfläche.
 - 📊 Uptime-Übersicht — dedizierter Tab mit allen Services, Sortierung, 7-Tage-Prozent
 
 **Dashboard & UX**
-- 📋 Aktivitäten-Feed — HA Events, Docker Status, Recyclarr Syncs, Service-Ausfälle
+- 📋 Aktivitäten-Feed — HA Events (state changes via WebSocket), Docker Container-Statuswechsel (via Events stream), Service-Ausfälle, Recyclarr Syncs
 - ➕ Quick-Actions in Topbar — kontextsensitiver Add-Button pro Seite
 - 🎓 Onboarding-Wizard — geführte Ersteinrichtung beim ersten Start
 - 👁️ Gast-Sichtbarkeits-Overlay — Admin sieht direkt welche Elemente für Gäste sichtbar sind

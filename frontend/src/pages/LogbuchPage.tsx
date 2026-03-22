@@ -151,12 +151,6 @@ function EreignisKalender({ days }: { days: CalendarDay[] }) {
   while (cells.length % 7 !== 0) cells.push({ date: '', day: null })
 
   const weekCount = cells.length / 7
-  // We want row=weekday (Mon–Sun), col=week
-  const grid: { date: string; day: CalendarDay | null }[][] = Array.from({ length: 7 }, () => [])
-  cells.forEach((cell, i) => {
-    const row = i % 7
-    grid[row].push(cell)
-  })
 
   const cellColor = (cell: { date: string; day: CalendarDay | null }) => {
     if (!cell.date || cell.date > today.toISOString().split('T')[0]) return 'transparent'
@@ -174,52 +168,63 @@ function EreignisKalender({ days }: { days: CalendarDay[] }) {
   }
 
   const DAY_LABELS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
+  const todayIso = today.toISOString().split('T')[0]
+  const rangeStartIso = new Date(today.getTime() - 83 * 86400000).toISOString().split('T')[0]
 
   return (
-    <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: '16px 20px' }}>
+    <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: '16px 20px', overflow: 'hidden' }}>
       <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 10, fontFamily: 'var(--font-display)' }}>
         Ereignis-Kalender — letzte 12 Wochen
       </div>
-      <div style={{ display: 'flex', gap: 6 }}>
-        {/* Day labels */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 3, paddingTop: 2 }}>
-          {DAY_LABELS.map(l => (
-            <div key={l} style={{ height: 12, fontSize: 10, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', lineHeight: 1 }}>{l}</div>
-          ))}
-        </div>
-        {/* Grid */}
-        <div style={{ display: 'flex', gap: 3, flexWrap: 'nowrap', overflowX: 'auto' }}>
-          {Array.from({ length: weekCount }, (_, col) => (
-            <div key={col} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-              {grid.map((row, rowIdx) => {
-                const cell = row[col]
-                if (!cell) return <div key={rowIdx} style={{ width: 12, height: 12 }} />
-                const todayIso = today.toISOString().split('T')[0]
-                const isInRange = cell.date && cell.date <= todayIso && cell.date >= new Date(today.getTime() - 83 * 86400000).toISOString().split('T')[0]
-                const tooltipText = !cell.date || !isInRange
-                  ? ''
-                  : cell.day
-                    ? `${fmtDate(cell.date)} — ${cell.day.count} Event${cell.day.count !== 1 ? 's' : ''}`
-                    : `${fmtDate(cell.date)} — Keine Events`
-                return (
-                  <div
-                    key={rowIdx}
-                    data-tooltip={tooltipText || undefined}
-                    style={{
-                      width: 12, height: 12, borderRadius: 2,
-                      background: cellColor(cell),
-                      cursor: 'default',
-                      transition: 'opacity 150ms',
-                      opacity: 0.85,
-                    }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '1' }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '0.85' }}
-                  />
-                )
-              })}
-            </div>
-          ))}
-        </div>
+      {/* Single CSS grid: column 0 = day labels (auto), columns 1..N = weeks (1fr each) */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: `auto repeat(${weekCount}, 1fr)`,
+        gridTemplateRows: 'repeat(7, auto)',
+        gridAutoFlow: 'column',
+        gap: 3,
+        width: '100%',
+      }}>
+        {/* Day labels — 7 items flow into column 0 */}
+        {DAY_LABELS.map(l => (
+          <div key={l} style={{
+            height: '100%',
+            fontSize: 10,
+            color: 'var(--text-muted)',
+            display: 'flex',
+            alignItems: 'center',
+            paddingRight: 4,
+            whiteSpace: 'nowrap',
+          }}>
+            {l}
+          </div>
+        ))}
+        {/* Data cells — flow column-by-column into columns 1..weekCount */}
+        {cells.map((cell, i) => {
+          const isInRange = cell.date && cell.date <= todayIso && cell.date >= rangeStartIso
+          const tooltipText = !cell.date || !isInRange
+            ? ''
+            : cell.day
+              ? `${fmtDate(cell.date)} — ${cell.day.count} Event${cell.day.count !== 1 ? 's' : ''}`
+              : `${fmtDate(cell.date)} — Keine Events`
+          return (
+            <div
+              key={i}
+              data-tooltip={tooltipText || undefined}
+              style={{
+                aspectRatio: '1',
+                minWidth: 0,
+                borderRadius: 2,
+                background: cellColor(cell),
+                cursor: 'default',
+                transition: 'opacity 150ms',
+                opacity: 0.85,
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '1' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '0.85' }}
+            />
+          )
+        })}
       </div>
       <div style={{ display: 'flex', gap: 12, marginTop: 10, fontSize: 10, color: 'var(--text-muted)', alignItems: 'center' }}>
         <span>Wenig</span>

@@ -5,6 +5,7 @@ import {
   GripVertical, Pencil, Trash2, Loader, ToggleLeft, ToggleRight,
   Thermometer, Droplets, Zap, Wind, Eye, Activity, Gauge,
   SkipBack, Play, Pause, SkipForward, ChevronUp, ChevronDown,
+  Lock, Unlock, Shield, X, Clock,
 } from 'lucide-react'
 import { useHaStore } from '../store/useHaStore'
 import type { HaPanel, HaEntityFull } from '../types'
@@ -77,11 +78,13 @@ interface ShellProps {
   entity: HaEntityFull | undefined
   onEdit: () => void
   onRemove: () => void
+  onShowHistory?: (entity: HaEntityFull) => void
+  isAdmin?: boolean
   dragHandleProps: { attributes: object; listeners: object | undefined }
   children: React.ReactNode
 }
 
-function PanelCardShell({ panel, entity, onEdit, onRemove, dragHandleProps, children }: ShellProps) {
+function PanelCardShell({ panel, entity, onEdit, onRemove, onShowHistory, isAdmin, dragHandleProps, children }: ShellProps) {
   const domain = getDomain(panel.entity_id)
   const label = panel.label || entity?.attributes.friendly_name || panel.entity_id
 
@@ -106,6 +109,11 @@ function PanelCardShell({ panel, entity, onEdit, onRemove, dragHandleProps, chil
           </div>
         </div>
         <div style={{ display: 'flex', gap: 4, flexShrink: 0, opacity: 0, transition: 'opacity var(--transition-fast)' }} className="card-actions">
+          {isAdmin && entity && onShowHistory && (
+            <button className="btn btn-ghost btn-icon" style={{ width: 22, height: 22 }} onClick={() => onShowHistory(entity)} data-tooltip="Verlauf">
+              <Clock size={11} />
+            </button>
+          )}
           <button className="btn btn-ghost btn-icon" style={{ width: 22, height: 22 }} onClick={onEdit} data-tooltip="Edit label">
             <Pencil size={11} />
           </button>
@@ -554,6 +562,214 @@ function ScriptSceneCard({ panel, entity, instanceId }: { panel: HaPanel; entity
   )
 }
 
+// ── PIN Modal ─────────────────────────────────────────────────────────────────
+
+interface PinModalProps {
+  title: string
+  onConfirm: (pin: string) => void
+  onClose: () => void
+}
+
+function PinModal({ title, onConfirm, onClose }: PinModalProps) {
+  const [pin, setPin] = useState('')
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [onClose])
+
+  const handleDigit = (d: string) => {
+    if (pin.length < 8) setPin(p => p + d)
+  }
+  const handleDelete = () => setPin(p => p.slice(0, -1))
+  const handleConfirm = () => {
+    if (pin.length === 0) return
+    onConfirm(pin)
+    setPin('')
+  }
+
+  return (
+    <div className="pin-modal-overlay" onClick={onClose}>
+      <div className="pin-modal" onClick={e => e.stopPropagation()}>
+        <div className="pin-modal-header">
+          <span>{title}</span>
+          <button className="btn btn-ghost btn-icon" onClick={onClose}><X size={16} /></button>
+        </div>
+        <div className="pin-dots">
+          {Array.from({ length: Math.max(4, pin.length) }).map((_, i) => (
+            <div key={i} className={`pin-dot${i < pin.length ? ' filled' : ''}`} />
+          ))}
+        </div>
+        <div className="pin-pad">
+          {['1','2','3','4','5','6','7','8','9','','0','⌫'].map((key, i) => (
+            <button
+              key={i}
+              className={`pin-key${key === '' ? ' pin-key-empty' : ''}`}
+              disabled={key === ''}
+              onClick={() => {
+                if (key === '⌫') handleDelete()
+                else if (key !== '') handleDigit(key)
+              }}
+            >{key}</button>
+          ))}
+        </div>
+        <button className="btn btn-primary pin-confirm" onClick={handleConfirm} disabled={pin.length === 0}>
+          Bestätigen
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ── Lock card ─────────────────────────────────────────────────────────────────
+
+interface LockCardProps {
+  entity: HaEntityFull
+  panel: HaPanel
+  instanceId: string
+  onCall: (domain: string, service: string, entityId: string, serviceData?: Record<string, unknown>) => Promise<void>
+}
+
+function LockCard({ entity, panel, onCall }: LockCardProps) {
+  const [showPin, setShowPin] = useState(false)
+  const [pendingAction, setPendingAction] = useState<'lock' | 'unlock' | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  const isLocked = entity.state === 'locked'
+  const isUnlocked = entity.state === 'unlocked'
+
+  const handleToggle = () => {
+    setPendingAction(isLocked ? 'unlock' : 'lock')
+    setShowPin(true)
+  }
+
+  const handlePinConfirm = async (pin: string) => {
+    setShowPin(false)
+    if (!pendingAction) return
+    setBusy(true)
+    try {
+      await onCall('lock', pendingAction, panel.entity_id, { code: pin })
+    } finally {
+      setBusy(false)
+      setPendingAction(null)
+    }
+  }
+
+  const stateLabel = isLocked ? 'Gesperrt' : isUnlocked ? 'Entsperrt' : 'Unbekannt'
+  const stateColor = isLocked ? 'var(--status-offline)' : isUnlocked ? 'var(--status-online)' : 'var(--text-muted)'
+
+  return (
+    <div className="lock-card">
+      <div className="lock-icon" style={{ color: stateColor }}>
+        {isLocked ? <Lock size={48} /> : <Unlock size={48} />}
+      </div>
+      <div className="lock-state-badge" style={{ color: stateColor }}>{stateLabel}</div>
+      <button className="btn btn-primary" onClick={handleToggle} disabled={busy}>
+        {busy ? <Loader size={14} className="spin" /> : (isLocked ? 'Entsperren' : 'Sperren')}
+      </button>
+      {showPin && (
+        <PinModal
+          title={`Schloss ${(entity.attributes.friendly_name as string | undefined) ?? entity.entity_id} ${pendingAction === 'unlock' ? 'entsperren' : 'sperren'}`}
+          onConfirm={handlePinConfirm}
+          onClose={() => { setShowPin(false); setPendingAction(null) }}
+        />
+      )}
+    </div>
+  )
+}
+
+// ── Alarm card ─────────────────────────────────────────────────────────────────
+
+type AlarmState = 'disarmed' | 'armed_home' | 'armed_away' | 'armed_night' | 'armed_vacation' | 'pending' | 'triggered' | 'arming' | string
+
+interface AlarmCardProps {
+  entity: HaEntityFull
+  panel: HaPanel
+  instanceId: string
+  onCall: (domain: string, service: string, entityId: string, serviceData?: Record<string, unknown>) => Promise<void>
+}
+
+function AlarmCard({ entity, panel, onCall }: AlarmCardProps) {
+  const [showPin, setShowPin] = useState(false)
+  const [pendingService, setPendingService] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  const state = entity.state as AlarmState
+
+  const stateLabel: Record<string, string> = {
+    disarmed: 'Deaktiviert',
+    armed_home: 'Scharf (Zuhause)',
+    armed_away: 'Scharf (Abwesend)',
+    armed_night: 'Scharf (Nacht)',
+    armed_vacation: 'Scharf (Urlaub)',
+    pending: 'Ausstehend',
+    triggered: 'AUSGELÖST',
+    arming: 'Wird scharf...',
+  }
+
+  const stateColorMap: Record<string, string> = {
+    disarmed: 'var(--status-online)',
+    armed_home: 'var(--color-warning, #f59e0b)',
+    armed_away: 'var(--status-offline)',
+    armed_night: 'var(--color-warning, #f59e0b)',
+    armed_vacation: 'var(--status-offline)',
+    pending: 'var(--color-warning, #f59e0b)',
+    triggered: 'var(--status-offline)',
+    arming: 'var(--color-warning, #f59e0b)',
+  }
+
+  const color = stateColorMap[state] ?? 'var(--text-muted)'
+  const label = stateLabel[state] ?? state
+
+  const triggerAction = (service: string) => {
+    setPendingService(service)
+    setShowPin(true)
+  }
+
+  const handlePinConfirm = async (pin: string) => {
+    setShowPin(false)
+    if (!pendingService) return
+    setBusy(true)
+    try {
+      await onCall('alarm_control_panel', pendingService, panel.entity_id, { code: pin })
+    } finally {
+      setBusy(false)
+      setPendingService(null)
+    }
+  }
+
+  return (
+    <div className="alarm-card">
+      <div className="alarm-state-icon" style={{ color }}>
+        <Shield size={48} className={state === 'triggered' || state === 'pending' ? 'pulse' : ''} />
+      </div>
+      <div className="alarm-state-label" style={{ color }}>{label}</div>
+      <div className="alarm-actions">
+        {state === 'disarmed' && (
+          <>
+            <button className="btn btn-sm" onClick={() => triggerAction('alarm_arm_home')} disabled={busy}>Zuhause</button>
+            <button className="btn btn-sm" onClick={() => triggerAction('alarm_arm_away')} disabled={busy}>Abwesend</button>
+            <button className="btn btn-sm" onClick={() => triggerAction('alarm_arm_night')} disabled={busy}>Nacht</button>
+          </>
+        )}
+        {(state.startsWith('armed_') || state === 'triggered') && (
+          <button className="btn btn-primary" onClick={() => triggerAction('alarm_disarm')} disabled={busy}>Deaktivieren</button>
+        )}
+      </div>
+      {showPin && (
+        <PinModal
+          title={`Alarm ${pendingService === 'alarm_disarm' ? 'deaktivieren' : 'scharf stellen'}`}
+          onConfirm={handlePinConfirm}
+          onClose={() => { setShowPin(false); setPendingService(null) }}
+        />
+      )}
+    </div>
+  )
+}
+
 // ── Generic card (switch / input_boolean / automation / fan / lock / fallback) ─
 
 const TOGGLE_DOMAINS = new Set(['switch', 'input_boolean', 'automation', 'fan', 'light', 'media_player'])
@@ -612,9 +828,11 @@ export interface HaPanelCardProps {
   instanceId: string
   onEdit: () => void
   onRemove: () => void
+  onShowHistory?: (entity: HaEntityFull) => void
+  isAdmin?: boolean
 }
 
-export function HaPanelCard({ panel, entity, instanceId, onEdit, onRemove }: HaPanelCardProps) {
+export function HaPanelCard({ panel, entity, instanceId, onEdit, onRemove, onShowHistory, isAdmin }: HaPanelCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: panel.id })
 
   const style: React.CSSProperties = {
@@ -624,6 +842,12 @@ export function HaPanelCard({ panel, entity, instanceId, onEdit, onRemove }: HaP
   }
 
   const domain = getDomain(panel.entity_id)
+
+  const { callService } = useHaStore()
+
+  const handleCall = async (domain: string, service: string, entityId: string, serviceData?: Record<string, unknown>) => {
+    await callService(instanceId, domain, service, entityId, serviceData)
+  }
 
   const renderContent = () => {
     if (!entity) {
@@ -644,6 +868,10 @@ export function HaPanelCard({ panel, entity, instanceId, onEdit, onRemove }: HaP
       case 'script':
       case 'scene':
         return <ScriptSceneCard panel={panel} entity={entity} instanceId={instanceId} />
+      case 'lock':
+        return <LockCard entity={entity} panel={panel} instanceId={instanceId} onCall={handleCall} />
+      case 'alarm_control_panel':
+        return <AlarmCard entity={entity} panel={panel} instanceId={instanceId} onCall={handleCall} />
       default:
         return <GenericCard panel={panel} entity={entity} instanceId={instanceId} />
     }
@@ -656,6 +884,8 @@ export function HaPanelCard({ panel, entity, instanceId, onEdit, onRemove }: HaP
         entity={entity}
         onEdit={onEdit}
         onRemove={onRemove}
+        onShowHistory={onShowHistory}
+        isAdmin={isAdmin}
         dragHandleProps={{ attributes, listeners }}
       >
         {renderContent()}

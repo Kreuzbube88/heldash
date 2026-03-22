@@ -1,4 +1,4 @@
-import type { Service, Group, Settings, AuthUser, UserRecord, UserGroup, DashboardItem, DashboardGroup, DashboardResponse, Widget, WidgetStats, DockerContainer, ContainerStats, Background, HaInstance, HaPanel, HaEntityFull, HaArea, EnergyData, CalendarEntry, HaFloorplan, HaFloorplanEntity } from './types'
+import type { Service, Group, Settings, AuthUser, UserRecord, UserGroup, DashboardItem, DashboardGroup, DashboardResponse, Widget, WidgetStats, DockerContainer, ContainerStats, Background, HaInstance, HaPanel, HaEntityFull, HaArea, EnergyData, CalendarEntry, HaFloorplan, HaFloorplanEntity, HaAlert, HaHistoryEntry } from './types'
 import type { SyncHistoryEntry, BackupEntry } from './types/recyclarr'
 import type { ArrInstance, ArrStatus, ArrStats, ArrQueueResponse, ArrCalendarItem, ProwlarrIndexer, SabnzbdQueueData, SabnzbdHistoryData, SeerrRequest, SeerrRequestsResponse, RadarrMovie, SonarrSeries, ArrCustomFormat, ArrCFSpecification, ArrQualityProfile } from './types/arr'
 import type { TmdbPage, TmdbGenre, TmdbProvider, TmdbTvDetail, TmdbDiscoverFilters } from './types/tmdb'
@@ -290,6 +290,18 @@ export const api = {
       delete: (id: string) => req<void>(`/ha/panels/${id}`, { method: 'DELETE' }),
       reorder: (ids: string[]) => req<{ ok: boolean }>('/ha/panels/reorder', { method: 'PATCH', body: JSON.stringify({ ids }) }),
     },
+    alerts: {
+      list: () => req<HaAlert[]>('/ha/alerts'),
+      create: (data: { instance_id: string; entity_id: string; condition_type: string; condition_value?: string | null; message: string }) =>
+        req<HaAlert>('/ha/alerts', { method: 'POST', body: JSON.stringify(data) }),
+      update: (id: string, data: { condition_type?: string; condition_value?: string | null; message?: string; enabled?: boolean }) =>
+        req<HaAlert>(`/ha/alerts/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+      delete: (id: string) => req<void>(`/ha/alerts/${id}`, { method: 'DELETE' }),
+    },
+    history: (instanceId: string, entityId: string, hours: number) =>
+      req<HaHistoryEntry[]>(`/ha/instances/${instanceId}/history?entity_id=${encodeURIComponent(entityId)}&hours=${hours}`),
+    scenes: (instanceId: string) =>
+      req<HaEntityFull[]>(`/ha/instances/${instanceId}/scenes`),
     floorplans: {
       list: () => req<HaFloorplan[]>('/ha/floorplans'),
       create: (data: { name: string; type?: string; level?: number; icon?: string; orientation?: string }) =>

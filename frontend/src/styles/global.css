@@ -1781,6 +1781,189 @@ select.form-input option {
   }
 }
 
+/* ─── PIN Modal ───────────────────────────────────────────────────────────── */
+.pin-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9000;
+}
+
+.pin-modal {
+  background: var(--bg-secondary);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  padding: var(--spacing-2xl);
+  width: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+  animation: slide-up var(--transition-base);
+}
+
+.pin-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.pin-dots {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  padding: var(--spacing-sm) 0;
+}
+
+.pin-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--glass-border);
+  background: transparent;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.pin-dot.filled {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+@keyframes pin-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-6px); }
+  80% { transform: translateX(6px); }
+}
+
+.pin-shake {
+  animation: pin-shake 0.4s ease;
+}
+
+.pin-pad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--spacing-sm);
+}
+
+.pin-key {
+  background: var(--surface-2);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: var(--spacing-md) 0;
+  transition: background var(--transition-fast), transform var(--transition-fast);
+}
+
+.pin-key:hover:not(:disabled) {
+  background: var(--surface-3);
+  transform: scale(1.05);
+}
+
+.pin-key:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.pin-key-empty {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.pin-confirm {
+  width: 100%;
+  justify-content: center;
+}
+
+/* ─── Lock card ───────────────────────────────────────────────────────────── */
+.lock-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md) 0;
+}
+
+.lock-icon {
+  transition: color var(--transition-base);
+}
+
+.lock-state-badge {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+/* ─── Alarm card ──────────────────────────────────────────────────────────── */
+.alarm-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md) 0;
+}
+
+.alarm-state-icon {
+  transition: color var(--transition-base);
+}
+
+.alarm-state-label {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-align: center;
+}
+
+.alarm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+  justify-content: center;
+}
+
+/* ─── HA Alerts panel ─────────────────────────────────────────────────────── */
+.ha-alerts-panel {
+  position: fixed;
+  top: 60px;
+  right: 0;
+  width: 340px;
+  max-height: calc(100vh - 80px);
+  overflow-y: auto;
+  padding: var(--spacing-2xl);
+  border-radius: var(--radius-xl) 0 0 var(--radius-xl);
+  z-index: 500;
+  border: 1px solid var(--glass-border);
+  border-right: none;
+  animation: slide-in-right var(--transition-base);
+}
+
+@keyframes slide-in-right {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@media (max-width: 600px) {
+  .ha-alerts-panel {
+    width: 100vw;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    top: auto;
+    bottom: 0;
+    max-height: 70vh;
+    border-right: 1px solid var(--glass-border);
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  }
+}
+
 /* ─── Badge warning ───────────────────────────────────────────────────────── */
 .badge-warning {
   display: inline-flex;

@@ -44,9 +44,10 @@ interface MarkerProps {
   onSelect: (id: string) => void
   onDragStart: (id: string, e: React.MouseEvent | React.TouchEvent) => void
   onClick: (id: string, rect: DOMRect) => void
+  onContextMenu?: (id: string, x: number, y: number) => void
 }
 
-function EntityMarker({ placed, entity, editMode, isSelected, zoom, onSelect, onDragStart, onClick }: MarkerProps) {
+function EntityMarker({ placed, entity, editMode, isSelected, zoom, onSelect, onDragStart, onClick, onContextMenu }: MarkerProps) {
   const markerRef = useRef<HTMLDivElement>(null)
   const domain = getDomain(placed.entity_id)
   const state = entity?.state ?? 'unavailable'
@@ -188,6 +189,11 @@ function EntityMarker({ placed, entity, editMode, isSelected, zoom, onSelect, on
       onMouseDown={handleMouseDown}
       onTouchStart={handleTouchStart}
       onClick={handleClick}
+      onContextMenu={e => {
+        e.preventDefault()
+        e.stopPropagation()
+        if (onContextMenu) onContextMenu(placed.id, e.clientX, e.clientY)
+      }}
     >
       {/* Tap target */}
       <div style={{
@@ -449,6 +455,7 @@ interface HaFloorplanCanvasProps {
   onPlace: (posX: number, posY: number) => void
   onMove: (entityId: string, newX: number, newY: number) => Promise<void>
   instances: HaInstance[]
+  onShowHistory?: (entity: HaEntityFull, instanceId: string) => void
 }
 
 export function HaFloorplanCanvas({
@@ -463,6 +470,7 @@ export function HaFloorplanCanvas({
   onPlace,
   onMove,
   instances,
+  onShowHistory,
 }: HaFloorplanCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const innerRef = useRef<HTMLDivElement>(null)
@@ -473,6 +481,7 @@ export function HaFloorplanCanvas({
   const panningRef = useRef<{ startX: number; startY: number; startPanX: number; startPanY: number } | null>(null)
   const pinchRef = useRef<{ dist: number; startZoom: number } | null>(null)
   const [popover, setPopover] = useState<{ placedId: string; rect: DOMRect } | null>(null)
+  const [contextMenu, setContextMenu] = useState<{ placedId: string; x: number; y: number } | null>(null)
   // Local drag position override — avoids calling onMove on every mousemove
   const [localDragPos, setLocalDragPos] = useState<Record<string, { posX: number; posY: number }>>({})
   const localDragPosRef = useRef<Record<string, { posX: number; posY: number }>>({})
@@ -530,6 +539,7 @@ export function HaFloorplanCanvas({
   const handleCanvasClick = useCallback((e: React.MouseEvent) => {
     if (draggingRef.current) return
     if (panningRef.current) return
+    setContextMenu(null)
     if (placingEntity && editMode) {
       const { posX, posY } = getCanvasPos(e.clientX, e.clientY)
       const snapped = snapToGrid ? {
@@ -695,7 +705,13 @@ export function HaFloorplanCanvas({
   }, [editMode, placedEntities])
 
   const handleMarkerClick = useCallback((placedId: string, rect: DOMRect) => {
+    setContextMenu(null)
     setPopover({ placedId, rect })
+  }, [])
+
+  const handleMarkerContextMenu = useCallback((placedId: string, x: number, y: number) => {
+    setPopover(null)
+    setContextMenu({ placedId, x, y })
   }, [])
 
   const cursor = placingEntity ? 'crosshair' : panningRef.current ? 'grabbing' : 'grab'
@@ -782,6 +798,7 @@ export function HaFloorplanCanvas({
                 onSelect={onSelectMarker}
                 onDragStart={handleMarkerDragStart}
                 onClick={handleMarkerClick}
+                onContextMenu={handleMarkerContextMenu}
               />
             )
           })}
@@ -855,6 +872,44 @@ export function HaFloorplanCanvas({
             instanceId={firstInstance.id}
             onClose={() => setPopover(null)}
           />
+        )
+      })()}
+
+      {/* Right-click context menu */}
+      {contextMenu && firstInstance && (() => {
+        const placed = placedEntities.find(p => p.id === contextMenu.placedId)
+        if (!placed) return null
+        const entity = entityStates[placed.entity_id]
+        if (!entity || !onShowHistory) return null
+        return (
+          <div
+            style={{
+              position: 'fixed',
+              top: contextMenu.y,
+              left: contextMenu.x,
+              zIndex: 9999,
+              background: 'var(--bg-secondary)',
+              border: '1px solid var(--glass-border)',
+              borderRadius: 'var(--radius-md)',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+              minWidth: 160,
+              overflow: 'hidden',
+            }}
+          >
+            <button
+              style={{
+                display: 'block', width: '100%', textAlign: 'left',
+                background: 'none', border: 'none', cursor: 'pointer',
+                padding: '8px 14px', fontSize: 13, color: 'var(--text-primary)',
+              }}
+              onClick={() => {
+                setContextMenu(null)
+                onShowHistory(entity, firstInstance.id)
+              }}
+            >
+              Verlauf anzeigen
+            </button>
+          </div>
         )
       })()}
     </div>

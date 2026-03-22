@@ -1,5 +1,7 @@
 import { WebSocket } from 'undici'
 import { logActivity } from '../routes/activity'
+import { getDb } from '../db/database'
+import { emitAlert } from '../routes/ha-alerts'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -197,6 +199,7 @@ export class HaWsClient {
         if (entityId && newState) {
           for (const fn of this.listeners) fn(entityId, newState)
           this.maybeLogHaActivity(entityId, newState, oldState ?? null)
+          this.checkAlerts(entityId, newState)
         }
         break
       }
@@ -219,6 +222,63 @@ export class HaWsClient {
     const friendly = (newState.attributes.friendly_name as string | undefined) ?? entityId
     const message = `${friendly} — ${oldState.state} → ${newState.state}`
     logActivity('ha', message, 'info', { instanceId: this.instanceId, entityId, domain })
+  }
+
+  private checkAlerts(entityId: string, newState: HaEntityState): void {
+    try {
+      const db = getDb()
+      interface AlertRow {
+        id: string
+        condition_type: string
+        condition_value: string | null
+        message: string
+        last_triggered_at: string | null
+      }
+      const alerts = db.prepare(
+        'SELECT id, condition_type, condition_value, message, last_triggered_at FROM ha_alerts WHERE entity_id = ? AND enabled = 1'
+      ).all(entityId) as AlertRow[]
+
+      const nowMs = Date.now()
+      for (const alert of alerts) {
+        let conditionMet = false
+        if (alert.condition_type === 'state_changes') {
+          conditionMet = true
+        } else if (alert.condition_type === 'state_equals') {
+          conditionMet = newState.state === alert.condition_value
+        } else if (alert.condition_type === 'state_above') {
+          const threshold = parseFloat(alert.condition_value ?? '')
+          const val = parseFloat(newState.state)
+          conditionMet = !isNaN(threshold) && !isNaN(val) && val > threshold
+        } else if (alert.condition_type === 'state_below') {
+          const threshold = parseFloat(alert.condition_value ?? '')
+          const val = parseFloat(newState.state)
+          conditionMet = !isNaN(threshold) && !isNaN(val) && val < threshold
+        }
+
+        if (!conditionMet) continue
+
+        // Rate limit: min 60s between triggers for same alert
+        if (alert.last_triggered_at) {
+          const lastMs = new Date(alert.last_triggered_at + 'Z').getTime()
+          if (nowMs - lastMs < 60_000) continue
+        }
+
+        // Update last_triggered_at
+        db.prepare("UPDATE ha_alerts SET last_triggered_at = datetime('now') WHERE id = ?").run(alert.id)
+
+        // Emit SSE event
+        const friendly = (newState.attributes.friendly_name as string | undefined) ?? entityId
+        emitAlert({
+          type: 'ha_alert',
+          alertId: alert.id,
+          entityId,
+          entityName: friendly,
+          message: alert.message,
+          entityState: newState.state,
+          triggeredAt: new Date().toISOString(),
+        })
+      }
+    } catch { /* don't crash WS client on alert errors */ }
   }
 
   private scheduleReconnect(): void {

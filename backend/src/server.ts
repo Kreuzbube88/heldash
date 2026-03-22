@@ -19,6 +19,7 @@ import { widgetsRoutes } from './routes/widgets'
 import { dockerRoutes, initDockerPoller } from './routes/docker'
 import { backgroundsRoutes } from './routes/backgrounds'
 import { haRoutes } from './routes/ha'
+import { haAlertRoutes } from './routes/ha-alerts'
 import { haFloorplanRoutes } from './routes/ha-floorplan'
 import { tmdbRoutes } from './routes/tmdb'
 import recyclarrRoutes, { initRecyclarrSchedulers } from './routes/recyclarr'
@@ -253,6 +254,7 @@ async function start() {
   await app.register(backgroundsRoutes)
   await app.register(settingsRoutes)
   await app.register(haRoutes)
+  await app.register(haAlertRoutes)
   await app.register(haFloorplanRoutes)
   await app.register(tmdbRoutes)
   await app.register(recyclarrRoutes)

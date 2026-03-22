@@ -8,7 +8,7 @@ import {
 } from '@dnd-kit/sortable'
 import {
   Plus, Trash2, Pencil, X, Check, Loader, TestTube2,
-  Search, ChevronDown, ChevronRight, Home, Sun, Zap, ZapOff, Flame, BatteryCharging, Settings,
+  Search, ChevronDown, ChevronRight, Home, Sun, Zap, ZapOff, Flame, BatteryCharging, Settings, Bell, Play,
 } from 'lucide-react'
 
 import { useHaStore } from '../store/useHaStore'
@@ -17,6 +17,8 @@ import { api } from '../api'
 import type { HaEntityFull, HaPanel, HaInstance, HaArea } from '../types'
 import { HaPanelCard } from './HaPanelCard'
 import { HaFloorplan } from '../components/HaFloorplan'
+import { HaAlertsManager } from '../components/HaAlertsManager'
+import { HaEntityHistory } from '../components/HaEntityHistory'
 import { LS_HA_VIEW_MODE } from '../constants'
 
 // ── Domain helpers ────────────────────────────────────────────────────────────
@@ -50,9 +52,9 @@ function formatState(entity: HaEntityFull): string {
 
 // ── Domain filter tab helpers ──────────────────────────────────────────────────
 
-type BrowserTab = 'All' | 'Lights' | 'Climate' | 'Media' | 'Covers' | 'Switches' | 'Sensors' | 'Scripts' | 'Scenes' | 'Other'
+type BrowserTab = 'All' | 'Lights' | 'Climate' | 'Media' | 'Covers' | 'Switches' | 'Sensors' | 'Scripts' | 'Scenes' | 'Locks' | 'Alarme' | 'Other'
 
-const BROWSER_TABS: BrowserTab[] = ['All', 'Lights', 'Climate', 'Media', 'Covers', 'Switches', 'Sensors', 'Scripts', 'Scenes', 'Other']
+const BROWSER_TABS: BrowserTab[] = ['All', 'Lights', 'Climate', 'Media', 'Covers', 'Switches', 'Sensors', 'Scripts', 'Scenes', 'Locks', 'Alarme', 'Other']
 
 function domainToTab(domain: string): BrowserTab {
   switch (domain) {
@@ -64,6 +66,8 @@ function domainToTab(domain: string): BrowserTab {
     case 'sensor': case 'binary_sensor': return 'Sensors'
     case 'script': return 'Scripts'
     case 'scene': return 'Scenes'
+    case 'lock': return 'Locks'
+    case 'alarm_control_panel': return 'Alarme'
     default: return 'Other'
   }
 }
@@ -912,9 +916,11 @@ interface RoomSectionProps {
   onRemove: (id: string) => void
   onEdit: (panel: HaPanel) => void
   onReorder: (ids: string[]) => void
+  onShowHistory?: (entity: HaEntityFull, instanceId: string) => void
+  isAdmin?: boolean
 }
 
-function RoomSection({ areaId, areaName, panels, stateMap, onRemove, onEdit, onReorder }: RoomSectionProps) {
+function RoomSection({ areaId, areaName, panels, stateMap, onRemove, onEdit, onReorder, onShowHistory, isAdmin }: RoomSectionProps) {
   const storageKey = `ha_room_${areaId ?? 'unassigned'}`
 
   const [collapsed, setCollapsed] = useState(() => {
@@ -992,6 +998,8 @@ function RoomSection({ areaId, areaName, panels, stateMap, onRemove, onEdit, onR
                     instanceId={panel.instance_id}
                     onRemove={() => onRemove(panel.id)}
                     onEdit={() => onEdit(panel)}
+                    onShowHistory={onShowHistory ? (e) => onShowHistory(e, panel.instance_id) : undefined}
+                    isAdmin={isAdmin}
                   />
                 )
               })}
@@ -1043,8 +1051,15 @@ export function HaPage({ showAddInstance, onAddInstanceClose, showAddPanel, onAd
   const [showEnergyPicker, setShowEnergyPicker] = useState(false)
   const [editPanel, setEditPanel] = useState<HaPanel | null>(null)
   const [showManageModal, setShowManageModal] = useState(false)
+  const [showAlerts, setShowAlerts] = useState(false)
+  const [historyEntity, setHistoryEntity] = useState<HaEntityFull | null>(null)
+  const [historyInstanceId, setHistoryInstanceId] = useState<string | null>(null)
   const [activeInstanceId, setActiveInstanceId] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'panels' | 'grundriss'>('panels')
+  const [activeTab, setActiveTab] = useState<'panels' | 'grundriss' | 'szenarien'>('panels')
+  const [scenes, setScenes] = useState<HaEntityFull[]>([])
+  const [scenesLoading, setScenesLoading] = useState(false)
+  const [scenesSearch, setScenesSearch] = useState('')
+  const [sceneBusy, setSceneBusy] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'flat' | 'grouped'>(() =>
     (localStorage.getItem(LS_HA_VIEW_MODE) as 'flat' | 'grouped' | null) ?? 'flat'
   )
@@ -1116,6 +1131,16 @@ export function HaPage({ showAddInstance, onAddInstanceClose, showAddPanel, onAd
 
     return () => sources.forEach(es => es.close())
   }, [instanceIdsKey])
+
+  // Load scenes when Szenarien tab is active
+  useEffect(() => {
+    if (activeTab !== 'szenarien' || !activeInstanceId) return
+    setScenesLoading(true)
+    api.ha.scenes(activeInstanceId)
+      .then(data => setScenes(data))
+      .catch(() => {})
+      .finally(() => setScenesLoading(false))
+  }, [activeTab, activeInstanceId])
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }))
 
@@ -1243,6 +1268,10 @@ export function HaPage({ showAddInstance, onAddInstanceClose, showAddPanel, onAd
                 <Plus size={15} />
                 Add Panel
               </button>
+              <button className="btn btn-ghost" onClick={() => setShowAlerts(prev => !prev)} style={{ gap: 6, position: 'relative' }}>
+                <Bell size={15} />
+                Alerts
+              </button>
             </>
           )}
           {isAdmin && (
@@ -1263,7 +1292,7 @@ export function HaPage({ showAddInstance, onAddInstanceClose, showAddPanel, onAd
       {/* Tab navigation */}
       {instances.length > 0 && (
         <div style={{ display: 'flex', gap: 0, marginBottom: 20, borderBottom: '1px solid var(--glass-border)' }}>
-          {(['panels', 'grundriss'] as const).map(tab => (
+          {(['panels', 'grundriss', 'szenarien'] as const).map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -1275,7 +1304,7 @@ export function HaPage({ showAddInstance, onAddInstanceClose, showAddPanel, onAd
                 marginBottom: -1, transition: 'all var(--transition-fast)',
               }}
             >
-              {tab === 'panels' ? 'Panels' : '🗺 Grundriss'}
+              {tab === 'panels' ? 'Panels' : tab === 'grundriss' ? '🗺 Grundriss' : '🎭 Szenarien'}
             </button>
           ))}
         </div>
@@ -1283,7 +1312,83 @@ export function HaPage({ showAddInstance, onAddInstanceClose, showAddPanel, onAd
 
       {/* Grundriss tab */}
       {instances.length > 0 && activeTab === 'grundriss' && (
-        <HaFloorplan instances={enabledInstances} entityStates={allEntityStates} />
+        <HaFloorplan
+          instances={enabledInstances}
+          entityStates={allEntityStates}
+          onShowHistory={(e, instId) => { setHistoryEntity(e); setHistoryInstanceId(instId) }}
+        />
+      )}
+
+      {/* Szenarien tab */}
+      {instances.length > 0 && activeTab === 'szenarien' && (
+        <div>
+          <div style={{ marginBottom: 16, position: 'relative', maxWidth: 360 }}>
+            <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+            <input
+              className="form-input"
+              style={{ paddingLeft: 34, fontSize: 13 }}
+              placeholder="Szenarien suchen…"
+              value={scenesSearch}
+              onChange={e => setScenesSearch(e.target.value)}
+            />
+          </div>
+          {scenesLoading ? (
+            <div style={{ textAlign: 'center', padding: 32 }}>
+              <div className="spinner" style={{ width: 20, height: 20, borderWidth: 2, margin: '0 auto' }} />
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
+              {scenes
+                .filter(s => !scenesSearch.trim() ||
+                  s.entity_id.toLowerCase().includes(scenesSearch.toLowerCase()) ||
+                  (s.attributes.friendly_name ?? '').toLowerCase().includes(scenesSearch.toLowerCase())
+                )
+                .map(scene => {
+                  const domain = scene.entity_id.split('.')[0] ?? ''
+                  const name = (scene.attributes.friendly_name as string | undefined) ?? scene.entity_id
+                  const isRunning = sceneBusy === scene.entity_id
+                  return (
+                    <div key={scene.entity_id} className="widget-card glass" style={{ padding: 16 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                        <span style={{
+                          fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px',
+                          padding: '1px 6px', borderRadius: 4,
+                          background: domain === 'scene' ? 'rgba(var(--accent-rgb),0.15)' : 'var(--surface-3)',
+                          color: domain === 'scene' ? 'var(--accent)' : 'var(--text-secondary)',
+                        }}>
+                          {domain === 'scene' ? 'Szene' : 'Script'}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {name}
+                      </div>
+                      <button
+                        className="btn btn-primary"
+                        style={{ width: '100%', justifyContent: 'center', gap: 6, fontSize: 12 }}
+                        disabled={isRunning}
+                        onClick={async () => {
+                          setSceneBusy(scene.entity_id)
+                          try {
+                            await api.ha.instances.call(activeInstanceId!, domain, 'turn_on', scene.entity_id)
+                          } catch { /* ignore */ } finally {
+                            setTimeout(() => setSceneBusy(null), 2000)
+                          }
+                        }}
+                      >
+                        {isRunning ? <Loader size={12} className="spin" /> : <Play size={12} />}
+                        {isRunning ? 'Ausgeführt!' : 'Ausführen'}
+                      </button>
+                    </div>
+                  )
+                })}
+              {scenes.length === 0 && !scenesLoading && (
+                <p style={{ color: 'var(--text-muted)', fontSize: 13, gridColumn: '1/-1' }}>
+                  Keine Szenarien oder Scripts gefunden.
+                </p>
+              )}
+            </div>
+          )}
+        </div>
       )}
 
       {/* Empty state */}
@@ -1348,6 +1453,8 @@ export function HaPage({ showAddInstance, onAddInstanceClose, showAddPanel, onAd
                     instanceId={panel.instance_id}
                     onRemove={() => removePanel(panel.id)}
                     onEdit={() => setEditPanel(panel)}
+                    onShowHistory={e => { setHistoryEntity(e); setHistoryInstanceId(panel.instance_id) }}
+                    isAdmin={isAdmin}
                   />
                 )
               })}
@@ -1382,6 +1489,8 @@ export function HaPage({ showAddInstance, onAddInstanceClose, showAddPanel, onAd
                 onRemove={id => removePanel(id)}
                 onEdit={panel => setEditPanel(panel)}
                 onReorder={ids => reorderRoomPanels(ids).catch(() => {})}
+                onShowHistory={(e, instId) => { setHistoryEntity(e); setHistoryInstanceId(instId) }}
+                isAdmin={isAdmin}
               />
             ))}
             {noRoomPanels.length > 0 && (
@@ -1394,11 +1503,22 @@ export function HaPage({ showAddInstance, onAddInstanceClose, showAddPanel, onAd
                 onRemove={id => removePanel(id)}
                 onEdit={panel => setEditPanel(panel)}
                 onReorder={ids => reorderRoomPanels(ids).catch(() => {})}
+                onShowHistory={(e, instId) => { setHistoryEntity(e); setHistoryInstanceId(instId) }}
+                isAdmin={isAdmin}
               />
             )}
           </div>
         )
       })()}
+
+      {/* Alerts slide-in panel */}
+      {showAlerts && (
+        <HaAlertsManager
+          onClose={() => setShowAlerts(false)}
+          stateMap={stateMap}
+          instanceId={activeInstanceId}
+        />
+      )}
 
       {/* Modals */}
       {showInstanceForm && (
@@ -1441,6 +1561,14 @@ export function HaPage({ showAddInstance, onAddInstanceClose, showAddPanel, onAd
           onAdd={() => { setShowManageModal(false); setEditInstance(null); setShowInstanceForm(true) }}
           onEdit={inst => { setShowManageModal(false); setEditInstance(inst); setShowInstanceForm(true) }}
           onDelete={id => deleteInstance(id)}
+        />
+      )}
+
+      {historyEntity && historyInstanceId && (
+        <HaEntityHistory
+          entity={historyEntity}
+          instanceId={historyInstanceId}
+          onClose={() => { setHistoryEntity(null); setHistoryInstanceId(null) }}
         />
       )}
     </div>

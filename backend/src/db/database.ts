@@ -330,6 +330,19 @@ function applySchema(db: Database.Database) {
       meta       TEXT
     );
 
+    -- HA Alerts
+    CREATE TABLE IF NOT EXISTS ha_alerts (
+      id TEXT PRIMARY KEY,
+      instance_id TEXT NOT NULL REFERENCES ha_instances(id) ON DELETE CASCADE,
+      entity_id TEXT NOT NULL,
+      condition_type TEXT NOT NULL,
+      condition_value TEXT,
+      message TEXT NOT NULL,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      last_triggered_at TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     -- Floorplans for HA
     CREATE TABLE IF NOT EXISTS ha_floorplans (
       id TEXT PRIMARY KEY,

@@ -394,6 +394,78 @@ export async function haRoutes(app: FastifyInstance) {
     }
   })
 
+  // In-memory cache for history
+  const historyCache = new Map<string, { data: unknown[]; fetchedAt: number }>()
+
+  // GET /api/ha/instances/:id/history
+  app.get<{ Params: { id: string }; Querystring: { entity_id?: string; hours?: string } }>('/api/ha/instances/:id/history', {
+    preHandler: [app.authenticate],
+  }, async (req, reply) => {
+    const row = db.prepare('SELECT * FROM ha_instances WHERE id = ?').get(req.params.id) as HaInstanceRow | undefined
+    if (!row) return reply.status(404).send({ error: 'Not found' })
+    if (!row.enabled) return reply.status(400).send({ error: 'Instance disabled' })
+    const entityId = req.query.entity_id
+    if (!entityId) return reply.status(400).send({ error: 'entity_id is required' })
+    const hours = Math.min(168, Math.max(1, parseInt(req.query.hours ?? '24', 10) || 24))
+
+    const cacheKey = `${req.params.id}:${entityId}:${hours}`
+    const cached = historyCache.get(cacheKey)
+    if (cached && Date.now() - cached.fetchedAt < 5 * 60 * 1000) {
+      return cached.data
+    }
+
+    try {
+      const end = new Date()
+      const start = new Date(end.getTime() - hours * 60 * 60 * 1000)
+      const startStr = start.toISOString()
+      const res = await haFetch(
+        row.url, row.token,
+        `/api/history/period/${startStr}?filter_entity_id=${encodeURIComponent(entityId)}&end_time=${encodeURIComponent(end.toISOString())}&minimal_response=true&no_attributes=true`
+      )
+      if (!res.ok) return reply.status(502).send({ error: `HA returned HTTP ${res.status}` })
+      const data = await res.json() as unknown[][]
+      const entries = Array.isArray(data) && data.length > 0 ? (data[0] ?? []) : []
+      interface HistoryItem { state?: string; last_changed?: string }
+      const result = (entries as HistoryItem[]).map(e => ({
+        state: e.state ?? '',
+        last_changed: e.last_changed ?? '',
+      }))
+      historyCache.set(cacheKey, { data: result, fetchedAt: Date.now() })
+      return result
+    } catch (err: unknown) {
+      const detail = err instanceof Error ? err.message : 'Connection failed'
+      return reply.status(502).send({ error: 'Upstream error', detail })
+    }
+  })
+
+  // GET /api/ha/instances/:id/scenes
+  app.get<{ Params: { id: string } }>('/api/ha/instances/:id/scenes', {
+    preHandler: [app.authenticate],
+  }, async (req, reply) => {
+    const row = db.prepare('SELECT * FROM ha_instances WHERE id = ?').get(req.params.id) as HaInstanceRow | undefined
+    if (!row) return reply.status(404).send({ error: 'Not found' })
+    if (!row.enabled) return reply.status(400).send({ error: 'Instance disabled' })
+    try {
+      const res = await haFetch(row.url, row.token, '/api/states')
+      if (!res.ok) return reply.status(502).send({ error: `HA returned HTTP ${res.status}` })
+      const data = await res.json() as { entity_id: string; state: string; attributes: Record<string, unknown>; last_changed: string; last_updated: string }[]
+      const filtered = data
+        .filter(e => e.entity_id.startsWith('scene.') || e.entity_id.startsWith('script.'))
+        .sort((a, b) => {
+          const domainA = a.entity_id.startsWith('scene.') ? 0 : 1
+          const domainB = b.entity_id.startsWith('scene.') ? 0 : 1
+          if (domainA !== domainB) return domainA - domainB
+          const nameA = (a.attributes.friendly_name as string | undefined) ?? a.entity_id
+          const nameB = (b.attributes.friendly_name as string | undefined) ?? b.entity_id
+          return nameA.localeCompare(nameB)
+        })
+      return filtered
+    } catch (err: unknown) {
+      const detail = err instanceof Error ? err.message : 'Connection failed'
+      return reply.status(502).send({ error: 'Upstream error', detail })
+    }
+  })
+
   // GET /api/ha/instances/:id/energy — energy dashboard data via HA WebSocket
   app.get<{ Params: { id: string }; Querystring: { period?: string } }>('/api/ha/instances/:id/energy', {
     preHandler: [app.authenticate],

@@ -16,11 +16,41 @@ import { AboutPage } from './pages/AboutPage'
 import { SetupPage } from './pages/SetupPage'
 import { ServiceModal } from './components/ServiceModal'
 import { LoginModal } from './components/LoginModal'
-import { ToastProvider } from './components/Toast'
+import { ToastProvider, useToast } from './components/Toast'
 import { OnboardingWizard } from './components/OnboardingWizard'
 import type { Service } from './types'
 import { calcAutoTheme } from './utils'
 import { api } from './api'
+
+// ── HA Alert SSE listener (must be inside ToastProvider) ──────────────────────
+
+function HaAlertListener({ isAuthenticated }: { isAuthenticated: boolean }) {
+  const { toast } = useToast()
+
+  useEffect(() => {
+    if (!isAuthenticated) return
+    const es = new EventSource('/api/ha/alerts/stream')
+    es.onmessage = (e: MessageEvent) => {
+      try {
+        const data = JSON.parse(e.data as string) as {
+          type?: string
+          entityName?: string
+          message?: string
+          entityState?: string
+        }
+        if (data.type === 'ha_alert') {
+          const label = data.entityName ?? ''
+          const msg = data.message ?? ''
+          const state = data.entityState ? ` (${data.entityState})` : ''
+          toast({ message: `${label}: ${msg}${state}`, type: 'warning', duration: 6000 })
+        }
+      } catch { /* ignore malformed event */ }
+    }
+    return () => es.close()
+  }, [isAuthenticated, toast])
+
+  return null
+}
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   constructor(props: { children: ReactNode }) {
@@ -160,6 +190,7 @@ function App() {
   return (
     <ToastProvider>
     <>
+      <HaAlertListener isAuthenticated={isAuthenticated} />
       {/* User-assigned background image */}
       {myBackground && (
         <div className="bg-user-image" style={{ backgroundImage: `url(${myBackground})` }} />

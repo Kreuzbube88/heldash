@@ -452,9 +452,10 @@ function FloorplanSettingsPopover({ floorplan, anchorRef, onClose, onUpdated, on
 interface HaFloorplanProps {
   instances: HaInstance[]
   entityStates: Record<string, HaEntityFull>
+  onShowHistory?: (entity: HaEntityFull, instanceId: string) => void
 }
 
-export function HaFloorplan({ instances, entityStates }: HaFloorplanProps) {
+export function HaFloorplan({ instances, entityStates, onShowHistory }: HaFloorplanProps) {
   const [floorplans, setFloorplans] = useState<HaFloorplan[]>([])
   const [entities, setEntities] = useState<Record<string, HaFloorplanEntity[]>>({})
   const [activeFloorplanId, setActiveFloorplanId] = useState<string | null>(
@@ -916,6 +917,7 @@ export function HaFloorplan({ instances, entityStates }: HaFloorplanProps) {
               onPlace={handlePlace}
               onMove={handleMove}
               instances={instances}
+              onShowHistory={onShowHistory}
             />
 
             {/* View mode bottom bar */}

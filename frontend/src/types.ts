@@ -379,3 +379,22 @@ export type FloorplanAction =
   | { type: 'move'; entityId: string; from: { x: number; y: number }; to: { x: number; y: number } }
   | { type: 'remove'; entity: HaFloorplanEntity }
   | { type: 'resize'; entityId: string; from: string; to: string }
+
+// ── HA Alerts ─────────────────────────────────────────────────────────────────
+
+export interface HaAlert {
+  id: string
+  instance_id: string
+  entity_id: string
+  condition_type: 'state_equals' | 'state_above' | 'state_below' | 'state_changes'
+  condition_value: string | null
+  message: string
+  enabled: boolean
+  last_triggered_at: string | null
+  created_at: string
+}
+
+export interface HaHistoryEntry {
+  state: string
+  last_changed: string
+}

@@ -31,11 +31,13 @@ jobs:
 
             console.log(`Found ${versions.length} total versions`)
 
-            const devVersions = versions.filter(v =>
-              v.metadata?.container?.tags?.some(tag => tag.startsWith('dev-'))
-            )
+            const devVersions = versions.filter(v => {
+              const tags = v.metadata?.container?.tags ?? []
+              // Delete if: has dev-* tag OR has no tags at all (untagged/sha256)
+              return tags.some(tag => tag.startsWith('dev-')) || tags.length === 0
+            })
 
-            console.log(`Found ${devVersions.length} dev-* versions to delete`)
+            console.log(`Found ${devVersions.length} dev-* and untagged versions to delete`)
 
             let deleted = 0
             for (const version of devVersions) {
@@ -54,6 +56,6 @@ jobs:
               }
             }
 
-            console.log(`Deleted ${deleted} of ${devVersions.length} dev-* versions`)
-            core.summary.addRaw(`## ✅ Cleanup complete\n- Found: ${devVersions.length} dev-* versions\n- Deleted: ${deleted}`)
+            console.log(`Deleted ${deleted} of ${devVersions.length} dev-* and untagged versions`)
+            core.summary.addRaw(`## ✅ Cleanup complete\n- Found: ${devVersions.length} dev-* and untagged versions\n- Deleted: ${deleted}`)
             await core.summary.write()

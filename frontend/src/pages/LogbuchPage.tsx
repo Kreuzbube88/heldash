@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react'
-import { Activity, TrendingUp, RefreshCw, Container, Home, Box, AlertTriangle, CheckCircle, XCircle, Search } from 'lucide-react'
+import { Activity, TrendingUp, RefreshCw, Container, Home, Box, AlertTriangle, CheckCircle, XCircle, Search, ChevronRight } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { useActivityStore } from '../store/useActivityStore'
 import type { ActivityEntry } from '../store/useActivityStore'
@@ -126,13 +126,14 @@ function HealthScoreBadge({ hs }: { hs: HealthScore | null }) {
 // ── Ereignis-Kalender ─────────────────────────────────────────────────────────
 
 function EreignisKalender({ days }: { days: CalendarDay[] }) {
+  const [open, setOpen] = useState(false)
+
   const dayMap = new Map(days.map(d => [d.date, d]))
   const cells: { date: string; day: CalendarDay | null }[] = []
 
-  // Build 84-day grid ending today (Mon → Sun columns)
+  // Build 84-day grid ending today (Mon → Sun rows)
   const today = new Date()
   today.setHours(0, 0, 0, 0)
-  // Go back to start: 83 days ago
   const start = new Date(today)
   start.setDate(start.getDate() - 83)
   // Align to Monday
@@ -147,13 +148,20 @@ function EreignisKalender({ days }: { days: CalendarDay[] }) {
     cells.push({ date: iso, day: isInRange ? (dayMap.get(iso) ?? null) : null })
   }
 
-  // Pad to multiple of 7
   while (cells.length % 7 !== 0) cells.push({ date: '', day: null })
 
   const weekCount = cells.length / 7
 
+  // Build rows (7 rows × weekCount cols) for row-based rendering
+  const rows: { date: string; day: CalendarDay | null }[][] = Array.from({ length: 7 }, (_, r) =>
+    Array.from({ length: weekCount }, (__, c) => cells[c * 7 + r])
+  )
+
+  const todayIso = today.toISOString().split('T')[0]
+  const rangeStartIso = new Date(today.getTime() - 83 * 86400000).toISOString().split('T')[0]
+
   const cellColor = (cell: { date: string; day: CalendarDay | null }) => {
-    if (!cell.date || cell.date > today.toISOString().split('T')[0]) return 'transparent'
+    if (!cell.date || cell.date > todayIso) return 'transparent'
     if (!cell.day) return 'var(--glass-border)'
     if (cell.day.maxSeverity === 'error') return 'var(--status-offline)'
     if (cell.day.maxSeverity === 'warning') return '#f59e0b'
@@ -168,71 +176,72 @@ function EreignisKalender({ days }: { days: CalendarDay[] }) {
   }
 
   const DAY_LABELS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
-  const todayIso = today.toISOString().split('T')[0]
-  const rangeStartIso = new Date(today.getTime() - 83 * 86400000).toISOString().split('T')[0]
 
   return (
-    <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: '16px 20px', overflow: 'hidden' }}>
-      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 10, fontFamily: 'var(--font-display)' }}>
+    <div style={{ marginBottom: 4 }}>
+      <button
+        onClick={() => setOpen(p => !p)}
+        style={{
+          fontSize: 12, color: 'var(--text-muted)', background: 'none',
+          border: 'none', cursor: 'pointer', display: 'flex',
+          alignItems: 'center', gap: 6, padding: 0,
+        }}
+      >
+        <ChevronRight size={12} style={{ transition: 'transform var(--transition-fast)', transform: open ? 'rotate(90deg)' : 'none' }} />
         Ereignis-Kalender — letzte 12 Wochen
-      </div>
-      {/* Single CSS grid: column 0 = day labels (auto), columns 1..N = weeks (1fr each) */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: `auto repeat(${weekCount}, 1fr)`,
-        gridTemplateRows: 'repeat(7, auto)',
-        gridAutoFlow: 'column',
-        gap: 3,
-        width: '100%',
-      }}>
-        {/* Day labels — 7 items flow into column 0 */}
-        {DAY_LABELS.map(l => (
-          <div key={l} style={{
-            height: '100%',
-            fontSize: 10,
-            color: 'var(--text-muted)',
-            display: 'flex',
-            alignItems: 'center',
-            paddingRight: 4,
-            whiteSpace: 'nowrap',
-          }}>
-            {l}
+      </button>
+
+      {open && (
+        <div style={{ marginTop: 10, overflowX: 'auto' }}>
+          <div style={{ display: 'flex', gap: 6, width: 'fit-content' }}>
+            {/* Day labels column */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3, paddingTop: 1 }}>
+              {DAY_LABELS.map(l => (
+                <div key={l} style={{ width: 16, height: 12, fontSize: 10, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', lineHeight: 1 }}>{l}</div>
+              ))}
+            </div>
+            {/* 7 rows × weekCount cols */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              {rows.map((row, rowIdx) => (
+                <div key={rowIdx} style={{ display: 'flex', gap: 3 }}>
+                  {row.map((cell, colIdx) => {
+                    const isInRange = cell.date && cell.date <= todayIso && cell.date >= rangeStartIso
+                    const tooltipText = !cell.date || !isInRange
+                      ? ''
+                      : cell.day
+                        ? `${fmtDate(cell.date)} — ${cell.day.count} Event${cell.day.count !== 1 ? 's' : ''}`
+                        : `${fmtDate(cell.date)} — Keine Events`
+                    return (
+                      <div
+                        key={colIdx}
+                        data-tooltip={tooltipText || undefined}
+                        style={{
+                          width: 12, height: 12, borderRadius: 2,
+                          background: cellColor(cell),
+                          flexShrink: 0,
+                          cursor: 'default',
+                          transition: 'opacity 150ms',
+                          opacity: 0.85,
+                        }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '1' }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '0.85' }}
+                      />
+                    )
+                  })}
+                </div>
+              ))}
+              {/* Legend */}
+              <div style={{ display: 'flex', gap: 8, marginTop: 4, fontSize: 10, color: 'var(--text-muted)', alignItems: 'center' }}>
+                <span>Wenig</span>
+                {(['var(--glass-border)', 'var(--status-online)', '#f59e0b', 'var(--status-offline)'] as const).map((bg, i) => (
+                  <div key={i} style={{ width: 12, height: 12, borderRadius: 2, background: bg, flexShrink: 0 }} />
+                ))}
+                <span>Viel / Fehler</span>
+              </div>
+            </div>
           </div>
-        ))}
-        {/* Data cells — flow column-by-column into columns 1..weekCount */}
-        {cells.map((cell, i) => {
-          const isInRange = cell.date && cell.date <= todayIso && cell.date >= rangeStartIso
-          const tooltipText = !cell.date || !isInRange
-            ? ''
-            : cell.day
-              ? `${fmtDate(cell.date)} — ${cell.day.count} Event${cell.day.count !== 1 ? 's' : ''}`
-              : `${fmtDate(cell.date)} — Keine Events`
-          return (
-            <div
-              key={i}
-              data-tooltip={tooltipText || undefined}
-              style={{
-                aspectRatio: '1',
-                minWidth: 0,
-                borderRadius: 2,
-                background: cellColor(cell),
-                cursor: 'default',
-                transition: 'opacity 150ms',
-                opacity: 0.85,
-              }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '1' }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '0.85' }}
-            />
-          )
-        })}
-      </div>
-      <div style={{ display: 'flex', gap: 12, marginTop: 10, fontSize: 10, color: 'var(--text-muted)', alignItems: 'center' }}>
-        <span>Wenig</span>
-        {['var(--glass-border)', 'var(--status-online)', '#f59e0b', 'var(--status-offline)'].map((bg, i) => (
-          <div key={i} style={{ width: 12, height: 12, borderRadius: 2, background: bg }} />
-        ))}
-        <span>Viel / Fehler</span>
-      </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -80,6 +80,7 @@ function parseMuxedFrame(buf: Buffer): { consumed: number; stream: 'stdout' | 's
 // ── Docker container state polling ────────────────────────────────────────────
 // Tracks container state transitions and logs to activity feed.
 const containerStates = new Map<string, { name: string; state: string }>()
+const containerExitedAt = new Map<string, number>()
 
 export function initDockerPoller(): void {
   console.log('[Docker Poller] Starting with 10s delay, 15s interval')
@@ -95,13 +96,22 @@ export function initDockerPoller(): void {
         if (prev && prev.state !== c.State) {
           anyStateChange = true
           console.log(`[Docker Poller] State change: ${name} ${prev.state} → ${c.State}`)
-          if (c.State === 'restarting' && prev.state === 'running') {
+          if (c.State === 'running' && prev.state === 'exited') {
+            const exitedAt = containerExitedAt.get(c.Id)
+            if (exitedAt && Date.now() - exitedAt < 30_000) {
+              logActivity('docker', `Container '${name}' neugestartet`, 'info', { containerId: c.Id })
+            } else {
+              logActivity('docker', `Container '${name}' gestartet`, 'info', { containerId: c.Id })
+            }
+            containerExitedAt.delete(c.Id)
+          } else if (c.State === 'exited' && prev.state === 'running') {
+            containerExitedAt.set(c.Id, Date.now())
+            logActivity('docker', `Container '${name}' gestoppt/neugestartet...`, 'info', { containerId: c.Id })
+          } else if (c.State === 'restarting' && prev.state === 'running') {
             logActivity('docker', `Container '${name}' wird neugestartet`, 'info', { containerId: c.Id })
           } else if (c.State === 'running' && prev.state === 'restarting') {
             logActivity('docker', `Container '${name}' neugestartet`, 'info', { containerId: c.Id })
-          } else if (c.State === 'running') {
-            logActivity('docker', `Container '${name}' gestartet`, 'info', { containerId: c.Id })
-          } else if (c.State === 'exited' || c.State === 'dead') {
+          } else if (c.State === 'dead') {
             logActivity('docker', `Container '${name}' gestoppt`, 'warning', { containerId: c.Id })
           }
         }
@@ -132,7 +142,6 @@ export function initDockerPoller(): void {
       .then(() => console.log('[Docker Poller] First poll complete'))
       .catch(e => console.error('[Docker Poller] First poll failed:', e))
     setInterval(() => {
-      console.log('[Docker Poller] Interval tick')
       poll().catch(e => console.error('[Docker Poller] Poll failed:', e))
     }, 2_000)
   }, 10_000)

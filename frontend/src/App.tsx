@@ -47,7 +47,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
 }
 
 function App() {
-  const { loadAll, loadServices, checkAllServices, checkAuth, settings, authReady, needsSetup, isAdmin, isAuthenticated, authUser, userGroups, myBackground, loadMyBackground } = useStore()
+  const { loadAll, loadServices, checkAllServices, checkAuth, startHealthPolling, settings, authReady, needsSetup, isAdmin, isAuthenticated, authUser, userGroups, myBackground, loadMyBackground } = useStore()
   const { loadDashboard } = useDashboardStore()
   const [page, setPage] = useState('dashboard')
   const [showModal, setShowModal] = useState(false)
@@ -61,7 +61,7 @@ function App() {
   const [showOnboarding, setShowOnboarding] = useState(false)
 
   useEffect(() => {
-    checkAuth().then(() => Promise.all([loadAll(), loadDashboard(), loadMyBackground()]))
+    checkAuth().then(() => Promise.all([loadAll(), loadDashboard(), loadMyBackground()])).then(() => startHealthPolling())
   }, [])
 
   // Load onboarding state after auth is ready

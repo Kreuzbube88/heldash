@@ -377,7 +377,7 @@ export const api = {
   },
 
   admin: {
-    guestVisibility: () => req<{ services: string[]; widgets: string[] }>('/admin/guest-visibility'),
+    guestVisibility: () => req<{ services: string[]; arr: string[]; widgets: string[] }>('/admin/guest-visibility'),
   },
 
   services_extra: {

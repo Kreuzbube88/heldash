@@ -784,6 +784,7 @@ export function scheduleGlobalRecyclarrSync(schedule: string, logger: SimpleLogg
     return
   }
   const task = cron.schedule(schedule, async () => {
+    console.log('[Recyclarr Scheduler] Firing global sync')
     logger.info({}, 'Running global scheduled recyclarr sync')
     try {
       const db = getDb()
@@ -844,11 +845,15 @@ export function scheduleRecyclarrSync(instanceId: string, schedule: string, logg
 }
 
 export function initRecyclarrSchedulers(logger: SimpleLogger): void {
+  console.log('[Recyclarr Scheduler] Initializing...')
   try {
     const db = getDb()
     const globalRow = db.prepare("SELECT value FROM settings WHERE key = 'recyclarr_sync_schedule'").get() as { value: string } | undefined
     if (globalRow?.value && globalRow.value !== 'manual') {
+      console.log(`[Recyclarr Scheduler] Registered global schedule: ${globalRow.value}`)
       scheduleGlobalRecyclarrSync(globalRow.value, logger)
+    } else {
+      console.log('[Recyclarr Scheduler] No active schedule (manual or not set)')
     }
   } catch (e) {
     logger.warn({ err: e }, 'Could not init recyclarr schedulers')

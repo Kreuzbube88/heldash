@@ -45,6 +45,10 @@ interface AppState {
   setThemeMode: (mode: ThemeMode) => Promise<void>
   setThemeAccent: (accent: ThemeAccent) => Promise<void>
 
+  // Health polling
+  startHealthPolling: () => void
+  stopHealthPolling: () => void
+
   // Auth actions
   checkAuth: () => Promise<void>
   login: (username: string, password: string) => Promise<void>
@@ -78,6 +82,8 @@ interface AppState {
 function parseService<T extends { tags: string | string[] }>(s: T): T {
   return { ...s, tags: typeof s.tags === 'string' ? JSON.parse(s.tags) : s.tags }
 }
+
+let healthCheckInterval: ReturnType<typeof setInterval> | null = null
 
 export const useStore = create<AppState>((set, get) => ({
   services: [],
@@ -261,6 +267,22 @@ export const useStore = create<AppState>((set, get) => ({
         set({ settings: updated })
         applyTheme(updated)
       }
+    }
+  },
+
+  // ── Health polling ───────────────────────────────────────────────────────────
+
+  startHealthPolling: () => {
+    if (healthCheckInterval) return
+    healthCheckInterval = setInterval(async () => {
+      try { await get().checkAllServices() } catch { /* ignore */ }
+    }, 30_000)
+  },
+
+  stopHealthPolling: () => {
+    if (healthCheckInterval) {
+      clearInterval(healthCheckInterval)
+      healthCheckInterval = null
     }
   },
 

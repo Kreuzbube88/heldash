@@ -57,11 +57,15 @@ export async function groupsRoutes(app: FastifyInstance) {
     const services = db.prepare(
       'SELECT service_id FROM group_service_visibility WHERE group_id = ?'
     ).all('grp_guest') as { service_id: string }[]
+    const arrItems = db.prepare(
+      'SELECT instance_id FROM group_arr_visibility WHERE group_id = ?'
+    ).all('grp_guest') as { instance_id: string }[]
     const widgets = db.prepare(
       'SELECT widget_id FROM group_widget_visibility WHERE group_id = ?'
     ).all('grp_guest') as { widget_id: string }[]
     return {
       services: services.map(r => r.service_id),
+      arr: arrItems.map(r => r.instance_id),
       widgets: widgets.map(r => r.widget_id),
     }
   })

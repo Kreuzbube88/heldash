@@ -203,16 +203,19 @@ function DashboardServiceCard({ item, onEdit, editMode, groups, hiddenServiceIds
 }
 
 // ── Arr instance card (full media-style) ──────────────────────────────────────
-function DashboardArrCard({ item, editMode, groups }: {
+function DashboardArrCard({ item, editMode, groups, hiddenArrIds }: {
   item: DashboardArrItem
   editMode: boolean
   groups?: DashboardGroup[]
+  hiddenArrIds?: string[]
 }) {
   const { removeItem, moveItemToGroup } = useDashboardStore()
+  const { showVisibilityOverlay } = useDashboardStore()
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.id, disabled: !editMode,
   })
   const [showHandle, setShowHandle] = useState(false)
+  const isArrHidden = hiddenArrIds ? hiddenArrIds.includes(item.instance.id) : false
 
   return (
     <div
@@ -235,6 +238,19 @@ function DashboardArrCard({ item, editMode, groups }: {
             : <ArrCardContent instance={item.instance} />
         }
       </div>
+      {showVisibilityOverlay && (
+        <div style={{
+          position: 'absolute', inset: 0, borderRadius: 'var(--radius-xl)',
+          border: `2px solid ${isArrHidden ? 'var(--text-muted)' : 'var(--success, #22c55e)'}`,
+          background: isArrHidden ? 'rgba(0,0,0,0.35)' : 'rgba(34,197,94,0.08)',
+          display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end',
+          padding: 6, pointerEvents: 'none', zIndex: 5,
+        }}>
+          <span className={isArrHidden ? 'badge-neutral' : 'badge-success'} style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4 }}>
+            {isArrHidden ? 'Versteckt' : 'Sichtbar'}
+          </span>
+        </div>
+      )}
       {editMode && (
         <EditOverlay
           dragProps={{ ...attributes, ...listeners }}
@@ -453,7 +469,8 @@ function renderDashboardItem(
   groups?: DashboardGroup[],
   widgetColSpan?: 1 | 2,
   hiddenServiceIds?: string[],
-  hiddenWidgetIds?: string[]
+  hiddenWidgetIds?: string[],
+  hiddenArrIds?: string[]
 ) {
   if (item.type === 'service') {
     return (
@@ -474,6 +491,7 @@ function renderDashboardItem(
         item={item as DashboardArrItem}
         editMode={editMode}
         groups={groups}
+        hiddenArrIds={hiddenArrIds}
       />
     )
   }
@@ -511,12 +529,13 @@ function setGroupCollapsed(id: string, val: boolean): void {
 }
 
 // ── Sortable Group ─────────────────────────────────────────────────────────────
-function SortableGroup({ group, editMode, onEdit, hiddenServiceIds, hiddenWidgetIds }: {
+function SortableGroup({ group, editMode, onEdit, hiddenServiceIds, hiddenWidgetIds, hiddenArrIds }: {
   group: DashboardGroup
   editMode: boolean
   onEdit: (s: Service) => void
   hiddenServiceIds?: string[]
   hiddenWidgetIds?: string[]
+  hiddenArrIds?: string[]
 }) {
   const { updateGroup, deleteGroup, reorderGroupItems, groups: allGroups } = useDashboardStore()
   const innerCols = Math.max(1, Math.round(8 * group.col_span / 12))
@@ -669,6 +688,7 @@ function SortableGroup({ group, editMode, onEdit, hiddenServiceIds, hiddenWidget
                         item={item as DashboardArrItem}
                         editMode={editMode}
                         groups={allGroups}
+                        hiddenArrIds={hiddenArrIds}
                       />
                     )
                   }
@@ -718,7 +738,7 @@ export function Dashboard({ onEdit }: Props) {
   const { entries: activityEntries, loading: activityLoading, loadEntries: loadActivityEntries } = useActivityStore()
   const [activityOpen, setActivityOpen] = useState(false)
   const [activityCategory, setActivityCategory] = useState('all')
-  const [guestVisibility, setGuestVisibility] = useState<{ services: string[]; widgets: string[] }>({ services: [], widgets: [] })
+  const [guestVisibility, setGuestVisibility] = useState<{ services: string[]; arr: string[]; widgets: string[] }>({ services: [], arr: [], widgets: [] })
   const activityIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const sensors = useSensors(
@@ -835,7 +855,7 @@ export function Dashboard({ onEdit }: Props) {
             No grid-auto-flow: dense — array order determines visual position.
             Widgets use gridColumn: span 2 + gridRow: span 2 (set in DashboardWidgetCard). */}
         <div className="services-grid">
-          {items.map(item => renderDashboardItem(item, editMode, onEdit, groups, undefined, guestVisibility.services, guestVisibility.widgets))}
+          {items.map(item => renderDashboardItem(item, editMode, onEdit, groups, undefined, guestVisibility.services, guestVisibility.widgets, guestVisibility.arr))}
         </div>
       </SortableContext>
     </DndContext>
@@ -895,7 +915,7 @@ export function Dashboard({ onEdit }: Props) {
           <SortableContext items={groups.map(g => g.id)} strategy={rectSortingStrategy}>
             <div className="dashboard-groups">
               {groups.map(group => (
-                <SortableGroup key={group.id} group={group} editMode={editMode} onEdit={onEdit} hiddenServiceIds={guestVisibility.services} hiddenWidgetIds={guestVisibility.widgets} />
+                <SortableGroup key={group.id} group={group} editMode={editMode} onEdit={onEdit} hiddenServiceIds={guestVisibility.services} hiddenWidgetIds={guestVisibility.widgets} hiddenArrIds={guestVisibility.arr} />
               ))}
               {/* Ungrouped items fill remaining flex space in the same row */}
               {ungroupedSection && (

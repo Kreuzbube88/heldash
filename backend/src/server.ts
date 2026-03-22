@@ -238,9 +238,6 @@ async function start() {
   await app.register(recyclarrRoutes)
   await app.register(activityRoutes)
 
-  // ── Recyclarr scheduled sync ─────────────────────────────────────────────────
-  initRecyclarrSchedulers(app.log)
-
   // ── Docker container state poller (logs transitions to activity feed) ─────────
   if (dockerSocketPresent) {
     initDockerPoller()
@@ -266,6 +263,9 @@ async function start() {
 
   await app.listen({ port: PORT, host: '0.0.0.0' })
   app.log.info({ port: PORT }, 'HELDASH ready')
+
+  // ── Recyclarr scheduled sync ─────────────────────────────────────────────────
+  initRecyclarrSchedulers(app.log)
 
   // ── Always-on HA WebSocket connections ────────────────────────────────────────
   initHaWsClients()

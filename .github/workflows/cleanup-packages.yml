@@ -1,0 +1,31 @@
+name: 🗑️ Cleanup Package Versions
+
+on:
+  workflow_dispatch:
+    inputs:
+      keep_latest:
+        description: 'Anzahl der neuesten Versionen die behalten werden sollen'
+        required: true
+        default: '3'
+        type: string
+      dry_run:
+        description: 'Nur anzeigen was gelöscht würde (kein echtes Löschen)'
+        required: true
+        default: 'true'
+        type: boolean
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      - name: Delete package versions
+        uses: actions/delete-package-versions@v5
+        with:
+          package-name: heldash
+          package-type: container
+          min-versions-to-keep: ${{ github.event.inputs.keep_latest }}
+          delete-only-untagged-versions: false
+          token: ${{ secrets.GITHUB_TOKEN }}
+          dry-run: ${{ github.event.inputs.dry_run }}

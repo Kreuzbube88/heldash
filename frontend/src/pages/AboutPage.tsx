@@ -4,7 +4,7 @@ import { LS_ABOUT_TAB } from '../constants'
 import { api } from '../api'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-type AboutTab = 'overview' | 'setup' | 'docker' | 'logbuch' | 'media' | 'recyclarr' | 'cfmanager' | 'ha' | 'widgets' | 'design'
+type AboutTab = 'overview' | 'setup' | 'docker' | 'logbuch' | 'media' | 'recyclarr' | 'cfmanager' | 'ha' | 'netzwerk' | 'backup' | 'widgets' | 'design'
 
 // ── CodeBlock ─────────────────────────────────────────────────────────────────
 function CodeBlock({ children }: { children: string }) {
@@ -807,6 +807,108 @@ function TabHA() {
         </p>
       </DocSection>
 
+      <DocSection title="Grundriss">
+        <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.7, margin: '0 0 12px' }}>
+          Interaktive Etagen-/Außenbereichsansicht mit Live-State via WebSocket.
+        </p>
+        <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>Grundriss anlegen</p>
+        <ol style={{ margin: '0 0 16px', paddingLeft: 20, lineHeight: 2, fontSize: 14, color: 'var(--text-secondary)' }}>
+          <li>Home Assistant → Tab "Grundriss" → Etage hinzufügen</li>
+          <li>Bild hochladen (PNG/JPG/SVG — Grundriss-Zeichnung oder Foto)</li>
+          <li>Edit-Modus aktivieren → Entities per Klick auf die Karte platzieren</li>
+          <li>Entities zeigen Live-State: Lichter pulsieren wenn an, Sensoren zeigen Wert</li>
+        </ol>
+        <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>Steuerung</p>
+        <ul style={{ margin: '0 0 16px', paddingLeft: 20, lineHeight: 2, fontSize: 14, color: 'var(--text-secondary)' }}>
+          <li>Zoom/Pan via CSS transform (kein Canvas-Element)</li>
+          <li>Undo/Redo für Entity-Placement</li>
+          <li>Snap-to-Grid optional aktivierbar</li>
+          <li>Entity-Positionen werden als % der Canvas-Größe gespeichert (responsiv)</li>
+        </ul>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <span className="badge badge-neutral">Bilder werden in {'{DATA_DIR}'}/floorplans/ gespeichert, via /floorplan-images/ serviert</span>
+          <span className="badge badge-neutral">Erste HA-Instanz wird automatisch verwendet — kein Instanz-Selektor</span>
+        </div>
+      </DocSection>
+
+      <DocSection title="Presence Tracking">
+        <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.7, margin: '0 0 12px' }}>
+          Personen-Entities (person.*) mit Status-Anzeige: home / not_home / away.
+        </p>
+        <ul style={{ margin: '0 0 16px', paddingLeft: 20, lineHeight: 2, fontSize: 14, color: 'var(--text-secondary)' }}>
+          <li>Presence Bar zeigt alle konfigurierten Personen mit Status-Badge</li>
+          <li>GPS-Karte optional: per Toggle in localStorage aktivieren</li>
+          <li>Karte: OpenStreetMap (Leaflet), dynamisch geladen — keine API-Key erforderlich</li>
+          <li>GPS-Koordinaten kommen aus HA-Attributen (latitude/longitude)</li>
+        </ul>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <span className="badge badge-neutral">GPS-Karte ist opt-in — standardmäßig deaktiviert (Datenschutz)</span>
+        </div>
+      </DocSection>
+
+      <DocSection title="Lock & Alarm Karten">
+        <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.7, margin: '0 0 12px' }}>
+          Gesicherte Bedienung für Schlösser (lock.*) und Alarmanlagen (alarm_control_panel.*).
+        </p>
+        <ul style={{ margin: '0 0 16px', paddingLeft: 20, lineHeight: 2, fontSize: 14, color: 'var(--text-secondary)' }}>
+          <li>Lock-Karten: Öffnen/Schließen erfordert PIN-Eingabe im Popover</li>
+          <li>Alarm-Karten: Scharf stellen / Deaktivieren mit PIN-Bestätigung</li>
+          <li>PIN wird direkt an HA übergeben — nicht in HELDASH gespeichert</li>
+        </ul>
+        <div>
+          <span className="badge badge-warning">⚠️ PIN-Schutz ist UI-seitig — HELDASH nur im lokalen Netzwerk betreiben</span>
+        </div>
+      </DocSection>
+
+      <DocSection title="HA Alerts">
+        <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.7, margin: '0 0 12px' }}>
+          Entity-basierte Benachrichtigungen als Toast-Overlay.
+        </p>
+        <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>Alert erstellen</p>
+        <ol style={{ margin: '0 0 16px', paddingLeft: 20, lineHeight: 2, fontSize: 14, color: 'var(--text-secondary)' }}>
+          <li>Home Assistant → Tab "Alerts" → Alert hinzufügen</li>
+          <li>Entity auswählen, Bedingung (z.B. state = "on"), Nachricht eingeben</li>
+          <li>Alert wird ausgelöst wenn Entity den Zustand erreicht</li>
+        </ol>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <span className="badge badge-neutral">Rate-Limit: min 60s zwischen zwei Auslösungen pro Alert</span>
+          <span className="badge badge-neutral">Max 20 Alerts gesamt</span>
+          <span className="badge badge-neutral">Delivery via SSE stream GET /api/ha/alerts/stream</span>
+        </div>
+      </DocSection>
+
+      <DocSection title="Szenarien">
+        <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.7, margin: '0 0 12px' }}>
+          HA Szenen und Scripts direkt aus HELDASH ausführen.
+        </p>
+        <SimpleTable
+          headers={['Typ', 'Beschreibung']}
+          rows={[
+            ['Szene (scene.*)', 'Setzt vordefinierte Gerätezustände — kein Feedback'],
+            ['Script (script.*)', 'Führt eine Abfolge von Aktionen aus — kann Parameter haben'],
+          ]}
+        />
+        <div style={{ marginTop: 12 }}>
+          <span className="badge badge-neutral">Szenarien-Tab: Liste aller Szenen + Scripts mit Ausführen-Button</span>
+        </div>
+      </DocSection>
+
+      <DocSection title="Entity-Verlauf">
+        <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.7, margin: '0 0 12px' }}>
+          24h/7T Graph für beliebige Entities. Daten kommen aus HA History API.
+        </p>
+        <SimpleTable
+          headers={['Zeitraum', 'Auflösung']}
+          rows={[
+            ['24 Stunden', 'Alle Datenpunkte'],
+            ['7 Tage', 'Stündliche Aggregation'],
+          ]}
+        />
+        <div style={{ marginTop: 12 }}>
+          <span className="badge badge-neutral">Chart-Bibliothek: Recharts — verfügbar für alle Entity-Typen (Sensoren, Binär, Klima etc.)</span>
+        </div>
+      </DocSection>
+
       <DocSection title="Aktivitäten-Feed">
         <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.7, margin: '0 0 12px' }}>
           HA-Events werden automatisch im Logbuch-Aktivitäten-Feed erfasst.
@@ -821,6 +923,180 @@ function TabHA() {
         </div>
         <p style={{ fontSize: 14, color: 'var(--text-secondary)', margin: 0 }}>
           Anzeige: Logbuch → Tab "Aktivitäten" → Filter "HA"
+        </p>
+      </DocSection>
+    </>
+  )
+}
+
+// ── Tab: Netzwerk ─────────────────────────────────────────────────────────────
+function TabNetzwerk() {
+  return (
+    <>
+      <DocSection title="Übersicht">
+        <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.7, margin: 0 }}>
+          Netzwerk-Geräte per TCP-Ping überwachen, Subnetze scannen und
+          Geräte per Wake-on-LAN aufwecken — alles ohne externe Abhängigkeiten.
+        </p>
+      </DocSection>
+
+      <DocSection title="Gerät hinzufügen">
+        <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>Felder</p>
+        <SimpleTable
+          headers={['Feld', 'Beschreibung']}
+          rows={[
+            ['Name', 'Anzeigename des Geräts'],
+            ['IP-Adresse', 'IPv4-Adresse (z.B. 192.168.1.1)'],
+            ['Port', 'TCP-Port für Ping (leer = automatisch: 80, 443, 22, 8080)'],
+            ['MAC-Adresse', 'Optional — für Wake-on-LAN (Format: AA:BB:CC:DD:EE:FF)'],
+            ['Gruppe', 'Optional — zur Kategorisierung'],
+          ]}
+        />
+        <div style={{ marginTop: 12 }}>
+          <span className="badge badge-neutral">Subnet wird manuell konfiguriert — nie automatisch erkannt (Docker-Container hat eigene IP)</span>
+        </div>
+      </DocSection>
+
+      <DocSection title="IP-Scanner">
+        <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.7, margin: '0 0 12px' }}>
+          Subnetz im CIDR-Format scannen, erreichbare Geräte anzeigen und direkt hinzufügen.
+        </p>
+        <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>Verwendung</p>
+        <ol style={{ margin: '0 0 16px', paddingLeft: 20, lineHeight: 2, fontSize: 14, color: 'var(--text-secondary)' }}>
+          <li>CIDR-Notation eingeben (z.B. <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>192.168.1.0/24</code>)</li>
+          <li>Scan starten — erreichbare Hosts werden aufgelistet</li>
+          <li>Gerät auswählen → direkt als Netzwerk-Gerät hinzufügen</li>
+        </ol>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <span className="badge badge-neutral">Max /22 (1024 Hosts) — größere Subnetze werden abgelehnt</span>
+          <span className="badge badge-neutral">TCP-Ping auf Ports 80, 443, 22, 8080 in Reihenfolge</span>
+        </div>
+      </DocSection>
+
+      <DocSection title="Wake-on-LAN">
+        <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.7, margin: '0 0 12px' }}>
+          Gerät per Magic Packet (UDP Broadcast, Port 9) aufwecken.
+        </p>
+        <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>Voraussetzungen</p>
+        <ul style={{ margin: '0 0 16px', paddingLeft: 20, lineHeight: 2, fontSize: 14, color: 'var(--text-secondary)' }}>
+          <li>BIOS/UEFI: Wake-on-LAN aktivieren</li>
+          <li>Netzwerkkarte: WoL aktivieren (ethtool oder Treiber-Einstellung)</li>
+          <li>MAC-Adresse des Geräts im Netzwerk-Gerät hinterlegen</li>
+        </ul>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <span className="badge badge-neutral">Magic Packet: 6×0xFF + 16× MAC-Bytes (102 Bytes gesamt)</span>
+          <span className="badge badge-neutral">Kein WoL-Button wenn keine MAC-Adresse hinterlegt</span>
+        </div>
+      </DocSection>
+
+      <DocSection title="Aktivitäten & History">
+        <ul style={{ margin: 0, paddingLeft: 20, lineHeight: 2, fontSize: 14, color: 'var(--text-secondary)' }}>
+          <li>Statuswechsel (online → offline / offline → online) erscheinen im Aktivitäten-Feed</li>
+          <li>Filter "Netzwerk" im Logbuch → Tab "Aktivitäten"</li>
+          <li>Pro Gerät: 24h Uptime-Verlauf als Miniaturgraph</li>
+          <li>Status-History wird 7 Tage aufbewahrt</li>
+        </ul>
+      </DocSection>
+    </>
+  )
+}
+
+// ── Tab: Backup Center ────────────────────────────────────────────────────────
+function TabBackup() {
+  return (
+    <>
+      <DocSection title="Übersicht">
+        <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.7, margin: '0 0 12px' }}>
+          Zentrale Backup-Übersicht für alle Backup-Quellen im Homelab.
+          Warnungen bei veralteten oder fehlgeschlagenen Backups.
+        </p>
+        <SimpleTable
+          headers={['Quelle', 'Voraussetzung']}
+          rows={[
+            ['CA Backup (Unraid)', '/boot:/boot:ro Mount erforderlich'],
+            ['Duplicati', 'URL + API-Key'],
+            ['Kopia', 'URL + optionale Authentifizierung'],
+            ['Docker Config Export', 'Docker-Socket gemountet'],
+            ['Unraid VMs', 'Via CA Backup Log erkannt'],
+          ]}
+        />
+      </DocSection>
+
+      <DocSection title="CA Backup">
+        <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.7, margin: '0 0 12px' }}>
+          CA Backup schreibt Logs nach <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>/boot/logs/</code>.
+          HELDASH liest diese Logs um Backup-Status und Zeitpunkt zu ermitteln.
+        </p>
+        <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>Mount konfigurieren</p>
+        <CodeBlock>{`# docker run:
+-v /boot:/boot:ro
+
+# docker-compose:
+volumes:
+  - /boot:/boot:ro`}</CodeBlock>
+        <div style={{ marginTop: 12 }}>
+          <span className="badge badge-warning">⚠️ Ohne /boot Mount: klare Fehlermeldung — kein Absturz</span>
+        </div>
+      </DocSection>
+
+      <DocSection title="Duplicati">
+        <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.7, margin: '0 0 12px' }}>
+          Duplicati-Instanz per URL und API-Key anbinden.
+        </p>
+        <SimpleTable
+          headers={['Feld', 'Beschreibung']}
+          rows={[
+            ['URL', 'z.B. http://192.168.1.10:8200'],
+            ['API-Key', 'Unter Duplicati → Einstellungen → API-Schlüssel'],
+          ]}
+        />
+        <div style={{ marginTop: 12 }}>
+          <span className="badge badge-neutral">Timeout 5s — bei Nichterreichbarkeit: Fehler-State (kein Absturz)</span>
+        </div>
+      </DocSection>
+
+      <DocSection title="Kopia">
+        <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.7, margin: '0 0 12px' }}>
+          Kopia Server per URL und optionaler HTTP-Authentifizierung anbinden.
+        </p>
+        <SimpleTable
+          headers={['Feld', 'Beschreibung']}
+          rows={[
+            ['URL', 'z.B. http://192.168.1.10:51515'],
+            ['Benutzername', 'Optional (wenn Kopia-Auth aktiv)'],
+            ['Passwort', 'Optional'],
+          ]}
+        />
+      </DocSection>
+
+      <DocSection title="Docker Config Export">
+        <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.7, margin: '0 0 12px' }}>
+          Alle laufenden Container-Konfigurationen als JSON exportieren.
+        </p>
+        <ul style={{ margin: '0 0 16px', paddingLeft: 20, lineHeight: 2, fontSize: 14, color: 'var(--text-secondary)' }}>
+          <li>Exportiert: Container-Name, Image, Ports, Volumes, Umgebungsvariablen, Labels</li>
+          <li>Format: JSON (application/json), direkt downloadbar</li>
+          <li>Zum Importieren: <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>docker create</code> oder Compose-Datei manuell erstellen</li>
+        </ul>
+        <div>
+          <span className="badge badge-neutral">Nutzt bestehende Docker-Socket-Verbindung — kein zusätzlicher Mount erforderlich</span>
+        </div>
+      </DocSection>
+
+      <DocSection title="Warnungen & Aktivitäten">
+        <ul style={{ margin: 0, paddingLeft: 20, lineHeight: 2, fontSize: 14, color: 'var(--text-secondary)' }}>
+          <li>Warnung wenn letztes Backup {">"} 7 Tage alt</li>
+          <li>Warnung bei fehlgeschlagenem Backup (Fehler-Status in Logs)</li>
+          <li>Warnungen erscheinen in der Backup-Übersicht als hervorgehobene Karte</li>
+          <li>Backup-Events im Logbuch → Tab "Aktivitäten" → Filter "Backup"</li>
+        </ul>
+      </DocSection>
+
+      <DocSection title="Integrierter Leitfaden">
+        <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.7, margin: 0 }}>
+          Der Backup Center enthält einen integrierten Leitfaden: <strong>Unraid vollständig sichern</strong>.
+          Themen: 3-2-1 Regel, CA Backup, Duplicati, Kopia, Datenbanken, Disaster Recovery.
+          Erreichbar über den Tab "Leitfaden" im Backup Center.
         </p>
       </DocSection>
     </>
@@ -998,10 +1274,27 @@ function TabLogbuch() {
 
       <DocSection title="Filter">
         <ul style={{ margin: 0, paddingLeft: 20, lineHeight: 2, fontSize: 14, color: 'var(--text-secondary)' }}>
-          <li><strong>Kategorie</strong>: Alle · HA · Docker · System · Recyclarr</li>
+          <li><strong>Kategorie</strong>: Alle · HA · Docker · System · Recyclarr · Netzwerk · Backup</li>
           <li><strong>Zeitraum</strong>: Letzte Stunde · 24h · 7 Tage · 30 Tage</li>
           <li><strong>Freitext</strong>: Suche in Ereignis-Beschreibungen</li>
         </ul>
+      </DocSection>
+
+      <DocSection title="Ressourcen-Verlauf">
+        <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.7, margin: '0 0 12px' }}>
+          CPU, RAM und Netzwerk-Auslastung als historischer Graph.
+        </p>
+        <SimpleTable
+          headers={['Zeitraum', 'Auflösung', 'Aufbewahrung']}
+          rows={[
+            ['1 Stunde', '1-Minuten-Einträge', '25 Stunden'],
+            ['24 Stunden', '1-Minuten-Einträge', '25 Stunden'],
+            ['7 Tage', '15-Minuten-Aggregation', '8 Tage'],
+          ]}
+        />
+        <div style={{ marginTop: 12 }}>
+          <span className="badge badge-neutral">Aggregation läuft alle 15min serverseitig — keine Lücken bei Browser-Reload</span>
+        </div>
       </DocSection>
 
       <DocSection title="Erweiterbarkeit">
@@ -1083,7 +1376,7 @@ function TabDesign() {
 }
 
 // ── AboutPage ─────────────────────────────────────────────────────────────────
-const TAB_ORDER: AboutTab[] = ['overview', 'setup', 'docker', 'logbuch', 'media', 'recyclarr', 'cfmanager', 'ha', 'widgets', 'design']
+const TAB_ORDER: AboutTab[] = ['overview', 'setup', 'docker', 'logbuch', 'media', 'recyclarr', 'cfmanager', 'ha', 'netzwerk', 'backup', 'widgets', 'design']
 
 const TAB_LABELS: Record<AboutTab, string> = {
   overview: 'Übersicht',
@@ -1094,6 +1387,8 @@ const TAB_LABELS: Record<AboutTab, string> = {
   recyclarr: 'Recyclarr',
   cfmanager: 'CF-Manager',
   ha: 'Home Assistant',
+  netzwerk: 'Netzwerk',
+  backup: 'Backup',
   widgets: 'Widgets',
   design: 'Design',
 }
@@ -1142,6 +1437,8 @@ export function AboutPage({ onShowChangelog }: { onShowChangelog?: () => void } 
       {activeTab === 'recyclarr'  && <TabTrash />}
       {activeTab === 'cfmanager'  && <TabCFManager />}
       {activeTab === 'ha'         && <TabHA />}
+      {activeTab === 'netzwerk'   && <TabNetzwerk />}
+      {activeTab === 'backup'     && <TabBackup />}
       {activeTab === 'widgets'    && <TabWidgets />}
       {activeTab === 'design'     && <TabDesign />}
     </div>

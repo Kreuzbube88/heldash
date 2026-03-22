@@ -145,6 +145,14 @@ All colors via CSS variables. Theme switch: `data-theme` + `data-accent` on `<ht
 - **Docker Events pendingStops**: delays 'gestoppt' log entry by 5s; 'start' event cancels pending stop (restart sequence); 'restart' event also cancels timer.
 - **Service health scheduler**: server-side, every 30s, writes last_status + last_checked; frontend loadServices() every 15s reads from DB. ServiceCard subscribes directly to Zustand store for last_status.
 - **Activity timestamps**: SQLite `datetime('now')` stores UTC without 'Z' suffix; backend appends 'Z' to created_at before returning to frontend for correct timezone display.
+- **HA Floorplan**: single HA instance assumed in UI (no selector shown); technically instance_id stored in DB; uses first HA instance automatically. Images stored in {DATA_DIR}/floorplans/, served via /floorplan-images/. Entity positions stored as % of canvas dimensions for responsiveness. Zoom/Pan via CSS transform only (no canvas element). Leaflet GPS map: dynamic import only when GPS toggle enabled in localStorage.
+- **HA Alerts**: stored in ha_alerts table; evaluated in ha-ws-client.ts on every state_changed event; min 60s between triggers per alert (last_triggered_at); delivered via SSE stream GET /api/ha/alerts/stream; max 20 alerts total.
+- **Network Monitor**: TCP ping via net.Socket (built-in, no deps); tries ports [80, 443, 22, 8080] in sequence if no check_port set; subnet must be manually configured (never auto-detect — Docker container interface is eth0 with container IP, not host IP); IP scanner accepts CIDR notation, max /22 (1024 hosts); logLevel: 'silent'.
+- **Backup Center**: CA Backup requires /boot:/boot:ro mount to read logs; if /boot not mounted → clear error message shown, no crash; Duplicati/Kopia: 5s timeout, returns error state if unreachable; Docker export: JSON format (application/json), uses existing dockerPool; backup daily checker: logActivity('backup', ...) on stale/failed sources.
+- **Resource History**: readSystemStats() extracted as shared function used by both widget endpoint and resource history scheduler; 1min entries kept 25h, 15min entries kept 8 days; aggregation runs every 15min; GET /api/resources/history?range=1h|24h|7d.
+- **Changelog Modal**: compares /api/health version with localStorage 'heldash_last_seen_version'; first ever start (null) → save version silently, no modal shown; version change → show modal; GitHub unreachable → graceful fallback.
+- **WoL Magic Packet**: 102 bytes — 6×0xFF + 16×MAC-bytes; sent via dgram UDP to broadcast address port 9; dgram is Node built-in (no new deps).
+- **tcpPing**: net.Socket built-in; always destroy socket after connect or error; returns latency ms or null; never hangs (explicit timeout + destroy).
 
 ## Deploy
 

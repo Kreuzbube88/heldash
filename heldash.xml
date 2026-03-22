@@ -58,5 +58,8 @@ Bug reports and feature requests welcome via GitHub Issues.</Overview>
   <Config Name="PGID" Target="PGID" Default="100" Mode=""
     Description="Group ID for file permissions (Unraid default: 100)"
     Type="Variable" Display="advanced" Required="false" Mask="false">100</Config>
+  <Config Name="Boot (CA Backup)" Target="/boot" Default="" Mode="ro"
+    Description="Optional: Nur für CA Backup Log-Überwachung erforderlich. Pfad: /boot"
+    Type="Path" Display="advanced" Required="false" Mask="false"></Config>
   <TailscaleStateDir/>
 </Container>

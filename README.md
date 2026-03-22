@@ -111,7 +111,24 @@ Home Assistant und mehr — alles in einer Oberfläche.
 - 🔔 Anomalie-Erkennung — instabile Services automatisch markiert
 - 📊 Tabs: Aktivitäten | Uptime | Sync-Verlauf | Docker Events
 - 🔍 Filter nach Kategorie, Zeitraum und Freitext
+- 📈 Ressourcen-Verlauf — CPU, RAM, Netzwerk als 24h/7T Graph
+- 🌐 Netzwerk-Filter in Aktivitäten
+- 💾 Backup-Filter in Aktivitäten
 - 🔄 Erweiterbar — neue Integrationen (z.B. Unraid) als eigener Tab
+
+**Netzwerk**
+- 🌐 Netzwerk-Geräte überwachen — Ping via TCP, Status-History 7 Tage
+- 📡 IP-Scanner — Subnetz scannen (CIDR, max /22), Geräte direkt hinzufügen
+- 🔌 Wake-on-LAN — Geräte per Magic Packet aufwecken
+- 📊 Geräte-Gruppen — benannte Kategorien, 24h Uptime-Verlauf pro Gerät
+- 🔔 Statuswechsel im Aktivitäten-Feed (Netzwerk-Filter)
+
+**Backup Center**
+- 💾 Zentrale Backup-Übersicht — CA Backup, Duplicati, Kopia, Docker, VMs
+- 🐳 Docker Config Export — alle Container-Konfigurationen als JSON sichern
+- ⚠️ Automatische Warnungen wenn Backup > 7 Tage alt
+- 📖 Integrierter Leitfaden: Unraid vollständig sichern (3-2-1 Regel,
+    CA Backup, Duplicati, Kopia, Datenbanken, Disaster Recovery)
 
 **Home Assistant**
 - 🏠 Multi-Instanz-Support (hinzufügen/bearbeiten/löschen/testen)
@@ -127,6 +144,14 @@ Home Assistant und mehr — alles in einer Oberfläche.
     Heute / Diese Woche / Dieser Monat
 - 🏠 Räume/Areas — Panels nach HA-Bereichen gruppieren,
     automatische Raum-Erkennung aus Entity-Registry
+- 🗺️ Grundriss — Etagen-/Außenbereiche mit Bild-Upload, Entities platzieren,
+    Live-State via WebSocket (Lichter pulsieren, Sensoren etc.)
+- 🔒 Lock-Karten — PIN-gesichertes Öffnen/Schließen
+- 🚨 Alarm-Karten — Scharf/Deaktivieren mit PIN
+- 🔔 HA Alerts — Entity-Zustandsänderungen als Toast-Benachrichtigung
+- 🎬 Szenarien — HA Szenen + Scripts direkt ausführen
+- 📈 Entity-Verlauf — 24h/7T Graph für alle Entity-Typen (Recharts)
+- 👥 Presence Tracking — Personen-Status + optionale GPS-Karte (OpenStreetMap)
 - 🔒 Long-Lived Access Tokens ausschließlich serverseitig
 
 **Widgets**
@@ -165,6 +190,10 @@ Home Assistant und mehr — alles in einer Oberfläche.
 **Dokumentation**
 - 📖 Integriertes Doku-Center in der About-Seite
 
+**Changelog**
+- 🎉 What's New Modal — erscheint automatisch nach Updates
+- 📋 Alle Releases direkt im Dashboard einsehbar
+
 **Import/Export**
 - 📥 JSON Import/Export — Backup und Restore von Service-Konfigurationen
 
@@ -178,6 +207,7 @@ docker run -d \
   -v /mnt/user/appdata/heldash:/data \
   -v /var/run/docker.sock:/var/run/docker.sock:ro \
   -v /mnt/user/appdata/recyclarr:/recyclarr \
+  # -v /boot:/boot:ro \  # optional: CA Backup monitoring
   -e SECRET_KEY=$(openssl rand -hex 32) \
   -e SECURE_COOKIES=false \
   ghcr.io/kreuzbube88/heldash:latest
@@ -211,7 +241,7 @@ Beim ersten Start erscheint automatisch die Admin-Einrichtungsseite.
 | `SECRET_KEY` | **Ja** | unsicher | JWT-Schlüssel. `openssl rand -hex 32` |
 | `SECURE_COOKIES` | **Ja** | `false` | `false` = HTTP lokal, `true` = HTTPS via Reverse Proxy |
 | `PORT` | Nein | `8282` | Listen-Port des Webservers |
-| `DATA_DIR` | Nein | `/data` | Datenbank, Icons, Hintergründe |
+| `DATA_DIR` | Nein | `/data` | Datenbank, Icons, Hintergründe, Grundriss-Bilder |
 | `LOG_LEVEL` | Nein | `info` | `debug` · `info` · `warn` · `error` |
 | `LOG_FORMAT` | Nein | `pretty` | `pretty` = lesbar · `json` = für Log-Aggregatoren |
 | `RECYCLARR_CONFIG_PATH` | Nein | `/recyclarr/recyclarr.yml` | Pfad zur recyclarr.yml (Container-Perspektive) |
@@ -231,6 +261,11 @@ Community Applications Template: **`heldash.xml`** im Repository-Root.
 | `/data` | `/mnt/user/appdata/heldash` | Datenbank + Konfiguration |
 | `/var/run/docker.sock` | `/var/run/docker.sock` | Docker-Integration (ro) |
 | `/recyclarr` | `/mnt/user/appdata/recyclarr` | Recyclarr Config (optional) |
+| `/boot` | `/boot` | CA Backup Log-Zugriff (optional, read-only) |
+
+> Der `/boot` Mount ist nur erforderlich wenn CA Backup als
+> Backup-Quelle in HELDASH überwacht werden soll.
+> In der heldash.xml als optionaler Pfad konfigurierbar.
 
 **Pflichtfelder bei Installation:**
 - `SECRET_KEY` — `openssl rand -hex 32` im Terminal generieren
@@ -287,9 +322,21 @@ Vollständige Dokumentation direkt im Dashboard unter **About**.
 - [x] Docker Events stream (kein Polling)
 - [x] Recyclarr Zeitplan hot-reload (kein Container-Neustart)
 - [x] Unraid Community Applications Template
+- [x] HA Grundriss — Multi-Etagen, Entity-Placement, Live-State
+- [x] HA Lock + Alarm Cards mit PIN-Bestätigung
+- [x] HA Alerts — Entity-basierte Toast-Benachrichtigungen
+- [x] HA Szenarien Tab — Szenen + Scripts ausführen
+- [x] HA Entity-Verlauf — Recharts Graph für alle Domains
+- [x] HA Presence Tracking + GPS Mini-Map
+- [x] Netzwerk-Monitor — TCP-Ping, IP-Scanner, WoL
+- [x] Backup Center — CA Backup, Duplicati, Kopia, Docker Export
+- [x] Backup Leitfaden — Unraid Disaster Recovery
+- [x] Changelog / What's New Modal
+- [x] Ressourcen-Verlauf im Logbuch (CPU/RAM/Netzwerk)
 
 ### Geplant
 - [ ] Unraid API Integration (Logbuch-Tab)
+- [ ] Paperless-NGX Integration
 - [ ] OIDC / SSO via Authentik oder voidauth
 - [ ] Torrent-Client Integration (qBittorrent, Transmission, Deluge)
 - [ ] Webhook-Benachrichtigungen (ntfy / Gotify)

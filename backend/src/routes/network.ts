@@ -238,16 +238,21 @@ export async function networkRoutes(app: FastifyInstance) {
         ipList = parsed
       }
 
-      const scanPorts = [80, 443, 22, 8080]
+      // Common homelab ports: SSH, HTTP/S, alt-HTTP/S, Proxmox, Synology, Portainer, Grafana, Jellyfin, Plex
+      const scanPorts = [22, 80, 443, 8080, 8443, 8006, 5000, 5001, 9000, 9443, 3000, 8096, 32400]
       const results: { ip: string; latency: number; open_ports: number[] }[] = []
-      const promises: Promise<void>[] = []
 
-      for (const ip of ipList) {
-        promises.push((async () => {
+      // Process in batches to avoid exhausting OS socket limits on large subnets
+      const BATCH = 64
+      const deadline = Date.now() + 28_000
+
+      for (let b = 0; b < ipList.length && Date.now() < deadline; b += BATCH) {
+        const batch = ipList.slice(b, b + BATCH)
+        await Promise.allSettled(batch.map(async ip => {
           const open_ports: number[] = []
           let firstLatency: number | null = null
           await Promise.allSettled(scanPorts.map(async port => {
-            const lat = await tcpPing(ip, port, 500)
+            const lat = await tcpPing(ip, port, 800)
             if (lat !== null) {
               open_ports.push(port)
               if (firstLatency === null) firstLatency = lat
@@ -256,14 +261,8 @@ export async function networkRoutes(app: FastifyInstance) {
           if (open_ports.length > 0 && firstLatency !== null) {
             results.push({ ip, latency: firstLatency, open_ports })
           }
-        })())
+        }))
       }
-
-      // 30s max timeout
-      await Promise.race([
-        Promise.allSettled(promises),
-        new Promise<void>(resolve => setTimeout(resolve, 29_000)),
-      ])
 
       return results.sort((a, b) => {
         const aParts = a.ip.split('.').map(Number)

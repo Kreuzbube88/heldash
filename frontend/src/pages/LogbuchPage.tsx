@@ -771,87 +771,16 @@ interface MetricCardProps {
 }
 
 function MetricCard({ label, value, subValue, color, data, maxVal }: MetricCardProps) {
-  const [zoomLo, setZoomLo] = useState<number | null>(null)
-  const [zoomHi, setZoomHi] = useState<number | null>(null)
-  const [selStart, setSelStart] = useState<number | null>(null)
-  const [selCur, setSelCur] = useState<number | null>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
-
-  const isZoomed = zoomLo !== null && zoomHi !== null
-  const visData = isZoomed ? data.slice(zoomLo!, zoomHi! + 1) : data
-  const effectiveMax = isZoomed ? undefined : maxVal
-
-  const getRelX = (e: React.MouseEvent) => {
-    const rect = containerRef.current?.getBoundingClientRect()
-    if (!rect || rect.width === 0) return 0
-    return Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
-  }
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    setSelStart(getRelX(e))
-    setSelCur(getRelX(e))
-    e.preventDefault()
-  }
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (selStart === null) return
-    setSelCur(getRelX(e))
-  }
-
-  const commitZoom = (e: React.MouseEvent) => {
-    if (selStart === null) return
-    const end = getRelX(e)
-    const a = Math.min(selStart, end)
-    const b = Math.max(selStart, end)
-    if (b - a > 0.02) {
-      setZoomLo(Math.max(0, Math.floor(a * data.length)))
-      setZoomHi(Math.min(data.length - 1, Math.ceil(b * data.length) - 1))
-    }
-    setSelStart(null)
-    setSelCur(null)
-  }
-
-  const showSel = selStart !== null && selCur !== null && Math.abs(selCur - selStart) > 0.01
-  const selLeft = showSel ? `${Math.min(selStart!, selCur!) * 100}%` : undefined
-  const selWidth = showSel ? `${Math.abs(selCur! - selStart!) * 100}%` : undefined
-
   return (
     <div className="glass" style={{ borderRadius: 'var(--radius-md)', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
         <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>{label}</span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {isZoomed && (
-            <button
-              onClick={() => { setZoomLo(null); setZoomHi(null) }}
-              title="Zoom zurücksetzen"
-              style={{ background: 'none', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-sm)', padding: '2px 6px', cursor: 'pointer', fontSize: 11, color: 'var(--accent)', lineHeight: 1.4 }}
-            >↺</button>
-          )}
-          <div style={{ textAlign: 'right' }}>
-            <span style={{ fontSize: 20, fontWeight: 700, fontFamily: 'var(--font-mono)', color }}>{value}</span>
-            {subValue && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{subValue}</div>}
-          </div>
+        <div style={{ textAlign: 'right' }}>
+          <span style={{ fontSize: 20, fontWeight: 700, fontFamily: 'var(--font-mono)', color }}>{value}</span>
+          {subValue && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{subValue}</div>}
         </div>
       </div>
-      <div
-        ref={containerRef}
-        style={{ position: 'relative', cursor: 'crosshair', userSelect: 'none' }}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={commitZoom}
-        onMouseLeave={commitZoom}
-      >
-        <MiniChart data={visData} color={color} maxVal={effectiveMax} height={260} />
-        {showSel && (
-          <div style={{
-            position: 'absolute', top: 0, bottom: 0,
-            left: selLeft, width: selWidth,
-            background: 'rgba(255,255,255,0.12)',
-            border: '1px solid rgba(255,255,255,0.25)',
-            pointerEvents: 'none',
-          }} />
-        )}
-      </div>
+      <MiniChart data={data} color={color} maxVal={maxVal} height={56} />
     </div>
   )
 }

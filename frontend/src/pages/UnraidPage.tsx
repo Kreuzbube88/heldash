@@ -1,0 +1,1255 @@
+import React, { useEffect, useState, useCallback } from 'react'
+import { useStore } from '../store/useStore'
+import { useUnraidStore } from '../store/useUnraidStore'
+import { useToast } from '../components/Toast'
+import {
+  DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext, verticalListSortingStrategy, useSortable, arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import {
+  Server, Settings2, GripVertical, Plus, RefreshCw, Play, Square, RotateCcw,
+  Pause, ChevronUp, ChevronDown, Trash2, Eye, EyeOff, AlertTriangle, Check,
+} from 'lucide-react'
+import type { UnraidInstance, UnraidContainer, UnraidVm } from '../types/unraid'
+import { api } from '../api'
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function formatBytes(bytes?: number): string {
+  if (!bytes || bytes === 0) return '–'
+  const kb = bytes / 1024
+  if (kb < 1024) return `${kb.toFixed(1)} KB`
+  const mb = kb / 1024
+  if (mb < 1024) return `${mb.toFixed(1)} MB`
+  const gb = mb / 1024
+  if (gb < 1024) return `${gb.toFixed(2)} GB`
+  return `${(gb / 1024).toFixed(2)} TB`
+}
+
+function formatUptime(seconds?: number): string {
+  if (!seconds) return '–'
+  const d = Math.floor(seconds / 86400)
+  const h = Math.floor((seconds % 86400) / 3600)
+  const m = Math.floor((seconds % 3600) / 60)
+  const parts: string[] = []
+  if (d > 0) parts.push(`${d}T`)
+  if (h > 0) parts.push(`${h}Std`)
+  if (m > 0 || parts.length === 0) parts.push(`${m}Min`)
+  return parts.join(' ')
+}
+
+function formatRelative(ts?: string): string {
+  if (!ts) return '–'
+  const diff = Date.now() - new Date(ts).getTime()
+  const m = Math.floor(diff / 60000)
+  if (m < 60) return `vor ${m} Min`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `vor ${h} Std`
+  return `vor ${Math.floor(h / 24)} Tagen`
+}
+
+// ── ConfirmModal ──────────────────────────────────────────────────────────────
+
+function ConfirmModal({ title, message, onConfirm, onCancel, danger = false, children }: {
+  title: string; message: string
+  onConfirm: () => void; onCancel: () => void
+  danger?: boolean; children?: React.ReactNode
+}) {
+  return (
+    <div className="modal-overlay" onClick={onCancel}>
+      <div className="modal-content glass" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3 className="modal-title">{title}</h3>
+        </div>
+        <div className="modal-body">
+          <p style={{ color: 'var(--text-secondary)', margin: 0 }}>{message}</p>
+          {children}
+        </div>
+        <div className="modal-footer" style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <button className="btn" onClick={onCancel}>Abbrechen</button>
+          <button className={`btn ${danger ? 'btn-danger' : 'btn-primary'}`} onClick={onConfirm}>Bestätigen</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Setup Screen ──────────────────────────────────────────────────────────────
+
+function SetupScreen() {
+  const { createInstance } = useUnraidStore()
+  const { toast } = useToast()
+  const [name, setName] = useState('')
+  const [url, setUrl] = useState('')
+  const [apiKey, setApiKey] = useState('')
+  const [showKey, setShowKey] = useState(false)
+  const [testing, setTesting] = useState(false)
+  const [testOk, setTestOk] = useState<boolean | null>(null)
+  const [testError, setTestError] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const handleTest = async () => {
+    setTesting(true)
+    setTestOk(null)
+    setTestError('')
+    try {
+      await api.unraid.instances.test(url, apiKey)
+      setTestOk(true)
+    } catch (e) {
+      setTestOk(false)
+      setTestError((e as Error).message)
+    } finally {
+      setTesting(false)
+    }
+  }
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      await createInstance({ name, url, api_key: apiKey })
+      toast({ message: 'Unraid verbunden', type: 'success' })
+    } catch (e) {
+      toast({ message: (e as Error).message, type: 'error' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div style={{ maxWidth: 560, margin: '80px auto', padding: '0 var(--spacing-md)' }}>
+      <div className="glass" style={{ padding: 'var(--spacing-2xl)', borderRadius: 'var(--radius-xl)', textAlign: 'center' }}>
+        <Server size={40} style={{ color: 'var(--accent)', marginBottom: 'var(--spacing-md)' }} />
+        <h2 style={{ margin: '0 0 var(--spacing-sm)', fontFamily: 'var(--font-display)' }}>Unraid verbinden</h2>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: 'var(--spacing-xl)' }}>Erfordert Unraid 7.2 oder neuer.</p>
+
+        {/* Step 1 */}
+        <div className="glass" style={{ padding: 'var(--spacing-lg)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--spacing-md)', textAlign: 'left' }}>
+          <div style={{ display: 'flex', gap: 'var(--spacing-md)', alignItems: 'flex-start' }}>
+            <span style={{ background: 'var(--accent)', color: '#000', borderRadius: '50%', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>1</span>
+            <div>
+              <div style={{ fontWeight: 600, marginBottom: 4 }}>API Key erstellen</div>
+              <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: 13 }}>
+                Unraid WebGUI → Settings → Management Access → API Keys → "Create"<br />
+                Name: z.B. "HELDASH" | Rolle: admin | Speichern → Key kopieren
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Step 2 */}
+        <div className="glass" style={{ padding: 'var(--spacing-lg)', borderRadius: 'var(--radius-md)', textAlign: 'left' }}>
+          <div style={{ display: 'flex', gap: 'var(--spacing-md)', alignItems: 'flex-start', marginBottom: 'var(--spacing-md)' }}>
+            <span style={{ background: 'var(--accent)', color: '#000', borderRadius: '50%', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>2</span>
+            <div style={{ fontWeight: 600 }}>Verbinden</div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
+            <input className="input" placeholder="Name (z.B. Heimserver)" value={name} onChange={e => setName(e.target.value)} />
+            <input className="input" placeholder="URL (z.B. http://192.168.1.10)" value={url} onChange={e => { setUrl(e.target.value); setTestOk(null) }} />
+            <div style={{ position: 'relative' }}>
+              <input className="input" type={showKey ? 'text' : 'password'} placeholder="API Key" value={apiKey} onChange={e => { setApiKey(e.target.value); setTestOk(null) }} style={{ paddingRight: 40 }} />
+              <button className="btn" onClick={() => setShowKey(v => !v)} style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', padding: '2px 6px', minHeight: 'unset' }}>
+                {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
+              </button>
+            </div>
+            <button className="btn btn-primary" onClick={handleTest} disabled={testing || !url || !apiKey} style={{ width: '100%' }}>
+              {testing ? <span className="spinner" style={{ width: 14, height: 14 }} /> : 'Verbindung testen'}
+            </button>
+            {testOk === true && <div style={{ color: 'var(--status-online)', fontSize: 13 }}><Check size={12} /> Verbindung erfolgreich</div>}
+            {testOk === false && <div style={{ color: 'var(--status-offline)', fontSize: 13 }}><AlertTriangle size={12} /> {testError}</div>}
+            <button className="btn btn-primary" onClick={handleSave} disabled={!testOk || saving || !name} style={{ width: '100%' }}>
+              {saving ? <span className="spinner" style={{ width: 14, height: 14 }} /> : 'Verbinden & Speichern'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Overview Tab ──────────────────────────────────────────────────────────────
+
+function OverviewTab({ instanceId }: { instanceId: string }) {
+  const { info, array, notifications, loadInfo, loadArray, loadNotifications, errors } = useUnraidStore()
+  const data = info[instanceId]
+  const arrData = array[instanceId]
+  const notifData = notifications[instanceId]
+
+  useEffect(() => {
+    loadInfo(instanceId)
+    loadArray(instanceId)
+    loadNotifications(instanceId)
+    const t1 = setInterval(() => loadInfo(instanceId), 30_000)
+    const t2 = setInterval(() => loadArray(instanceId), 30_000)
+    return () => { clearInterval(t1); clearInterval(t2) }
+  }, [instanceId])
+
+  const os = data?.info?.os
+  const cpu = data?.info?.cpu
+  const memory = data?.info?.memory
+  const baseboard = data?.info?.baseboard
+  const arrState = arrData?.array?.state
+  const cap = arrData?.array?.capacity?.kilobytes
+  const unread = notifData?.notifications?.overview?.unread ?? 0
+  const err = errors[`info_${instanceId}`]
+
+  const stateColor = (s?: string) => {
+    if (!s) return 'var(--text-muted)'
+    if (s === 'started') return 'var(--status-online)'
+    if (s === 'stopped') return 'var(--text-muted)'
+    if (s === 'error') return 'var(--status-offline)'
+    return 'var(--warning)'
+  }
+
+  return (
+    <div>
+      {err && <div className="error-banner" style={{ marginBottom: 'var(--spacing-md)' }}>{err}</div>}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 'var(--spacing-md)' }}>
+        <div className="glass" style={{ padding: 'var(--spacing-lg)', borderRadius: 'var(--radius-md)' }}>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>Server</div>
+          <h3 style={{ margin: '0 0 4px', fontSize: 16 }}>{os?.hostname ?? '–'}</h3>
+          <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{os?.distro} {os?.release}</div>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>Uptime: {formatUptime(os?.uptime)}</div>
+        </div>
+
+        <div className="glass" style={{ padding: 'var(--spacing-lg)', borderRadius: 'var(--radius-md)' }}>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>CPU</div>
+          <div style={{ fontWeight: 600 }}>{cpu?.manufacturer} {cpu?.brand}</div>
+          <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>{cpu?.cores} Kerne / {cpu?.threads} Threads</div>
+        </div>
+
+        <div className="glass" style={{ padding: 'var(--spacing-lg)', borderRadius: 'var(--radius-md)' }}>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>RAM</div>
+          {memory?.total ? (
+            <>
+              <div style={{ background: 'var(--glass-bg)', borderRadius: 4, height: 6, marginBottom: 6 }}>
+                <div style={{ background: 'var(--accent)', height: '100%', borderRadius: 4, width: `${((memory.used ?? 0) / memory.total * 100).toFixed(0)}%` }} />
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                {formatBytes(memory.used)} / {formatBytes(memory.total)}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>Frei: {formatBytes(memory.free)}</div>
+            </>
+          ) : <div style={{ color: 'var(--text-muted)' }}>–</div>}
+        </div>
+
+        <div className="glass" style={{ padding: 'var(--spacing-lg)', borderRadius: 'var(--radius-md)' }}>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>Mainboard</div>
+          <div style={{ fontWeight: 600 }}>{baseboard?.manufacturer ?? '–'}</div>
+          <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>{baseboard?.model ?? ''}</div>
+        </div>
+
+        <div className="glass" style={{ padding: 'var(--spacing-lg)', borderRadius: 'var(--radius-md)' }}>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>Array</div>
+          <span style={{ background: stateColor(arrState), color: arrState === 'started' ? '#000' : 'var(--text-primary)', borderRadius: 4, padding: '2px 8px', fontSize: 12, fontWeight: 600 }}>{arrState ?? '–'}</span>
+          {cap && <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 6 }}>{formatBytes(cap.used)} / {formatBytes(cap.total)}</div>}
+        </div>
+
+        <div className="glass" style={{ padding: 'var(--spacing-lg)', borderRadius: 'var(--radius-md)', cursor: 'default' }}>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>Benachrichtigungen</div>
+          {unread === 0
+            ? <span style={{ background: 'var(--status-online)', color: '#000', borderRadius: 4, padding: '2px 8px', fontSize: 12, fontWeight: 600 }}>Alles OK</span>
+            : <span style={{ background: 'var(--warning)', color: '#000', borderRadius: 4, padding: '2px 8px', fontSize: 12, fontWeight: 600 }}>{unread} ungelesen</span>
+          }
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Array Tab ─────────────────────────────────────────────────────────────────
+
+function ArrayTab({ instanceId }: { instanceId: string }) {
+  const { array, parity, loadArray, loadParity, arrayStart, arrayStop, parityStart, parityPause, parityResume, parityCancel, diskSpinUp, diskSpinDown, errors } = useUnraidStore()
+  const { isAdmin } = useStore()
+  const { toast } = useToast()
+  const arrData = array[instanceId]
+  const parityHistory = parity[instanceId] ?? []
+
+  const [confirm, setConfirm] = useState<{ action: string; msg: string; extra?: React.ReactNode } | null>(null)
+  const [parityCorrect, setParityCorrect] = useState(false)
+  const [diskLoading, setDiskLoading] = useState<Record<string, boolean>>({})
+  const [showHistory, setShowHistory] = useState(false)
+
+  useEffect(() => {
+    loadArray(instanceId)
+    loadParity(instanceId)
+    const t = setInterval(() => loadArray(instanceId), 15_000)
+    return () => clearInterval(t)
+  }, [instanceId])
+
+  const arrState = arrData?.array?.state ?? ''
+  const cap = arrData?.array?.capacity?.kilobytes
+  const disks = arrData?.array?.disks ?? []
+  const isParityRunning = /resyncing|syncing|check/.test(arrState)
+  const isParityPaused = /paused/.test(arrState)
+  const err = errors[`array_${instanceId}`]
+
+  const stateColor = (s: string) => {
+    if (s === 'started') return 'var(--status-online)'
+    if (s === 'stopped') return 'var(--text-muted)'
+    if (s === 'error') return 'var(--status-offline)'
+    return 'var(--warning)'
+  }
+
+  const diskStatusColor = (s?: string) => {
+    if (s === 'DISK_OK') return 'var(--status-online)'
+    if (s === 'DISK_NP') return 'var(--text-muted)'
+    if (s === 'DISK_DSBL') return 'var(--status-offline)'
+    if (s === 'DISK_NEW') return '#3b82f6'
+    return 'var(--warning)'
+  }
+
+  const tempColor = (t?: number | null) => {
+    if (t == null) return 'var(--text-muted)'
+    if (t < 40) return 'var(--status-online)'
+    if (t <= 50) return 'var(--warning)'
+    return 'var(--status-offline)'
+  }
+
+  const usedPct = cap ? ((cap.used ?? 0) / (cap.total ?? 1) * 100) : 0
+  const barColor = usedPct < 80 ? 'var(--accent)' : usedPct < 90 ? 'var(--warning)' : 'var(--status-offline)'
+
+  const runConfirm = useCallback(async (action: string) => {
+    setConfirm(null)
+    try {
+      if (action === 'arrayStart') { await arrayStart(instanceId); toast({ message: 'Array gestartet', type: 'success' }) }
+      else if (action === 'arrayStop') { await arrayStop(instanceId); toast({ message: 'Array gestoppt', type: 'success' }) }
+      else if (action === 'parityStart') { await parityStart(instanceId, parityCorrect); toast({ message: 'Parity Check gestartet', type: 'success' }) }
+      else if (action === 'parityCancel') { await parityCancel(instanceId); toast({ message: 'Parity Check abgebrochen', type: 'success' }) }
+    } catch (e) {
+      toast({ message: (e as Error).message, type: 'error' })
+    }
+  }, [instanceId, parityCorrect])
+
+  const handleDiskSpin = async (diskId: string, action: 'up' | 'down') => {
+    setDiskLoading(s => ({ ...s, [diskId]: true }))
+    try {
+      if (action === 'up') await diskSpinUp(instanceId, diskId)
+      else await diskSpinDown(instanceId, diskId)
+      toast({ message: `Disk ${action === 'up' ? 'hochgefahren' : 'heruntergefahren'}`, type: 'success' })
+    } catch (e) {
+      toast({ message: (e as Error).message, type: 'error' })
+    } finally {
+      setDiskLoading(s => ({ ...s, [diskId]: false }))
+    }
+  }
+
+  return (
+    <div>
+      {err && <div className="error-banner" style={{ marginBottom: 'var(--spacing-md)' }}>{err}</div>}
+
+      {isAdmin && (
+        <div className="glass" style={{ padding: 'var(--spacing-md)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--spacing-md)', display: 'flex', flexWrap: 'wrap', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
+          <span style={{ background: stateColor(arrState), color: ['started'].includes(arrState) ? '#000' : 'var(--text-primary)', borderRadius: 4, padding: '2px 8px', fontSize: 12, fontWeight: 600, marginRight: 'var(--spacing-sm)' }}>{arrState || '–'}</span>
+          {arrState === 'stopped' && <button className="btn btn-primary" onClick={() => setConfirm({ action: 'arrayStart', msg: 'Array starten?' })}><Play size={14} /> Array starten</button>}
+          {arrState === 'started' && <button className="btn btn-danger" onClick={() => setConfirm({ action: 'arrayStop', msg: 'Alle laufenden Zugriffe werden unterbrochen.' })}><Square size={14} /> Array stoppen</button>}
+          {arrState === 'started' && !isParityRunning && !isParityPaused && (
+            <button className="btn btn-primary" onClick={() => setConfirm({ action: 'parityStart', msg: 'Parity Check starten?', extra: (
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, cursor: 'pointer' }}>
+                <input type="checkbox" checked={parityCorrect} onChange={e => setParityCorrect(e.target.checked)} />
+                Fehler automatisch korrigieren
+              </label>
+            ) })}>Parity Check starten</button>
+          )}
+          {isParityRunning && <>
+            <button className="btn" onClick={() => parityPause(instanceId).then(() => toast({ message: 'Parity pausiert', type: 'success' })).catch(e => toast({ message: (e as Error).message, type: 'error' }))}><Pause size={14} /> Pausieren</button>
+            <button className="btn btn-danger" onClick={() => setConfirm({ action: 'parityCancel', msg: 'Parity Check abbrechen?' })}>Abbrechen</button>
+          </>}
+          {isParityPaused && <>
+            <button className="btn btn-primary" onClick={() => parityResume(instanceId).then(() => toast({ message: 'Parity fortgesetzt', type: 'success' })).catch(e => toast({ message: (e as Error).message, type: 'error' }))}><Play size={14} /> Fortsetzen</button>
+            <button className="btn btn-danger" onClick={() => setConfirm({ action: 'parityCancel', msg: 'Parity Check abbrechen?' })}>Abbrechen</button>
+          </>}
+        </div>
+      )}
+
+      {cap && (
+        <div className="glass" style={{ padding: 'var(--spacing-md)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--spacing-md)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
+            <span>{formatBytes(cap.used)} / {formatBytes(cap.total)}</span>
+            <span>{usedPct.toFixed(1)}%</span>
+          </div>
+          <div style={{ background: 'var(--glass-bg)', borderRadius: 4, height: 8 }}>
+            <div style={{ background: barColor, height: '100%', borderRadius: 4, width: `${usedPct.toFixed(1)}%`, transition: 'width 0.3s' }} />
+          </div>
+        </div>
+      )}
+
+      {disks.length > 0 && (
+        <div className="glass" style={{ borderRadius: 'var(--radius-md)', overflow: 'hidden', marginBottom: 'var(--spacing-md)' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                {['Name', 'Gerät', 'Größe', 'Status', 'Temp', 'Belegung', ...(isAdmin ? ['Aktionen'] : [])].map(h => (
+                  <th key={h} style={{ padding: 'var(--spacing-sm) var(--spacing-md)', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 500 }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {disks.map((disk, i) => (
+                <tr key={disk.id ?? i} style={{ borderBottom: '1px solid var(--glass-border)' }}>
+                  <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)', fontWeight: 500 }}>{disk.name ?? '–'}</td>
+                  <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)', color: 'var(--text-muted)' }}>{disk.device ?? '–'}</td>
+                  <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>{formatBytes(disk.size)}</td>
+                  <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
+                    <span style={{ background: diskStatusColor(disk.status), color: disk.status === 'DISK_OK' ? '#000' : 'var(--text-primary)', borderRadius: 4, padding: '1px 6px', fontSize: 11, fontWeight: 600 }}>{disk.status ?? '–'}</span>
+                  </td>
+                  <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)', color: tempColor(disk.temp) }}>{disk.temp != null ? `${disk.temp}°C` : '–'}</td>
+                  <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
+                    {disk.fsSize && disk.fsSize > 0 ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <div style={{ background: 'var(--glass-bg)', borderRadius: 2, height: 6, width: 60 }}>
+                          <div style={{ background: 'var(--accent)', height: '100%', borderRadius: 2, width: `${(disk.fsUsedPercent ?? 0).toFixed(0)}%` }} />
+                        </div>
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{(disk.fsUsedPercent ?? 0).toFixed(0)}%</span>
+                      </div>
+                    ) : '–'}
+                  </td>
+                  {isAdmin && (
+                    <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        <button className="btn" disabled={diskLoading[disk.id ?? ''] || arrState !== 'started' || disk.status === 'DISK_NP'} onClick={() => handleDiskSpin(disk.id!, 'up')} title="Spin Up" style={{ padding: '2px 6px' }}>
+                          {diskLoading[disk.id ?? ''] ? <span className="spinner" style={{ width: 12, height: 12 }} /> : <ChevronUp size={14} />}
+                        </button>
+                        <button className="btn" disabled={diskLoading[disk.id ?? ''] || arrState !== 'started' || disk.status === 'DISK_NP'} onClick={() => handleDiskSpin(disk.id!, 'down')} title="Spin Down" style={{ padding: '2px 6px' }}>
+                          <ChevronDown size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <div className="glass" style={{ padding: 'var(--spacing-md)', borderRadius: 'var(--radius-md)' }}>
+        <button className="btn" onClick={() => setShowHistory(v => !v)} style={{ marginBottom: showHistory ? 'var(--spacing-sm)' : 0 }}>
+          {showHistory ? 'Parity-Historie ausblenden' : 'Parity-Historie anzeigen'}
+        </button>
+        {showHistory && parityHistory.length > 0 && (
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, marginTop: 8 }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                {['Datum', 'Dauer', 'Speed', 'Status', 'Fehler'].map(h => (
+                  <th key={h} style={{ padding: '6px 8px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 500 }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {parityHistory.slice(0, 10).map((p, i) => (
+                <tr key={i} style={{ borderBottom: '1px solid var(--glass-border)' }}>
+                  <td style={{ padding: '6px 8px' }}>{p.date ?? '–'}</td>
+                  <td style={{ padding: '6px 8px' }}>{p.duration ? `${Math.floor((p.duration ?? 0) / 3600)}h ${Math.floor(((p.duration ?? 0) % 3600) / 60)}m` : '–'}</td>
+                  <td style={{ padding: '6px 8px' }}>{p.speed ?? '–'}</td>
+                  <td style={{ padding: '6px 8px' }}>{p.status ?? '–'}</td>
+                  <td style={{ padding: '6px 8px', color: (p.errors ?? 0) > 0 ? 'var(--status-offline)' : 'var(--status-online)' }}>{p.errors ?? 0}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        {showHistory && parityHistory.length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 8 }}>Keine Parity-Historie vorhanden</div>}
+      </div>
+
+      {confirm && (
+        <ConfirmModal
+          title="Bestätigen"
+          message={confirm.msg}
+          onConfirm={() => runConfirm(confirm.action)}
+          onCancel={() => setConfirm(null)}
+          danger={confirm.action === 'arrayStop' || confirm.action === 'parityCancel'}
+        >
+          {confirm.extra}
+        </ConfirmModal>
+      )}
+    </div>
+  )
+}
+
+// ── Docker Tab ────────────────────────────────────────────────────────────────
+
+function DockerTab({ instanceId }: { instanceId: string }) {
+  const { docker, loadDocker, dockerControl, errors } = useUnraidStore()
+  const { toast } = useToast()
+  const containers = docker[instanceId] ?? []
+  const [search, setSearch] = useState('')
+  const [filter, setFilter] = useState<'all' | 'running' | 'stopped'>('all')
+  const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({})
+
+  useEffect(() => {
+    loadDocker(instanceId)
+    const t = setInterval(() => loadDocker(instanceId), 15_000)
+    return () => clearInterval(t)
+  }, [instanceId])
+
+  const filtered = containers.filter(c => {
+    const name = c.names?.[0]?.replace(/^\//, '') ?? ''
+    const image = c.image?.split('@')[0] ?? ''
+    const matchSearch = !search || name.toLowerCase().includes(search.toLowerCase()) || image.toLowerCase().includes(search.toLowerCase())
+    const matchFilter = filter === 'all' || (filter === 'running' && c.state === 'running') || (filter === 'stopped' && c.state !== 'running')
+    return matchSearch && matchFilter
+  })
+
+  const stateColor = (s?: string) => {
+    if (s === 'running') return 'var(--status-online)'
+    if (s === 'restarting') return 'var(--warning)'
+    if (s === 'paused') return '#3b82f6'
+    return 'var(--text-muted)'
+  }
+
+  const handleAction = async (c: UnraidContainer, action: 'start' | 'stop' | 'restart') => {
+    const name = c.names?.[0]?.replace(/^\//, '') ?? ''
+    setActionLoading(s => ({ ...s, [name]: true }))
+    try {
+      await dockerControl(instanceId, name, action)
+      toast({ message: `${name} ${action}`, type: 'success' })
+    } catch (e) {
+      toast({ message: (e as Error).message, type: 'error' })
+    } finally {
+      setActionLoading(s => ({ ...s, [name]: false }))
+    }
+  }
+
+  const err = errors[`docker_${instanceId}`]
+
+  return (
+    <div>
+      {err && <div className="error-banner" style={{ marginBottom: 'var(--spacing-md)' }}>{err}</div>}
+      <div className="glass" style={{ padding: 'var(--spacing-sm) var(--spacing-md)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--spacing-md)', color: 'var(--text-secondary)', fontSize: 13 }}>
+        Docker wird hier über die Unraid API gesteuert — unabhängig von der HELDASH Docker-Seite.
+      </div>
+      <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)', flexWrap: 'wrap' }}>
+        <input className="input" placeholder="Suchen…" value={search} onChange={e => setSearch(e.target.value)} style={{ maxWidth: 220 }} />
+        {(['all', 'running', 'stopped'] as const).map(f => (
+          <button key={f} className={`btn${filter === f ? ' btn-primary' : ''}`} onClick={() => setFilter(f)}>
+            {f === 'all' ? 'Alle' : f === 'running' ? 'Running' : 'Stopped'}
+          </button>
+        ))}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 'var(--spacing-md)' }}>
+        {filtered.map((c, i) => {
+          const name = c.names?.[0]?.replace(/^\//, '') ?? 'Unbekannt'
+          const image = c.image?.split('@')[0]?.split(':')[0] ?? '–'
+          const isLoading = actionLoading[name]
+          const isRunning = c.state === 'running'
+          const isRestarting = c.state === 'restarting' || c.state === 'paused'
+          return (
+            <div key={c.id ?? i} className="glass" style={{ padding: 'var(--spacing-md)', borderRadius: 'var(--radius-md)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>{name}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{image}</div>
+                </div>
+                <span style={{ background: stateColor(c.state), width: 8, height: 8, borderRadius: '50%', marginTop: 4, animation: isRunning ? 'pulse 2s infinite' : 'none', flexShrink: 0 }} />
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>{c.status ?? ''}</div>
+              <div style={{ display: 'flex', gap: 4, fontSize: 11, color: 'var(--text-muted)', marginBottom: 8 }}>
+                {c.hostConfig?.networkMode && <span>{c.hostConfig.networkMode}</span>}
+                {c.autoStart && <span title="Auto Start"><RotateCcw size={12} /></span>}
+              </div>
+              <div style={{ display: 'flex', gap: 4 }}>
+                <button className="btn" disabled={isLoading || isRunning || isRestarting} onClick={() => handleAction(c, 'start')} style={{ padding: '3px 8px', fontSize: 12 }}>
+                  {isLoading ? <span className="spinner" style={{ width: 12, height: 12 }} /> : <Play size={12} />}
+                </button>
+                <button className="btn" disabled={isLoading || !isRunning || isRestarting} onClick={() => handleAction(c, 'stop')} style={{ padding: '3px 8px', fontSize: 12 }}>
+                  <Square size={12} />
+                </button>
+                <button className="btn" disabled={isLoading || !isRunning || isRestarting} onClick={() => handleAction(c, 'restart')} style={{ padding: '3px 8px', fontSize: 12 }}>
+                  <RotateCcw size={12} />
+                </button>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+      {filtered.length === 0 && <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: 'var(--spacing-2xl)' }}>Keine Container gefunden</div>}
+    </div>
+  )
+}
+
+// ── VMs Tab ───────────────────────────────────────────────────────────────────
+
+function VmsTab({ instanceId }: { instanceId: string }) {
+  const { vms, loadVms, vmControl, errors } = useUnraidStore()
+  const { toast } = useToast()
+  const domains = vms[instanceId] ?? []
+  const [vmLoading, setVmLoading] = useState<Record<string, boolean>>({})
+  const [confirm, setConfirm] = useState<{ vm: UnraidVm; action: 'stop' | 'pause' } | null>(null)
+
+  useEffect(() => {
+    loadVms(instanceId)
+    const t = setInterval(() => loadVms(instanceId), 30_000)
+    return () => clearInterval(t)
+  }, [instanceId])
+
+  const stateColor = (s?: string) => {
+    if (s === 'running') return 'var(--status-online)'
+    if (s === 'shut off') return 'var(--text-muted)'
+    if (s === 'paused') return 'var(--warning)'
+    if (s === 'crashed') return 'var(--status-offline)'
+    return 'var(--warning)'
+  }
+
+  const handleVmAction = async (vm: UnraidVm, action: 'start' | 'stop' | 'pause' | 'resume') => {
+    const uuid = vm.uuid ?? ''
+    setVmLoading(s => ({ ...s, [uuid]: true }))
+    try {
+      await vmControl(instanceId, uuid, action)
+      toast({ message: `VM ${vm.name} ${action}`, type: 'success' })
+    } catch (e) {
+      toast({ message: (e as Error).message, type: 'error' })
+    } finally {
+      setVmLoading(s => ({ ...s, [uuid]: false }))
+    }
+  }
+
+  const err = errors[`vms_${instanceId}`]
+
+  if (!err && domains.length === 0) {
+    return <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: 'var(--spacing-2xl)' }}>Keine VMs konfiguriert auf diesem Server.</div>
+  }
+
+  return (
+    <div>
+      {err && <div className="error-banner" style={{ marginBottom: 'var(--spacing-md)' }}>{err}</div>}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 'var(--spacing-md)' }}>
+        {domains.map((vm, i) => {
+          const uuid = vm.uuid ?? String(i)
+          const isLoading = vmLoading[uuid]
+          const isShutoff = vm.state === 'shut off'
+          const isRunning = vm.state === 'running'
+          const isPaused = vm.state === 'paused'
+          const isCrashed = vm.state === 'crashed'
+          const isInShutdown = vm.state === 'in shutdown' || vm.state === 'idle'
+          return (
+            <div key={uuid} className="glass" style={{ padding: 'var(--spacing-md)', borderRadius: 'var(--radius-md)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                <h3 style={{ margin: 0, fontSize: 15 }}>{vm.name ?? '–'}</h3>
+                <span style={{ background: stateColor(vm.state), color: isRunning ? '#000' : 'var(--text-primary)', borderRadius: 4, padding: '1px 6px', fontSize: 11, fontWeight: 600 }}>{vm.state ?? '–'}</span>
+              </div>
+              {vm.os && <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>{vm.os}</div>}
+              <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 4 }}>
+                {vm.coreCount} Kerne | {((vm.memoryMin ?? 0) / 1024).toFixed(1)} GB RAM
+              </div>
+              {vm.primaryGPU && vm.primaryGPU !== '' && vm.primaryGPU !== 'none' && (
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>{vm.primaryGPU}</div>
+              )}
+              {vm.autoStart && <div style={{ marginBottom: 8 }}><RotateCcw size={12} color="var(--accent)" /></div>}
+              <div style={{ display: 'flex', gap: 4, marginTop: 8 }}>
+                {(isShutoff || isCrashed) && <button className="btn btn-primary" disabled={isLoading || isInShutdown} onClick={() => handleVmAction(vm, 'start')} style={{ fontSize: 12, padding: '3px 8px' }}>{isLoading ? <span className="spinner" style={{ width: 12, height: 12 }} /> : <Play size={12} />}</button>}
+                {isRunning && <button className="btn btn-danger" disabled={isLoading || isInShutdown} onClick={() => setConfirm({ vm, action: 'stop' })} style={{ fontSize: 12, padding: '3px 8px' }}><Square size={12} /></button>}
+                {isRunning && <button className="btn" disabled={isLoading || isInShutdown} onClick={() => setConfirm({ vm, action: 'pause' })} style={{ fontSize: 12, padding: '3px 8px' }}><Pause size={12} /></button>}
+                {isPaused && <button className="btn btn-primary" disabled={isLoading} onClick={() => handleVmAction(vm, 'resume')} style={{ fontSize: 12, padding: '3px 8px' }}><Play size={12} /></button>}
+                {isPaused && <button className="btn btn-danger" disabled={isLoading} onClick={() => setConfirm({ vm, action: 'stop' })} style={{ fontSize: 12, padding: '3px 8px' }}><Square size={12} /></button>}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+      {confirm && (
+        <ConfirmModal
+          title="Bestätigen"
+          message="Ungespeicherte Daten in der VM können verloren gehen."
+          onConfirm={() => { handleVmAction(confirm.vm, confirm.action); setConfirm(null) }}
+          onCancel={() => setConfirm(null)}
+          danger
+        />
+      )}
+    </div>
+  )
+}
+
+// ── Shares Tab ────────────────────────────────────────────────────────────────
+
+function SharesTab({ instanceId }: { instanceId: string }) {
+  const { shares, loadShares, errors } = useUnraidStore()
+  const shareList = shares[instanceId] ?? []
+  const err = errors[`shares_${instanceId}`]
+
+  useEffect(() => { loadShares(instanceId) }, [instanceId])
+
+  const secColor = (s?: string) => s === 'public' ? 'var(--status-online)' : s === 'private' ? 'var(--status-offline)' : 'var(--warning)'
+
+  return (
+    <div>
+      {err && <div className="error-banner" style={{ marginBottom: 'var(--spacing-md)' }}>{err}</div>}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 'var(--spacing-sm)' }}>
+        <button className="btn" onClick={() => loadShares(instanceId)}><RefreshCw size={14} /></button>
+      </div>
+      <div className="glass" style={{ borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <thead>
+            <tr style={{ borderBottom: '1px solid var(--border)' }}>
+              {['Name', 'Kommentar', 'Sicherheit', 'Belegt / Gesamt', 'Frei', 'Cache'].map(h => (
+                <th key={h} style={{ padding: 'var(--spacing-sm) var(--spacing-md)', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 500 }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {shareList.map((s, i) => (
+              <tr key={s.name ?? i} style={{ borderBottom: '1px solid var(--glass-border)' }}>
+                <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)', fontWeight: 500 }}>{s.name ?? '–'}</td>
+                <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)', color: 'var(--text-muted)' }}>{s.comment ?? '–'}</td>
+                <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
+                  <span style={{ background: secColor(s.security), color: '#000', borderRadius: 4, padding: '1px 6px', fontSize: 11, fontWeight: 600 }}>{s.security ?? '–'}</span>
+                </td>
+                <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {s.size ? (
+                      <div style={{ background: 'var(--glass-bg)', borderRadius: 2, height: 6, width: 80 }}>
+                        <div style={{ background: 'var(--accent)', height: '100%', borderRadius: 2, width: `${((s.used ?? 0) / (s.size ?? 1) * 100).toFixed(0)}%` }} />
+                      </div>
+                    ) : null}
+                    <span>{formatBytes(s.used)} / {formatBytes(s.size)}</span>
+                  </div>
+                </td>
+                <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>{formatBytes(s.free)}</td>
+                <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
+                  <span style={{ background: s.cacheEnabled ? '#3b82f6' : 'var(--text-muted)', color: '#fff', borderRadius: 4, padding: '1px 6px', fontSize: 11, fontWeight: 600 }}>{s.cacheEnabled ? 'Ein' : 'Aus'}</span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {shareList.length === 0 && <div style={{ padding: 'var(--spacing-xl)', color: 'var(--text-muted)', textAlign: 'center' }}>Keine Freigaben gefunden</div>}
+      </div>
+    </div>
+  )
+}
+
+// ── Notifications Tab ─────────────────────────────────────────────────────────
+
+function NotificationsTab({ instanceId }: { instanceId: string }) {
+  const { notifications, loadNotifications, dismissNotification, errors } = useUnraidStore()
+  const { toast } = useToast()
+  const data = notifications[instanceId]
+  const list = data?.notifications?.list ?? []
+  const unread = data?.notifications?.overview?.unread ?? 0
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({})
+  const [dismissingAll, setDismissingAll] = useState(false)
+  const err = errors[`notif_${instanceId}`]
+
+  useEffect(() => {
+    loadNotifications(instanceId)
+    const t = setInterval(() => loadNotifications(instanceId), 60_000)
+    return () => clearInterval(t)
+  }, [instanceId])
+
+  const importanceColor = (imp?: string) => {
+    if (imp === 'alert') return 'var(--status-offline)'
+    if (imp === 'warning') return 'var(--warning)'
+    if (imp === 'notice') return 'var(--accent)'
+    return 'var(--border)'
+  }
+
+  const handleDismissAll = async () => {
+    setDismissingAll(true)
+    let hadError = false
+    for (const n of list) {
+      if (!n.id) continue
+      try { await dismissNotification(instanceId, n.id) } catch { hadError = true }
+    }
+    await loadNotifications(instanceId)
+    setDismissingAll(false)
+    if (hadError) toast({ message: 'Einige Benachrichtigungen konnten nicht gelöscht werden', type: 'error' })
+  }
+
+  return (
+    <div>
+      {err && <div className="error-banner" style={{ marginBottom: 'var(--spacing-md)' }}>{err}</div>}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
+        <span style={{ background: unread > 0 ? 'var(--warning)' : 'var(--status-online)', color: '#000', borderRadius: 4, padding: '2px 10px', fontSize: 12, fontWeight: 600 }}>
+          {unread > 0 ? `${unread} ungelesen` : 'Alles OK'}
+        </span>
+        {unread > 0 && (
+          <button className="btn" disabled={dismissingAll} onClick={handleDismissAll}>
+            {dismissingAll ? <span className="spinner" style={{ width: 14, height: 14 }} /> : 'Alle als gelesen markieren'}
+          </button>
+        )}
+      </div>
+      {list.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: 'var(--spacing-2xl)', color: 'var(--text-muted)' }}>
+          <Check size={20} color="var(--status-online)" style={{ marginBottom: 8 }} />
+          <div>Keine ungelesenen Benachrichtigungen</div>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
+          {list.map((n, i) => {
+            const isLong = (n.description?.length ?? 0) > 120
+            const isExpanded = expanded[n.id ?? String(i)]
+            return (
+              <div key={n.id ?? i} className="glass" style={{ padding: 'var(--spacing-md)', borderRadius: 'var(--radius-md)', borderLeft: `4px solid ${importanceColor(n.importance)}` }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 600, marginBottom: 2 }}>{n.title ?? '–'}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>{n.subject ?? ''}</div>
+                    {n.description && (
+                      <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                        {isLong && !isExpanded ? n.description.slice(0, 120) + '…' : n.description}
+                        {isLong && (
+                          <button className="btn" onClick={() => setExpanded(s => ({ ...s, [n.id ?? String(i)]: !s[n.id ?? String(i)] }))} style={{ marginLeft: 6, padding: '0 4px', fontSize: 11 }}>
+                            {isExpanded ? 'weniger' : 'mehr anzeigen'}
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>{formatRelative(n.timestamp)}</div>
+                  </div>
+                  <button className="btn" onClick={() => dismissNotification(instanceId, n.id!)} style={{ padding: '2px 8px', fontSize: 12, flexShrink: 0 }}>
+                    Gelesen
+                  </button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── System Tab ────────────────────────────────────────────────────────────────
+
+function SystemTab({ instanceId }: { instanceId: string }) {
+  const { info, config, users, loadInfo, loadConfig, loadUsers, errors } = useUnraidStore()
+  const data = info[instanceId]
+  const cfgData = config[instanceId]
+  const userList = users[instanceId] ?? []
+
+  useEffect(() => {
+    loadInfo(instanceId)
+    loadConfig(instanceId)
+    loadUsers(instanceId)
+  }, [instanceId])
+
+  const reload = () => { loadInfo(instanceId); loadConfig(instanceId); loadUsers(instanceId) }
+
+  const os = data?.info?.os
+  const cpu = data?.info?.cpu
+  const memory = data?.info?.memory
+  const baseboard = data?.info?.baseboard
+  const cfg = cfgData?.config
+  const err = errors[`info_${instanceId}`] ?? errors[`config_${instanceId}`]
+
+  const roleColor = (r?: string) => r === 'admin' ? 'var(--status-offline)' : r === 'user' ? '#3b82f6' : 'var(--text-muted)'
+
+  return (
+    <div>
+      {err && <div className="error-banner" style={{ marginBottom: 'var(--spacing-md)' }}>{err}</div>}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 'var(--spacing-sm)' }}>
+        <button className="btn" onClick={reload}><RefreshCw size={14} /></button>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+        <div className="glass" style={{ padding: 'var(--spacing-lg)', borderRadius: 'var(--radius-md)' }}>
+          <div style={{ fontWeight: 600, marginBottom: 'var(--spacing-sm)' }}>Hardware</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 16px', fontSize: 13 }}>
+            {([
+              ['Platform', os?.platform],
+              ['OS', `${os?.distro ?? ''} ${os?.release ?? ''}`.trim() || '–'],
+              ['Uptime', formatUptime(os?.uptime)],
+              ['CPU', `${cpu?.manufacturer ?? ''} ${cpu?.brand ?? ''}`.trim() || '–'],
+              ['Kerne / Threads', `${cpu?.cores ?? '–'} / ${cpu?.threads ?? '–'}`],
+              ['RAM', formatBytes(memory?.total)],
+              ['Mainboard', `${baseboard?.manufacturer ?? ''} ${baseboard?.model ?? ''}`.trim() || '–'],
+            ] as [string, string | undefined][]).map(([label, val]) => (
+              <React.Fragment key={label}>
+                <span style={{ color: 'var(--text-muted)' }}>{label}</span>
+                <span>{val ?? '–'}</span>
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+
+        {cfg && (
+          <div className="glass" style={{ padding: 'var(--spacing-lg)', borderRadius: 'var(--radius-md)' }}>
+            <div style={{ fontWeight: 600, marginBottom: 'var(--spacing-sm)' }}>Lizenz</div>
+            {cfg.error && <div className="error-banner" style={{ marginBottom: 8 }}>{cfg.error}</div>}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 16px', fontSize: 13 }}>
+              <span style={{ color: 'var(--text-muted)' }}>Registriert für</span><span>{cfg.registrationTo ?? '–'}</span>
+              <span style={{ color: 'var(--text-muted)' }}>Typ</span><span>{cfg.registrationType ?? '–'}</span>
+              <span style={{ color: 'var(--text-muted)' }}>Status</span>
+              <span>
+                {cfg.valid
+                  ? <span style={{ color: 'var(--status-online)' }}><Check size={12} /> Aktiv</span>
+                  : <span style={{ color: 'var(--status-offline)' }}><AlertTriangle size={12} /> Ungültig</span>
+                }
+              </span>
+            </div>
+          </div>
+        )}
+
+        {userList.length > 0 && (
+          <div className="glass" style={{ borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+            <div style={{ padding: 'var(--spacing-md)', fontWeight: 600, borderBottom: '1px solid var(--border)' }}>Benutzer</div>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                  {['Name', 'Beschreibung', 'Rolle'].map(h => (
+                    <th key={h} style={{ padding: 'var(--spacing-sm) var(--spacing-md)', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 500 }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {userList.map((u, i) => (
+                  <tr key={u.name ?? i} style={{ borderBottom: '1px solid var(--glass-border)' }}>
+                    <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)', fontWeight: 500 }}>{u.name ?? '–'}</td>
+                    <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)', color: 'var(--text-muted)' }}>{u.description ?? '–'}</td>
+                    <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
+                      <span style={{ background: roleColor(u.role), color: '#fff', borderRadius: 4, padding: '1px 6px', fontSize: 11, fontWeight: 600 }}>{u.role ?? '–'}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── SortableInstanceCard ──────────────────────────────────────────────────────
+
+function SortableInstanceCard({ instance, onUpdate, onDelete }: {
+  instance: UnraidInstance
+  onUpdate: (id: string, data: object) => Promise<void>
+  onDelete: (id: string) => Promise<void>
+}) {
+  const { online } = useUnraidStore()
+  const { toast } = useToast()
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: instance.id })
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }
+
+  const [editing, setEditing] = useState(false)
+  const [editName, setEditName] = useState(instance.name)
+  const [editUrl, setEditUrl] = useState(instance.url)
+  const [editKey, setEditKey] = useState('')
+  const [showKey, setShowKey] = useState(false)
+  const [pingResult, setPingResult] = useState<boolean | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [pinging, setPinging] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  const handlePing = async () => {
+    setPinging(true)
+    setPingResult(null)
+    try {
+      const res = await api.unraid.ping(instance.id)
+      setPingResult(res.online)
+    } catch {
+      setPingResult(false)
+    } finally {
+      setPinging(false)
+    }
+  }
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      const body: Record<string, unknown> = { name: editName, url: editUrl }
+      if (editKey) body.api_key = editKey
+      await onUpdate(instance.id, body)
+      setEditing(false)
+      toast({ message: 'Instanz aktualisiert', type: 'success' })
+    } catch (e) {
+      toast({ message: (e as Error).message, type: 'error' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const isOnline = online[instance.id]
+
+  return (
+    <div ref={setNodeRef} style={{ ...style, padding: 'var(--spacing-md)', borderRadius: 'var(--radius-md)' }} className="glass">
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', marginBottom: editing ? 'var(--spacing-md)' : 0 }}>
+          <GripVertical size={14} {...listeners} {...attributes} style={{ cursor: 'grab', color: 'var(--text-muted)', flexShrink: 0 }} />
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: isOnline ? 'var(--status-online)' : 'var(--text-muted)', animation: isOnline ? 'pulse 2s infinite' : 'none', flexShrink: 0 }} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 600 }}>{instance.name}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{instance.url}</div>
+          </div>
+          <div style={{ display: 'flex', gap: 4 }}>
+            <button className="btn" onClick={handlePing} disabled={pinging} style={{ padding: '3px 8px', fontSize: 12 }}>
+              {pinging ? <span className="spinner" style={{ width: 12, height: 12 }} /> : 'Testen'}
+              {pingResult === true && !pinging && <span style={{ color: 'var(--status-online)', marginLeft: 4 }}>✓</span>}
+              {pingResult === false && !pinging && <span style={{ color: 'var(--status-offline)', marginLeft: 4 }}>✗</span>}
+            </button>
+            <button className="btn" onClick={() => {
+              if (editing) { setEditing(false) } else {
+                setEditName(instance.name)
+                setEditUrl(instance.url)
+                setEditKey('')
+                setEditing(true)
+              }
+            }} style={{ padding: '3px 8px', fontSize: 12 }}>
+              {editing ? 'Abbrechen' : 'Bearbeiten'}
+            </button>
+            <button
+              className="btn"
+              onClick={() => onUpdate(instance.id, { enabled: !instance.enabled }).then(() => toast({ message: instance.enabled ? 'Deaktiviert' : 'Aktiviert', type: 'success' })).catch(e => toast({ message: (e as Error).message, type: 'error' }))}
+              style={{ padding: '3px 8px', fontSize: 12, opacity: instance.enabled ? 1 : 0.5 }}
+            >
+              {instance.enabled ? <Eye size={12} /> : <EyeOff size={12} />}
+            </button>
+            <button className="btn btn-danger" onClick={() => setConfirmDelete(true)} style={{ padding: '3px 8px', fontSize: 12 }}>
+              <Trash2 size={12} />
+            </button>
+          </div>
+        </div>
+
+        {editing && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
+            <input className="input" value={editName} onChange={e => setEditName(e.target.value)} placeholder="Name" />
+            <input className="input" value={editUrl} onChange={e => setEditUrl(e.target.value)} placeholder="URL" />
+            <div style={{ position: 'relative' }}>
+              <input className="input" type={showKey ? 'text' : 'password'} value={editKey} onChange={e => setEditKey(e.target.value)} placeholder="Neuer API Key (leer = unverändert)" style={{ paddingRight: 40 }} />
+              <button className="btn" onClick={() => setShowKey(v => !v)} style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', padding: '2px 6px', minHeight: 'unset' }}>
+                {showKey ? <EyeOff size={12} /> : <Eye size={12} />}
+              </button>
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button className="btn" onClick={() => setEditing(false)}>Abbrechen</button>
+              <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
+                {saving ? <span className="spinner" style={{ width: 14, height: 14 }} /> : 'Speichern'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {confirmDelete && (
+        <ConfirmModal
+          title="Instanz entfernen"
+          message="Instanz entfernen? Alle gespeicherten Daten werden gelöscht."
+          onConfirm={() => { onDelete(instance.id).then(() => toast({ message: 'Instanz gelöscht', type: 'success' })).catch(e => toast({ message: (e as Error).message, type: 'error' })); setConfirmDelete(false) }}
+          onCancel={() => setConfirmDelete(false)}
+          danger
+        />
+      )}
+    </div>
+  )
+}
+
+// ── Management Tab ────────────────────────────────────────────────────────────
+
+function ManagementTab() {
+  const { instances, reorderInstances, updateInstance, deleteInstance, createInstance } = useUnraidStore()
+  const { isAdmin } = useStore()
+  const { toast } = useToast()
+  const [showAdd, setShowAdd] = useState(false)
+  const [addName, setAddName] = useState('')
+  const [addUrl, setAddUrl] = useState('')
+  const [addKey, setAddKey] = useState('')
+  const [showAddKey, setShowAddKey] = useState(false)
+  const [testing, setTesting] = useState(false)
+  const [testOk, setTestOk] = useState<boolean | null>(null)
+  const [testError, setTestError] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const sensors = useSensors(useSensor(PointerSensor), useSensor(TouchSensor))
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const oldIdx = instances.findIndex(i => i.id === active.id)
+    const newIdx = instances.findIndex(i => i.id === over.id)
+    const reordered = arrayMove(instances, oldIdx, newIdx)
+    reorderInstances(reordered.map(i => i.id)).catch(e => toast({ message: (e as Error).message, type: 'error' }))
+  }
+
+  const handleTest = async () => {
+    setTesting(true)
+    setTestOk(null)
+    setTestError('')
+    try {
+      await api.unraid.instances.test(addUrl, addKey)
+      setTestOk(true)
+    } catch (e) {
+      setTestOk(false)
+      setTestError((e as Error).message)
+    } finally {
+      setTesting(false)
+    }
+  }
+
+  const handleAdd = async () => {
+    setSaving(true)
+    try {
+      await createInstance({ name: addName, url: addUrl, api_key: addKey })
+      setShowAdd(false)
+      setAddName(''); setAddUrl(''); setAddKey('')
+      setTestOk(null)
+      toast({ message: 'Server hinzugefügt', type: 'success' })
+    } catch (e) {
+      toast({ message: (e as Error).message, type: 'error' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (!isAdmin) {
+    return <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Nur für Administratoren.</div>
+  }
+
+  return (
+    <div>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={instances.map(i => i.id)} strategy={verticalListSortingStrategy}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)' }}>
+            {instances.map(inst => (
+              <SortableInstanceCard key={inst.id} instance={inst} onUpdate={updateInstance} onDelete={deleteInstance} />
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
+
+      {/* Add new server */}
+      <div className="glass" style={{ borderRadius: 'var(--radius-md)', border: showAdd ? undefined : '2px dashed var(--border)', overflow: 'hidden' }}>
+        {!showAdd ? (
+          <button className="btn" onClick={() => setShowAdd(true)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 'var(--spacing-lg)', color: 'var(--text-muted)', background: 'none' }}>
+            <Plus size={16} /> Server hinzufügen
+          </button>
+        ) : (
+          <div style={{ padding: 'var(--spacing-lg)' }}>
+            <div style={{ fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>Neuer Server</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
+              <input className="input" placeholder="Name" value={addName} onChange={e => setAddName(e.target.value)} />
+              <input className="input" placeholder="URL" value={addUrl} onChange={e => { setAddUrl(e.target.value); setTestOk(null) }} />
+              <div style={{ position: 'relative' }}>
+                <input className="input" type={showAddKey ? 'text' : 'password'} placeholder="API Key" value={addKey} onChange={e => { setAddKey(e.target.value); setTestOk(null) }} style={{ paddingRight: 40 }} />
+                <button className="btn" onClick={() => setShowAddKey(v => !v)} style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', padding: '2px 6px', minHeight: 'unset' }}>
+                  {showAddKey ? <EyeOff size={12} /> : <Eye size={12} />}
+                </button>
+              </div>
+              <button className="btn btn-primary" onClick={handleTest} disabled={testing || !addUrl || !addKey}>
+                {testing ? <span className="spinner" style={{ width: 14, height: 14 }} /> : 'Verbindung testen'}
+              </button>
+              {testOk === true && <div style={{ color: 'var(--status-online)', fontSize: 13 }}><Check size={12} /> Verbindung erfolgreich</div>}
+              {testOk === false && <div style={{ color: 'var(--status-offline)', fontSize: 13 }}><AlertTriangle size={12} /> {testError}</div>}
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                <button className="btn" onClick={() => { setShowAdd(false); setTestOk(null) }}>Abbrechen</button>
+                <button className="btn btn-primary" onClick={handleAdd} disabled={!testOk || saving || !addName}>
+                  {saving ? <span className="spinner" style={{ width: 14, height: 14 }} /> : 'Hinzufügen'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Main Page ─────────────────────────────────────────────────────────────────
+
+const CONTENT_TABS = [
+  { key: 'overview',      label: 'Übersicht' },
+  { key: 'array',         label: 'Array' },
+  { key: 'docker',        label: 'Docker' },
+  { key: 'vms',           label: 'VMs' },
+  { key: 'shares',        label: 'Freigaben' },
+  { key: 'notifications', label: 'Benachrichtigungen' },
+  { key: 'system',        label: 'System' },
+]
+
+export function UnraidPage() {
+  const { instances, selectedId, online, loadInstances, setSelected, pingAll } = useUnraidStore()
+  const [instTab, setInstTab] = useState<string>('') // selected instance id or 'management'
+  const [contentTab, setContentTab] = useState('overview')
+
+  useEffect(() => {
+    loadInstances()
+  }, [])
+
+  // Sync instTab with selectedId
+  useEffect(() => {
+    if (selectedId && instTab === '') setInstTab(selectedId)
+  }, [selectedId])
+
+  useEffect(() => {
+    pingAll()
+    const t = setInterval(() => pingAll(), 30_000)
+    return () => clearInterval(t)
+  }, [instances.length])
+
+  const activeInstId = instTab !== 'management' ? instTab : null
+  const activeInst = instances.find(i => i.id === activeInstId)
+
+  if (instances.length === 0) {
+    return (
+      <div>
+        <h2 style={{ margin: '0 0 var(--spacing-lg)', fontFamily: 'var(--font-display)' }}>Unraid</h2>
+        <SetupScreen />
+      </div>
+    )
+  }
+
+  const tabStyle = (active: boolean): React.CSSProperties => ({
+    background: 'none',
+    border: 'none',
+    borderBottom: active ? '2px solid var(--accent)' : '2px solid transparent',
+    color: active ? 'var(--accent)' : 'var(--text-secondary)',
+    padding: 'var(--spacing-sm) var(--spacing-md)',
+    cursor: 'pointer',
+    fontSize: 14,
+    fontFamily: 'var(--font-sans)',
+    whiteSpace: 'nowrap',
+  })
+
+  return (
+    <div>
+      <h2 style={{ margin: '0 0 var(--spacing-md)', fontFamily: 'var(--font-display)' }}>Unraid</h2>
+
+      {/* Instance tab bar */}
+      <div style={{ display: 'flex', overflowX: 'auto', borderBottom: '1px solid var(--border)', marginBottom: 'var(--spacing-lg)', gap: 4 }}>
+        {instances.map(inst => (
+          <button
+            key={inst.id}
+            style={{ ...tabStyle(instTab === inst.id), opacity: !inst.enabled ? 0.4 : 1, cursor: !inst.enabled ? 'not-allowed' : 'pointer' }}
+            disabled={!inst.enabled}
+            onClick={() => { setInstTab(inst.id); setSelected(inst.id); setContentTab('overview') }}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: online[inst.id] ? 'var(--status-online)' : 'var(--text-muted)', animation: online[inst.id] ? 'pulse 2s infinite' : 'none', flexShrink: 0 }} />
+              {inst.name}
+            </span>
+          </button>
+        ))}
+        <button style={tabStyle(instTab === 'management')} onClick={() => setInstTab('management')}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Settings2 size={14} /> Verwaltung</span>
+        </button>
+      </div>
+
+      {instTab === 'management' && <ManagementTab />}
+
+      {activeInst && (
+        <div>
+          {/* Content tab bar */}
+          <div style={{ display: 'flex', overflowX: 'auto', borderBottom: '1px solid var(--border)', marginBottom: 'var(--spacing-lg)', gap: 4 }}>
+            {CONTENT_TABS.map(t => (
+              <button key={t.key} style={tabStyle(contentTab === t.key)} onClick={() => setContentTab(t.key)}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {contentTab === 'overview'      && <OverviewTab      instanceId={activeInst.id} />}
+          {contentTab === 'array'         && <ArrayTab         instanceId={activeInst.id} />}
+          {contentTab === 'docker'        && <DockerTab        instanceId={activeInst.id} />}
+          {contentTab === 'vms'           && <VmsTab           instanceId={activeInst.id} />}
+          {contentTab === 'shares'        && <SharesTab        instanceId={activeInst.id} />}
+          {contentTab === 'notifications' && <NotificationsTab instanceId={activeInst.id} />}
+          {contentTab === 'system'        && <SystemTab        instanceId={activeInst.id} />}
+        </div>
+      )}
+    </div>
+  )
+}

@@ -75,6 +75,17 @@ function runMigrations(db: Database.Database): number {
     // Recyclarr v2: last known scores for change detection (JSON)
     "ALTER TABLE recyclarr_config ADD COLUMN last_known_scores TEXT NOT NULL DEFAULT '{}'",
     // Recyclarr v2 per-profile: score_set and min_upgrade_format_score stored in profiles_config JSON
+    // Unraid instances
+    `CREATE TABLE IF NOT EXISTS unraid_instances (
+      id          TEXT PRIMARY KEY,
+      name        TEXT NOT NULL,
+      url         TEXT NOT NULL,
+      api_key     TEXT NOT NULL,
+      enabled     INTEGER NOT NULL DEFAULT 1,
+      position    INTEGER NOT NULL DEFAULT 0,
+      created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    )`,
   ]
   for (const sql of migrations) {
     try {

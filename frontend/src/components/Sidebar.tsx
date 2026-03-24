@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useState } from 'react'
 import {
   LayoutDashboard, Settings, AppWindow, Info, Tv2, BarChart2, Container, Home,
-  ChevronLeft, ChevronRight, ScrollText, Network, HardDrive,
+  ChevronLeft, ChevronRight, ScrollText, Network, HardDrive, Server,
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { useArrStore } from '../store/useArrStore'
@@ -112,6 +112,7 @@ export function Sidebar({ page, onNavigate }: Props) {
               <NavItem icon={<Container size={16} />} label="Docker" active={page === 'docker'} onClick={() => onNavigate('docker')} collapsed={collapsed} />
             )}
             <NavItem icon={<Home size={16} />} label="Home Assistant" active={page === 'home_assistant'} onClick={() => onNavigate('home_assistant')} collapsed={collapsed} />
+            <NavItem icon={<Server size={16} />} label="Unraid" active={page === 'unraid'} onClick={() => onNavigate('unraid')} collapsed={collapsed} />
           </>
         )}
 

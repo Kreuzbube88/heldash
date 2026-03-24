@@ -32,6 +32,7 @@ import { networkRoutes, tcpPing } from './routes/network'
 import { backupRoutes, checkAllBackupSources } from './routes/backup'
 import { changelogRoutes } from './routes/changelog'
 import { resourcesRoutes } from './routes/resources'
+import { unraidRoutes } from './routes/unraid'
 import { nanoid } from 'nanoid'
 import { promises as fsp } from 'fs'
 
@@ -270,6 +271,7 @@ async function start() {
   await app.register(backupRoutes)
   await app.register(changelogRoutes)
   await app.register(resourcesRoutes)
+  await app.register(unraidRoutes)
 
   // ── Docker container state poller (logs transitions to activity feed) ─────────
   if (dockerSocketPresent) {

@@ -1,5 +1,6 @@
 import type { Service, Group, Settings, AuthUser, UserRecord, UserGroup, DashboardItem, DashboardGroup, DashboardResponse, Widget, WidgetStats, DockerContainer, ContainerStats, Background, HaInstance, HaPanel, HaEntityFull, HaArea, EnergyData, CalendarEntry, HaFloorplan, HaFloorplanEntity, HaAlert, HaHistoryEntry, NetworkDevice, NetworkDeviceHistory, ScanResult, BackupSource, BackupStatusResult, ResourceSnapshot, ChangelogRelease } from './types'
 import type { SyncHistoryEntry, BackupEntry } from './types/recyclarr'
+import type { UnraidInstance, UnraidInfo, UnraidArray, UnraidParityHistory, UnraidContainer, UnraidVm, UnraidShare, UnraidUser, UnraidNotifications, UnraidConfig } from './types/unraid'
 import type { ArrInstance, ArrStatus, ArrStats, ArrQueueResponse, ArrCalendarItem, ProwlarrIndexer, SabnzbdQueueData, SabnzbdHistoryData, SeerrRequest, SeerrRequestsResponse, RadarrMovie, SonarrSeries, ArrCustomFormat, ArrCFSpecification, ArrQualityProfile } from './types/arr'
 import type { TmdbPage, TmdbGenre, TmdbProvider, TmdbTvDetail, TmdbDiscoverFilters } from './types/tmdb'
 import type { SeerrTvDetail, SeerrMovieDetail } from './types/seerr'
@@ -469,4 +470,36 @@ export const api = {
 
   health: () => req<{ status: string; version: string; uptime: number }>('/health'),
   serverTime: () => req<{ iso: string }>('/time'),
+
+  unraid: {
+    instances: {
+      list:    ()                                                   => req<UnraidInstance[]>('/unraid/instances'),
+      create:  (b: { name: string; url: string; api_key: string }) => req<UnraidInstance>('/unraid/instances', { method: 'POST', body: JSON.stringify(b) }),
+      update:  (id: string, b: object)                             => req<UnraidInstance>(`/unraid/instances/${id}`, { method: 'PATCH', body: JSON.stringify(b) }),
+      delete:  (id: string)                                        => req<void>(`/unraid/instances/${id}`, { method: 'DELETE' }),
+      reorder: (ids: string[])                                     => req<{ ok: boolean }>('/unraid/instances/reorder', { method: 'POST', body: JSON.stringify({ ids }) }),
+      test:    (url: string, api_key: string)                      => req<{ ok: boolean }>('/unraid/test', { method: 'POST', body: JSON.stringify({ url, api_key }) }),
+    },
+    ping:                (id: string)                                                                   => req<{ online: boolean }>(`/unraid/${id}/ping`),
+    info:                (id: string)                                                                   => req<UnraidInfo>(`/unraid/${id}/info`),
+    array:               (id: string)                                                                   => req<UnraidArray>(`/unraid/${id}/array`),
+    parity:              (id: string)                                                                   => req<{ array?: { parityHistory?: UnraidParityHistory[] } }>(`/unraid/${id}/parity`),
+    arrayStart:          (id: string)                                                                   => req<unknown>(`/unraid/${id}/array/start`, { method: 'POST', body: JSON.stringify({}) }),
+    arrayStop:           (id: string)                                                                   => req<unknown>(`/unraid/${id}/array/stop`, { method: 'POST', body: JSON.stringify({}) }),
+    parityStart:         (id: string, correct: boolean)                                                 => req<unknown>(`/unraid/${id}/parity/start`, { method: 'POST', body: JSON.stringify({ correct }) }),
+    parityPause:         (id: string)                                                                   => req<unknown>(`/unraid/${id}/parity/pause`, { method: 'POST', body: JSON.stringify({}) }),
+    parityResume:        (id: string)                                                                   => req<unknown>(`/unraid/${id}/parity/resume`, { method: 'POST', body: JSON.stringify({}) }),
+    parityCancel:        (id: string)                                                                   => req<unknown>(`/unraid/${id}/parity/cancel`, { method: 'POST', body: JSON.stringify({}) }),
+    diskSpinUp:          (id: string, diskId: string)                                                   => req<unknown>(`/unraid/${id}/disks/${encodeURIComponent(diskId)}/spinup`, { method: 'POST', body: JSON.stringify({}) }),
+    diskSpinDown:        (id: string, diskId: string)                                                   => req<unknown>(`/unraid/${id}/disks/${encodeURIComponent(diskId)}/spindown`, { method: 'POST', body: JSON.stringify({}) }),
+    docker:              (id: string)                                                                   => req<UnraidContainer[]>(`/unraid/${id}/docker`),
+    dockerControl:       (id: string, name: string, action: 'start' | 'stop' | 'restart')              => req<unknown>(`/unraid/${id}/docker/${encodeURIComponent(name)}/${action}`, { method: 'POST', body: JSON.stringify({}) }),
+    vms:                 (id: string)                                                                   => req<{ vms?: { domains?: UnraidVm[] } }>(`/unraid/${id}/vms`),
+    vmControl:           (id: string, uuid: string, action: 'start' | 'stop' | 'pause' | 'resume')    => req<unknown>(`/unraid/${id}/vms/${encodeURIComponent(uuid)}/${action}`, { method: 'POST', body: JSON.stringify({}) }),
+    shares:              (id: string)                                                                   => req<{ shares?: UnraidShare[] }>(`/unraid/${id}/shares`),
+    users:               (id: string)                                                                   => req<{ users?: UnraidUser[] }>(`/unraid/${id}/users`),
+    notifications:       (id: string)                                                                   => req<UnraidNotifications>(`/unraid/${id}/notifications`),
+    dismissNotification: (id: string, nId: string)                                                     => req<unknown>(`/unraid/${id}/notifications/${encodeURIComponent(nId)}/dismiss`, { method: 'POST', body: JSON.stringify({}) }),
+    config:              (id: string)                                                                   => req<UnraidConfig>(`/unraid/${id}/config`),
+  },
 }

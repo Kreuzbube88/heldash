@@ -15,6 +15,7 @@ import { LogbuchPage } from './pages/LogbuchPage'
 import { NetworkPage } from './pages/NetworkPage'
 import { BackupPage } from './pages/BackupPage'
 import { AboutPage } from './pages/AboutPage'
+import { UnraidPage } from './pages/UnraidPage'
 import { SetupPage } from './pages/SetupPage'
 import { ChangelogModal } from './components/ChangelogModal'
 import { ServiceModal } from './components/ServiceModal'
@@ -254,6 +255,7 @@ function App() {
               {page === 'logbuch' && <LogbuchPage />}
               {page === 'network' && <NetworkPage />}
               {page === 'backup' && <BackupPage />}
+              {page === 'unraid' && <UnraidPage />}
               {page === 'about' && <AboutPage onShowChangelog={() => setShowChangelog(true)} />}
             </div>
           </div>

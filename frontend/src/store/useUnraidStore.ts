@@ -39,7 +39,7 @@ interface UnraidState {
   parityCancel:        (id: string) => Promise<void>
   diskSpinUp:          (id: string, diskId: string) => Promise<void>
   diskSpinDown:        (id: string, diskId: string) => Promise<void>
-  dockerControl:       (id: string, name: string, action: 'start' | 'stop' | 'restart') => Promise<void>
+  dockerControl:       (id: string, name: string, action: 'start' | 'stop' | 'restart' | 'unpause') => Promise<void>
   vmControl:           (id: string, uuid: string, action: 'start' | 'stop' | 'pause' | 'resume') => Promise<void>
   dismissNotification: (id: string, nId: string) => Promise<void>
   createInstance:      (data: { name: string; url: string; api_key: string }) => Promise<void>
@@ -119,7 +119,7 @@ export const useUnraidStore = create<UnraidState>((set, get) => ({
   loadParity: async (id) => {
     try {
       const data = await api.unraid.parity(id)
-      const history = data?.array?.parityHistory ?? []
+      const history = data?.parityHistory ?? []
       set(s => ({ parity: { ...s.parity, [id]: history } }))
     } catch { /* stale data preserved */ }
   },

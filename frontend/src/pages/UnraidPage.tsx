@@ -39,8 +39,11 @@ function formatKilobytes(kb?: number | string | null): string {
   return `${(n / 1073741824).toFixed(2)} TB`
 }
 
-function formatUptime(seconds?: number): string {
-  if (!seconds) return '–'
+function formatUptime(uptime?: string): string {
+  if (!uptime) return '–'
+  const bootTime = new Date(uptime).getTime()
+  if (isNaN(bootTime)) return uptime
+  const seconds = Math.floor((Date.now() - bootTime) / 1000)
   const d = Math.floor(seconds / 86400)
   const h = Math.floor((seconds % 86400) / 3600)
   const m = Math.floor((seconds % 3600) / 60)
@@ -565,7 +568,7 @@ function DockerTab({ instanceId }: { instanceId: string }) {
     return 'var(--text-muted)'
   }
 
-  const handleAction = async (c: UnraidContainer, action: 'start' | 'stop' | 'restart') => {
+  const handleAction = async (c: UnraidContainer, action: 'start' | 'stop' | 'restart' | 'unpause') => {
     const name = c.names?.[0]?.replace(/^\//, '') ?? ''
     setActionLoading(s => ({ ...s, [name]: true }))
     try {
@@ -626,6 +629,7 @@ function DockerTab({ instanceId }: { instanceId: string }) {
                 <button className="btn" disabled={isLoading || !isRunning} onClick={() => handleAction(c, 'restart')} style={{ padding: '3px 8px', fontSize: 12 }}>
                   <RotateCcw size={12} />
                 </button>
+                {isPaused && <button className="btn btn-primary" disabled={isLoading} onClick={() => handleAction(c, 'unpause')} style={{ padding: '3px 8px', fontSize: 12 }}><Play size={12} /></button>}
               </div>
             </div>
           )
@@ -799,9 +803,9 @@ function NotificationsTab({ instanceId }: { instanceId: string }) {
   }, [instanceId])
 
   const importanceColor = (imp?: string) => {
-    if (imp === 'alert') return 'var(--status-offline)'
-    if (imp === 'warning') return 'var(--warning)'
-    if (imp === 'notice') return 'var(--accent)'
+    if (imp === 'ALERT') return 'var(--status-offline)'
+    if (imp === 'WARNING') return 'var(--warning)'
+    if (imp === 'INFO') return 'var(--accent)'
     return 'var(--border)'
   }
 

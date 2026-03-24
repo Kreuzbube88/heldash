@@ -3,7 +3,7 @@ export interface UnraidInstance {
   enabled: boolean; position: number
   created_at: string; updated_at: string
 }
-export interface UnraidOs { platform?: string; distro?: string; release?: string; uptime?: number; hostname?: string; arch?: string }
+export interface UnraidOs { platform?: string; distro?: string; release?: string; uptime?: string; hostname?: string; arch?: string }
 export interface UnraidCpu { manufacturer?: string; brand?: string; cores?: number; threads?: number }
 export interface UnraidBaseboard { manufacturer?: string; model?: string; version?: string }
 export interface UnraidMetricsMemory { used?: number; total?: number; percentTotal?: number }
@@ -62,7 +62,7 @@ export interface UnraidShare {
 export interface UnraidUser { name?: string; description?: string; role?: string }
 export interface UnraidNotification {
   id?: string; title?: string; subject?: string; description?: string
-  importance?: string; timestamp?: string; read?: boolean
+  importance?: string; timestamp?: string
 }
 export interface UnraidNotificationCount { info?: number; warning?: number; alert?: number; total?: number }
 export interface UnraidNotifications {

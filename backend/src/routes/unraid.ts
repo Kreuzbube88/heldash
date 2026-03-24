@@ -298,6 +298,20 @@ export async function unraidRoutes(app: FastifyInstance) {
     }
   })
 
+  // GET /api/unraid/:id/parityhistory
+  app.get<{ Params: { id: string } }>('/api/unraid/:id/parityhistory', { onRequest: [app.authenticate] }, async (req, reply) => {
+    const row = await getInstance(req.params.id, reply)
+    if (!row) return
+    try {
+      const data = await unraidGql(row.url, row.api_key, `query {
+        parityHistory { date duration speed status errors progress correcting paused running }
+      }`) as { parityHistory?: unknown[] }
+      return { parityHistory: data.parityHistory ?? [] }
+    } catch (e) {
+      return reply.status(502).send({ error: (e as Error).message })
+    }
+  })
+
   // POST /api/unraid/:id/disks/:diskId/spinup — not available in this API version
   app.post<{ Params: { id: string; diskId: string } }>('/api/unraid/:id/disks/:diskId/spinup', { onRequest: [app.requireAdmin] }, async (_req, reply) => {
     return reply.status(501).send({ error: 'Disk Spin-Control ist in dieser API-Version nicht verfügbar.' })
@@ -366,6 +380,20 @@ export async function unraidRoutes(app: FastifyInstance) {
       return result
     } catch (e) {
       return reply.status(502).send({ error: `Start fehlgeschlagen: ${(e as Error).message}` })
+    }
+  })
+
+  // POST /api/unraid/:id/docker/:containerName/unpause
+  app.post<{ Params: { id: string; containerName: string } }>('/api/unraid/:id/docker/:containerName/unpause', { onRequest: [app.authenticate] }, async (req, reply) => {
+    const row = await getInstance(req.params.id, reply)
+    if (!row) return
+    const containerId = decodeURIComponent(req.params.containerName)
+    try {
+      const result = await unraidGql(row.url, row.api_key, `mutation($id: String!) { docker { unpause(id: $id) { id state } } }`, { id: containerId })
+      logActivity('unraid', `Docker ${containerId} unpause — ${row.name}`, 'info', { instanceId: req.params.id })
+      return result
+    } catch (e) {
+      return reply.status(502).send({ error: (e as Error).message })
     }
   })
 
@@ -472,7 +500,7 @@ export async function unraidRoutes(app: FastifyInstance) {
       const data = await unraidGql(row.url, row.api_key, `query {
         notifications {
           overview { unread { info warning alert total } total { info warning alert total } }
-          list(filter: { limit: 30 }) { id title subject description importance timestamp read }
+          list(filter: { type: UNREAD, offset: 0, limit: 30 }) { id title subject description importance timestamp }
         }
       }`) as NotifGqlResult
       return {

@@ -8,7 +8,7 @@ import {
 } from '@dnd-kit/sortable'
 import {
   Plus, Trash2, Pencil, X, Check, Loader, TestTube2,
-  Search, ChevronDown, ChevronRight, Home, Sun, Zap, ZapOff, Flame, BatteryCharging, Settings, Bell, Play,
+  Search, ChevronDown, ChevronRight, Home, Sun, Zap, ZapOff, Flame, BatteryCharging, Settings, Bell, Play, ToggleLeft, ToggleRight,
 } from 'lucide-react'
 
 import { useHaStore } from '../store/useHaStore'
@@ -17,6 +17,7 @@ import { api } from '../api'
 import type { HaEntityFull, HaPanel, HaInstance, HaArea } from '../types'
 import { HaPanelCard } from './HaPanelCard'
 import { HaFloorplan } from '../components/HaFloorplan'
+import { HaGpsTab } from '../components/HaGpsTab'
 import { HaAlertsManager } from '../components/HaAlertsManager'
 import { HaEntityHistory } from '../components/HaEntityHistory'
 import { LS_HA_VIEW_MODE } from '../constants'
@@ -1055,11 +1056,15 @@ export function HaPage({ showAddInstance, onAddInstanceClose, showAddPanel, onAd
   const [historyEntity, setHistoryEntity] = useState<HaEntityFull | null>(null)
   const [historyInstanceId, setHistoryInstanceId] = useState<string | null>(null)
   const [activeInstanceId, setActiveInstanceId] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'panels' | 'grundriss' | 'szenarien'>('panels')
+  const [activeTab, setActiveTab] = useState<'panels' | 'hausübersicht' | 'gps' | 'szenarien' | 'automationen'>('panels')
   const [scenes, setScenes] = useState<HaEntityFull[]>([])
   const [scenesLoading, setScenesLoading] = useState(false)
   const [scenesSearch, setScenesSearch] = useState('')
   const [sceneBusy, setSceneBusy] = useState<string | null>(null)
+  const [automations, setAutomations] = useState<HaEntityFull[]>([])
+  const [automationsLoading, setAutomationsLoading] = useState(false)
+  const [automationsSearch, setAutomationsSearch] = useState('')
+  const [automationBusy, setAutomationBusy] = useState<Record<string, 'toggle' | 'trigger'>>({})
   const [viewMode, setViewMode] = useState<'flat' | 'grouped'>(() =>
     (localStorage.getItem(LS_HA_VIEW_MODE) as 'flat' | 'grouped' | null) ?? 'flat'
   )
@@ -1140,6 +1145,16 @@ export function HaPage({ showAddInstance, onAddInstanceClose, showAddPanel, onAd
       .then(data => setScenes(data))
       .catch(() => {})
       .finally(() => setScenesLoading(false))
+  }, [activeTab, activeInstanceId])
+
+  // Load automations when Automationen tab is active
+  useEffect(() => {
+    if (activeTab !== 'automationen' || !activeInstanceId) return
+    setAutomationsLoading(true)
+    api.ha.automations(activeInstanceId)
+      .then(data => setAutomations(data))
+      .catch(() => {})
+      .finally(() => setAutomationsLoading(false))
   }, [activeTab, activeInstanceId])
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }))
@@ -1227,8 +1242,8 @@ export function HaPage({ showAddInstance, onAddInstanceClose, showAddPanel, onAd
           )}
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          {/* View mode toggle — only shown when areas are available */}
-          {enabledInstances.length > 0 && activeAreas.length > 0 && (
+          {/* View mode toggle — only shown on Panels tab when areas are available */}
+          {activeTab === 'panels' && enabledInstances.length > 0 && activeAreas.length > 0 && (
             <div style={{ display: 'flex', borderRadius: 'var(--radius-sm)', border: '1px solid var(--glass-border)', overflow: 'hidden' }}>
               {(['flat', 'grouped'] as const).map(mode => (
                 <button
@@ -1253,7 +1268,7 @@ export function HaPage({ showAddInstance, onAddInstanceClose, showAddPanel, onAd
               ))}
             </div>
           )}
-          {enabledInstances.length > 0 && viewMode === 'grouped' && areasLoaded && activeAreas.length === 0 && (
+          {activeTab === 'panels' && enabledInstances.length > 0 && viewMode === 'grouped' && areasLoaded && activeAreas.length === 0 && (
             <span className="badge badge-neutral" style={{ fontSize: 11 }}>
               Räume in Home Assistant nicht konfiguriert
             </span>
@@ -1292,7 +1307,7 @@ export function HaPage({ showAddInstance, onAddInstanceClose, showAddPanel, onAd
       {/* Tab navigation */}
       {instances.length > 0 && (
         <div style={{ display: 'flex', gap: 0, marginBottom: 20, borderBottom: '1px solid var(--glass-border)' }}>
-          {(['panels', 'grundriss', 'szenarien'] as const).map(tab => (
+          {(['panels', 'hausübersicht', 'gps', 'szenarien', 'automationen'] as const).map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -1304,19 +1319,28 @@ export function HaPage({ showAddInstance, onAddInstanceClose, showAddPanel, onAd
                 marginBottom: -1, transition: 'all var(--transition-fast)',
               }}
             >
-              {tab === 'panels' ? 'Panels' : tab === 'grundriss' ? '🗺 Grundriss' : '🎭 Szenarien'}
+              {tab === 'panels' ? 'Panels'
+                : tab === 'hausübersicht' ? '🗺 Hausübersicht'
+                : tab === 'gps' ? '📍 GPS'
+                : tab === 'szenarien' ? '🎭 Szenarien'
+                : '⚡ Automationen'}
             </button>
           ))}
         </div>
       )}
 
-      {/* Grundriss tab */}
-      {instances.length > 0 && activeTab === 'grundriss' && (
+      {/* Hausübersicht tab */}
+      {instances.length > 0 && activeTab === 'hausübersicht' && (
         <HaFloorplan
           instances={enabledInstances}
           entityStates={allEntityStates}
           onShowHistory={(e, instId) => { setHistoryEntity(e); setHistoryInstanceId(instId) }}
         />
+      )}
+
+      {/* GPS tab */}
+      {instances.length > 0 && activeTab === 'gps' && (
+        <HaGpsTab instanceId={activeInstanceId} />
       )}
 
       {/* Szenarien tab */}
@@ -1384,6 +1408,109 @@ export function HaPage({ showAddInstance, onAddInstanceClose, showAddPanel, onAd
               {scenes.length === 0 && !scenesLoading && (
                 <p style={{ color: 'var(--text-muted)', fontSize: 13, gridColumn: '1/-1' }}>
                   Keine Szenarien oder Scripts gefunden.
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Automationen tab */}
+      {instances.length > 0 && activeTab === 'automationen' && (
+        <div>
+          <div style={{ marginBottom: 16, position: 'relative', maxWidth: 360 }}>
+            <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+            <input
+              className="form-input"
+              style={{ paddingLeft: 34, fontSize: 13 }}
+              placeholder="Automationen suchen…"
+              value={automationsSearch}
+              onChange={e => setAutomationsSearch(e.target.value)}
+            />
+          </div>
+          {automationsLoading ? (
+            <div style={{ textAlign: 'center', padding: 32 }}>
+              <div className="spinner" style={{ width: 20, height: 20, borderWidth: 2, margin: '0 auto' }} />
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {automations
+                .filter(a => !automationsSearch.trim() ||
+                  a.entity_id.toLowerCase().includes(automationsSearch.toLowerCase()) ||
+                  ((a.attributes.friendly_name as string | undefined) ?? '').toLowerCase().includes(automationsSearch.toLowerCase())
+                )
+                .map(automation => {
+                  const name = (automation.attributes.friendly_name as string | undefined) ?? automation.entity_id
+                  const isEnabled = automation.state === 'on'
+                  const isToggling = automationBusy[automation.entity_id] === 'toggle'
+                  const isTriggering = automationBusy[automation.entity_id] === 'trigger'
+                  return (
+                    <div
+                      key={automation.entity_id}
+                      className="glass"
+                      style={{
+                        padding: '12px 16px', borderRadius: 'var(--radius-md)',
+                        border: '1px solid var(--glass-border)',
+                        display: 'flex', alignItems: 'center', gap: 12,
+                        opacity: isEnabled ? 1 : 0.5,
+                        transition: 'opacity var(--transition-fast)',
+                      }}
+                    >
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {name}
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                          {automation.entity_id}
+                        </div>
+                      </div>
+                      <button
+                        className="btn btn-ghost"
+                        style={{ gap: 6, fontSize: 12, padding: '4px 10px', flexShrink: 0 }}
+                        disabled={isTriggering || isToggling}
+                        title="Auslösen"
+                        onClick={async () => {
+                          setAutomationBusy(prev => ({ ...prev, [automation.entity_id]: 'trigger' }))
+                          try {
+                            await api.ha.automationTrigger(activeInstanceId!, automation.entity_id)
+                          } catch { /* ignore */ } finally {
+                            setAutomationBusy(prev => { const n = { ...prev }; delete n[automation.entity_id]; return n })
+                          }
+                        }}
+                      >
+                        {isTriggering ? <Loader size={12} className="spin" /> : <Play size={12} />}
+                        Auslösen
+                      </button>
+                      <button
+                        className="btn btn-ghost"
+                        style={{ gap: 6, fontSize: 12, padding: '4px 10px', flexShrink: 0, color: isEnabled ? 'var(--status-online)' : 'var(--text-muted)' }}
+                        disabled={isToggling || isTriggering}
+                        title={isEnabled ? 'Deaktivieren' : 'Aktivieren'}
+                        onClick={async () => {
+                          setAutomationBusy(prev => ({ ...prev, [automation.entity_id]: 'toggle' }))
+                          try {
+                            await api.ha.automationToggle(activeInstanceId!, automation.entity_id)
+                            setAutomations(prev => prev.map(a =>
+                              a.entity_id === automation.entity_id
+                                ? { ...a, state: isEnabled ? 'off' : 'on' }
+                                : a
+                            ))
+                          } catch { /* ignore */ } finally {
+                            setAutomationBusy(prev => { const n = { ...prev }; delete n[automation.entity_id]; return n })
+                          }
+                        }}
+                      >
+                        {isToggling
+                          ? <Loader size={12} className="spin" />
+                          : isEnabled ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}
+                        {isEnabled ? 'An' : 'Aus'}
+                      </button>
+                    </div>
+                  )
+                })}
+              {automations.length === 0 && !automationsLoading && (
+                <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>
+                  Keine Automationen gefunden.
                 </p>
               )}
             </div>

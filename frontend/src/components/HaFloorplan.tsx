@@ -6,7 +6,6 @@ import {
 import { api } from '../api'
 import type { HaInstance, HaEntityFull, HaFloorplan, HaFloorplanEntity, FloorplanAction } from '../types'
 import { HaFloorplanCanvas } from './HaFloorplanCanvas'
-import { HaPresenceBar } from './HaPresenceBar'
 import { LS_FLOORPLAN_ACTIVE, LS_FLOORPLAN_SNAP } from '../constants'
 
 // ── Icon presets ──────────────────────────────────────────────────────────────
@@ -26,7 +25,6 @@ function AddFloorplanModal({ onClose, onSaved }: AddFloorplanModalProps) {
   const [type, setType] = useState<'indoor' | 'outdoor'>('indoor')
   const [icon, setIcon] = useState('🏠')
   const [level, setLevel] = useState(0)
-  const [orientation, setOrientation] = useState<'landscape' | 'portrait'>('landscape')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
 
@@ -37,7 +35,7 @@ function AddFloorplanModal({ onClose, onSaved }: AddFloorplanModalProps) {
     setSaving(true)
     setError('')
     try {
-      await api.ha.floorplans.create({ name: name.trim(), type, level, icon, orientation })
+      await api.ha.floorplans.create({ name: name.trim(), type, level, icon, orientation: 'landscape' })
       await onSaved()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Fehler beim Speichern')
@@ -133,27 +131,6 @@ function AddFloorplanModal({ onClose, onSaved }: AddFloorplanModalProps) {
             onChange={e => setLevel(Number(e.target.value))}
             style={{ width: 100 }}
           />
-        </div>
-
-        {/* Orientation */}
-        <div style={{ marginBottom: 20 }}>
-          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>Ausrichtung</label>
-          <div style={{ display: 'flex', borderRadius: 'var(--radius-sm)', border: '1px solid var(--glass-border)', overflow: 'hidden', width: 'fit-content' }}>
-            {(['landscape', 'portrait'] as const).map(o => (
-              <button
-                key={o}
-                onClick={() => setOrientation(o)}
-                style={{
-                  padding: '5px 14px', border: 'none', cursor: 'pointer', fontSize: 12,
-                  background: orientation === o ? 'var(--accent-subtle)' : 'transparent',
-                  color: orientation === o ? 'var(--accent)' : 'var(--text-secondary)',
-                  fontWeight: orientation === o ? 600 : 400,
-                }}
-              >
-                {o === 'landscape' ? '⬛ Landscape' : '🔲 Portrait'}
-              </button>
-            ))}
-          </div>
         </div>
 
         {error && (
@@ -326,7 +303,6 @@ function FloorplanSettingsPopover({ floorplan, anchorRef, onClose, onUpdated, on
   const [name, setName] = useState(floorplan.name)
   const [icon, setIcon] = useState(floorplan.icon)
   const [type, setType] = useState<'indoor' | 'outdoor'>(floorplan.type as 'indoor' | 'outdoor')
-  const [orientation, setOrientation] = useState<'landscape' | 'portrait'>(floorplan.orientation as 'landscape' | 'portrait')
   const [saving, setSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [confirmClear, setConfirmClear] = useState(false)
@@ -345,7 +321,7 @@ function FloorplanSettingsPopover({ floorplan, anchorRef, onClose, onUpdated, on
   const handleSave = async () => {
     setSaving(true)
     try {
-      const updated = await api.ha.floorplans.update(floorplan.id, { name, icon, type, orientation })
+      const updated = await api.ha.floorplans.update(floorplan.id, { name, icon, type })
       onUpdated(updated)
       onClose()
     } catch { /* ignore */ } finally { setSaving(false) }
@@ -512,11 +488,6 @@ export function HaFloorplan({ instances, entityStates, onShowHistory }: HaFloorp
 
   const activeFloorplan = floorplans.find(fp => fp.id === activeFloorplanId) ?? null
   const activeEntities = activeFloorplanId ? (entities[activeFloorplanId] ?? []) : []
-
-  // Persons from SSE states
-  const personEntities = Object.values(entityStates).filter(e =>
-    e.entity_id.startsWith('person.') || e.entity_id.startsWith('device_tracker.')
-  )
 
   // Light entity IDs on this floorplan
   const lightEntityIds = activeEntities
@@ -790,11 +761,6 @@ export function HaFloorplan({ instances, entityStates, onShowHistory }: HaFloorp
           }} />
         </label>
       </div>
-
-      {/* Presence bar */}
-      {personEntities.length > 0 && (
-        <HaPresenceBar persons={personEntities} />
-      )}
 
       {/* No floorplans empty state */}
       {floorplans.length === 0 && (

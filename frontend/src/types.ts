@@ -347,6 +347,18 @@ export interface DockerLogEvent {
   timestamp: string
 }
 
+export interface HaPersonEnriched {
+  entity_id: string
+  name: string
+  state: string
+  latitude: number | null
+  longitude: number | null
+  last_updated: string
+  source: string | null
+  battery_level: number | null
+  tracker_last_updated: string | null
+}
+
 // ── HA Floorplan ──────────────────────────────────────────────────────────────
 
 export interface HaFloorplan {

@@ -466,6 +466,125 @@ export async function haRoutes(app: FastifyInstance) {
     }
   })
 
+  // GET /api/ha/instances/:id/automations — list all automation.* entities
+  app.get<{ Params: { id: string } }>('/api/ha/instances/:id/automations', {
+    preHandler: [app.authenticate],
+  }, async (req, reply) => {
+    const row = db.prepare('SELECT * FROM ha_instances WHERE id = ?').get(req.params.id) as HaInstanceRow | undefined
+    if (!row) return reply.status(404).send({ error: 'Not found' })
+    if (!row.enabled) return reply.status(400).send({ error: 'Instance disabled' })
+    try {
+      const res = await haFetch(row.url, row.token, '/api/states')
+      if (!res.ok) return reply.status(502).send({ error: `HA returned HTTP ${res.status}` })
+      const data = await res.json() as { entity_id: string; state: string; attributes: Record<string, unknown>; last_changed: string; last_updated: string }[]
+      const filtered = data
+        .filter(e => e.entity_id.startsWith('automation.'))
+        .sort((a, b) => {
+          const nameA = (a.attributes.friendly_name as string | undefined) ?? a.entity_id
+          const nameB = (b.attributes.friendly_name as string | undefined) ?? b.entity_id
+          return nameA.localeCompare(nameB)
+        })
+      return filtered
+    } catch (err: unknown) {
+      const detail = err instanceof Error ? err.message : 'Connection failed'
+      return reply.status(502).send({ error: 'Upstream error', detail })
+    }
+  })
+
+  // POST /api/ha/instances/:id/automations/:entityId/toggle
+  app.post<{ Params: { id: string; entityId: string } }>('/api/ha/instances/:id/automations/:entityId/toggle', {
+    preHandler: [app.authenticate],
+  }, async (req, reply) => {
+    const row = db.prepare('SELECT * FROM ha_instances WHERE id = ?').get(req.params.id) as HaInstanceRow | undefined
+    if (!row) return reply.status(404).send({ error: 'Not found' })
+    if (!row.enabled) return reply.status(400).send({ error: 'Instance disabled' })
+    try {
+      const entityId = decodeURIComponent(req.params.entityId)
+      const res = await haFetch(row.url, row.token, '/api/services/automation/toggle', {
+        method: 'POST',
+        body: JSON.stringify({ entity_id: entityId }),
+      })
+      if (!res.ok) return reply.status(502).send({ error: `HA returned HTTP ${res.status}` })
+      return { ok: true }
+    } catch (err: unknown) {
+      const detail = err instanceof Error ? err.message : 'Connection failed'
+      return reply.status(502).send({ error: 'Upstream error', detail })
+    }
+  })
+
+  // POST /api/ha/instances/:id/automations/:entityId/trigger
+  app.post<{ Params: { id: string; entityId: string } }>('/api/ha/instances/:id/automations/:entityId/trigger', {
+    preHandler: [app.authenticate],
+  }, async (req, reply) => {
+    const row = db.prepare('SELECT * FROM ha_instances WHERE id = ?').get(req.params.id) as HaInstanceRow | undefined
+    if (!row) return reply.status(404).send({ error: 'Not found' })
+    if (!row.enabled) return reply.status(400).send({ error: 'Instance disabled' })
+    try {
+      const entityId = decodeURIComponent(req.params.entityId)
+      const res = await haFetch(row.url, row.token, '/api/services/automation/trigger', {
+        method: 'POST',
+        body: JSON.stringify({ entity_id: entityId }),
+      })
+      if (!res.ok) return reply.status(502).send({ error: `HA returned HTTP ${res.status}` })
+      return { ok: true }
+    } catch (err: unknown) {
+      const detail = err instanceof Error ? err.message : 'Connection failed'
+      return reply.status(502).send({ error: 'Upstream error', detail })
+    }
+  })
+
+  // GET /api/ha/instances/:id/persons — enriched person.* entities with device_tracker data
+  app.get<{ Params: { id: string } }>('/api/ha/instances/:id/persons', {
+    preHandler: [app.authenticate],
+  }, async (req, reply) => {
+    const row = db.prepare('SELECT * FROM ha_instances WHERE id = ?').get(req.params.id) as HaInstanceRow | undefined
+    if (!row) return reply.status(404).send({ error: 'Not found' })
+    if (!row.enabled) return reply.status(400).send({ error: 'Instance disabled' })
+    try {
+      const res = await haFetch(row.url, row.token, '/api/states')
+      if (!res.ok) return reply.status(502).send({ error: `HA returned HTTP ${res.status}` })
+      const data = await res.json() as {
+        entity_id: string
+        state: string
+        attributes: Record<string, unknown>
+        last_updated: string
+      }[]
+
+      // Build tracker map for O(1) lookup
+      const trackerMap = new Map<string, typeof data[number]>()
+      for (const entity of data) {
+        if (entity.entity_id.startsWith('device_tracker.')) {
+          trackerMap.set(entity.entity_id, entity)
+        }
+      }
+
+      const persons = data
+        .filter(e => e.entity_id.startsWith('person.'))
+        .map(person => {
+          const source = person.attributes.source as string | undefined
+          const tracker = source ? trackerMap.get(source) : undefined
+          return {
+            entity_id: person.entity_id,
+            name: (person.attributes.friendly_name as string | undefined) ?? person.entity_id.split('.')[1] ?? person.entity_id,
+            state: person.state,
+            latitude: (person.attributes.latitude as number | undefined) ?? null,
+            longitude: (person.attributes.longitude as number | undefined) ?? null,
+            last_updated: person.last_updated,
+            source: source ?? null,
+            battery_level: (tracker?.attributes.battery_level as number | undefined) ?? null,
+            tracker_last_updated: tracker?.last_updated ?? null,
+          }
+        })
+        .sort((a, b) => a.name.localeCompare(b.name))
+
+      return persons
+    } catch (err: unknown) {
+      const detail = err instanceof Error ? err.message : 'Connection failed'
+      app.log.error({ detail, url: req.url, method: req.method }, 'Upstream error')
+      return reply.status(502).send({ error: 'Upstream error', detail })
+    }
+  })
+
   // GET /api/ha/instances/:id/energy — energy dashboard data via HA WebSocket
   app.get<{ Params: { id: string }; Querystring: { period?: string } }>('/api/ha/instances/:id/energy', {
     preHandler: [app.authenticate],

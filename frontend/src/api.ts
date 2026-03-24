@@ -275,6 +275,7 @@ export const api = {
       delete: (id: string) => req<void>(`/ha/instances/${id}`, { method: 'DELETE' }),
       test: (id: string) => req<{ ok: boolean; error?: string }>(`/ha/instances/${id}/test`, { method: 'POST', body: JSON.stringify({}) }),
       states: (id: string) => req<HaEntityFull[]>(`/ha/instances/${id}/states`),
+      persons: (id: string) => req<import('./types').HaPersonEnriched[]>(`/ha/instances/${id}/persons`),
       areas: (id: string) => req<HaArea[]>(`/ha/instances/${id}/areas`),
       entityArea: (id: string, entityId: string) => req<{ area_id: string | null }>(`/ha/instances/${id}/entity-area?entity_id=${encodeURIComponent(entityId)}`),
       call: (id: string, domain: string, service: string, entity_id: string, service_data?: Record<string, unknown>) =>
@@ -303,6 +304,12 @@ export const api = {
       req<HaHistoryEntry[]>(`/ha/instances/${instanceId}/history?entity_id=${encodeURIComponent(entityId)}&hours=${hours}`),
     scenes: (instanceId: string) =>
       req<HaEntityFull[]>(`/ha/instances/${instanceId}/scenes`),
+    automations: (instanceId: string) =>
+      req<HaEntityFull[]>(`/ha/instances/${instanceId}/automations`),
+    automationToggle: (instanceId: string, entityId: string) =>
+      req<{ ok: boolean }>(`/ha/instances/${instanceId}/automations/${encodeURIComponent(entityId)}/toggle`, { method: 'POST', body: JSON.stringify({}) }),
+    automationTrigger: (instanceId: string, entityId: string) =>
+      req<{ ok: boolean }>(`/ha/instances/${instanceId}/automations/${encodeURIComponent(entityId)}/trigger`, { method: 'POST', body: JSON.stringify({}) }),
     floorplans: {
       list: () => req<HaFloorplan[]>('/ha/floorplans'),
       create: (data: { name: string; type?: string; level?: number; icon?: string; orientation?: string }) =>

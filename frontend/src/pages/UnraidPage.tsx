@@ -153,6 +153,46 @@ function diskTypeBadge(interfaceType?: string, type?: string): { label: string; 
   return { label: 'HDD', color: 'var(--text-muted)' }
 }
 
+function actionButton(
+  label: string,
+  icon: React.ReactNode,
+  onClick: () => void,
+  variant: 'green' | 'red' | 'yellow' | 'blue' | 'gray',
+  disabled: boolean,
+  loading?: boolean,
+) {
+  const styles: Record<string, { bg: string; color: string; border: string }> = {
+    green:  { bg: 'rgba(34,197,94,0.15)',  color: 'var(--status-online)',  border: 'rgba(34,197,94,0.3)'   },
+    red:    { bg: 'rgba(239,68,68,0.15)',  color: 'var(--status-offline)', border: 'rgba(239,68,68,0.3)'   },
+    yellow: { bg: 'rgba(234,179,8,0.15)',  color: 'var(--warning)',        border: 'rgba(234,179,8,0.3)'   },
+    blue:   { bg: 'rgba(99,102,241,0.15)', color: 'var(--accent)',         border: 'rgba(99,102,241,0.3)'  },
+    gray:   { bg: 'rgba(128,128,128,0.1)', color: 'var(--text-muted)',     border: 'rgba(128,128,128,0.2)' },
+  }
+  const s = disabled ? styles.gray : styles[variant]
+  return (
+    <button
+      key={label}
+      onClick={onClick}
+      disabled={disabled || loading}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 4,
+        padding: '4px 10px', borderRadius: 'var(--radius-sm)',
+        fontSize: 12, fontWeight: 500,
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        background: s.bg, color: s.color,
+        border: `1px solid ${s.border}`,
+        opacity: disabled ? 0.5 : 1,
+        transition: 'all var(--transition-fast)',
+      }}
+    >
+      {loading
+        ? <div className="spinner" style={{ width: 10, height: 10, borderWidth: 1.5 }} />
+        : icon}
+      {label}
+    </button>
+  )
+}
+
 function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string; value?: string | React.ReactNode }) {
   return (
     <div style={{
@@ -877,31 +917,11 @@ function DockerTab({ instanceId }: { instanceId: string }) {
                 {c.autoStart && <RotateCcw size={11} title="Auto Start" />}
               </div>
               <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                <button className="btn" disabled={isLoading || !isExited}
-                  style={{ padding: '3px 8px', fontSize: 12, color: isExited ? 'var(--status-online)' : undefined, borderColor: isExited ? 'var(--status-online)' : undefined }}
-                  onClick={() => handleAction(c, 'start')}>
-                  {isLoading ? <span className="spinner" style={{ width: 12, height: 12 }} /> : <Play size={12} />} Start
-                </button>
-                <button className="btn" disabled={isLoading || !(isRunning || isPaused)}
-                  style={{ padding: '3px 8px', fontSize: 12, color: (isRunning || isPaused) ? 'var(--status-offline)' : undefined, borderColor: (isRunning || isPaused) ? 'var(--status-offline)' : undefined }}
-                  onClick={() => handleAction(c, 'stop')}><Square size={12} /> Stop
-                </button>
-                <button className="btn" disabled={isLoading || !isRunning}
-                  style={{ padding: '3px 8px', fontSize: 12, color: isRunning ? 'var(--warning)' : undefined, borderColor: isRunning ? 'var(--warning)' : undefined }}
-                  onClick={() => handleAction(c, 'restart')}><RotateCcw size={12} /> Restart
-                </button>
-                {isRunning && (
-                  <button className="btn" disabled={isLoading}
-                    style={{ padding: '3px 8px', fontSize: 12, color: 'var(--accent)', borderColor: 'var(--accent)' }}
-                    onClick={() => handleAction(c, 'pause')} title="Pause"><Pause size={12} /> Pause
-                  </button>
-                )}
-                {isPaused && (
-                  <button className="btn" disabled={isLoading}
-                    style={{ padding: '3px 8px', fontSize: 12, color: 'var(--warning)', borderColor: 'var(--warning)' }}
-                    onClick={() => handleAction(c, 'unpause')}><Play size={12} /> Resume
-                  </button>
-                )}
+                {actionButton('Start',   <Play size={11} />,      () => handleAction(c, 'start'),   'green',  !isExited,               isLoading)}
+                {actionButton('Stop',    <Square size={11} />,    () => handleAction(c, 'stop'),    'red',    !(isRunning || isPaused), isLoading)}
+                {actionButton('Restart', <RotateCcw size={11} />, () => handleAction(c, 'restart'), 'yellow', !isRunning,              isLoading)}
+                {isRunning && actionButton('Pause',  <Pause size={11} />, () => handleAction(c, 'pause'),   'blue',   false, isLoading)}
+                {isPaused  && actionButton('Resume', <Play size={11} />,  () => handleAction(c, 'unpause'), 'yellow', false, isLoading)}
               </div>
             </div>
           )
@@ -976,47 +996,13 @@ function VmsTab({ instanceId }: { instanceId: string }) {
                 </span>
               </div>
               <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 8 }}>
-                {canStart && (
-                  <button className="btn" disabled={isLoading}
-                    style={{ fontSize: 12, padding: '3px 8px', color: 'var(--status-online)', borderColor: 'var(--status-online)' }}
-                    onClick={() => handleVmAction(vm, 'start')} title="Start">
-                    {isLoading ? <span className="spinner" style={{ width: 12, height: 12 }} /> : <Play size={12} />} Start
-                  </button>
-                )}
-                {canStop && (
-                  <button className="btn" disabled={isLoading}
-                    style={{ fontSize: 12, padding: '3px 8px', color: 'var(--status-offline)', borderColor: 'var(--status-offline)' }}
-                    onClick={() => setConfirm({ vm, action: 'stop' })} title="Stop"><Square size={12} /> Stop
-                  </button>
-                )}
-                {(isRunning || isCrashed) && (
-                  <button className="btn btn-danger" disabled={isLoading}
-                    style={{ fontSize: 12, padding: '3px 8px' }}
-                    onClick={() => setConfirm({ vm, action: 'forcestop' })} title="Force Stop"><Zap size={12} />
-                  </button>
-                )}
-                {isRunning && (
-                  <button className="btn" disabled={isLoading}
-                    style={{ fontSize: 12, padding: '3px 8px', color: 'var(--accent)', borderColor: 'var(--accent)' }}
-                    onClick={() => setConfirm({ vm, action: 'pause' })} title="Pause"><Pause size={12} />
-                  </button>
-                )}
-                {isRunning && (
-                  <button className="btn" disabled={isLoading} style={{ fontSize: 12, padding: '3px 8px' }}
-                    onClick={() => handleVmAction(vm, 'reboot')} title="Neustart"><RotateCcw size={12} />
-                  </button>
-                )}
-                {(isRunning || isCrashed) && (
-                  <button className="btn" disabled={isLoading} style={{ fontSize: 12, padding: '3px 8px' }}
-                    onClick={() => setConfirm({ vm, action: 'reset' })} title="Reset (hard)"><SkipForward size={12} />
-                  </button>
-                )}
-                {isPaused && (
-                  <button className="btn" disabled={isLoading}
-                    style={{ fontSize: 12, padding: '3px 8px', color: 'var(--warning)', borderColor: 'var(--warning)' }}
-                    onClick={() => handleVmAction(vm, 'resume')} title="Fortsetzen"><Play size={12} /> Resume
-                  </button>
-                )}
+                {canStart                 && actionButton('Start',   <Play size={11} />,        () => handleVmAction(vm, 'start'),                'green',  false, isLoading)}
+                {canStop                  && actionButton('Stop',    <Square size={11} />,      () => setConfirm({ vm, action: 'stop' }),         'red',    false, isLoading)}
+                {(isRunning || isCrashed) && actionButton('',        <Zap size={11} />,         () => setConfirm({ vm, action: 'forcestop' }),    'red',    false, isLoading)}
+                {isRunning                && actionButton('Pause',   <Pause size={11} />,       () => setConfirm({ vm, action: 'pause' }),        'blue',   false, isLoading)}
+                {isRunning                && actionButton('Restart', <RotateCcw size={11} />,   () => handleVmAction(vm, 'reboot'),               'yellow', false, isLoading)}
+                {(isRunning || isCrashed) && actionButton('Reset',  <SkipForward size={11} />, () => setConfirm({ vm, action: 'reset' }),        'red',    false, isLoading)}
+                {isPaused                 && actionButton('Resume',  <Play size={11} />,        () => handleVmAction(vm, 'resume'),               'yellow', false, isLoading)}
               </div>
             </div>
           )

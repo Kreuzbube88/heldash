@@ -58,6 +58,46 @@ const gqlAgent = new Agent({
   bodyTimeout: 8_000,
 })
 
+function sleep(ms: number): Promise<void> {
+  return new Promise(r => setTimeout(r, ms))
+}
+
+// Poll docker containers until target state is reached (handles Unraid GQL timing race)
+async function pollDockerState(
+  url: string, apiKey: string, containerName: string, targetStates: string[],
+  retries = 10, intervalMs = 500
+): Promise<{ id: string; state: string }> {
+  for (let i = 0; i < retries; i++) {
+    await sleep(intervalMs)
+    try {
+      const data = await unraidGql(url, apiKey, `query { docker { containers { id names state } } }`) as
+        { docker?: { containers?: { id: string; names?: string[]; state: string }[] } }
+      const found = (data?.docker?.containers ?? []).find(c =>
+        c.id === containerName || c.names?.some(n => n.replace(/^\//, '') === containerName)
+      )
+      if (found && targetStates.includes(found.state)) return { id: found.id, state: found.state }
+    } catch { /* retry */ }
+  }
+  throw new Error(`Container '${containerName}' hat Zielstatus ${targetStates.join('/')} nicht erreicht`)
+}
+
+// Poll VM domains until target state is reached
+async function pollVmState(
+  url: string, apiKey: string, vmId: string, targetStates: string[],
+  retries = 20, intervalMs = 1500
+): Promise<{ id: string; state: string }> {
+  for (let i = 0; i < retries; i++) {
+    await sleep(intervalMs)
+    try {
+      const data = await unraidGql(url, apiKey, `query { vms { domains { id state } } }`) as
+        { vms?: { domains?: { id: string; state: string }[] } }
+      const found = data?.vms?.domains?.find(v => v.id === vmId)
+      if (found && targetStates.includes(found.state)) return { id: found.id, state: found.state }
+    } catch { /* retry */ }
+  }
+  throw new Error(`VM '${vmId}' hat Zielstatus ${targetStates.join('/')} nicht erreicht`)
+}
+
 async function unraidGql(url: string, apiKey: string, query: string, variables?: object): Promise<unknown> {
   const res = await request(`${url.replace(/\/$/, '')}/graphql`, {
     method: 'POST',
@@ -358,9 +398,12 @@ export async function unraidRoutes(app: FastifyInstance) {
     if (!row) return
     const containerId = decodeURIComponent(req.params.containerName)
     try {
-      const result = await unraidGql(row.url, row.api_key, `mutation($id: PrefixedID!) { docker { start(id: $id) { id state } } }`, { id: containerId })
+      await unraidGql(row.url, row.api_key, `mutation($id: PrefixedID!) { docker { start(id: $id) { id state } } }`, { id: containerId })
+    } catch { /* action may still have succeeded — Unraid GQL timing race */ }
+    try {
+      const container = await pollDockerState(row.url, row.api_key, containerId, ['RUNNING'])
       logActivity('unraid', `Docker ${containerId} start — ${row.name}`, 'info', { instanceId: req.params.id })
-      return result
+      return { docker: { start: container } }
     } catch (e) {
       return reply.status(502).send({ error: (e as Error).message })
     }
@@ -372,30 +415,36 @@ export async function unraidRoutes(app: FastifyInstance) {
     if (!row) return
     const containerId = decodeURIComponent(req.params.containerName)
     try {
-      const result = await unraidGql(row.url, row.api_key, `mutation($id: PrefixedID!) { docker { stop(id: $id) { id state } } }`, { id: containerId })
+      await unraidGql(row.url, row.api_key, `mutation($id: PrefixedID!) { docker { stop(id: $id) { id state } } }`, { id: containerId })
+    } catch { /* timing race — poll for confirmation */ }
+    try {
+      const container = await pollDockerState(row.url, row.api_key, containerId, ['EXITED', 'STOPPED', 'DEAD'])
       logActivity('unraid', `Docker ${containerId} stop — ${row.name}`, 'info', { instanceId: req.params.id })
-      return result
+      return { docker: { stop: container } }
     } catch (e) {
       return reply.status(502).send({ error: (e as Error).message })
     }
   })
 
-  // POST /api/unraid/:id/docker/:containerName/restart — sequential stop then start
+  // POST /api/unraid/:id/docker/:containerName/restart — sequential stop then start with polling
   app.post<{ Params: { id: string; containerName: string } }>('/api/unraid/:id/docker/:containerName/restart', { onRequest: [app.authenticate] }, async (req, reply) => {
     const row = await getInstance(req.params.id, reply)
     if (!row) return
     const containerId = decodeURIComponent(req.params.containerName)
     try {
       await unraidGql(row.url, row.api_key, `mutation($id: PrefixedID!) { docker { stop(id: $id) { id state } } }`, { id: containerId })
-    } catch (e) {
-      return reply.status(502).send({ error: `Stop fehlgeschlagen: ${(e as Error).message}` })
-    }
+    } catch { /* timing race */ }
+    // Wait briefly for stop to propagate before starting
+    await sleep(1000)
     try {
-      const result = await unraidGql(row.url, row.api_key, `mutation($id: PrefixedID!) { docker { start(id: $id) { id state } } }`, { id: containerId })
+      await unraidGql(row.url, row.api_key, `mutation($id: PrefixedID!) { docker { start(id: $id) { id state } } }`, { id: containerId })
+    } catch { /* timing race */ }
+    try {
+      const container = await pollDockerState(row.url, row.api_key, containerId, ['RUNNING'])
       logActivity('unraid', `Docker ${containerId} restart — ${row.name}`, 'info', { instanceId: req.params.id })
-      return result
+      return { docker: { restart: container } }
     } catch (e) {
-      return reply.status(502).send({ error: `Start fehlgeschlagen: ${(e as Error).message}` })
+      return reply.status(502).send({ error: `Restart fehlgeschlagen: ${(e as Error).message}` })
     }
   })
 
@@ -473,9 +522,12 @@ export async function unraidRoutes(app: FastifyInstance) {
     if (!row) return
     const vmId = decodeURIComponent(req.params.uuid)
     try {
-      const result = await unraidGql(row.url, row.api_key, `mutation($id: PrefixedID!) { vms { start(id: $id) } }`, { id: vmId })
+      await unraidGql(row.url, row.api_key, `mutation($id: PrefixedID!) { vms { start(id: $id) } }`, { id: vmId })
+    } catch { /* timing race */ }
+    try {
+      const vm = await pollVmState(row.url, row.api_key, vmId, ['RUNNING', 'IDLE'])
       logActivity('unraid', `VM ${vmId} start — ${row.name}`, 'info', { instanceId: req.params.id })
-      return result
+      return { vms: { start: vm } }
     } catch (e) {
       return reply.status(502).send({ error: (e as Error).message })
     }
@@ -487,9 +539,12 @@ export async function unraidRoutes(app: FastifyInstance) {
     if (!row) return
     const vmId = decodeURIComponent(req.params.uuid)
     try {
-      const result = await unraidGql(row.url, row.api_key, `mutation($id: PrefixedID!) { vms { stop(id: $id) } }`, { id: vmId })
+      await unraidGql(row.url, row.api_key, `mutation($id: PrefixedID!) { vms { stop(id: $id) } }`, { id: vmId })
+    } catch { /* timing race */ }
+    try {
+      const vm = await pollVmState(row.url, row.api_key, vmId, ['SHUTOFF', 'SHUTDOWN', 'NOSTATE'], 30, 1500)
       logActivity('unraid', `VM ${vmId} stop — ${row.name}`, 'info', { instanceId: req.params.id })
-      return result
+      return { vms: { stop: vm } }
     } catch (e) {
       return reply.status(502).send({ error: (e as Error).message })
     }
@@ -529,9 +584,12 @@ export async function unraidRoutes(app: FastifyInstance) {
     if (!row) return
     const vmId = decodeURIComponent(req.params.uuid)
     try {
-      const result = await unraidGql(row.url, row.api_key, `mutation($id: PrefixedID!) { vms { forceStop(id: $id) } }`, { id: vmId })
+      await unraidGql(row.url, row.api_key, `mutation($id: PrefixedID!) { vms { forceStop(id: $id) } }`, { id: vmId })
+    } catch { /* timing race */ }
+    try {
+      const vm = await pollVmState(row.url, row.api_key, vmId, ['SHUTOFF'], 10, 500)
       logActivity('unraid', `VM ${vmId} forceStop — ${row.name}`, 'info', { instanceId: req.params.id })
-      return result
+      return { vms: { forceStop: vm } }
     } catch (e) {
       return reply.status(502).send({ error: (e as Error).message })
     }
@@ -543,9 +601,12 @@ export async function unraidRoutes(app: FastifyInstance) {
     if (!row) return
     const vmId = decodeURIComponent(req.params.uuid)
     try {
-      const result = await unraidGql(row.url, row.api_key, `mutation($id: PrefixedID!) { vms { reboot(id: $id) } }`, { id: vmId })
+      await unraidGql(row.url, row.api_key, `mutation($id: PrefixedID!) { vms { reboot(id: $id) } }`, { id: vmId })
+    } catch { /* timing race */ }
+    try {
+      const vm = await pollVmState(row.url, row.api_key, vmId, ['RUNNING', 'IDLE'], 30, 2000)
       logActivity('unraid', `VM ${vmId} reboot — ${row.name}`, 'info', { instanceId: req.params.id })
-      return result
+      return { vms: { reboot: vm } }
     } catch (e) {
       return reply.status(502).send({ error: (e as Error).message })
     }
@@ -557,9 +618,12 @@ export async function unraidRoutes(app: FastifyInstance) {
     if (!row) return
     const vmId = decodeURIComponent(req.params.uuid)
     try {
-      const result = await unraidGql(row.url, row.api_key, `mutation($id: PrefixedID!) { vms { reset(id: $id) } }`, { id: vmId })
+      await unraidGql(row.url, row.api_key, `mutation($id: PrefixedID!) { vms { reset(id: $id) } }`, { id: vmId })
+    } catch { /* timing race */ }
+    try {
+      const vm = await pollVmState(row.url, row.api_key, vmId, ['RUNNING', 'IDLE'], 30, 2000)
       logActivity('unraid', `VM ${vmId} reset — ${row.name}`, 'info', { instanceId: req.params.id })
-      return result
+      return { vms: { reset: vm } }
     } catch (e) {
       return reply.status(502).send({ error: (e as Error).message })
     }

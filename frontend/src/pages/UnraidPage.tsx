@@ -85,6 +85,21 @@ function arrayStateBadgeStyle(state?: string): { color: string; background: stri
   }
 }
 
+function pendingBadge(action: string): { label: string; color: string; bg: string; pulse: boolean } {
+  switch (action) {
+    case 'start':   return { label: 'Startet…',  color: 'var(--warning)', bg: 'rgba(234,179,8,0.12)',  pulse: true  }
+    case 'stop':    return { label: 'Stoppt…',   color: 'var(--text-muted)', bg: 'rgba(128,128,128,0.12)', pulse: false }
+    case 'restart': return { label: 'Neustart…', color: 'var(--warning)', bg: 'rgba(234,179,8,0.12)',  pulse: true  }
+    case 'pause':   return { label: 'Pausiert…', color: 'var(--accent)',  bg: 'rgba(99,102,241,0.12)', pulse: false }
+    case 'unpause': return { label: 'Startet…',  color: 'var(--warning)', bg: 'rgba(234,179,8,0.12)',  pulse: true  }
+    case 'reboot':
+    case 'reset':   return { label: 'Neustart…', color: 'var(--warning)', bg: 'rgba(234,179,8,0.12)',  pulse: true  }
+    case 'forcestop': return { label: 'Stoppt…', color: 'var(--text-muted)', bg: 'rgba(128,128,128,0.12)', pulse: false }
+    case 'resume':  return { label: 'Startet…',  color: 'var(--warning)', bg: 'rgba(234,179,8,0.12)',  pulse: true  }
+    default:        return { label: 'Warten…',   color: 'var(--text-muted)', bg: 'rgba(128,128,128,0.12)', pulse: true }
+  }
+}
+
 function containerStateBadge(state?: string): { label: string; color: string; bg: string; pulse: boolean } {
   switch (state) {
     case 'RUNNING':
@@ -808,7 +823,7 @@ function DockerTab({ instanceId }: { instanceId: string }) {
   const containers = docker[instanceId] ?? []
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'all' | 'running' | 'stopped'>('all')
-  const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({})
+  const [actionLoading, setActionLoading] = useState<Record<string, string | undefined>>({})
   const [updatingAll, setUpdatingAll] = useState(false)
 
   useEffect(() => {
@@ -832,14 +847,14 @@ function DockerTab({ instanceId }: { instanceId: string }) {
 
   const handleAction = async (c: UnraidContainer, action: 'start' | 'stop' | 'restart' | 'unpause' | 'pause') => {
     const name = c.names?.[0]?.replace(/^\//, '') ?? ''
-    setActionLoading(s => ({ ...s, [name]: true }))
+    setActionLoading(s => ({ ...s, [name]: action }))
     try {
       await dockerControl(instanceId, name, action)
       toast({ message: `${name} ${action}`, type: 'success' })
     } catch (e) {
       toast({ message: (e as Error).message, type: 'error' })
     } finally {
-      setActionLoading(s => ({ ...s, [name]: false }))
+      setActionLoading(s => ({ ...s, [name]: undefined }))
     }
   }
 
@@ -878,12 +893,13 @@ function DockerTab({ instanceId }: { instanceId: string }) {
         {filtered.map((c, i) => {
           const name = c.names?.[0]?.replace(/^\//, '') ?? 'Unbekannt'
           const imageDisplay = (c.image ?? '').split('@')[0]
-          const isLoading = actionLoading[name]
+          const pendingAction = actionLoading[name]
+          const isLoading = !!pendingAction
           const isRunning = c.state === 'RUNNING'
           const isExited = c.state === 'EXITED'
           const isPaused = c.state === 'PAUSED'
           const ports = (c.ports ?? []).filter(p => p.publicPort)
-          const badge = containerStateBadge(c.state)
+          const badge = pendingAction ? pendingBadge(pendingAction) : containerStateBadge(c.state)
           return (
             <div key={c.id ?? i} className="glass" style={{ padding: 'var(--spacing-md)', borderRadius: 'var(--radius-md)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
@@ -898,7 +914,9 @@ function DockerTab({ instanceId }: { instanceId: string }) {
                   fontSize: 11, fontWeight: 600, flexShrink: 0,
                   animation: badge.pulse ? 'pulse 2s infinite' : 'none',
                 }}>
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: badge.color, flexShrink: 0 }} />
+                  {isLoading
+                    ? <span className="spinner" style={{ width: 6, height: 6, flexShrink: 0 }} />
+                    : <span style={{ width: 6, height: 6, borderRadius: '50%', background: badge.color, flexShrink: 0 }} />}
                   {badge.label}
                 </span>
               </div>
@@ -938,7 +956,7 @@ function VmsTab({ instanceId }: { instanceId: string }) {
   const { vms, loadVms, vmControl, errors } = useUnraidStore()
   const { toast } = useToast()
   const domains = [...(vms[instanceId] ?? [])].sort((a, b) => (a.name ?? '').toLowerCase().localeCompare((b.name ?? '').toLowerCase()))
-  const [vmLoading, setVmLoading] = useState<Record<string, boolean>>({})
+  const [vmLoading, setVmLoading] = useState<Record<string, string | undefined>>({})
   const [confirm, setConfirm] = useState<{ vm: UnraidVm; action: 'stop' | 'pause' | 'forcestop' | 'reset' } | null>(null)
 
   useEffect(() => {
@@ -949,14 +967,14 @@ function VmsTab({ instanceId }: { instanceId: string }) {
 
   const handleVmAction = async (vm: UnraidVm, action: 'start' | 'stop' | 'pause' | 'resume' | 'forcestop' | 'reboot' | 'reset') => {
     const vmId = vm.id ?? ''
-    setVmLoading(s => ({ ...s, [vmId]: true }))
+    setVmLoading(s => ({ ...s, [vmId]: action }))
     try {
       await vmControl(instanceId, vmId, action)
       toast({ message: `VM ${vm.name} ${action}`, type: 'success' })
     } catch (e) {
       toast({ message: (e as Error).message, type: 'error' })
     } finally {
-      setVmLoading(s => ({ ...s, [vmId]: false }))
+      setVmLoading(s => ({ ...s, [vmId]: undefined }))
     }
   }
 
@@ -972,14 +990,15 @@ function VmsTab({ instanceId }: { instanceId: string }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 'var(--spacing-md)' }}>
         {domains.map((vm, i) => {
           const vmId = vm.id ?? String(i)
-          const isLoading = vmLoading[vmId]
+          const vmPendingAction = vmLoading[vmId]
+          const isLoading = !!vmPendingAction
           const isCrashed = vm.state === 'CRASHED'
           const isShutoff = vm.state === 'SHUTOFF' || vm.state === 'SHUTDOWN' || vm.state === 'NOSTATE'
           const isRunning = vm.state === 'RUNNING' || vm.state === 'IDLE'
           const isPaused = vm.state === 'PAUSED'
           const canStart = isShutoff || isCrashed
           const canStop = isRunning || isPaused
-          const vmbadge = vmStateBadge(vm.state)
+          const vmbadge = vmPendingAction ? pendingBadge(vmPendingAction) : vmStateBadge(vm.state)
           return (
             <div key={vmId} className="glass" style={{ padding: 'var(--spacing-md)', borderRadius: 'var(--radius-md)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
@@ -991,7 +1010,9 @@ function VmsTab({ instanceId }: { instanceId: string }) {
                   fontSize: 11, fontWeight: 600, flexShrink: 0,
                   animation: vmbadge.pulse ? 'pulse 2s infinite' : 'none',
                 }}>
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: vmbadge.color, flexShrink: 0 }} />
+                  {isLoading
+                    ? <span className="spinner" style={{ width: 6, height: 6, flexShrink: 0 }} />
+                    : <span style={{ width: 6, height: 6, borderRadius: '50%', background: vmbadge.color, flexShrink: 0 }} />}
                   {vmbadge.label}
                 </span>
               </div>

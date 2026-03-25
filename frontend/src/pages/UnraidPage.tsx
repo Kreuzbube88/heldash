@@ -14,6 +14,8 @@ import {
   Server, Settings2, GripVertical, Plus, RefreshCw, Play, Square, RotateCcw,
   Pause, ChevronUp, ChevronDown, Trash2, Eye, EyeOff, AlertTriangle, Check,
   Download, Zap, SkipForward, HardDrive, Cpu,
+  Monitor, Clock, Globe, Shield, Users, Key, Tag, Layers,
+  Activity, Network, Package,
 } from 'lucide-react'
 import type { UnraidInstance, UnraidContainer, UnraidVm, UnraidPhysicalDisk, UnraidNotification } from '../types/unraid'
 import { api } from '../api'
@@ -81,6 +83,87 @@ function arrayStateBadgeStyle(state?: string): { color: string; background: stri
     default:
       return { color: 'var(--status-offline)', background: 'rgba(239,68,68,0.12)' }
   }
+}
+
+function containerStateBadge(state?: string): { label: string; color: string; bg: string; pulse: boolean } {
+  switch (state) {
+    case 'RUNNING':
+      return { label: 'Running', color: 'var(--status-online)',  bg: 'rgba(34,197,94,0.12)',   pulse: true  }
+    case 'PAUSED':
+      return { label: 'Paused',  color: 'var(--warning)',        bg: 'rgba(234,179,8,0.12)',   pulse: false }
+    case 'EXITED':
+      return { label: 'Stopped', color: 'var(--text-muted)',     bg: 'rgba(128,128,128,0.12)', pulse: false }
+    default:
+      return { label: state ?? '?', color: 'var(--text-muted)', bg: 'rgba(128,128,128,0.12)', pulse: false }
+  }
+}
+
+function vmStateBadge(state?: string): { label: string; color: string; bg: string; pulse: boolean } {
+  switch (state) {
+    case 'RUNNING':
+      return { label: 'Running',       color: 'var(--status-online)',  bg: 'rgba(34,197,94,0.12)',   pulse: true  }
+    case 'IDLE':
+      return { label: 'Idle',          color: 'var(--accent)',         bg: 'rgba(99,102,241,0.12)',  pulse: false }
+    case 'PAUSED':
+      return { label: 'Paused',        color: 'var(--warning)',        bg: 'rgba(234,179,8,0.12)',   pulse: false }
+    case 'SHUTDOWN':
+      return { label: 'Shutting down', color: 'var(--warning)',        bg: 'rgba(234,179,8,0.12)',   pulse: false }
+    case 'SHUTOFF':
+      return { label: 'Off',           color: 'var(--text-muted)',     bg: 'rgba(128,128,128,0.12)', pulse: false }
+    case 'CRASHED':
+      return { label: 'Crashed',       color: 'var(--status-offline)', bg: 'rgba(239,68,68,0.12)',   pulse: false }
+    case 'PMSUSPENDED':
+      return { label: 'Suspended',     color: 'var(--text-secondary)', bg: 'rgba(128,128,128,0.12)', pulse: false }
+    default:
+      return { label: state ?? '?',    color: 'var(--text-muted)',     bg: 'rgba(128,128,128,0.12)', pulse: false }
+  }
+}
+
+function formatParitySpeed(speed?: string | number | null): string {
+  if (!speed) return '–'
+  const raw = typeof speed === 'string' ? speed : String(speed)
+  if (raw.includes('MB') || raw.includes('GB') || raw.toLowerCase().includes('kb')) return raw
+  const n = parseFloat(raw)
+  if (isNaN(n)) return raw
+  if (n >= 1_073_741_824) return `${(n / 1_073_741_824).toFixed(1)} GB/s`
+  if (n >= 1_048_576)     return `${(n / 1_048_576).toFixed(1)} MB/s`
+  if (n >= 1_024)         return `${(n / 1_024).toFixed(0)} KB/s`
+  return `${n} B/s`
+}
+
+function smartStatusStyle(status?: string): { color: string; label: string } {
+  switch (status) {
+    case 'OK':
+    case 'PASSED':
+      return { color: 'var(--status-online)',  label: status }
+    case 'UNKNOWN':
+      return { color: 'var(--text-muted)',     label: 'Unbekannt' }
+    default:
+      return { color: 'var(--status-offline)', label: status ?? '–' }
+  }
+}
+
+function diskTypeBadge(interfaceType?: string, type?: string): { label: string; color: string } {
+  if (interfaceType === 'PCIE' || type?.toLowerCase().includes('nvme')) {
+    return { label: 'NVMe', color: 'var(--accent)' }
+  }
+  if (type?.toLowerCase().includes('ssd')) {
+    return { label: 'SSD', color: 'var(--warning)' }
+  }
+  return { label: 'HDD', color: 'var(--text-muted)' }
+}
+
+function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string; value?: string | React.ReactNode }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 8,
+      padding: '6px 0', borderBottom: '1px solid var(--border-subtle, rgba(128,128,128,0.1))',
+    }}>
+      <span style={{ color: 'var(--text-muted)', flexShrink: 0, display: 'flex' }}>{icon}</span>
+      <span style={{ color: 'var(--text-muted)', fontSize: 12, minWidth: 130, flexShrink: 0 }}>{label}</span>
+      <span style={{ color: 'var(--text-primary)', fontSize: 13, fontWeight: 500 }}>{value ?? '–'}</span>
+    </div>
+  )
 }
 
 // ── ConfirmModal ──────────────────────────────────────────────────────────────
@@ -610,7 +693,7 @@ function ArrayTab({ instanceId }: { instanceId: string }) {
                 <tr key={i} style={{ borderBottom: '1px solid var(--glass-border)' }}>
                   <td style={{ padding: '6px 8px' }}>{p.date ?? '–'}</td>
                   <td style={{ padding: '6px 8px' }}>{p.duration ? `${Math.floor((p.duration ?? 0) / 3600)}h ${Math.floor(((p.duration ?? 0) % 3600) / 60)}m` : '–'}</td>
-                  <td style={{ padding: '6px 8px' }}>{p.speed ?? '–'}</td>
+                  <td style={{ padding: '6px 8px' }}>{formatParitySpeed(p.speed)}</td>
                   <td style={{ padding: '6px 8px' }}>{p.status ?? '–'}</td>
                   <td style={{ padding: '6px 8px', color: (p.errors ?? 0) > 0 ? 'var(--status-offline)' : 'var(--status-online)' }}>{p.errors ?? 0}</td>
                 </tr>
@@ -642,12 +725,14 @@ function ArrayTab({ instanceId }: { instanceId: string }) {
                 {pdisks.map((d, i) => (
                   <tr key={d.id ?? i} style={{ borderBottom: '1px solid var(--glass-border)' }}>
                     <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)', fontWeight: 500 }}>{d.name ?? '–'}</td>
-                    <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)', color: 'var(--text-muted)' }}>{d.type ?? '–'}</td>
+                    <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
+                      {(() => { const dtb = diskTypeBadge(d.interfaceType, d.type); return <span style={{ color: dtb.color, fontWeight: 600, fontSize: 11 }}>{dtb.label}</span> })()}
+                    </td>
                     <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>{formatBytes(d.size)}</td>
                     <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)', color: 'var(--text-muted)' }}>{d.interfaceType ?? '–'}</td>
                     <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)', color: 'var(--text-muted)', fontSize: 11 }}>{d.serialNum ?? '–'}</td>
                     <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
-                      <span style={{ color: d.smartStatus === 'PASSED' ? 'var(--status-online)' : d.smartStatus ? 'var(--status-offline)' : 'var(--text-muted)', fontWeight: 600, fontSize: 11 }}>{d.smartStatus ?? '–'}</span>
+                      {(() => { const s = smartStatusStyle(d.smartStatus); return <span style={{ color: s.color, fontWeight: 600, fontSize: 12 }}>{s.label}</span> })()}
                     </td>
                     <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)', color: tempColor(d.temperature) }}>{d.temperature != null ? `${d.temperature}°C` : '–'}</td>
                     <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)', color: 'var(--text-muted)', fontSize: 11 }}>{d.isSpinning ? 'Aktiv' : 'Standby'}</td>
@@ -705,12 +790,6 @@ function DockerTab({ instanceId }: { instanceId: string }) {
     return matchSearch && matchFilter
   })
 
-  const stateColor = (s?: string) => {
-    if (s === 'RUNNING') return 'var(--status-online)'
-    if (s === 'PAUSED') return 'var(--warning)'
-    return 'var(--text-muted)'
-  }
-
   const handleAction = async (c: UnraidContainer, action: 'start' | 'stop' | 'restart' | 'unpause' | 'pause') => {
     const name = c.names?.[0]?.replace(/^\//, '') ?? ''
     setActionLoading(s => ({ ...s, [name]: true }))
@@ -758,24 +837,30 @@ function DockerTab({ instanceId }: { instanceId: string }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 'var(--spacing-md)' }}>
         {filtered.map((c, i) => {
           const name = c.names?.[0]?.replace(/^\//, '') ?? 'Unbekannt'
-          const image = c.image?.split('@')[0]?.split(':')[0] ?? '–'
+          const imageDisplay = (c.image ?? '').split('@')[0]
           const isLoading = actionLoading[name]
           const isRunning = c.state === 'RUNNING'
           const isExited = c.state === 'EXITED'
           const isPaused = c.state === 'PAUSED'
           const ports = (c.ports ?? []).filter(p => p.publicPort)
+          const badge = containerStateBadge(c.state)
           return (
             <div key={c.id ?? i} className="glass" style={{ padding: 'var(--spacing-md)', borderRadius: 'var(--radius-md)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: 14 }}>{name}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{image}</div>
-                  </div>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>{name}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{imageDisplay}</div>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-                  <span style={{ background: stateColor(c.state), width: 8, height: 8, borderRadius: '50%', animation: isRunning ? 'pulse 2s infinite' : 'none' }} />
-                </div>
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  color: badge.color, background: badge.bg,
+                  borderRadius: 'var(--radius-sm)', padding: '2px 8px',
+                  fontSize: 11, fontWeight: 600, flexShrink: 0,
+                  animation: badge.pulse ? 'pulse 2s infinite' : 'none',
+                }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: badge.color, flexShrink: 0 }} />
+                  {badge.label}
+                </span>
               </div>
               <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>{c.status ?? ''}</div>
               {ports.length > 0 && (
@@ -790,16 +875,33 @@ function DockerTab({ instanceId }: { instanceId: string }) {
               <div style={{ display: 'flex', gap: 4, fontSize: 11, color: 'var(--text-muted)', marginBottom: 8, alignItems: 'center' }}>
                 {c.hostConfig?.networkMode && <span>{c.hostConfig.networkMode}</span>}
                 {c.autoStart && <RotateCcw size={11} title="Auto Start" />}
-
               </div>
               <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                <button className="btn" disabled={isLoading || !isExited} onClick={() => handleAction(c, 'start')} style={{ padding: '3px 8px', fontSize: 12 }}>
-                  {isLoading ? <span className="spinner" style={{ width: 12, height: 12 }} /> : <Play size={12} />}
+                <button className="btn" disabled={isLoading || !isExited}
+                  style={{ padding: '3px 8px', fontSize: 12, color: isExited ? 'var(--status-online)' : undefined, borderColor: isExited ? 'var(--status-online)' : undefined }}
+                  onClick={() => handleAction(c, 'start')}>
+                  {isLoading ? <span className="spinner" style={{ width: 12, height: 12 }} /> : <Play size={12} />} Start
                 </button>
-                <button className="btn" disabled={isLoading || !(isRunning || isPaused)} onClick={() => handleAction(c, 'stop')} style={{ padding: '3px 8px', fontSize: 12 }}><Square size={12} /></button>
-                <button className="btn" disabled={isLoading || !isRunning} onClick={() => handleAction(c, 'restart')} style={{ padding: '3px 8px', fontSize: 12 }}><RotateCcw size={12} /></button>
-                {isRunning && <button className="btn" disabled={isLoading} onClick={() => handleAction(c, 'pause')} style={{ padding: '3px 8px', fontSize: 12 }} title="Pause"><Pause size={12} /></button>}
-                {isPaused && <button className="btn btn-primary" disabled={isLoading} onClick={() => handleAction(c, 'unpause')} style={{ padding: '3px 8px', fontSize: 12 }}><Play size={12} /></button>}
+                <button className="btn" disabled={isLoading || !(isRunning || isPaused)}
+                  style={{ padding: '3px 8px', fontSize: 12, color: (isRunning || isPaused) ? 'var(--status-offline)' : undefined, borderColor: (isRunning || isPaused) ? 'var(--status-offline)' : undefined }}
+                  onClick={() => handleAction(c, 'stop')}><Square size={12} /> Stop
+                </button>
+                <button className="btn" disabled={isLoading || !isRunning}
+                  style={{ padding: '3px 8px', fontSize: 12, color: isRunning ? 'var(--warning)' : undefined, borderColor: isRunning ? 'var(--warning)' : undefined }}
+                  onClick={() => handleAction(c, 'restart')}><RotateCcw size={12} /> Restart
+                </button>
+                {isRunning && (
+                  <button className="btn" disabled={isLoading}
+                    style={{ padding: '3px 8px', fontSize: 12, color: 'var(--accent)', borderColor: 'var(--accent)' }}
+                    onClick={() => handleAction(c, 'pause')} title="Pause"><Pause size={12} /> Pause
+                  </button>
+                )}
+                {isPaused && (
+                  <button className="btn" disabled={isLoading}
+                    style={{ padding: '3px 8px', fontSize: 12, color: 'var(--warning)', borderColor: 'var(--warning)' }}
+                    onClick={() => handleAction(c, 'unpause')}><Play size={12} /> Resume
+                  </button>
+                )}
               </div>
             </div>
           )
@@ -824,17 +926,6 @@ function VmsTab({ instanceId }: { instanceId: string }) {
     const t = setInterval(() => loadVms(instanceId), 30_000)
     return () => clearInterval(t)
   }, [instanceId])
-
-  const stateColor = (s?: string) => {
-    if (s === 'RUNNING') return 'var(--status-online)'
-    if (s === 'IDLE') return '#22c55e'
-    if (s === 'PAUSED') return 'var(--warning)'
-    if (s === 'SHUTDOWN') return 'var(--warning)'
-    if (s === 'SHUTOFF') return 'var(--text-muted)'
-    if (s === 'CRASHED') return 'var(--status-offline)'
-    if (s === 'PMSUSPENDED') return '#8b5cf6'
-    return 'var(--text-muted)'
-  }
 
   const handleVmAction = async (vm: UnraidVm, action: 'start' | 'stop' | 'pause' | 'resume' | 'forcestop' | 'reboot' | 'reset') => {
     const vmId = vm.id ?? ''
@@ -866,20 +957,66 @@ function VmsTab({ instanceId }: { instanceId: string }) {
           const isShutoff = vm.state === 'SHUTOFF' || vm.state === 'SHUTDOWN' || vm.state === 'NOSTATE'
           const isRunning = vm.state === 'RUNNING' || vm.state === 'IDLE'
           const isPaused = vm.state === 'PAUSED'
+          const canStart = isShutoff || isCrashed
+          const canStop = isRunning || isPaused
+          const vmbadge = vmStateBadge(vm.state)
           return (
             <div key={vmId} className="glass" style={{ padding: 'var(--spacing-md)', borderRadius: 'var(--radius-md)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
                 <h3 style={{ margin: 0, fontSize: 15 }}>{vm.name ?? '–'}</h3>
-                <span style={{ background: stateColor(vm.state), color: vm.state === 'RUNNING' ? '#000' : 'var(--text-primary)', borderRadius: 4, padding: '1px 6px', fontSize: 11, fontWeight: 600 }}>{vm.state ?? '–'}</span>
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  color: vmbadge.color, background: vmbadge.bg,
+                  borderRadius: 'var(--radius-sm)', padding: '2px 8px',
+                  fontSize: 11, fontWeight: 600, flexShrink: 0,
+                  animation: vmbadge.pulse ? 'pulse 2s infinite' : 'none',
+                }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: vmbadge.color, flexShrink: 0 }} />
+                  {vmbadge.label}
+                </span>
               </div>
               <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 8 }}>
-                {(isShutoff || isCrashed) && <button className="btn btn-primary" disabled={isLoading} onClick={() => handleVmAction(vm, 'start')} style={{ fontSize: 12, padding: '3px 8px' }} title="Start">{isLoading ? <span className="spinner" style={{ width: 12, height: 12 }} /> : <Play size={12} />}</button>}
-                {(isRunning || isPaused) && <button className="btn btn-danger" disabled={isLoading} onClick={() => setConfirm({ vm, action: 'stop' })} style={{ fontSize: 12, padding: '3px 8px' }} title="Stop"><Square size={12} /></button>}
-                {(isRunning || isCrashed) && <button className="btn btn-danger" disabled={isLoading} onClick={() => setConfirm({ vm, action: 'forcestop' })} style={{ fontSize: 12, padding: '3px 8px' }} title="Force Stop"><Zap size={12} /></button>}
-                {isRunning && <button className="btn" disabled={isLoading} onClick={() => setConfirm({ vm, action: 'pause' })} style={{ fontSize: 12, padding: '3px 8px' }} title="Pause"><Pause size={12} /></button>}
-                {isRunning && <button className="btn" disabled={isLoading} onClick={() => handleVmAction(vm, 'reboot')} style={{ fontSize: 12, padding: '3px 8px' }} title="Neustart"><RotateCcw size={12} /></button>}
-                {(isRunning || isCrashed) && <button className="btn" disabled={isLoading} onClick={() => setConfirm({ vm, action: 'reset' })} style={{ fontSize: 12, padding: '3px 8px' }} title="Reset (hard)"><SkipForward size={12} /></button>}
-                {isPaused && <button className="btn btn-primary" disabled={isLoading} onClick={() => handleVmAction(vm, 'resume')} style={{ fontSize: 12, padding: '3px 8px' }} title="Fortsetzen"><Play size={12} /></button>}
+                {canStart && (
+                  <button className="btn" disabled={isLoading}
+                    style={{ fontSize: 12, padding: '3px 8px', color: 'var(--status-online)', borderColor: 'var(--status-online)' }}
+                    onClick={() => handleVmAction(vm, 'start')} title="Start">
+                    {isLoading ? <span className="spinner" style={{ width: 12, height: 12 }} /> : <Play size={12} />} Start
+                  </button>
+                )}
+                {canStop && (
+                  <button className="btn" disabled={isLoading}
+                    style={{ fontSize: 12, padding: '3px 8px', color: 'var(--status-offline)', borderColor: 'var(--status-offline)' }}
+                    onClick={() => setConfirm({ vm, action: 'stop' })} title="Stop"><Square size={12} /> Stop
+                  </button>
+                )}
+                {(isRunning || isCrashed) && (
+                  <button className="btn btn-danger" disabled={isLoading}
+                    style={{ fontSize: 12, padding: '3px 8px' }}
+                    onClick={() => setConfirm({ vm, action: 'forcestop' })} title="Force Stop"><Zap size={12} />
+                  </button>
+                )}
+                {isRunning && (
+                  <button className="btn" disabled={isLoading}
+                    style={{ fontSize: 12, padding: '3px 8px', color: 'var(--accent)', borderColor: 'var(--accent)' }}
+                    onClick={() => setConfirm({ vm, action: 'pause' })} title="Pause"><Pause size={12} />
+                  </button>
+                )}
+                {isRunning && (
+                  <button className="btn" disabled={isLoading} style={{ fontSize: 12, padding: '3px 8px' }}
+                    onClick={() => handleVmAction(vm, 'reboot')} title="Neustart"><RotateCcw size={12} />
+                  </button>
+                )}
+                {(isRunning || isCrashed) && (
+                  <button className="btn" disabled={isLoading} style={{ fontSize: 12, padding: '3px 8px' }}
+                    onClick={() => setConfirm({ vm, action: 'reset' })} title="Reset (hard)"><SkipForward size={12} />
+                  </button>
+                )}
+                {isPaused && (
+                  <button className="btn" disabled={isLoading}
+                    style={{ fontSize: 12, padding: '3px 8px', color: 'var(--warning)', borderColor: 'var(--warning)' }}
+                    onClick={() => handleVmAction(vm, 'resume')} title="Fortsetzen"><Play size={12} /> Resume
+                  </button>
+                )}
               </div>
             </div>
           )
@@ -1187,39 +1324,25 @@ function SystemTab({ instanceId }: { instanceId: string }) {
               <span style={{ fontWeight: 700, fontSize: 16 }}>Unraid {versions.core.unraid}</span>
               {sysInfo?.virtual && <span style={{ background: '#8b5cf6', color: '#fff', borderRadius: 4, padding: '2px 8px', fontSize: 12, fontWeight: 600 }}>Virtualisiert</span>}
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 16px', fontSize: 13 }}>
-              {([
-                ['API', versions.core.api],
-                ['Kernel', versions.core.kernel],
-                ['Docker', versions.packages?.docker],
-              ] as [string, string | undefined][]).filter(([, v]) => v).map(([label, val]) => (
-                <React.Fragment key={label}>
-                  <span style={{ color: 'var(--text-muted)' }}>{label}</span>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>{val}</span>
-                </React.Fragment>
-              ))}
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              {versions.core.api    && <InfoRow icon={<Network size={14} />}  label="API"    value={versions.core.api} />}
+              {versions.core.kernel && <InfoRow icon={<Zap size={14} />}      label="Kernel" value={versions.core.kernel} />}
+              {versions.packages?.docker && <InfoRow icon={<Package size={14} />} label="Docker" value={versions.packages.docker} />}
             </div>
           </div>
         )}
 
         <div className="glass" style={{ padding: 'var(--spacing-lg)', borderRadius: 'var(--radius-md)' }}>
           <div style={{ fontWeight: 600, marginBottom: 'var(--spacing-sm)' }}>Hardware</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 16px', fontSize: 13 }}>
-            {([
-              ['Hersteller', `${sysInfo?.manufacturer ?? ''} ${sysInfo?.model ?? ''}`.trim() || undefined],
-              ['Platform', os?.platform],
-              ['OS', `${os?.distro ?? ''} ${os?.release ?? ''}`.trim() || '–'],
-              ['Uptime', formatUptime(os?.uptime)],
-              ['CPU', `${cpu?.manufacturer ?? ''} ${cpu?.brand ?? ''}`.trim() || '–'],
-              ['Kerne / Threads', `${cpu?.cores ?? '–'} / ${cpu?.threads ?? '–'}`],
-              ['RAM gesamt', memory?.total != null ? formatBytes(memory.total) : '–'],
-              ['Mainboard', `${baseboard?.manufacturer ?? ''} ${baseboard?.model ?? ''}`.trim() || '–'],
-            ] as [string, string | undefined][]).map(([label, val]) => (
-              <React.Fragment key={label}>
-                <span style={{ color: 'var(--text-muted)' }}>{label}</span>
-                <span>{val ?? '–'}</span>
-              </React.Fragment>
-            ))}
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <InfoRow icon={<Server size={14} />}    label="Hersteller"       value={`${sysInfo?.manufacturer ?? ''} ${sysInfo?.model ?? ''}`.trim() || '–'} />
+            <InfoRow icon={<Globe size={14} />}     label="Plattform"        value={os?.platform} />
+            <InfoRow icon={<Monitor size={14} />}   label="Betriebssystem"   value={`${os?.distro ?? ''} ${os?.release ?? ''}`.trim() || '–'} />
+            <InfoRow icon={<Clock size={14} />}     label="Uptime"           value={formatUptime(os?.uptime)} />
+            <InfoRow icon={<Cpu size={14} />}       label="CPU"              value={`${cpu?.manufacturer ?? ''} ${cpu?.brand ?? ''}`.trim() || '–'} />
+            <InfoRow icon={<Layers size={14} />}    label="Kerne / Threads"  value={`${cpu?.cores ?? '–'} / ${cpu?.threads ?? '–'}`} />
+            <InfoRow icon={<Activity size={14} />}  label="RAM gesamt"       value={memory?.total != null ? formatBytes(memory.total) : '–'} />
+            <InfoRow icon={<HardDrive size={14} />} label="Mainboard"        value={`${baseboard?.manufacturer ?? ''} ${baseboard?.model ?? ''}`.trim() || '–'} />
           </div>
         </div>
 
@@ -1254,23 +1377,21 @@ function SystemTab({ instanceId }: { instanceId: string }) {
           <div className="glass" style={{ padding: 'var(--spacing-lg)', borderRadius: 'var(--radius-md)' }}>
             <div style={{ fontWeight: 600, marginBottom: 'var(--spacing-sm)' }}>Lizenz</div>
             {cfg.error && <div className="error-banner" style={{ marginBottom: 8 }}>{cfg.error}</div>}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 16px', fontSize: 13 }}>
-              <span style={{ color: 'var(--text-muted)' }}>Registriert für</span><span>{cfg.registrationTo ?? '–'}</span>
-              <span style={{ color: 'var(--text-muted)' }}>Typ</span><span>{cfg.registrationType ?? '–'}</span>
-              <span style={{ color: 'var(--text-muted)' }}>Status</span>
-              <span>
-                {cfg.valid
-                  ? <span style={{ color: 'var(--status-online)' }}><Check size={12} /> Aktiv</span>
-                  : <span style={{ color: 'var(--status-offline)' }}><AlertTriangle size={12} /> Ungültig</span>
-                }
-              </span>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <InfoRow icon={<Key size={14} />}    label="Registriert für" value={cfg.registrationTo} />
+              <InfoRow icon={<Tag size={14} />}    label="Lizenztyp"       value={cfg.registrationType} />
+              <InfoRow icon={<Shield size={14} />} label="Status"          value={
+                cfg.valid
+                  ? <span style={{ color: 'var(--status-online)', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Check size={12} /> Aktiv</span>
+                  : <span style={{ color: 'var(--status-offline)', display: 'inline-flex', alignItems: 'center', gap: 4 }}><AlertTriangle size={12} /> Ungültig</span>
+              } />
             </div>
           </div>
         )}
 
         {userList.length > 0 && (
           <div className="glass" style={{ borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
-            <div style={{ padding: 'var(--spacing-md)', fontWeight: 600, borderBottom: '1px solid var(--border)' }}>Benutzer</div>
+            <div style={{ padding: 'var(--spacing-md)', fontWeight: 600, borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 6 }}><Users size={14} /> Benutzer</div>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border)' }}>

@@ -157,12 +157,18 @@ function Collapsible({ title, children }: { title: string; children: React.React
 function TabUnraid() {
   return (
     <>
+      <DocSection title="Übersicht">
+        <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.7, margin: 0 }}>
+          HELDASH verbindet sich direkt mit der nativen Unraid GraphQL API (Unraid 7.2+).<br />
+          Kein Plugin erforderlich. Mehrere Server gleichzeitig verwaltbar.
+        </p>
+      </DocSection>
+
       <DocSection title="Verbindung einrichten">
         <ol style={{ margin: 0, paddingLeft: 20, lineHeight: 2, fontSize: 14, color: 'var(--text-secondary)' }}>
-          <li><strong>Settings → Integrations → Unraid</strong></li>
-          <li>Unraid-URL eingeben (z.B. <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>http://192.168.1.10</code>)</li>
-          <li>API-Key eingeben: <strong>Unraid → Settings → Management Access → API Key</strong></li>
-          <li>Verbindung speichern — Dashboard aktualisiert sich automatisch</li>
+          <li>Unraid WebGUI → <strong>Settings → Management Access → API Keys → „Create"</strong></li>
+          <li>Name vergeben (z.B. „HELDASH"), Rolle: <strong>admin</strong>, Key kopieren</li>
+          <li>In HELDASH: <strong>Unraid-Seite → Server hinzufügen</strong> → URL + API Key eingeben → Verbindung testen</li>
         </ol>
         <div style={{ marginTop: 12 }}>
           <span className="badge badge-neutral">🔒 API-Key wird serverseitig gespeichert — nie an den Browser übertragen</span>
@@ -171,26 +177,25 @@ function TabUnraid() {
 
       <DocSection title="Unterstützte Funktionen">
         <SimpleTable
-          headers={['Feature', 'Beschreibung']}
+          headers={['Bereich', 'Funktionen']}
           rows={[
-            ['Array Status', 'Started / Stopped, laufende Parities, Fehler-Übersicht'],
-            ['Laufwerke', 'Disk-Status, Temperatur, Read/Write Errors'],
-            ['Cache-Pools', 'Status, freier Speicher pro Pool'],
-            ['Parity', 'Letzter Check: Datum, Dauer, Fehler'],
-            ['CPU & RAM', 'Auslastung, CPU-Temperatur (falls verfügbar)'],
-            ['VMs', 'Status: Running / Stopped / Paused'],
-            ['Netzwerk', 'Interface-Statistiken (RX / TX)'],
+            ['Übersicht', 'Hostname, OS, Uptime, CPU, RAM, Mainboard'],
+            ['HDD', 'Array start/stop, Parity Check, Disk-Tabelle mit Temp & Belegung, Cache Pools'],
+            ['Docker', 'Container starten, stoppen, neustarten, pausieren'],
+            ['VMs', 'Virtuelle Maschinen starten, stoppen, pausieren, fortsetzen'],
+            ['Freigaben', 'Größe, Belegung, Cache & LUKS-Status'],
+            ['Benachrichtigungen', 'Lesen, archivieren, Detail-Ansicht'],
+            ['System', 'Hardware, Versionen, Lizenz, Benutzer'],
           ]}
         />
       </DocSection>
 
       <DocSection title="Bekannte Einschränkungen">
         <ul style={{ margin: 0, paddingLeft: 20, lineHeight: 2, fontSize: 14, color: 'var(--text-secondary)' }}>
-          <li>Unraid API über GraphQL — manche Features abhängig von Unraid-Version (≥ 6.12)</li>
-          <li>Disk-Temperaturen nur verfügbar wenn Laufwerk aktiv (nicht im Standby)</li>
-          <li>VM-Steuerung (Start/Stop) nicht implementiert — nur Status-Anzeige</li>
-          <li>Parity-Check starten/stoppen nicht unterstützt</li>
-          <li>Docker-Verwaltung: separater Docker-Tab in HELDASH empfohlen</li>
+          <li>Erfordert Unraid 7.2 oder neuer</li>
+          <li>Disk Spin Up/Down: nicht von der Unraid API unterstützt</li>
+          <li>VM-Details (CPU-Kerne, RAM): nicht über die API verfügbar</li>
+          <li>Container-Icons und WebUI-Links: abhängig von der installierten API-Version</li>
         </ul>
       </DocSection>
     </>
@@ -793,7 +798,7 @@ function TabHA() {
         </p>
         <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>Ansicht wechseln</p>
         <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.7, margin: '0 0 16px' }}>
-          Oben auf der Home Assistant Seite: Toggle <strong>"Flach"</strong> | <strong>"Nach Raum"</strong><br />
+          Toggle <strong>"Flach"</strong> | <strong>"Nach Raum"</strong> — erscheint ausschließlich im Tab <strong>"Panels"</strong>.<br />
           Preference wird lokal gespeichert
         </p>
         <SimpleTable
@@ -851,13 +856,13 @@ function TabHA() {
         </p>
       </DocSection>
 
-      <DocSection title="Grundriss">
+      <DocSection title="Hausübersicht">
         <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.7, margin: '0 0 12px' }}>
-          Interaktive Etagen-/Außenbereichsansicht mit Live-State via WebSocket.
+          Interaktive Etagen-/Außenbereichsansicht mit Live-State via WebSocket. Die Ausrichtung ist fest auf <strong>Landscape</strong> gesetzt.
         </p>
-        <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>Grundriss anlegen</p>
+        <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>Hausübersicht anlegen</p>
         <ol style={{ margin: '0 0 16px', paddingLeft: 20, lineHeight: 2, fontSize: 14, color: 'var(--text-secondary)' }}>
-          <li>Home Assistant → Tab "Grundriss" → Etage hinzufügen</li>
+          <li>Home Assistant → Tab "Hausübersicht" → Etage hinzufügen</li>
           <li>Bild hochladen (PNG/JPG/SVG — Grundriss-Zeichnung oder Foto)</li>
           <li>Edit-Modus aktivieren → Entities per Klick auf die Karte platzieren</li>
           <li>Entities zeigen Live-State: Lichter pulsieren wenn an, Sensoren zeigen Wert</li>
@@ -888,6 +893,30 @@ function TabHA() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <span className="badge badge-neutral">GPS-Karte ist opt-in — standardmäßig deaktiviert (Datenschutz)</span>
         </div>
+      </DocSection>
+
+      <DocSection title="GPS-Tab">
+        <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.7, margin: '0 0 12px' }}>
+          Zeigt alle Personen (<code style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>person.*</code>-Entities) aus Home Assistant als Marker auf einer Karte.
+        </p>
+        <ul style={{ margin: '0 0 16px', paddingLeft: 20, lineHeight: 2, fontSize: 14, color: 'var(--text-secondary)' }}>
+          <li>Klick auf einen Marker öffnet ein Popup mit Gerätedetails</li>
+          <li>Über ein einklappbares Auswahlmenü können einzelne Personen ein- oder ausgeblendet werden</li>
+        </ul>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <span className="badge badge-neutral">Datenschutzfreundlich: standardmäßig deaktiviert — opt-in pro Nutzer</span>
+        </div>
+      </DocSection>
+
+      <DocSection title="Automationen-Tab">
+        <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.7, margin: '0 0 12px' }}>
+          Listet alle in Home Assistant konfigurierten Automationen.
+        </p>
+        <ul style={{ margin: '0 0 16px', paddingLeft: 20, lineHeight: 2, fontSize: 14, color: 'var(--text-secondary)' }}>
+          <li>Automationen können direkt aus HELDASH heraus ausgeführt werden</li>
+          <li>Aktivieren und Deaktivieren einzelner Automationen per Toggle möglich</li>
+          <li>Suchfeld zum schnellen Filtern nach Name</li>
+        </ul>
       </DocSection>
 
       <DocSection title="Lock & Alarm Karten">

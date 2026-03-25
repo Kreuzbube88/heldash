@@ -31,7 +31,6 @@ interface NotifCountRaw { info?: number; warning?: number; alert?: number; total
 interface NotifGqlResult {
   notifications?: {
     overview?: { unread?: NotifCountRaw; archive?: NotifCountRaw }
-    warningsAndAlerts?: unknown[]
     list?: unknown[]
   }
 }
@@ -332,7 +331,7 @@ export async function unraidRoutes(app: FastifyInstance) {
     try {
       const data = await unraidGql(row.url, row.api_key, `query {
         docker { containers {
-          id names image state status autoStart autoStartOrder
+          id names image state status autoStart
           hostConfig { networkMode }
           ports { privatePort publicPort type ip }
         } }
@@ -652,7 +651,6 @@ export async function unraidRoutes(app: FastifyInstance) {
       const data = await unraidGql(row.url, row.api_key, `query {
         notifications {
           overview { unread { info warning alert total } archive { info warning alert total } }
-          warningsAndAlerts { id title subject importance timestamp }
           list(filter: { type: UNREAD, offset: 0, limit: 30 }) { id title subject description importance link type timestamp formattedTimestamp }
         }
       }`) as NotifGqlResult
@@ -662,7 +660,6 @@ export async function unraidRoutes(app: FastifyInstance) {
             unread:  data.notifications?.overview?.unread,
             archive: data.notifications?.overview?.archive,
           },
-          warningsAndAlerts: data.notifications?.warningsAndAlerts ?? [],
           list: data.notifications?.list ?? [],
         },
       }

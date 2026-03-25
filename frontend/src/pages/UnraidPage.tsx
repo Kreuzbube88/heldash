@@ -211,7 +211,7 @@ function OverviewTab({ instanceId }: { instanceId: string }) {
   const cap = arrData?.array?.capacity?.kilobytes
   const unreadObj = notifData?.notifications?.overview?.unread
   const unread = unreadObj?.total ?? ((unreadObj?.info ?? 0) + (unreadObj?.warning ?? 0) + (unreadObj?.alert ?? 0))
-  const warnings = notifData?.notifications?.warningsAndAlerts ?? []
+  const warnings = (notifData?.notifications?.list ?? []).filter(n => n.importance === 'ALERT' || n.importance === 'WARNING')
   const err = errors[`info_${instanceId}`]
 
   const importanceColor = (imp?: string) => {
@@ -353,10 +353,10 @@ function ArrayTab({ instanceId }: { instanceId: string }) {
   const err = errors[`array_${instanceId}`]
 
   const stateColor = (s: string) => {
-    if (s === 'started') return 'var(--status-online)'
-    if (s === 'stopped') return 'var(--text-muted)'
-    if (s === 'error') return 'var(--status-offline)'
-    return 'var(--warning)'
+    if (s === 'started') return '#16a34a'
+    if (s === 'stopped') return '#dc2626'
+    if (s === 'error') return '#dc2626'
+    return '#d97706'
   }
 
   const diskStatusColor = (s?: string) => {
@@ -430,7 +430,7 @@ function ArrayTab({ instanceId }: { instanceId: string }) {
 
       {isAdmin && (
         <div className="glass" style={{ padding: 'var(--spacing-md)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--spacing-md)', display: 'flex', flexWrap: 'wrap', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
-          <span style={{ background: stateColor(arrState), color: ['started'].includes(arrState) ? '#000' : 'var(--text-primary)', borderRadius: 4, padding: '2px 8px', fontSize: 12, fontWeight: 600, marginRight: 'var(--spacing-sm)' }}>{arrState || '–'}</span>
+          <span style={{ background: stateColor(arrState), color: '#fff', borderRadius: 6, padding: '3px 10px', fontSize: 12, fontWeight: 700, marginRight: 'var(--spacing-sm)', letterSpacing: '0.03em', boxShadow: arrState === 'started' ? '0 0 8px rgba(22,163,74,0.55)' : arrState === 'stopped' ? '0 0 6px rgba(220,38,38,0.45)' : undefined }}>{arrState || '–'}</span>
           {arrState === 'stopped' && <button className="btn btn-primary" onClick={() => setConfirm({ action: 'arrayStart', msg: 'Array starten?' })}><Play size={14} /> Array starten</button>}
           {arrState === 'started' && <button className="btn btn-danger" onClick={() => setConfirm({ action: 'arrayStop', msg: 'Alle laufenden Zugriffe werden unterbrochen.' })}><Square size={14} /> Array stoppen</button>}
           {arrState === 'started' && !isParityRunning && !isParityPaused && (
@@ -923,18 +923,28 @@ function SharesTab({ instanceId }: { instanceId: string }) {
                   {s.luksStatus ? <span style={{ background: '#f59e0b', color: '#000', borderRadius: 4, padding: '1px 6px', fontSize: 11, fontWeight: 600 }}>LUKS</span> : null}
                 </td>
                 <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    {s.size ? (
-                      <div style={{ background: 'var(--glass-bg)', borderRadius: 2, height: 6, width: 80 }}>
-                        <div style={{ background: 'var(--accent)', height: '100%', borderRadius: 2, width: `${((s.used ?? 0) / (s.size ?? 1) * 100).toFixed(0)}%` }} />
+                  {(() => {
+                    const total = s.size || ((s.used ?? 0) + (s.free ?? 0))
+                    return (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {total > 0 ? (
+                          <div style={{ background: 'var(--glass-bg)', borderRadius: 2, height: 6, width: 80 }}>
+                            <div style={{ background: 'var(--accent)', height: '100%', borderRadius: 2, width: `${((s.used ?? 0) / (total || 1) * 100).toFixed(0)}%` }} />
+                          </div>
+                        ) : null}
+                        <span>{formatKilobytes(s.used)} / {formatKilobytes(total || undefined)}</span>
                       </div>
-                    ) : null}
-                    <span>{formatKilobytes(s.used)} / {formatKilobytes(s.size)}</span>
-                  </div>
+                    )
+                  })()}
                 </td>
                 <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>{formatKilobytes(s.free)}</td>
                 <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
-                  <span style={{ background: s.cache ? '#3b82f6' : 'var(--text-muted)', color: '#fff', borderRadius: 4, padding: '1px 6px', fontSize: 11, fontWeight: 600 }}>{s.cache ? 'Ein' : 'Aus'}</span>
+                  {(() => {
+                    const cv = s.cache
+                    const active = cv && cv !== 'no'
+                    const label = !cv || cv === 'no' ? 'Nein' : cv === 'yes' ? 'Ja' : cv === 'prefer' ? 'Prefer' : cv === 'only' ? 'Nur' : cv
+                    return <span style={{ background: active ? '#3b82f6' : 'var(--glass-bg)', color: active ? '#fff' : 'var(--text-muted)', borderRadius: 4, padding: '1px 6px', fontSize: 11, fontWeight: 600 }}>{label}</span>
+                  })()}
                 </td>
               </tr>
             ))}

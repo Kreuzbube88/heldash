@@ -51,7 +51,7 @@ export interface UnraidParityHistory {
 export interface UnraidContainerPort { privatePort?: number; publicPort?: number; type?: string; ip?: string }
 export interface UnraidContainer {
   id?: string; names?: string[]; state?: string; status?: string
-  image?: string; autoStart?: boolean; autoStartOrder?: number
+  image?: string; autoStart?: boolean
   hostConfig?: { networkMode?: string }
   ports?: UnraidContainerPort[]
 }
@@ -61,7 +61,7 @@ export interface UnraidVm {
 export interface UnraidShare {
   id?: string; name?: string; comment?: string
   free?: number; used?: number; size?: number
-  cache?: boolean; luksStatus?: string; color?: string
+  cache?: string; luksStatus?: string; color?: string
   include?: string[]; exclude?: string[]
 }
 export interface UnraidUser { name?: string; description?: string; role?: string }
@@ -83,7 +83,6 @@ export interface UnraidNotifications {
       unread?:  UnraidNotificationCount
       archive?: UnraidNotificationCount
     }
-    warningsAndAlerts?: UnraidNotification[]
     list?: UnraidNotification[]
     archive?: UnraidNotification[]
   }

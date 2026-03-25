@@ -65,8 +65,18 @@ async function unraidGql(url: string, apiKey: string, query: string, variables?:
     body: JSON.stringify({ query, variables }),
     dispatcher: gqlAgent,
   })
-  const json = await res.body.json() as { data?: unknown; errors?: { message: string }[] }
-  if (json.errors?.length) throw new Error(json.errors[0].message)
+  const rawText = await res.body.text()
+  let json: { data?: unknown; errors?: { message: string; extensions?: unknown }[] }
+  try {
+    json = JSON.parse(rawText) as typeof json
+  } catch {
+    throw new Error(`Unraid GraphQL: Invalid JSON: ${rawText.slice(0, 200)}`)
+  }
+  if (json.errors?.length) {
+    const msg = json.errors.map(e => e.message).join('; ')
+    console.error('[unraid-gql] Error from Unraid API:', JSON.stringify(json.errors), 'Query:', query.slice(0, 100))
+    throw new Error(msg)
+  }
   return json.data
 }
 
@@ -673,9 +683,11 @@ export async function unraidRoutes(app: FastifyInstance) {
     const row = await getInstance(req.params.id, reply)
     if (!row) return
     try {
-      return await unraidGql(row.url, row.api_key, `mutation { archiveAllNotifications { id type } }`)
+      return await unraidGql(row.url, row.api_key, `mutation { archiveAllNotifications { id } }`)
     } catch (e) {
-      return reply.status(502).send({ error: (e as Error).message })
+      const msg = e instanceof Error ? e.message : 'Unknown error'
+      console.error('[unraid] archiveAllNotifications failed:', msg)
+      return reply.status(502).send({ error: msg })
     }
   })
 
@@ -685,9 +697,12 @@ export async function unraidRoutes(app: FastifyInstance) {
     if (!row) return
     const notifId = decodeURIComponent(req.params.notifId)
     try {
-      return await unraidGql(row.url, row.api_key, `mutation($id: String!) { archiveNotification(id: $id) { id type } }`, { id: notifId })
+      const data = await unraidGql(row.url, row.api_key, `mutation($id: String!) { archiveNotification(id: $id) { id } }`, { id: notifId })
+      return { ok: true, data }
     } catch (e) {
-      return reply.status(502).send({ error: (e as Error).message })
+      const msg = e instanceof Error ? e.message : 'Unknown error'
+      console.error('[unraid] archiveNotification failed, notifId:', notifId, 'error:', msg)
+      return reply.status(502).send({ error: msg })
     }
   })
 

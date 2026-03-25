@@ -51,10 +51,8 @@ export interface UnraidParityHistory {
 export interface UnraidContainerPort { privatePort?: number; publicPort?: number; type?: string; ip?: string }
 export interface UnraidContainer {
   id?: string; names?: string[]; state?: string; status?: string
-  image?: string; autoStart?: boolean
+  image?: string; autoStart?: boolean; autoStartOrder?: number
   hostConfig?: { networkMode?: string }
-  iconUrl?: string; webUiUrl?: string; projectUrl?: string
-  isUpdateAvailable?: boolean; isOrphaned?: boolean
   ports?: UnraidContainerPort[]
 }
 export interface UnraidVm {
@@ -64,12 +62,13 @@ export interface UnraidShare {
   id?: string; name?: string; comment?: string
   free?: number; used?: number; size?: number
   cache?: boolean; luksStatus?: string; color?: string
-  security?: string; cacheEnabled?: boolean
+  include?: string[]; exclude?: string[]
 }
 export interface UnraidUser { name?: string; description?: string; role?: string }
 export interface UnraidNotification {
   id?: string; title?: string; subject?: string; description?: string
-  importance?: string; timestamp?: string
+  importance?: string; link?: string; type?: string
+  timestamp?: string; formattedTimestamp?: string
 }
 export interface UnraidPhysicalDisk {
   id?: string; name?: string; vendor?: string; device?: string; type?: string
@@ -81,8 +80,8 @@ export interface UnraidNotificationCount { info?: number; warning?: number; aler
 export interface UnraidNotifications {
   notifications?: {
     overview?: {
-      unread?: UnraidNotificationCount
-      total?: UnraidNotificationCount
+      unread?:  UnraidNotificationCount
+      archive?: UnraidNotificationCount
     }
     warningsAndAlerts?: UnraidNotification[]
     list?: UnraidNotification[]

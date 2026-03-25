@@ -30,7 +30,8 @@ interface ArrayGqlResult {
 interface NotifCountRaw { info?: number; warning?: number; alert?: number; total?: number }
 interface NotifGqlResult {
   notifications?: {
-    overview?: { unread?: NotifCountRaw; total?: NotifCountRaw }
+    overview?: { unread?: NotifCountRaw; archive?: NotifCountRaw }
+    warningsAndAlerts?: unknown[]
     list?: unknown[]
   }
 }
@@ -331,9 +332,8 @@ export async function unraidRoutes(app: FastifyInstance) {
     try {
       const data = await unraidGql(row.url, row.api_key, `query {
         docker { containers {
-          id names image state status autoStart
+          id names image state status autoStart autoStartOrder
           hostConfig { networkMode }
-          iconUrl webUiUrl projectUrl isUpdateAvailable isOrphaned
           ports { privatePort publicPort type ip }
         } }
       }`) as { docker?: { containers?: unknown[] } }
@@ -624,7 +624,7 @@ export async function unraidRoutes(app: FastifyInstance) {
     if (!row) return
     try {
       return await unraidGql(row.url, row.api_key, `query {
-        shares { id name comment free used size security cacheEnabled color luksStatus }
+        shares { id name comment free used size cache color luksStatus include exclude }
       }`)
     } catch (e) {
       return reply.status(502).send({ error: (e as Error).message })
@@ -651,18 +651,18 @@ export async function unraidRoutes(app: FastifyInstance) {
     try {
       const data = await unraidGql(row.url, row.api_key, `query {
         notifications {
-          overview { unread { info warning alert total } total { info warning alert total } }
+          overview { unread { info warning alert total } archive { info warning alert total } }
           warningsAndAlerts { id title subject importance timestamp }
-          list(filter: { type: UNREAD, offset: 0, limit: 30 }) { id title subject description importance timestamp }
+          list(filter: { type: UNREAD, offset: 0, limit: 30 }) { id title subject description importance link type timestamp formattedTimestamp }
         }
       }`) as NotifGqlResult
       return {
         notifications: {
           overview: {
-            unread: data.notifications?.overview?.unread,
-            total:  data.notifications?.overview?.total,
+            unread:  data.notifications?.overview?.unread,
+            archive: data.notifications?.overview?.archive,
           },
-          warningsAndAlerts: (data.notifications as { warningsAndAlerts?: unknown[] } | undefined)?.warningsAndAlerts ?? [],
+          warningsAndAlerts: data.notifications?.warningsAndAlerts ?? [],
           list: data.notifications?.list ?? [],
         },
       }

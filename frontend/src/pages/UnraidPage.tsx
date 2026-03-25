@@ -13,7 +13,7 @@ import { CSS } from '@dnd-kit/utilities'
 import {
   Server, Settings2, GripVertical, Plus, RefreshCw, Play, Square, RotateCcw,
   Pause, ChevronUp, ChevronDown, Trash2, Eye, EyeOff, AlertTriangle, Check,
-  ExternalLink, Download, Zap, SkipForward, HardDrive, Cpu,
+  Download, Zap, SkipForward, HardDrive, Cpu,
 } from 'lucide-react'
 import type { UnraidInstance, UnraidContainer, UnraidVm, UnraidPhysicalDisk } from '../types/unraid'
 import { api } from '../api'
@@ -674,7 +674,7 @@ function ArrayTab({ instanceId }: { instanceId: string }) {
 // ── Docker Tab ────────────────────────────────────────────────────────────────
 
 function DockerTab({ instanceId }: { instanceId: string }) {
-  const { docker, loadDocker, dockerControl, dockerUpdate, dockerUpdateAll, errors } = useUnraidStore()
+  const { docker, loadDocker, dockerControl, dockerUpdateAll, errors } = useUnraidStore()
   const { isAdmin } = useStore()
   const { toast } = useToast()
   const containers = docker[instanceId] ?? []
@@ -688,8 +688,6 @@ function DockerTab({ instanceId }: { instanceId: string }) {
     const t = setInterval(() => loadDocker(instanceId), 15_000)
     return () => clearInterval(t)
   }, [instanceId])
-
-  const updatesAvailable = containers.filter(c => c.isUpdateAvailable).length
 
   const filtered = containers.filter(c => {
     const name = c.names?.[0]?.replace(/^\//, '') ?? ''
@@ -718,19 +716,6 @@ function DockerTab({ instanceId }: { instanceId: string }) {
     }
   }
 
-  const handleUpdate = async (c: UnraidContainer) => {
-    const name = c.names?.[0]?.replace(/^\//, '') ?? ''
-    setActionLoading(s => ({ ...s, [`update_${name}`]: true }))
-    try {
-      await dockerUpdate(instanceId, name)
-      toast({ message: `${name} wird aktualisiert`, type: 'success' })
-    } catch (e) {
-      toast({ message: (e as Error).message, type: 'error' })
-    } finally {
-      setActionLoading(s => ({ ...s, [`update_${name}`]: false }))
-    }
-  }
-
   const handleUpdateAll = async () => {
     setUpdatingAll(true)
     try {
@@ -755,10 +740,10 @@ function DockerTab({ instanceId }: { instanceId: string }) {
             {f === 'all' ? 'Alle' : f === 'running' ? 'Running' : 'Stopped'}
           </button>
         ))}
-        {isAdmin && updatesAvailable > 0 && (
+        {isAdmin && (
           <button className="btn" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 }} disabled={updatingAll} onClick={handleUpdateAll}>
             {updatingAll ? <span className="spinner" style={{ width: 12, height: 12 }} /> : <Download size={14} />}
-            Alle aktualisieren ({updatesAvailable})
+            Alle aktualisieren
           </button>
         )}
       </div>
@@ -767,7 +752,6 @@ function DockerTab({ instanceId }: { instanceId: string }) {
           const name = c.names?.[0]?.replace(/^\//, '') ?? 'Unbekannt'
           const image = c.image?.split('@')[0]?.split(':')[0] ?? '–'
           const isLoading = actionLoading[name]
-          const isUpdating = actionLoading[`update_${name}`]
           const isRunning = c.state === 'RUNNING'
           const isExited = c.state === 'EXITED'
           const isPaused = c.state === 'PAUSED'
@@ -776,7 +760,6 @@ function DockerTab({ instanceId }: { instanceId: string }) {
             <div key={c.id ?? i} className="glass" style={{ padding: 'var(--spacing-md)', borderRadius: 'var(--radius-md)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  {c.iconUrl && <img src={c.iconUrl} alt="" style={{ width: 28, height: 28, borderRadius: 6, objectFit: 'contain', flexShrink: 0 }} onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />}
                   <div>
                     <div style={{ fontWeight: 600, fontSize: 14 }}>{name}</div>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{image}</div>
@@ -784,7 +767,6 @@ function DockerTab({ instanceId }: { instanceId: string }) {
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
                   <span style={{ background: stateColor(c.state), width: 8, height: 8, borderRadius: '50%', animation: isRunning ? 'pulse 2s infinite' : 'none' }} />
-                  {c.isUpdateAvailable && <span style={{ background: 'var(--warning)', color: '#000', borderRadius: 3, padding: '1px 5px', fontSize: 10, fontWeight: 600, whiteSpace: 'nowrap' }}>Update</span>}
                 </div>
               </div>
               <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>{c.status ?? ''}</div>
@@ -800,7 +782,7 @@ function DockerTab({ instanceId }: { instanceId: string }) {
               <div style={{ display: 'flex', gap: 4, fontSize: 11, color: 'var(--text-muted)', marginBottom: 8, alignItems: 'center' }}>
                 {c.hostConfig?.networkMode && <span>{c.hostConfig.networkMode}</span>}
                 {c.autoStart && <RotateCcw size={11} title="Auto Start" />}
-                {c.isOrphaned && <span style={{ color: 'var(--warning)' }}>orphaned</span>}
+
               </div>
               <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                 <button className="btn" disabled={isLoading || !isExited} onClick={() => handleAction(c, 'start')} style={{ padding: '3px 8px', fontSize: 12 }}>
@@ -810,8 +792,6 @@ function DockerTab({ instanceId }: { instanceId: string }) {
                 <button className="btn" disabled={isLoading || !isRunning} onClick={() => handleAction(c, 'restart')} style={{ padding: '3px 8px', fontSize: 12 }}><RotateCcw size={12} /></button>
                 {isRunning && <button className="btn" disabled={isLoading} onClick={() => handleAction(c, 'pause')} style={{ padding: '3px 8px', fontSize: 12 }} title="Pause"><Pause size={12} /></button>}
                 {isPaused && <button className="btn btn-primary" disabled={isLoading} onClick={() => handleAction(c, 'unpause')} style={{ padding: '3px 8px', fontSize: 12 }}><Play size={12} /></button>}
-                {c.webUiUrl && <a href={c.webUiUrl} target="_blank" rel="noopener noreferrer" className="btn" style={{ padding: '3px 8px', fontSize: 12 }} title="WebUI öffnen"><ExternalLink size={12} /></a>}
-                {isAdmin && c.isUpdateAvailable && <button className="btn" disabled={isUpdating} onClick={() => handleUpdate(c)} style={{ padding: '3px 8px', fontSize: 12 }} title="Aktualisieren">{isUpdating ? <span className="spinner" style={{ width: 12, height: 12 }} /> : <Download size={12} />}</button>}
               </div>
             </div>
           )
@@ -919,8 +899,6 @@ function SharesTab({ instanceId }: { instanceId: string }) {
 
   useEffect(() => { loadShares(instanceId) }, [instanceId])
 
-  const secColor = (s?: string) => s === 'public' ? 'var(--status-online)' : s === 'private' ? 'var(--status-offline)' : 'var(--warning)'
-
   return (
     <div>
       {err && <div className="error-banner" style={{ marginBottom: 'var(--spacing-md)' }}>{err}</div>}
@@ -931,7 +909,7 @@ function SharesTab({ instanceId }: { instanceId: string }) {
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>
             <tr style={{ borderBottom: '1px solid var(--border)' }}>
-              {['Name', 'Kommentar', 'Sicherheit', 'Belegt / Gesamt', 'Frei', 'Cache'].map(h => (
+              {['Name', 'Kommentar', 'LUKS', 'Belegt / Gesamt', 'Frei', 'Cache'].map(h => (
                 <th key={h} style={{ padding: 'var(--spacing-sm) var(--spacing-md)', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 500 }}>{h}</th>
               ))}
             </tr>
@@ -942,7 +920,7 @@ function SharesTab({ instanceId }: { instanceId: string }) {
                 <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)', fontWeight: 500 }}>{s.name ?? '–'}</td>
                 <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)', color: 'var(--text-muted)' }}>{s.comment ?? '–'}</td>
                 <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
-                  <span style={{ background: secColor(s.security), color: '#000', borderRadius: 4, padding: '1px 6px', fontSize: 11, fontWeight: 600 }}>{s.security ?? '–'}</span>
+                  {s.luksStatus ? <span style={{ background: '#f59e0b', color: '#000', borderRadius: 4, padding: '1px 6px', fontSize: 11, fontWeight: 600 }}>LUKS</span> : null}
                 </td>
                 <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -956,7 +934,7 @@ function SharesTab({ instanceId }: { instanceId: string }) {
                 </td>
                 <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>{formatKilobytes(s.free)}</td>
                 <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
-                  <span style={{ background: s.cacheEnabled ? '#3b82f6' : 'var(--text-muted)', color: '#fff', borderRadius: 4, padding: '1px 6px', fontSize: 11, fontWeight: 600 }}>{s.cacheEnabled ? 'Ein' : 'Aus'}</span>
+                  <span style={{ background: s.cache ? '#3b82f6' : 'var(--text-muted)', color: '#fff', borderRadius: 4, padding: '1px 6px', fontSize: 11, fontWeight: 600 }}>{s.cache ? 'Ein' : 'Aus'}</span>
                 </td>
               </tr>
             ))}
@@ -1039,13 +1017,16 @@ function NotificationsTab({ instanceId }: { instanceId: string }) {
                       )}
                     </div>
                   )}
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>{formatRelative(n.timestamp)}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>{n.formattedTimestamp ?? formatRelative(n.timestamp)}</div>
                 </div>
-                {showDismiss && n.id && (
-                  <button className="btn" onClick={() => dismissNotification(instanceId, n.id!)} style={{ padding: '2px 8px', fontSize: 12, flexShrink: 0 }}>
-                    Gelesen
-                  </button>
-                )}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
+                  {n.link && <a href={n.link} target="_blank" rel="noopener noreferrer" className="btn" style={{ padding: '2px 8px', fontSize: 12 }}>Details</a>}
+                  {showDismiss && n.id && (
+                    <button className="btn" onClick={() => dismissNotification(instanceId, n.id!)} style={{ padding: '2px 8px', fontSize: 12 }}>
+                      Gelesen
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           )

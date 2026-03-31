@@ -720,7 +720,7 @@ export async function fetchEnergyData(client: HaWsClient, period: string): Promi
   // Step 3: Fetch statistics
   let stats: StatsResult
   try {
-    stats = await client.sendCommand('history/statistics_during_period', {
+    stats = await client.sendCommand('recorder/statistics_during_period', {
       start_time,
       end_time,
       statistic_ids: allIds,

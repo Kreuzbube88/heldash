@@ -28,22 +28,25 @@ interface SetupBody {
 interface LoginBody {
   username: string
   password: string
+  remember_me?: boolean
 }
 
-const COOKIE_OPTS = {
+const COOKIE_BASE = {
   httpOnly: true,
   sameSite: 'strict' as const,
   path: '/',
-  maxAge: 86400, // 1 day
 } as const
 
-function setAuthCookie(app: FastifyInstance, reply: FastifyReply, user: UserRow) {
+function setAuthCookie(app: FastifyInstance, reply: FastifyReply, user: UserRow, rememberMe = false) {
+  const expiresIn = rememberMe ? '30d' : '1d'
+  const maxAge = rememberMe ? 30 * 86400 : 86400
   const token = app.jwt.sign(
     { sub: user.id, username: user.username, role: user.role, groupId: user.user_group_id },
-    { expiresIn: '1d' }
+    { expiresIn }
   )
   reply.setCookie('auth_token', token, {
-    ...COOKIE_OPTS,
+    ...COOKIE_BASE,
+    maxAge,
     secure: process.env.SECURE_COOKIES === 'true',
   })
   return token
@@ -108,7 +111,7 @@ export async function authRoutes(app: FastifyInstance) {
   app.post<{ Body: LoginBody }>('/api/auth/login', {
     config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
   }, async (req, reply) => {
-    const { username, password } = req.body
+    const { username, password, remember_me } = req.body
     if (!username || !password) return reply.status(400).send({ error: 'username and password required' })
 
     const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username) as UserRow | undefined
@@ -128,7 +131,7 @@ export async function authRoutes(app: FastifyInstance) {
     }
 
     db.prepare("UPDATE users SET last_login = datetime('now'), updated_at = datetime('now') WHERE id = ?").run(user.id)
-    setAuthCookie(app, reply, user)
+    setAuthCookie(app, reply, user, remember_me === true)
 
     app.log.info({ username, groupId: user.user_group_id }, 'User logged in')
 

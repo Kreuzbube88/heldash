@@ -51,7 +51,7 @@ interface AppState {
 
   // Auth actions
   checkAuth: () => Promise<void>
-  login: (username: string, password: string) => Promise<void>
+  login: (username: string, password: string, rememberMe?: boolean) => Promise<void>
   logout: () => Promise<void>
   setupAdmin: (data: { username: string; password: string; first_name: string; last_name: string; email?: string }) => Promise<void>
 
@@ -309,8 +309,8 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  login: async (username, password) => {
-    const user = await api.auth.login(username, password)
+  login: async (username, password, rememberMe) => {
+    const user = await api.auth.login(username, password, rememberMe)
     set({
       authUser: user,
       isAuthenticated: true,

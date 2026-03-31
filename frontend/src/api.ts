@@ -53,8 +53,8 @@ export const api = {
     status: () => req<{ needsSetup: boolean; user: AuthUser | null }>('/auth/status'),
     setup: (data: { username: string; password: string; first_name: string; last_name: string; email?: string }) =>
       req<AuthUser>('/auth/setup', { method: 'POST', body: JSON.stringify(data) }),
-    login: (username: string, password: string) =>
-      req<AuthUser>('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
+    login: (username: string, password: string, rememberMe?: boolean) =>
+      req<AuthUser>('/auth/login', { method: 'POST', body: JSON.stringify({ username, password, remember_me: rememberMe }) }),
     logout: () => req<{ ok: boolean }>('/auth/logout', { method: 'POST', body: JSON.stringify({}) }),
     me: () => req<AuthUser>('/auth/me'),
   },

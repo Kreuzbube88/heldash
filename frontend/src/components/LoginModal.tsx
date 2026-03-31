@@ -12,6 +12,7 @@ export function LoginModal({ onClose }: Props) {
   const { loadDashboard } = useDashboardStore()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [rememberMe, setRememberMe] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -21,7 +22,7 @@ export function LoginModal({ onClose }: Props) {
     if (!username.trim() || !password) return setError('Username and password required')
     setLoading(true)
     try {
-      await login(username.trim(), password)
+      await login(username.trim(), password, rememberMe)
       await Promise.all([loadAll(), loadDashboard()])
       onClose()
     } catch (err: unknown) {
@@ -93,6 +94,16 @@ export function LoginModal({ onClose }: Props) {
               style={{ fontSize: 14, padding: '10px 12px' }}
             />
           </div>
+
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: 'var(--text-secondary)' }}>
+            <input
+              type="checkbox"
+              checked={rememberMe}
+              onChange={e => setRememberMe(e.target.checked)}
+              style={{ accentColor: 'var(--accent)', width: 14, height: 14, cursor: 'pointer' }}
+            />
+            Anmeldung merken (30 Tage)
+          </label>
 
           {error && (
             <div className="setup-error">{error}</div>

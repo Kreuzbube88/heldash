@@ -665,7 +665,10 @@ export async function fetchEnergyData(client: HaWsClient, period: string): Promi
   } catch (e: unknown) {
     return { configured: false, error: e instanceof Error ? e.message : 'get_prefs failed' }
   }
-  if (!prefs?.energy_sources?.length) return { configured: false }
+  if (!prefs?.energy_sources?.length) {
+    console.warn('[energy] get_prefs returned no energy_sources:', JSON.stringify(prefs))
+    return { configured: false, error: `No energy sources in HA response (got: ${JSON.stringify(prefs)})` }
+  }
 
   // Extract statistic IDs per category
   let gridConsumptionIds: string[] = []
@@ -688,7 +691,10 @@ export async function fetchEnergyData(client: HaWsClient, period: string): Promi
   }
 
   const allIds = [...gridConsumptionIds, ...gridReturnIds, ...solarIds, ...batteryChargeIds, ...gasIds]
-  if (allIds.length === 0) return { configured: false }
+  if (allIds.length === 0) {
+    console.warn('[energy] sources found but no stat IDs:', JSON.stringify(prefs.energy_sources))
+    return { configured: false, error: `Energy sources found but no stat IDs extracted (sources: ${JSON.stringify(prefs.energy_sources)})` }
+  }
 
   // Step 2: Build time range
   const now = new Date()

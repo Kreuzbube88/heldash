@@ -662,8 +662,8 @@ export async function fetchEnergyData(client: HaWsClient, period: string): Promi
   let prefs: EnergyPrefs
   try {
     prefs = await client.sendCommand('energy/get_prefs') as EnergyPrefs
-  } catch {
-    return { configured: false }
+  } catch (e: unknown) {
+    return { configured: false, error: e instanceof Error ? e.message : 'get_prefs failed' }
   }
   if (!prefs?.energy_sources?.length) return { configured: false }
 

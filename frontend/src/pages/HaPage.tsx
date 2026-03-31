@@ -665,13 +665,17 @@ function EnergyPanel({ panel, onRemove, onEdit }: { panel: HaPanel; onRemove: ()
   const { energyData, loadEnergy } = useHaStore()
   const [period, setPeriod] = useState<'day' | 'week' | 'month'>('day')
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const data = energyData[`${panel.instance_id}:${period}`]
 
   // Load on mount
   useEffect(() => {
     setLoading(true)
-    loadEnergy(panel.instance_id, 'day').catch(() => {}).finally(() => setLoading(false))
+    setError(null)
+    loadEnergy(panel.instance_id, 'day')
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : 'Failed to load energy data'))
+      .finally(() => setLoading(false))
   }, [])
 
   const handlePeriod = useCallback((p: 'day' | 'week' | 'month') => {
@@ -679,7 +683,10 @@ function EnergyPanel({ panel, onRemove, onEdit }: { panel: HaPanel; onRemove: ()
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
       setLoading(true)
-      loadEnergy(panel.instance_id, p).catch(() => {}).finally(() => setLoading(false))
+      setError(null)
+      loadEnergy(panel.instance_id, p)
+        .catch((e: unknown) => setError(e instanceof Error ? e.message : 'Failed to load energy data'))
+        .finally(() => setLoading(false))
     }, 500)
   }, [panel.instance_id, loadEnergy])
 
@@ -725,9 +732,15 @@ function EnergyPanel({ panel, onRemove, onEdit }: { panel: HaPanel; onRemove: ()
         <div style={{ textAlign: 'center', padding: '24px 0' }}>
           <div className="spinner" style={{ width: 20, height: 20, borderWidth: 2, margin: '0 auto' }} />
         </div>
-      ) : !data ? null : !data.configured ? (
+      ) : !data ? (
+        error ? (
+          <div style={{ textAlign: 'center', color: 'var(--status-offline)', fontSize: 13, padding: '16px 0' }}>
+            {error}
+          </div>
+        ) : null
+      ) : !data.configured ? (
         <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 13, padding: '16px 0' }}>
-          Energy not configured in Home Assistant
+          {data.error ?? 'Energy not configured in Home Assistant'}
         </div>
       ) : (
         <>

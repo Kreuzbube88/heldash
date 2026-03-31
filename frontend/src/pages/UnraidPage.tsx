@@ -168,12 +168,8 @@ function diskTypeBadge(interfaceType?: string, type?: string): { label: string; 
   return { label: 'HDD', color: 'var(--text-muted)' }
 }
 
-function cacheDiskTypeBadge(disk: { rotational?: boolean; type?: string; device?: string }, pdisks?: UnraidPhysicalDisk[]): { label: string; color: string } {
-  if (pdisks && disk.device) {
-    const pd = pdisks.find(p => p.device === disk.device)
-    if (pd?.interfaceType === 'PCIE') return { label: 'NVMe', color: 'var(--accent)' }
-  }
-  if (disk.type?.toLowerCase().includes('nvme')) return { label: 'NVMe', color: 'var(--accent)' }
+function cacheDiskTypeBadge(disk: { rotational?: boolean; type?: string; device?: string }): { label: string; color: string } {
+  if (disk.device?.toLowerCase().includes('nvme') || disk.type?.toLowerCase().includes('nvme')) return { label: 'NVMe', color: 'var(--accent)' }
   if (disk.type?.toLowerCase().includes('ssd') || disk.rotational === false) return { label: 'SSD', color: 'var(--warning)' }
   if (disk.rotational === true) return { label: 'HDD', color: 'var(--text-muted)' }
   return { label: '–', color: 'var(--text-muted)' }
@@ -479,7 +475,7 @@ function OverviewTab({ instanceId }: { instanceId: string }) {
 // ── Array Tab ─────────────────────────────────────────────────────────────────
 
 function ArrayTab({ instanceId }: { instanceId: string }) {
-  const { array, parity, physicalDisks, loadArray, loadParity, loadPhysicalDisks, arrayStart, arrayStop, parityStart, parityPause, parityResume, parityCancel, diskSpinUp, diskSpinDown, diskMount, diskUnmount, errors } = useUnraidStore()
+  const { array, parity, physicalDisks, loadArray, loadParity, loadPhysicalDisks, arrayStart, arrayStop, parityStart, parityPause, parityResume, parityCancel, diskMount, diskUnmount, errors } = useUnraidStore()
   const { isAdmin } = useStore()
   const { toast } = useToast()
   const arrData = array[instanceId]
@@ -540,19 +536,6 @@ function ArrayTab({ instanceId }: { instanceId: string }) {
       toast({ message: (e as Error).message, type: 'error' })
     }
   }, [instanceId, parityCorrect])
-
-  const handleDiskSpin = async (diskId: string, action: 'up' | 'down') => {
-    setDiskLoading(s => ({ ...s, [diskId]: true }))
-    try {
-      if (action === 'up') await diskSpinUp(instanceId, diskId)
-      else await diskSpinDown(instanceId, diskId)
-      toast({ message: `Disk ${action === 'up' ? 'hochgefahren' : 'heruntergefahren'}`, type: 'success' })
-    } catch (e) {
-      toast({ message: (e as Error).message, type: 'error' })
-    } finally {
-      setDiskLoading(s => ({ ...s, [diskId]: false }))
-    }
-  }
 
   const handleDiskMount = async (diskId: string, action: 'mount' | 'unmount') => {
     setDiskLoading(s => ({ ...s, [`m_${diskId}`]: true }))
@@ -679,15 +662,9 @@ function ArrayTab({ instanceId }: { instanceId: string }) {
                     {isAdmin && (
                       <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
                         <div style={{ display: 'flex', gap: 4 }}>
-                          <button className="btn" disabled={diskLoading[disk.id ?? ''] || arrState !== 'started' || disk.status === 'DISK_NP'} onClick={() => setConfirm({ action: 'diskSpinUp', msg: `Disk ${disk.name ?? disk.id} hochfahren?`, onConfirm: () => handleDiskSpin(disk.id!, 'up') })} title="Spin Up" style={{ padding: '2px 6px' }}>
-                            {diskLoading[disk.id ?? ''] ? <span className="spinner" style={{ width: 12, height: 12 }} /> : <ChevronUp size={14} />}
-                          </button>
-                          <button className="btn" disabled={diskLoading[disk.id ?? ''] || arrState !== 'started' || disk.status === 'DISK_NP'} onClick={() => setConfirm({ action: 'diskSpinDown', msg: `Disk ${disk.name ?? disk.id} herunterfahren?`, onConfirm: () => handleDiskSpin(disk.id!, 'down') })} title="Spin Down" style={{ padding: '2px 6px' }}>
-                            <ChevronDown size={14} />
-                          </button>
-                          {disk._section === 'data' && arrState === 'started' && disk.status !== 'DISK_NP' && (
-                            <button className="btn" disabled={diskLoading[`m_${disk.id}`] || !disk.id} onClick={() => handleDiskMount(disk.id!, disk.status === 'DISK_OK' ? 'unmount' : 'mount')} title={disk.status === 'DISK_OK' ? 'Unmount' : 'Mount'} style={{ padding: '2px 6px', fontSize: 11 }}>
-                              {diskLoading[`m_${disk.id}`] ? <span className="spinner" style={{ width: 12, height: 12 }} /> : (disk.status === 'DISK_OK' ? 'Unmount' : 'Mount')}
+                          {disk._section === 'data' && arrState === 'started' && disk.status !== 'DISK_OK' && disk.status !== 'DISK_NP' && (
+                            <button className="btn" disabled={diskLoading[`m_${disk.id}`] || !disk.id} onClick={() => handleDiskMount(disk.id!, 'mount')} title="Mount" style={{ padding: '2px 6px', fontSize: 11 }}>
+                              {diskLoading[`m_${disk.id}`] ? <span className="spinner" style={{ width: 12, height: 12 }} /> : 'Mount'}
                             </button>
                           )}
                         </div>
@@ -712,20 +689,20 @@ function ArrayTab({ instanceId }: { instanceId: string }) {
           ) : (
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, borderTop: '1px solid var(--border)', tableLayout: 'fixed' }}>
               <colgroup>
-                <col style={{ width: '8%' }} /><col style={{ width: '16%' }} /><col style={{ width: '14%' }} />
-                <col style={{ width: '10%' }} /><col style={{ width: '15%' }} /><col style={{ width: '8%' }} />
-                <col style={{ width: '16%' }} />{isAdmin && <col style={{ width: '13%' }} />}
+                <col style={{ width: '9%' }} /><col style={{ width: '18%' }} /><col style={{ width: '16%' }} />
+                <col style={{ width: '11%' }} /><col style={{ width: '17%' }} /><col style={{ width: '9%' }} />
+                <col style={{ width: '20%' }} />
               </colgroup>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                  {['Typ', 'Name', 'Gerät', 'Größe', 'Status', 'Temp', 'Belegung', ...(isAdmin ? ['Aktionen'] : [])].map(h => (
+                  {['Typ', 'Name', 'Gerät', 'Größe', 'Status', 'Temp', 'Belegung'].map(h => (
                     <th key={h} style={{ padding: 'var(--spacing-sm) var(--spacing-md)', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 500 }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {caches.map((disk, i) => {
-                  const ctb = cacheDiskTypeBadge(disk, pdisks)
+                  const ctb = cacheDiskTypeBadge(disk)
                   return (
                   <tr key={disk.id ?? i} style={{ borderBottom: '1px solid var(--glass-border)' }}>
                     <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
@@ -748,18 +725,6 @@ function ArrayTab({ instanceId }: { instanceId: string }) {
                         </div>
                       ) : '–'}
                     </td>
-                    {isAdmin && (
-                      <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
-                        <div style={{ display: 'flex', gap: 4 }}>
-                          <button className="btn" disabled={diskLoading[disk.id ?? ''] || arrState !== 'started' || disk.status === 'DISK_NP'} onClick={() => setConfirm({ action: 'diskSpinUp', msg: `Disk ${disk.name ?? disk.id} hochfahren?`, onConfirm: () => handleDiskSpin(disk.id!, 'up') })} title="Spin Up" style={{ padding: '2px 6px' }}>
-                            {diskLoading[disk.id ?? ''] ? <span className="spinner" style={{ width: 12, height: 12 }} /> : <ChevronUp size={14} />}
-                          </button>
-                          <button className="btn" disabled={diskLoading[disk.id ?? ''] || arrState !== 'started' || disk.status === 'DISK_NP'} onClick={() => setConfirm({ action: 'diskSpinDown', msg: `Disk ${disk.name ?? disk.id} herunterfahren?`, onConfirm: () => handleDiskSpin(disk.id!, 'down') })} title="Spin Down" style={{ padding: '2px 6px' }}>
-                            <ChevronDown size={14} />
-                          </button>
-                        </div>
-                      </td>
-                    )}
                   </tr>
                   )
                 })}
@@ -844,7 +809,7 @@ function ArrayTab({ instanceId }: { instanceId: string }) {
           message={confirm.msg}
           onConfirm={() => { setConfirm(null); confirm.onConfirm ? confirm.onConfirm() : runConfirm(confirm.action) }}
           onCancel={() => setConfirm(null)}
-          danger={confirm.action === 'arrayStop' || confirm.action === 'parityCancel' || confirm.action === 'diskSpinDown'}
+          danger={confirm.action === 'arrayStop' || confirm.action === 'parityCancel'}
         >
           {confirm.extra}
         </ConfirmModal>

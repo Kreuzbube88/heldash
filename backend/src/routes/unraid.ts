@@ -364,32 +364,14 @@ export async function unraidRoutes(app: FastifyInstance) {
     }
   })
 
-  // POST /api/unraid/:id/disks/:diskId/spinup
-  app.post<{ Params: { id: string; diskId: string } }>('/api/unraid/:id/disks/:diskId/spinup', { onRequest: [app.requireAdmin] }, async (req, reply) => {
-    const row = await getInstance(req.params.id, reply)
-    if (!row) return
-    const diskId = decodeURIComponent(req.params.diskId)
-    try {
-      const result = await unraidGql(row.url, row.api_key, `mutation($id: PrefixedID!) { array { spinUpArrayDisk(id: $id) { id isSpinning } } }`, { id: diskId })
-      logActivity('unraid', `Disk ${diskId} spin up — ${row.name}`, 'info', { instanceId: req.params.id })
-      return result
-    } catch (e) {
-      return reply.status(502).send({ error: (e as Error).message })
-    }
+  // POST /api/unraid/:id/disks/:diskId/spinup — not supported by Unraid GraphQL API
+  app.post<{ Params: { id: string; diskId: string } }>('/api/unraid/:id/disks/:diskId/spinup', { onRequest: [app.requireAdmin] }, async (_req, reply) => {
+    return reply.status(501).send({ error: 'Disk Spin-Control ist in dieser API-Version nicht verfügbar.' })
   })
 
-  // POST /api/unraid/:id/disks/:diskId/spindown
-  app.post<{ Params: { id: string; diskId: string } }>('/api/unraid/:id/disks/:diskId/spindown', { onRequest: [app.requireAdmin] }, async (req, reply) => {
-    const row = await getInstance(req.params.id, reply)
-    if (!row) return
-    const diskId = decodeURIComponent(req.params.diskId)
-    try {
-      const result = await unraidGql(row.url, row.api_key, `mutation($id: PrefixedID!) { array { spinDownArrayDisk(id: $id) { id isSpinning } } }`, { id: diskId })
-      logActivity('unraid', `Disk ${diskId} spin down — ${row.name}`, 'info', { instanceId: req.params.id })
-      return result
-    } catch (e) {
-      return reply.status(502).send({ error: (e as Error).message })
-    }
+  // POST /api/unraid/:id/disks/:diskId/spindown — not supported by Unraid GraphQL API
+  app.post<{ Params: { id: string; diskId: string } }>('/api/unraid/:id/disks/:diskId/spindown', { onRequest: [app.requireAdmin] }, async (_req, reply) => {
+    return reply.status(501).send({ error: 'Disk Spin-Control ist in dieser API-Version nicht verfügbar.' })
   })
 
   // GET /api/unraid/:id/docker

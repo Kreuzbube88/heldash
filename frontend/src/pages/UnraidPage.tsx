@@ -168,7 +168,11 @@ function diskTypeBadge(interfaceType?: string, type?: string): { label: string; 
   return { label: 'HDD', color: 'var(--text-muted)' }
 }
 
-function cacheDiskTypeBadge(disk: { rotational?: boolean; type?: string }): { label: string; color: string } {
+function cacheDiskTypeBadge(disk: { rotational?: boolean; type?: string; device?: string }, pdisks?: UnraidPhysicalDisk[]): { label: string; color: string } {
+  if (pdisks && disk.device) {
+    const pd = pdisks.find(p => p.device === disk.device)
+    if (pd?.interfaceType === 'PCIE') return { label: 'NVMe', color: 'var(--accent)' }
+  }
   if (disk.type?.toLowerCase().includes('nvme')) return { label: 'NVMe', color: 'var(--accent)' }
   if (disk.type?.toLowerCase().includes('ssd') || disk.rotational === false) return { label: 'SSD', color: 'var(--warning)' }
   if (disk.rotational === true) return { label: 'HDD', color: 'var(--text-muted)' }
@@ -497,7 +501,7 @@ function ArrayTab({ instanceId }: { instanceId: string }) {
     return () => clearInterval(t)
   }, [instanceId])
 
-  const arrState = arrData?.array?.state ?? ''
+  const arrState = (arrData?.array?.state ?? '').toLowerCase()
   const cap = arrData?.array?.capacity?.kilobytes
   const pcs = arrData?.array?.parityCheckStatus
   const parities = arrData?.array?.parities ?? []
@@ -633,7 +637,12 @@ function ArrayTab({ instanceId }: { instanceId: string }) {
         <div style={{ marginBottom: 'var(--spacing-md)' }}>
           <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6, color: 'var(--text-secondary)' }}>Array</div>
           <div className="glass" style={{ borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
+              <colgroup>
+                <col style={{ width: '8%' }} /><col style={{ width: '16%' }} /><col style={{ width: '14%' }} />
+                <col style={{ width: '10%' }} /><col style={{ width: '15%' }} /><col style={{ width: '8%' }} />
+                <col style={{ width: '16%' }} />{isAdmin && <col style={{ width: '13%' }} />}
+              </colgroup>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border)' }}>
                   {['Typ', 'Name', 'Gerät', 'Größe', 'Status', 'Temp', 'Belegung', ...(isAdmin ? ['Aktionen'] : [])].map(h => (
@@ -701,7 +710,12 @@ function ArrayTab({ instanceId }: { instanceId: string }) {
           caches.length === 0 ? (
             <div style={{ padding: 'var(--spacing-md)', color: 'var(--text-muted)', fontSize: 13 }}>Keine Cache-Pools konfiguriert.</div>
           ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, borderTop: '1px solid var(--border)' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, borderTop: '1px solid var(--border)', tableLayout: 'fixed' }}>
+              <colgroup>
+                <col style={{ width: '8%' }} /><col style={{ width: '16%' }} /><col style={{ width: '14%' }} />
+                <col style={{ width: '10%' }} /><col style={{ width: '15%' }} /><col style={{ width: '8%' }} />
+                <col style={{ width: '16%' }} />{isAdmin && <col style={{ width: '13%' }} />}
+              </colgroup>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border)' }}>
                   {['Typ', 'Name', 'Gerät', 'Größe', 'Status', 'Temp', 'Belegung', ...(isAdmin ? ['Aktionen'] : [])].map(h => (
@@ -711,7 +725,7 @@ function ArrayTab({ instanceId }: { instanceId: string }) {
               </thead>
               <tbody>
                 {caches.map((disk, i) => {
-                  const ctb = cacheDiskTypeBadge(disk)
+                  const ctb = cacheDiskTypeBadge(disk, pdisks)
                   return (
                   <tr key={disk.id ?? i} style={{ borderBottom: '1px solid var(--glass-border)' }}>
                     <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>

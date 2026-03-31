@@ -665,22 +665,23 @@ export async function fetchEnergyData(client: HaWsClient, period: string): Promi
   } catch (e: unknown) {
     return { configured: false, error: e instanceof Error ? e.message : 'get_prefs failed' }
   }
-  if (!prefs?.energy_sources?.length) {
-    console.warn('[energy] get_prefs returned no energy_sources:', JSON.stringify(prefs))
-    return { configured: false, error: `No energy sources in HA response (got: ${JSON.stringify(prefs)})` }
-  }
+  if (!prefs?.energy_sources?.length) return { configured: false }
 
   // Extract statistic IDs per category
-  let gridConsumptionIds: string[] = []
-  let gridReturnIds: string[] = []
-  let solarIds: string[] = []
-  let batteryChargeIds: string[] = []
-  let gasIds: string[] = []
+  const gridConsumptionIds: string[] = []
+  const gridReturnIds: string[] = []
+  const solarIds: string[] = []
+  const batteryChargeIds: string[] = []
+  const gasIds: string[] = []
 
   for (const src of prefs.energy_sources) {
     if (src.type === 'grid') {
-      gridConsumptionIds = (src.flow_from ?? []).map(f => f.stat_energy_from).filter(Boolean)
-      gridReturnIds = (src.flow_to ?? []).map(f => f.stat_energy_to).filter(Boolean)
+      // Flat structure: stat_energy_from directly on source (individual device sensors)
+      if (src.stat_energy_from) gridConsumptionIds.push(src.stat_energy_from)
+      if (src.stat_energy_to)   gridReturnIds.push(src.stat_energy_to)
+      // Nested structure: flow_from / flow_to arrays (standard HA grid meter setup)
+      for (const f of src.flow_from ?? []) if (f.stat_energy_from) gridConsumptionIds.push(f.stat_energy_from)
+      for (const f of src.flow_to   ?? []) if (f.stat_energy_to)   gridReturnIds.push(f.stat_energy_to)
     } else if (src.type === 'solar' && src.stat_energy_from) {
       solarIds.push(src.stat_energy_from)
     } else if (src.type === 'battery' && src.stat_energy_from) {
@@ -691,10 +692,7 @@ export async function fetchEnergyData(client: HaWsClient, period: string): Promi
   }
 
   const allIds = [...gridConsumptionIds, ...gridReturnIds, ...solarIds, ...batteryChargeIds, ...gasIds]
-  if (allIds.length === 0) {
-    console.warn('[energy] sources found but no stat IDs:', JSON.stringify(prefs.energy_sources))
-    return { configured: false, error: `Energy sources found but no stat IDs extracted (sources: ${JSON.stringify(prefs.energy_sources)})` }
-  }
+  if (allIds.length === 0) return { configured: false }
 
   // Step 2: Build time range
   const now = new Date()

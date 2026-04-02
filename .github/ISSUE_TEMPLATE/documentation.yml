@@ -16,7 +16,7 @@ body:
       options:
         - README.md
         - CONTRIBUTING.md
-        - About page in dashboard
+        - GitHub /docs folder
         - GitHub Wiki
         - Code comments
         - Other

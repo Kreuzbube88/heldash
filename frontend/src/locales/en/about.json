@@ -1,5 +1,18 @@
 {
   "title": "About",
+  "version": "Version",
+  "intro": "Personal homelab dashboard with glass morphism design. Manage services, Docker containers, media automation, Home Assistant and more — all in one interface. Self-hosted on Unraid as a single Docker container.",
+  "install": {
+    "title": "Quick Installation",
+    "step1": "Install via Unraid Community Applications or pull the Docker image directly",
+    "step2": "Open the dashboard: http://<server-ip>:8282",
+    "step3": "Set up your admin account (prompted on first launch)",
+    "step4": "Done — configure services, widgets, and integrations"
+  },
+  "links": {
+    "title": "Links & Documentation",
+    "docs": "Full Documentation on GitHub"
+  },
   "code": {
     "copy": "Copy",
     "copied": "Copied!"

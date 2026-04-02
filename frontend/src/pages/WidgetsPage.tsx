@@ -741,7 +741,7 @@ function WidgetForm({
         </div>
 
         {/* Icon */}
-        {true && (
+        {type !== 'weather' && (
           <div>
             <label className="form-label" style={{ fontSize: 11 }}>
               Icon

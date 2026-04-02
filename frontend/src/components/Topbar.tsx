@@ -5,7 +5,7 @@ import { useDashboardStore } from '../store/useDashboardStore'
 import { useWidgetStore } from '../store/useWidgetStore'
 import { useDockerStore } from '../store/useDockerStore'
 import { api } from '../api'
-import type { ThemeAccent, ServerStats, AdGuardStats, HaEntityState, NpmStats, CalendarEntry } from '../types'
+import type { ThemeAccent, ServerStats, AdGuardStats, HaEntityState, NpmStats, CalendarEntry, WeatherStats } from '../types'
 import { containerCounts } from '../utils'
 
 interface Props {
@@ -228,6 +228,34 @@ export function Topbar({ page, onAddService, onAddInstance, onAddWidget, onCheck
                   </React.Fragment>
                 ))}
                 {entries.length > 3 && <>{sep}{muted(`+${entries.length - 3} more`)}</>}
+              </div>
+            )
+          }
+
+          if (w.type === 'weather') {
+            const weather = stats[w.id] as WeatherStats | undefined
+            if (!weather || weather.error) return null
+            const WEATHER_LABELS: Record<number, string> = {
+              0: 'Clear', 1: 'Mainly clear', 2: 'Partly cloudy', 3: 'Overcast',
+              45: 'Foggy', 48: 'Rime fog',
+              51: 'Light drizzle', 53: 'Drizzle', 55: 'Dense drizzle',
+              61: 'Slight rain', 63: 'Rain', 65: 'Heavy rain',
+              71: 'Slight snow', 73: 'Snow', 75: 'Heavy snow', 77: 'Snow grains',
+              80: 'Showers', 81: 'Mod. showers', 82: 'Heavy showers',
+              85: 'Snow showers', 86: 'Heavy snow showers',
+              95: 'Thunderstorm', 96: 'Thunderstorm', 99: 'Thunderstorm',
+            }
+            const desc = WEATHER_LABELS[weather.weather_code] ?? `Code ${weather.weather_code}`
+            return (
+              <div key={w.id} style={pillStyle}>
+                {label(`${w.name}:`)}
+                {val(`${weather.temperature}${weather.unit}`, 'var(--accent)')}
+                {sep}
+                {muted(desc)}
+                {sep}
+                {muted('Feels')} {val(`${weather.apparent_temperature}${weather.unit}`)}
+                {sep}
+                {muted('Humid')} {val(`${weather.humidity}%`)}
               </div>
             )
           }

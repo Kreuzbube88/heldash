@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { Plus, Pencil, Trash2, Wifi, WifiOff, Loader2, X, CheckCircle2, XCircle } from 'lucide-react'
 import { useInstanceStore } from '../store/useInstanceStore'
 import { useConfirm } from '../components/ConfirmDialog'
+import { IconPicker } from '../components/IconPicker'
+import { getIconUrl } from '../api'
 import type { Instance, InstanceType } from '../types'
 
 // ── Type metadata ─────────────────────────────────────────────────────────────
@@ -41,13 +43,14 @@ function InstanceModal({
 }: {
   instance?: Instance | null
   onClose: () => void
-  onSave: (data: { type: InstanceType; name: string; url: string; token?: string; api_key?: string; enabled: boolean }) => Promise<void>
+  onSave: (data: { type: InstanceType; name: string; url: string; token?: string; api_key?: string; enabled: boolean; icon_id?: string | null }) => Promise<void>
 }) {
   const [type, setType] = useState<InstanceType>(instance?.type ?? 'ha')
   const [name, setName] = useState(instance?.name ?? '')
   const [url, setUrl] = useState(instance?.url ?? '')
   const [credential, setCredential] = useState('')
   const [enabled, setEnabled] = useState(instance?.enabled ?? true)
+  const [iconId, setIconId] = useState<string | null>(instance?.icon_id ?? null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -58,11 +61,12 @@ function InstanceModal({
     setSaving(true)
     setError(null)
     try {
-      const data: { type: InstanceType; name: string; url: string; token?: string; api_key?: string; enabled: boolean } = {
+      const data: { type: InstanceType; name: string; url: string; token?: string; api_key?: string; enabled: boolean; icon_id?: string | null } = {
         type,
         name: name.trim(),
         url: url.trim(),
         enabled,
+        icon_id: iconId,
       }
       if (credential.trim()) {
         if (needsToken(type)) data.token = credential.trim()
@@ -122,6 +126,10 @@ function InstanceModal({
             <input type="checkbox" checked={enabled} onChange={e => setEnabled(e.target.checked)} />
             <span style={{ fontSize: 13 }}>Aktiviert</span>
           </label>
+          <div>
+            <label className="field-label">Icon (optional)</label>
+            <IconPicker value={iconId} onChange={setIconId} size="medium" />
+          </div>
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
@@ -170,10 +178,18 @@ function InstanceCard({
     <div className="glass" style={{ borderRadius: 'var(--radius-md)', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
       <div style={{
         width: 36, height: 36, flexShrink: 0, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: `${TYPE_COLORS[instance.type]}22`, border: `1px solid ${TYPE_COLORS[instance.type]}44`, fontSize: 11, fontWeight: 700,
-        color: TYPE_COLORS[instance.type], fontFamily: 'var(--font-mono)',
+        background: `${TYPE_COLORS[instance.type]}22`, border: `1px solid ${TYPE_COLORS[instance.type]}44`, overflow: 'hidden',
       }}>
-        {instance.type.slice(0, 3).toUpperCase()}
+        {(() => {
+          const iconUrl = getIconUrl(instance)
+          return iconUrl ? (
+            <img src={iconUrl} alt="" style={{ width: 28, height: 28, objectFit: 'contain' }} />
+          ) : (
+            <span style={{ fontSize: 11, fontWeight: 700, color: TYPE_COLORS[instance.type], fontFamily: 'var(--font-mono)' }}>
+              {instance.type.slice(0, 3).toUpperCase()}
+            </span>
+          )
+        })()}
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -218,7 +234,7 @@ export function InstancesPage() {
 
   useEffect(() => { loadInstances().catch(e => setError(e instanceof Error ? e.message : 'Fehler beim Laden')) }, [])
 
-  const handleSave = async (data: { type: InstanceType; name: string; url: string; token?: string; api_key?: string; enabled: boolean }) => {
+  const handleSave = async (data: { type: InstanceType; name: string; url: string; token?: string; api_key?: string; enabled: boolean; icon_id?: string | null }) => {
     if (editInstance) {
       await updateInstance(editInstance.id, data)
     } else {

@@ -7,10 +7,12 @@ import { useDashboardStore } from '../store/useDashboardStore'
 import { useStore } from '../store/useStore'
 import { useHaStore } from '../store/useHaStore'
 import { useArrStore } from '../store/useArrStore'
-import { Trash2, Pencil, X, Check, Plus, Minus, LayoutDashboard, Shield, ShieldOff, Container, Play, Square, RotateCcw, Zap, Sun, ZapOff, Flame, BatteryCharging, Calendar, Film, Tv, Cloud } from 'lucide-react'
+import { useInstanceStore } from '../store/useInstanceStore'
+import { Trash2, Pencil, X, Check, Plus, Minus, LayoutDashboard, Shield, ShieldOff, Container, Play, Square, RotateCcw, Zap, Sun, ZapOff, Flame, BatteryCharging, Calendar, Film, Tv, Cloud, LayoutGrid } from 'lucide-react'
 import type { Widget, ServerStatusConfig, AdGuardHomeConfig, CustomButtonConfig, HomeAssistantConfig, NginxPMConfig, HomeAssistantEnergyConfig, ServerStats, AdGuardStats, HaEntityState, NpmStats, EnergyData, CalendarWidgetConfig, CalendarEntry, WeatherWidgetConfig, WeatherStats } from '../types'
 import { normalizeUrl, containerCounts } from '../utils'
 import { getIconUrl } from '../api'
+import { ArrCardContent, SabnzbdCardContent, SeerrCardContent, TYPE_COLORS as ARR_TYPE_COLORS } from '../components/MediaCard'
 
 // ── Energy Widget compact view ─────────────────────────────────────────────────
 
@@ -1431,10 +1433,14 @@ export function WidgetsPage({ showAddForm, onFormClose }: Props) {
   const { isOnDashboard, addWidget, removeByRef } = useDashboardStore()
   const { loadContainers: loadDockerContainers } = useDockerStore()
   const { confirm: confirmDlg } = useConfirm()
+  const { instances } = useInstanceStore()
+  const { loadAllStats: loadArrStats } = useArrStore()
   const [editingId, setEditingId] = useState<string | null>(null)
 
   useEffect(() => {
     loadWidgets().catch(() => {})
+    useInstanceStore.getState().loadInstances().catch(() => {})
+    loadArrStats().catch(() => {})
   }, [])
 
   const widgetIds = widgets.map(w => w.id).join(',')
@@ -1522,6 +1528,60 @@ export function WidgetsPage({ showAddForm, onFormClose }: Props) {
             )
         ))}
       </div>
+
+      {/* Instances section */}
+      {instances.filter(i => i.enabled).length > 0 && (
+        <div>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            marginBottom: 12, paddingBottom: 8,
+            borderBottom: '1px solid var(--glass-border)',
+          }}>
+            <LayoutGrid size={14} />
+            <h3 style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>Instanzen</h3>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+              ({instances.filter(i => i.enabled).length})
+            </span>
+          </div>
+          <div className="card-grid" style={{ gap: 14 }}>
+            {instances.filter(i => i.enabled).map(instance => {
+              if (instance.type === 'sabnzbd') {
+                return <SabnzbdCardContent key={instance.id} instance={instance} />
+              }
+              if (instance.type === 'seerr') {
+                return <SeerrCardContent key={instance.id} instance={instance} />
+              }
+              if (['radarr', 'sonarr', 'prowlarr'].includes(instance.type)) {
+                return <ArrCardContent key={instance.id} instance={instance} />
+              }
+              // HA and Unraid: simple info card
+              const color = (ARR_TYPE_COLORS as Record<string, string>)[instance.type] ?? 'var(--accent)'
+              return (
+                <div key={instance.id} className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 36, height: 36, borderRadius: 8, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: `${color}22`, border: `1px solid ${color}44` }}>
+                      {(() => {
+                        const iconUrl = getIconUrl(instance)
+                        return iconUrl ? (
+                          <img src={iconUrl} alt="" style={{ width: 28, height: 28, objectFit: 'contain' }} />
+                        ) : (
+                          <span style={{ fontSize: 11, fontWeight: 700, color, fontFamily: 'var(--font-mono)' }}>
+                            {instance.type.slice(0, 3).toUpperCase()}
+                          </span>
+                        )
+                      })()}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, fontSize: 14 }}>{instance.name}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{instance.url}</div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -304,6 +304,7 @@ export interface Instance {
   url: string
   enabled: boolean
   position: number
+  icon_id: string | null
   created_at: string
   updated_at: string
 }

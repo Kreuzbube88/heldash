@@ -92,9 +92,7 @@ function App() {
   const [showLogin, setShowLogin] = useState(false)
   const [editService, setEditService] = useState<Service | null>(null)
   const [checking, setChecking] = useState(false)
-  const [showAddInstance, setShowAddInstance] = useState(false)
   const [showAddWidget, setShowAddWidget] = useState(false)
-  const [showAddHaInstance, setShowAddHaInstance] = useState(false)
   const [showAddHaPanel, setShowAddHaPanel] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [showChangelog, setShowChangelog] = useState(false)
@@ -214,19 +212,19 @@ function App() {
 
       <div className="app-layout">
         {isAuthenticated && (
-          <Sidebar page={page} onNavigate={(p) => { setPage(p); if (p !== 'widgets') setShowAddWidget(false); if (p !== 'media') setShowAddInstance(false) }} />
+          <Sidebar page={page} onNavigate={(p) => { setPage(p); if (p !== 'widgets') setShowAddWidget(false) }} />
         )}
 
         <div className="main-area">
           <Topbar
             page={page}
             onAddService={() => setShowModal(true)}
-            onAddInstance={() => setShowAddInstance(true)}
+            onAddInstance={() => setPage('instances')}
             onAddWidget={() => setShowAddWidget(true)}
             onCheckAll={handleCheckAll}
             checking={checking}
             onLogin={() => setShowLogin(true)}
-            onAddHaInstance={() => setShowAddHaInstance(true)}
+            onAddHaInstance={() => setPage('instances')}
             onAddHaPanel={() => setShowAddHaPanel(true)}
           />
           <div className="content-area">
@@ -236,8 +234,6 @@ function App() {
               {page === 'services' && <ServicesPage onEdit={handleEditService} />}
               {page === 'media' && (
                 <MediaPage
-                  showAddForm={showAddInstance}
-                  onFormClose={() => setShowAddInstance(false)}
                   onNavigate={p => setPage(p)}
                 />
               )}
@@ -250,16 +246,15 @@ function App() {
               {page === 'docker' && <DockerPage />}
               {page === 'home_assistant' && (
                 <HaPage
-                  showAddInstance={showAddHaInstance}
-                  onAddInstanceClose={() => setShowAddHaInstance(false)}
                   showAddPanel={showAddHaPanel}
                   onAddPanelClose={() => setShowAddHaPanel(false)}
+                  onNavigate={p => setPage(p)}
                 />
               )}
               {page === 'logbuch' && <LogbuchPage />}
               {page === 'network' && <NetworkPage />}
               {page === 'backup' && <BackupPage />}
-              {page === 'unraid' && <UnraidPage />}
+              {page === 'unraid' && <UnraidPage onNavigate={p => setPage(p)} />}
               {page === 'bookmarks' && <BookmarksPage />}
               {page === 'instances' && <InstancesPage />}
               {page === 'about' && <AboutPage onShowChangelog={() => setShowChangelog(true)} />}
@@ -283,7 +278,7 @@ function App() {
         <OnboardingWizard
           onClose={() => setShowOnboarding(false)}
           onAddService={() => { setShowOnboarding(false); setShowModal(true) }}
-          onAddInstance={() => { setShowOnboarding(false); setShowAddInstance(true); setPage('media') }}
+          onAddInstance={() => { setShowOnboarding(false); setPage('instances') }}
         />
       )}
 

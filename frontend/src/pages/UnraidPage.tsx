@@ -256,45 +256,7 @@ function ConfirmModal({ title, message, onConfirm, onCancel, danger = false, chi
 
 // ── Setup Screen ──────────────────────────────────────────────────────────────
 
-function SetupScreen() {
-  const { createInstance } = useUnraidStore()
-  const { toast } = useToast()
-  const [name, setName] = useState('')
-  const [url, setUrl] = useState('')
-  const [apiKey, setApiKey] = useState('')
-  const [showKey, setShowKey] = useState(false)
-  const [testing, setTesting] = useState(false)
-  const [testOk, setTestOk] = useState<boolean | null>(null)
-  const [testError, setTestError] = useState('')
-  const [saving, setSaving] = useState(false)
-
-  const handleTest = async () => {
-    setTesting(true)
-    setTestOk(null)
-    setTestError('')
-    try {
-      await api.unraid.instances.test(url, apiKey)
-      setTestOk(true)
-    } catch (e) {
-      setTestOk(false)
-      setTestError((e as Error).message)
-    } finally {
-      setTesting(false)
-    }
-  }
-
-  const handleSave = async () => {
-    setSaving(true)
-    try {
-      await createInstance({ name, url, api_key: apiKey })
-      toast({ message: 'Unraid verbunden', type: 'success' })
-    } catch (e) {
-      toast({ message: (e as Error).message, type: 'error' })
-    } finally {
-      setSaving(false)
-    }
-  }
-
+function SetupScreen({ onNavigate }: { onNavigate?: (page: string) => void }) {
   return (
     <div style={{ maxWidth: 560, margin: '80px auto', padding: '0 var(--spacing-md)' }}>
       <div className="glass" style={{ padding: 'var(--spacing-2xl)', borderRadius: 'var(--radius-xl)', textAlign: 'center' }}>
@@ -302,7 +264,6 @@ function SetupScreen() {
         <h2 style={{ margin: '0 0 var(--spacing-sm)', fontFamily: 'var(--font-display)' }}>Unraid verbinden</h2>
         <p style={{ color: 'var(--text-secondary)', marginBottom: 'var(--spacing-xl)' }}>Erfordert Unraid 7.2 oder neuer.</p>
 
-        {/* Step 1 */}
         <div className="glass" style={{ padding: 'var(--spacing-lg)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--spacing-md)', textAlign: 'left' }}>
           <div style={{ display: 'flex', gap: 'var(--spacing-md)', alignItems: 'flex-start' }}>
             <span style={{ background: 'var(--accent)', color: '#000', borderRadius: '50%', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>1</span>
@@ -316,31 +277,9 @@ function SetupScreen() {
           </div>
         </div>
 
-        {/* Step 2 */}
-        <div className="glass" style={{ padding: 'var(--spacing-lg)', borderRadius: 'var(--radius-md)', textAlign: 'left' }}>
-          <div style={{ display: 'flex', gap: 'var(--spacing-md)', alignItems: 'flex-start', marginBottom: 'var(--spacing-md)' }}>
-            <span style={{ background: 'var(--accent)', color: '#000', borderRadius: '50%', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>2</span>
-            <div style={{ fontWeight: 600 }}>Verbinden</div>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
-            <input className="input" placeholder="Name (z.B. Heimserver)" value={name} onChange={e => setName(e.target.value)} />
-            <input className="input" placeholder="URL (z.B. http://192.168.1.10)" value={url} onChange={e => { setUrl(e.target.value); setTestOk(null) }} />
-            <div style={{ position: 'relative' }}>
-              <input className="input" type={showKey ? 'text' : 'password'} placeholder="API Key" value={apiKey} onChange={e => { setApiKey(e.target.value); setTestOk(null) }} style={{ paddingRight: 40 }} />
-              <button className="btn" onClick={() => setShowKey(v => !v)} style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', padding: '2px 6px', minHeight: 'unset' }}>
-                {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
-              </button>
-            </div>
-            <button className="btn btn-primary" onClick={handleTest} disabled={testing || !url || !apiKey} style={{ width: '100%' }}>
-              {testing ? <span className="spinner" style={{ width: 14, height: 14 }} /> : 'Verbindung testen'}
-            </button>
-            {testOk === true && <div style={{ color: 'var(--status-online)', fontSize: 13 }}><Check size={12} /> Verbindung erfolgreich</div>}
-            {testOk === false && <div style={{ color: 'var(--status-offline)', fontSize: 13 }}><AlertTriangle size={12} /> {testError}</div>}
-            <button className="btn btn-primary" onClick={handleSave} disabled={!testOk || saving || !name} style={{ width: '100%' }}>
-              {saving ? <span className="spinner" style={{ width: 14, height: 14 }} /> : 'Verbinden & Speichern'}
-            </button>
-          </div>
-        </div>
+        <button className="btn btn-primary" onClick={() => onNavigate?.('instances')} style={{ width: '100%', gap: 6, justifyContent: 'center' }}>
+          <Plus size={14} /> Instanz hinzufügen
+        </button>
       </div>
     </div>
   )
@@ -1964,18 +1903,9 @@ function SortableInstanceCard({ instance, onUpdate, onDelete }: {
 // ── Management Tab ────────────────────────────────────────────────────────────
 
 function ManagementTab() {
-  const { instances, reorderInstances, updateInstance, deleteInstance, createInstance } = useUnraidStore()
+  const { instances, reorderInstances, updateInstance, deleteInstance } = useUnraidStore()
   const { isAdmin } = useStore()
   const { toast } = useToast()
-  const [showAdd, setShowAdd] = useState(false)
-  const [addName, setAddName] = useState('')
-  const [addUrl, setAddUrl] = useState('')
-  const [addKey, setAddKey] = useState('')
-  const [showAddKey, setShowAddKey] = useState(false)
-  const [testing, setTesting] = useState(false)
-  const [testOk, setTestOk] = useState<boolean | null>(null)
-  const [testError, setTestError] = useState('')
-  const [saving, setSaving] = useState(false)
 
   const sensors = useSensors(useSensor(PointerSensor), useSensor(TouchSensor))
 
@@ -1986,36 +1916,6 @@ function ManagementTab() {
     const newIdx = instances.findIndex(i => i.id === over.id)
     const reordered = arrayMove(instances, oldIdx, newIdx)
     reorderInstances(reordered.map(i => i.id)).catch(e => toast({ message: (e as Error).message, type: 'error' }))
-  }
-
-  const handleTest = async () => {
-    setTesting(true)
-    setTestOk(null)
-    setTestError('')
-    try {
-      await api.unraid.instances.test(addUrl, addKey)
-      setTestOk(true)
-    } catch (e) {
-      setTestOk(false)
-      setTestError((e as Error).message)
-    } finally {
-      setTesting(false)
-    }
-  }
-
-  const handleAdd = async () => {
-    setSaving(true)
-    try {
-      await createInstance({ name: addName, url: addUrl, api_key: addKey })
-      setShowAdd(false)
-      setAddName(''); setAddUrl(''); setAddKey('')
-      setTestOk(null)
-      toast({ message: 'Server hinzugefügt', type: 'success' })
-    } catch (e) {
-      toast({ message: (e as Error).message, type: 'error' })
-    } finally {
-      setSaving(false)
-    }
   }
 
   if (!isAdmin) {
@@ -2033,40 +1933,6 @@ function ManagementTab() {
           </div>
         </SortableContext>
       </DndContext>
-
-      {/* Add new server */}
-      <div className="glass" style={{ borderRadius: 'var(--radius-md)', border: showAdd ? undefined : '2px dashed var(--border)', overflow: 'hidden' }}>
-        {!showAdd ? (
-          <button className="btn" onClick={() => setShowAdd(true)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 'var(--spacing-lg)', color: 'var(--text-muted)', background: 'none' }}>
-            <Plus size={16} /> Server hinzufügen
-          </button>
-        ) : (
-          <div style={{ padding: 'var(--spacing-lg)' }}>
-            <div style={{ fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>Neuer Server</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
-              <input className="input" placeholder="Name" value={addName} onChange={e => setAddName(e.target.value)} />
-              <input className="input" placeholder="URL" value={addUrl} onChange={e => { setAddUrl(e.target.value); setTestOk(null) }} />
-              <div style={{ position: 'relative' }}>
-                <input className="input" type={showAddKey ? 'text' : 'password'} placeholder="API Key" value={addKey} onChange={e => { setAddKey(e.target.value); setTestOk(null) }} style={{ paddingRight: 40 }} />
-                <button className="btn" onClick={() => setShowAddKey(v => !v)} style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', padding: '2px 6px', minHeight: 'unset' }}>
-                  {showAddKey ? <EyeOff size={12} /> : <Eye size={12} />}
-                </button>
-              </div>
-              <button className="btn btn-primary" onClick={handleTest} disabled={testing || !addUrl || !addKey}>
-                {testing ? <span className="spinner" style={{ width: 14, height: 14 }} /> : 'Verbindung testen'}
-              </button>
-              {testOk === true && <div style={{ color: 'var(--status-online)', fontSize: 13 }}><Check size={12} /> Verbindung erfolgreich</div>}
-              {testOk === false && <div style={{ color: 'var(--status-offline)', fontSize: 13 }}><AlertTriangle size={12} /> {testError}</div>}
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                <button className="btn" onClick={() => { setShowAdd(false); setTestOk(null) }}>Abbrechen</button>
-                <button className="btn btn-primary" onClick={handleAdd} disabled={!testOk || saving || !addName}>
-                  {saving ? <span className="spinner" style={{ width: 14, height: 14 }} /> : 'Hinzufügen'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
     </div>
   )
 }
@@ -2087,7 +1953,7 @@ const CONTENT_TABS = [
   { key: 'apikeys',       label: 'API Keys' },
 ]
 
-export function UnraidPage() {
+export function UnraidPage({ onNavigate }: { onNavigate?: (page: string) => void } = {}) {
   const { instances, selectedId, online, loadInstances, setSelected, pingAll } = useUnraidStore()
   const [instTab, setInstTab] = useState<string>('') // selected instance id or 'management'
   const [contentTab, setContentTab] = useState('overview')
@@ -2114,7 +1980,7 @@ export function UnraidPage() {
     return (
       <div>
         <h2 style={{ margin: '0 0 var(--spacing-lg)', fontFamily: 'var(--font-display)' }}>Unraid</h2>
-        <SetupScreen />
+        <SetupScreen onNavigate={onNavigate} />
       </div>
     )
   }

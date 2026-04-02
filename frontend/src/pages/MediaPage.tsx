@@ -2,30 +2,21 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../api'
 import { useStore } from '../store/useStore'
 import { useArrStore } from '../store/useArrStore'
-import { useConfirm } from '../components/ConfirmDialog'
 import { useTmdbStore } from '../store/useTmdbStore'
-import { useDashboardStore } from '../store/useDashboardStore'
 import { useRecyclarrStore } from '../store/useRecyclarrStore'
-import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
-import type { DragEndEvent } from '@dnd-kit/core'
-import { SortableContext, rectSortingStrategy, useSortable } from '@dnd-kit/sortable'
-import { arrayMove } from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
-import { Pencil, Trash2, Check, X, RefreshCw, GripVertical, LayoutGrid, CalendarDays, Search, Compass, Database, AlertTriangle, Sliders, Plus, ChevronDown, ChevronRight, Clock, Shield, Download, Copy, Upload, BookOpen } from 'lucide-react'
+import { Pencil, Trash2, Check, X, LayoutGrid, CalendarDays, Search, Compass, Database, AlertTriangle, Sliders, Plus, ChevronDown, ChevronRight, Clock, Shield, Download, Copy, Upload, BookOpen } from 'lucide-react'
 import type { ArrInstance, ArrCalendarItem, RadarrCalendarItem, SonarrCalendarItem, ProwlarrStats, ArrCFSpecification, ArrCustomFormat, ArrCFSchema, ArrCFSchemaField, RadarrMovie, SonarrSeries } from '../types/arr'
 import type { UserCfFile, UserCfSpecification } from '../types/recyclarr'
 import type { TmdbResult, TmdbFilters, TmdbDiscoverFilters } from '../types/tmdb'
-import { ArrCardContent, SabnzbdCardContent, SeerrCardContent } from '../components/MediaCard'
 import { LS_RECYCLARR_GROUPS_COLLAPSED } from '../constants'
 // ── Tab type ──────────────────────────────────────────────────────────────────
 
-type MediaTab = 'instances' | 'library' | 'calendar' | 'indexers' | 'discover' | 'recyclarr' | 'cf-manager'
+type MediaTab = 'library' | 'calendar' | 'indexers' | 'discover' | 'recyclarr' | 'cf-manager'
 
 // ── Tab bar ───────────────────────────────────────────────────────────────────
 
 function TabBar({ active, onChange }: { active: MediaTab; onChange: (t: MediaTab) => void }) {
   const tabs: { id: MediaTab; label: string; icon: React.ReactNode }[] = [
-    { id: 'instances',  label: 'Instances',  icon: <LayoutGrid size={13} /> },
     { id: 'library',    label: 'Library',    icon: <Database size={13} /> },
     { id: 'calendar',   label: 'Calendar',   icon: <CalendarDays size={13} /> },
     { id: 'indexers',   label: 'Indexers',   icon: <Search size={13} /> },
@@ -56,271 +47,6 @@ function TabBar({ active, onChange }: { active: MediaTab; onChange: (t: MediaTab
           {t.label}
         </button>
       ))}
-    </div>
-  )
-}
-
-// ── Sortable card wrapper ─────────────────────────────────────────────────────
-
-function SortableInstanceCard({
-  instance,
-  isAdmin,
-  isEditing,
-  onEdit,
-  onDelete,
-}: {
-  instance: ArrInstance
-  isAdmin: boolean
-  isEditing: boolean
-  onEdit: () => void
-  onDelete: () => void
-}) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: instance.id })
-  const [hovered, setHovered] = useState(false)
-
-  return (
-    <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }}>
-      <div
-        className="glass"
-        style={{ borderRadius: 'var(--radius-xl)', padding: 20, display: 'flex', flexDirection: 'column', gap: 14, position: 'relative' }}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-      >
-        {isAdmin && (
-          <div
-            {...attributes}
-            {...listeners}
-            style={{
-              position: 'absolute', top: 12, left: 12, cursor: 'grab', padding: 4,
-              opacity: hovered ? 0.5 : 0, transition: 'opacity 150ms ease', color: 'var(--text-muted)', zIndex: 1,
-            }}
-          >
-            <GripVertical size={14} />
-          </div>
-        )}
-
-        <div style={{ paddingLeft: isAdmin ? 16 : 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {instance.type === 'sabnzbd'
-            ? <SabnzbdCardContent instance={instance} />
-            : instance.type === 'seerr'
-              ? <SeerrCardContent instance={instance} />
-              : <ArrCardContent instance={instance} />
-          }
-        </div>
-
-        {isAdmin && !isEditing && (
-          <div style={{
-            position: 'absolute', bottom: 12, right: 12, display: 'flex', gap: 4,
-            opacity: hovered ? 1 : 0, transition: 'opacity 150ms ease',
-          }}>
-            <button className="btn btn-ghost btn-icon btn-sm" onClick={onEdit} style={{ width: 26, height: 26, padding: 4 }}>
-              <Pencil size={11} />
-            </button>
-            <button className="btn btn-danger btn-icon btn-sm" onClick={onDelete} style={{ width: 26, height: 26, padding: 4 }}>
-              <Trash2 size={11} />
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// ── Instance edit form ────────────────────────────────────────────────────────
-
-function InstanceForm({
-  initial,
-  onSave,
-  onCancel,
-}: {
-  initial?: Partial<ArrInstance> & { api_key?: string }
-  onSave: (data: { type: string; name: string; url: string; api_key: string; showOnDashboard: boolean }) => Promise<void>
-  onCancel: () => void
-}) {
-  const { isOnDashboard } = useDashboardStore()
-  const [type, setType] = useState(initial?.type ?? 'radarr')
-  const [name, setName] = useState(initial?.name ?? '')
-  const [url, setUrl] = useState(initial?.url ?? '')
-  const [apiKey, setApiKey] = useState('')
-  const [showOnDashboard, setShowOnDashboard] = useState(
-    initial?.id ? isOnDashboard('arr_instance', initial.id) : false
-  )
-  const [error, setError] = useState('')
-  const [saving, setSaving] = useState(false)
-
-  const handleSave = async () => {
-    setError('')
-    if (!name.trim()) return setError('Name required')
-    if (!url.trim()) return setError('URL required')
-    if (!apiKey.trim() && !initial?.id) return setError('API Key required')
-    setSaving(true)
-    try {
-      await onSave({ type, name: name.trim(), url: url.trim(), api_key: apiKey.trim(), showOnDashboard })
-    } catch (e: unknown) {
-      setError((e as Error).message)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <div className="glass" style={{ padding: 16, borderRadius: 'var(--radius-xl)', display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <select className="form-input" value={type} onChange={e => setType(e.target.value)} style={{ fontSize: 13, padding: '5px 8px', flexShrink: 0 }} disabled={!!initial?.id}>
-          <option value="radarr">Radarr</option>
-          <option value="sonarr">Sonarr</option>
-          <option value="prowlarr">Prowlarr</option>
-          <option value="sabnzbd">SABnzbd</option>
-          <option value="seerr">Seerr</option>
-        </select>
-        <input className="form-input" placeholder="Name *" value={name} onChange={e => setName(e.target.value)} style={{ flex: 1, minWidth: 100 }} />
-      </div>
-      <input className="form-input" placeholder="URL (e.g. http://192.168.1.100:7878) *" value={url} onChange={e => setUrl(e.target.value)} />
-      <input className="form-input" type="password" placeholder={initial?.id ? 'API Key (leave empty to keep)' : 'API Key *'} value={apiKey} onChange={e => setApiKey(e.target.value)} />
-      <label className="form-toggle">
-        <input type="checkbox" checked={showOnDashboard} onChange={e => setShowOnDashboard(e.target.checked)} />
-        <span className="form-label" style={{ margin: 0, fontSize: 13 }}>Show on Dashboard</span>
-      </label>
-      {error && <div style={{ fontSize: 12, color: 'var(--status-offline)' }}>{error}</div>}
-      <div style={{ display: 'flex', gap: 6 }}>
-        <button className="btn btn-primary btn-sm" onClick={handleSave} disabled={saving} style={{ fontSize: 12, gap: 4 }}>
-          <Check size={12} /> {saving ? 'Saving…' : 'Save'}
-        </button>
-        <button className="btn btn-ghost btn-sm" onClick={onCancel} style={{ fontSize: 12, gap: 4 }}>
-          <X size={12} /> Cancel
-        </button>
-      </div>
-    </div>
-  )
-}
-
-// ── Instances tab ─────────────────────────────────────────────────────────────
-
-function InstancesTab({ showAddForm: showFromParent, onFormClose }: { showAddForm?: boolean; onFormClose?: () => void }) {
-  const { isAdmin } = useStore()
-  const { instances, loadInstances, loadAllStats, loadSabQueue, createInstance, updateInstance, deleteInstance, reorderInstances } = useArrStore()
-  const { addArrInstance, removeByRef, isOnDashboard, getDashboardItemId, removeItem } = useDashboardStore()
-  const { confirm: confirmDlg } = useConfirm()
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [showAddForm, setShowAddForm] = useState(false)
-  const [refreshing, setRefreshing] = useState(false)
-
-  useEffect(() => {
-    if (showFromParent) {
-      setShowAddForm(true)
-      onFormClose?.()
-    }
-  }, [showFromParent])
-
-  useEffect(() => {
-    loadInstances().then(() => loadAllStats()).catch(() => {})
-  }, [])
-
-  const sabIds = instances.filter(i => i.type === 'sabnzbd' && i.enabled).map(i => i.id).join(',')
-
-  useEffect(() => {
-    if (!sabIds) return
-    const ids = sabIds.split(',')
-    ids.forEach(id => loadSabQueue(id).catch(() => {}))
-    const interval = setInterval(() => ids.forEach(id => loadSabQueue(id).catch(() => {})), 2000)
-    return () => clearInterval(interval)
-  }, [sabIds])
-
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
-  const sorted = [...instances].sort((a, b) => a.position - b.position)
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event
-    if (!over || active.id === over.id) return
-    const oldIndex = sorted.findIndex(i => i.id === active.id)
-    const newIndex = sorted.findIndex(i => i.id === over.id)
-    if (oldIndex === -1 || newIndex === -1) return
-    const reordered = arrayMove(sorted, oldIndex, newIndex)
-    reorderInstances(reordered.map(i => i.id))
-  }
-
-  const handleRefresh = async () => {
-    setRefreshing(true)
-    await loadAllStats().catch(() => {})
-    setRefreshing(false)
-  }
-
-  const handleCreate = async (data: { type: string; name: string; url: string; api_key: string; showOnDashboard: boolean }) => {
-    const newId = await createInstance({ type: data.type, name: data.name, url: data.url, api_key: data.api_key, position: instances.length })
-    if (data.showOnDashboard) await addArrInstance(newId).catch(() => {})
-    setShowAddForm(false)
-    await loadAllStats()
-  }
-
-  const handleUpdate = async (id: string, data: { type: string; name: string; url: string; api_key: string; showOnDashboard: boolean }) => {
-    await updateInstance(id, { name: data.name, url: data.url, ...(data.api_key ? { api_key: data.api_key } : {}) })
-    const wasOnDashboard = isOnDashboard('arr_instance', id)
-    if (data.showOnDashboard && !wasOnDashboard) {
-      await addArrInstance(id).catch(() => {})
-    } else if (!data.showOnDashboard && wasOnDashboard) {
-      const itemId = getDashboardItemId('arr_instance', id)
-      if (itemId) await removeItem(itemId).catch(() => {})
-      else await removeByRef('arr_instance', id).catch(() => {})
-    }
-    setEditingId(null)
-  }
-
-  const handleDeleteInstance = async (name: string, id: string) => {
-    const ok = await confirmDlg({ title: `Delete "${name}"?`, danger: true, confirmLabel: 'Delete' })
-    if (ok) deleteInstance(id)
-  }
-
-  if (instances.length === 0 && !isAdmin) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
-        <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No media instances configured.</p>
-      </div>
-    )
-  }
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <h3 style={{ fontSize: 15, fontWeight: 600, flex: 1 }}>Instances</h3>
-        <button className="btn btn-ghost btn-icon" data-tooltip="Refresh stats" onClick={handleRefresh} disabled={refreshing}>
-          {refreshing
-            ? <div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
-            : <RefreshCw size={16} />
-          }
-        </button>
-      </div>
-
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <SortableContext items={sorted.map(i => i.id)} strategy={rectSortingStrategy}>
-          <div className="card-grid" style={{ gap: 14 }}>
-            {sorted.map(inst => (
-              editingId === inst.id
-                ? (
-                  <InstanceForm
-                    key={inst.id}
-                    initial={inst}
-                    onSave={(data) => handleUpdate(inst.id, data)}
-                    onCancel={() => setEditingId(null)}
-                  />
-                )
-                : (
-                  <SortableInstanceCard
-                    key={inst.id}
-                    instance={inst}
-                    isAdmin={isAdmin}
-                    isEditing={editingId === inst.id}
-                    onEdit={() => setEditingId(inst.id)}
-                    onDelete={() => handleDeleteInstance(inst.name, inst.id)}
-                  />
-                )
-            ))}
-          </div>
-        </SortableContext>
-      </DndContext>
-
-      {isAdmin && showAddForm && (
-        <InstanceForm onSave={handleCreate} onCancel={() => setShowAddForm(false)} />
-      )}
     </div>
   )
 }
@@ -5181,21 +4907,12 @@ function ComingSoonTab({ label }: { label: string }) {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 interface Props {
-  showAddForm?: boolean
-  onFormClose?: () => void
   onNavigate?: (page: string) => void
 }
 
-export function MediaPage({ showAddForm: showFromParent, onFormClose, onNavigate }: Props) {
+export function MediaPage({ onNavigate }: Props) {
   const { settings } = useStore()
-  const [activeTab, setActiveTab] = useState<MediaTab>('instances')
-
-  // When Topbar "Add Instance" fires, switch to Instances tab
-  useEffect(() => {
-    if (showFromParent) {
-      setActiveTab('instances')
-    }
-  }, [showFromParent])
+  const [activeTab, setActiveTab] = useState<MediaTab>('library')
 
   const hasTmdbKey = !!(settings?.tmdb_api_key)
 
@@ -5207,9 +4924,6 @@ export function MediaPage({ showAddForm: showFromParent, onFormClose, onNavigate
 
       <TabBar active={activeTab} onChange={setActiveTab} />
 
-      {activeTab === 'instances' && (
-        <InstancesTab showAddForm={showFromParent} onFormClose={onFormClose} />
-      )}
       {activeTab === 'library' && <LibraryTab />}
       {activeTab === 'calendar' && <CalendarTab />}
       {activeTab === 'indexers' && <IndexersTab />}

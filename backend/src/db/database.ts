@@ -171,6 +171,7 @@ function runMigrations(db: Database.Database, dataDir: string): number {
       SELECT id, type, name, url, json_object('api_key', api_key), enabled, position, created_at, updated_at FROM arr_instances`,
     `INSERT OR IGNORE INTO instances (id, type, name, url, config, enabled, position, created_at, updated_at)
       SELECT id, 'unraid', name, url, json_object('api_key', api_key), enabled, position, created_at, updated_at FROM unraid_instances`,
+    'ALTER TABLE instances ADD COLUMN icon_id TEXT REFERENCES icons(id)',
   ]
   for (const sql of migrations) {
     try {

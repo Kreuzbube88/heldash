@@ -566,9 +566,9 @@ export const api = {
 
   instances: {
     list: () => req<Instance[]>('/instances'),
-    create: (data: { type: InstanceType; name: string; url: string; token?: string; api_key?: string; enabled?: boolean }) =>
+    create: (data: { type: InstanceType; name: string; url: string; token?: string; api_key?: string; enabled?: boolean; icon_id?: string | null }) =>
       req<Instance>('/instances', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: string, data: { name?: string; url?: string; token?: string; api_key?: string; enabled?: boolean }) =>
+    update: (id: string, data: { name?: string; url?: string; token?: string; api_key?: string; enabled?: boolean; icon_id?: string | null }) =>
       req<Instance>(`/instances/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     delete: (id: string) => req<void>(`/instances/${id}`, { method: 'DELETE' }),
     test: (id: string) => req<{ ok: boolean; error?: string }>(`/instances/${id}/test`, { method: 'POST', body: JSON.stringify({}) }),

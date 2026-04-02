@@ -7,7 +7,7 @@ import {
   SortableContext, rectSortingStrategy,
 } from '@dnd-kit/sortable'
 import {
-  Plus, Trash2, Pencil, X, Check, Loader, TestTube2,
+  Plus, Trash2, Pencil, X, Check, Loader,
   Search, ChevronDown, ChevronRight, Home, Sun, Zap, ZapOff, Flame, BatteryCharging, Settings, Bell, Play, ToggleLeft, ToggleRight,
 } from 'lucide-react'
 
@@ -71,221 +71,6 @@ function domainToTab(domain: string): BrowserTab {
     case 'alarm_control_panel': return 'Alarme'
     default: return 'Other'
   }
-}
-
-// ── Instance Form Modal ───────────────────────────────────────────────────────
-
-interface InstanceFormProps {
-  instance?: HaInstance | null
-  onClose: () => void
-  onSaved: () => void
-}
-
-function InstanceFormModal({ instance, onClose, onSaved }: InstanceFormProps) {
-  const { createInstance, updateInstance } = useHaStore()
-  const [name, setName] = useState(instance?.name ?? '')
-  const [url, setUrl] = useState(instance?.url ?? '')
-  const [token, setToken] = useState('')
-  const [enabled, setEnabled] = useState(instance?.enabled ?? true)
-  const [error, setError] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [testResult, setTestResult] = useState<{ ok: boolean; error?: string } | null>(null)
-  const [testing, setTesting] = useState(false)
-  const isEdit = !!instance
-
-  const handleTest = async () => {
-    if (!instance) return
-    setTesting(true)
-    setTestResult(null)
-    try {
-      const res = await api.ha.instances.test(instance.id)
-      setTestResult(res)
-    } catch {
-      setTestResult({ ok: false, error: 'Request failed' })
-    } finally {
-      setTesting(false)
-    }
-  }
-
-  const handleSave = async () => {
-    if (!name.trim()) return setError('Name is required')
-    if (!url.trim()) return setError('URL is required')
-    if (!isEdit && !token.trim()) return setError('Token is required')
-    setSaving(true)
-    setError('')
-    try {
-      if (isEdit) {
-        const data: Record<string, unknown> = { name, url, enabled }
-        if (token.trim()) data.token = token.trim()
-        await updateInstance(instance.id, data as Parameters<typeof updateInstance>[1])
-      } else {
-        await createInstance({ name, url, token, enabled })
-      }
-      onSaved()
-      onClose()
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Save failed')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div
-        className="glass"
-        onClick={e => e.stopPropagation()}
-        style={{
-          width: '100%', maxWidth: 480,
-          borderRadius: 'var(--radius-xl)',
-          padding: '40px 40px 36px',
-          animation: 'slide-up var(--transition-base)',
-          position: 'relative',
-        }}
-      >
-        <button className="btn btn-ghost btn-icon" onClick={onClose} style={{ position: 'absolute', top: 16, right: 16 }}>
-          <X size={16} />
-        </button>
-
-        <h2 style={{ fontSize: 22, fontWeight: 600, marginBottom: 6, color: 'var(--text-primary)' }}>
-          {isEdit ? 'Edit Instance' : 'Add HA Instance'}
-        </h2>
-        <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 28 }}>
-          {isEdit ? 'Update your Home Assistant instance settings.' : 'Connect a Home Assistant instance to your dashboard.'}
-        </p>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label">Name</label>
-            <input className="form-input" value={name} onChange={e => setName(e.target.value)} placeholder="Home Assistant" style={{ fontSize: 14, padding: '10px 12px' }} />
-          </div>
-
-          <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label">URL</label>
-            <input className="form-input" value={url} onChange={e => setUrl(e.target.value)} placeholder="http://homeassistant.local:8123" style={{ fontSize: 14, padding: '10px 12px' }} />
-          </div>
-
-          <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label">
-              Long-Lived Access Token{' '}
-              {isEdit && <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(leave blank to keep existing)</span>}
-            </label>
-            <input
-              className="form-input"
-              type="password"
-              value={token}
-              onChange={e => setToken(e.target.value)}
-              placeholder={isEdit ? '••••••••••••• (unchanged)' : 'HA long-lived access token'}
-              style={{ fontSize: 14, padding: '10px 12px' }}
-            />
-          </div>
-
-          <label className="form-toggle" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <input type="checkbox" checked={enabled} onChange={e => setEnabled(e.target.checked)} />
-            <span className="form-label" style={{ marginBottom: 0, cursor: 'pointer' }}>Enabled</span>
-          </label>
-
-          {isEdit && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <button className="btn btn-ghost" onClick={handleTest} disabled={testing} style={{ gap: 6 }}>
-                <TestTube2 size={14} />
-                {testing ? 'Testing…' : 'Test Connection'}
-              </button>
-              {testResult && (
-                <span style={{ fontSize: 12, color: testResult.ok ? 'var(--status-online)' : 'var(--status-offline)' }}>
-                  {testResult.ok ? '● Connected' : `● ${testResult.error ?? 'Failed'}`}
-                </span>
-              )}
-            </div>
-          )}
-
-          {error && <div className="setup-error">{error}</div>}
-
-          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-            <button className="btn btn-ghost" onClick={onClose} style={{ flex: 1, justifyContent: 'center', padding: '11px 20px', fontSize: 14 }}>
-              Cancel
-            </button>
-            <button className="btn btn-primary" onClick={handleSave} disabled={saving} style={{ flex: 1, gap: 8, justifyContent: 'center', padding: '11px 20px', fontSize: 14 }}>
-              {saving
-                ? <><div className="spinner" style={{ width: 15, height: 15, borderWidth: 2 }} /> Saving…</>
-                : <><Check size={15} /> {isEdit ? 'Save Changes' : 'Add Instance'}</>
-              }
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ── Manage Instances Modal ─────────────────────────────────────────────────────
-
-interface ManageInstancesModalProps {
-  instances: HaInstance[]
-  onClose: () => void
-  onAdd: () => void
-  onEdit: (inst: HaInstance) => void
-  onDelete: (id: string) => void
-}
-
-function ManageInstancesModal({ instances, onClose, onAdd, onEdit, onDelete }: ManageInstancesModalProps) {
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div
-        className="glass"
-        onClick={e => e.stopPropagation()}
-        style={{
-          width: '100%', maxWidth: 480,
-          borderRadius: 'var(--radius-xl)',
-          padding: '32px',
-          animation: 'slide-up var(--transition-base)',
-          position: 'relative',
-        }}
-      >
-        <button className="btn btn-ghost btn-icon" onClick={onClose} style={{ position: 'absolute', top: 16, right: 16 }}>
-          <X size={16} />
-        </button>
-        <h2 style={{ fontSize: 20, fontWeight: 600, marginBottom: 20, color: 'var(--text-primary)' }}>
-          Manage Instances
-        </h2>
-
-        {instances.length === 0 ? (
-          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20 }}>No instances configured yet.</p>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
-            {instances.map(inst => (
-              <div
-                key={inst.id}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 12,
-                  padding: '10px 14px', borderRadius: 'var(--radius-md)',
-                  background: 'var(--surface-2)',
-                }}
-              >
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-primary)' }}>{inst.name}</div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{inst.url}</div>
-                </div>
-                <span style={{ fontSize: 11, fontWeight: 600, flexShrink: 0, color: inst.enabled ? 'var(--status-online)' : 'var(--text-muted)' }}>
-                  {inst.enabled ? '● on' : '● off'}
-                </span>
-                <button className="btn btn-ghost btn-icon" style={{ width: 28, height: 28 }} onClick={() => onEdit(inst)} data-tooltip="Edit">
-                  <Pencil size={13} />
-                </button>
-                <button className="btn btn-ghost btn-icon" style={{ width: 28, height: 28, color: 'var(--status-offline)' }} onClick={() => onDelete(inst.id)} data-tooltip="Delete">
-                  <Trash2 size={13} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <button className="btn btn-primary" onClick={onAdd} style={{ width: '100%', gap: 6, justifyContent: 'center' }}>
-          <Plus size={14} /> Add Instance
-        </button>
-      </div>
-    </div>
-  )
 }
 
 // ── Edit Panel Modal ──────────────────────────────────────────────────────────
@@ -1028,32 +813,20 @@ function RoomSection({ areaId, areaName, panels, stateMap, onRemove, onEdit, onR
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 interface HaPageProps {
-  showAddInstance?: boolean
-  onAddInstanceClose?: () => void
   showAddPanel?: boolean
   onAddPanelClose?: () => void
+  onNavigate?: (page: string) => void
 }
 
-export function HaPage({ showAddInstance, onAddInstanceClose, showAddPanel, onAddPanelClose }: HaPageProps = {}) {
+export function HaPage({ showAddPanel, onAddPanelClose, onNavigate }: HaPageProps = {}) {
   const {
     instances, panels, stateMap, areas,
     loadInstances, loadPanels, loadStates, updateEntityState, loadAreas,
     addPanel, updatePanel, removePanel, reorderPanels, reorderRoomPanels,
-    deleteInstance,
   } = useHaStore()
   const { isAdmin } = useStore()
 
-  const [showInstanceForm, setShowInstanceForm] = useState(false)
-  const [editInstance, setEditInstance] = useState<HaInstance | null>(null)
   const [showBrowser, setShowBrowser] = useState(false)
-
-  // Sync external add-instance trigger
-  useEffect(() => {
-    if (showAddInstance) {
-      setShowInstanceForm(true)
-      onAddInstanceClose?.()
-    }
-  }, [showAddInstance])
 
   // Sync external add-panel trigger (open browser to add panel)
   useEffect(() => {
@@ -1064,7 +837,6 @@ export function HaPage({ showAddInstance, onAddInstanceClose, showAddPanel, onAd
   }, [showAddPanel])
   const [showEnergyPicker, setShowEnergyPicker] = useState(false)
   const [editPanel, setEditPanel] = useState<HaPanel | null>(null)
-  const [showManageModal, setShowManageModal] = useState(false)
   const [showAlerts, setShowAlerts] = useState(false)
   const [historyEntity, setHistoryEntity] = useState<HaEntityFull | null>(null)
   const [historyInstanceId, setHistoryInstanceId] = useState<string | null>(null)
@@ -1303,16 +1075,10 @@ export function HaPage({ showAddInstance, onAddInstanceClose, showAddPanel, onAd
             </>
           )}
           {isAdmin && (
-            <>
-              <button className="btn btn-ghost" onClick={() => setShowManageModal(true)} style={{ gap: 6 }}>
-                <Settings size={14} />
-                Manage
-              </button>
-              <button className="btn btn-primary" onClick={() => { setEditInstance(null); setShowInstanceForm(true) }} style={{ gap: 6 }}>
-                <Plus size={15} />
-                Add Instance
-              </button>
-            </>
+            <button className="btn btn-ghost" onClick={() => onNavigate?.('instances')} style={{ gap: 6 }}>
+              <Settings size={14} />
+              Instanzen
+            </button>
           )}
         </div>
       </div>
@@ -1538,8 +1304,8 @@ export function HaPage({ showAddInstance, onAddInstanceClose, showAddPanel, onAd
           {isAdmin ? (
             <>
               <p style={{ fontSize: 14, marginBottom: 12 }}>No Home Assistant instances configured.</p>
-              <button className="btn btn-primary" onClick={() => { setEditInstance(null); setShowInstanceForm(true) }} style={{ gap: 6 }}>
-                <Plus size={14} />Add Instance
+              <button className="btn btn-primary" onClick={() => onNavigate?.('instances')} style={{ gap: 6 }}>
+                <Plus size={14} />Instanz hinzufügen
               </button>
             </>
           ) : (
@@ -1661,14 +1427,6 @@ export function HaPage({ showAddInstance, onAddInstanceClose, showAddPanel, onAd
       )}
 
       {/* Modals */}
-      {showInstanceForm && (
-        <InstanceFormModal
-          instance={editInstance}
-          onClose={() => { setShowInstanceForm(false); setEditInstance(null) }}
-          onSaved={() => loadInstances().catch(() => {})}
-        />
-      )}
-
       {showBrowser && (
         <EntityBrowserModal
           instances={enabledInstances}
@@ -1691,16 +1449,6 @@ export function HaPage({ showAddInstance, onAddInstanceClose, showAddPanel, onAd
         <EditPanelModal
           panel={editPanel}
           onClose={() => setEditPanel(null)}
-        />
-      )}
-
-      {showManageModal && (
-        <ManageInstancesModal
-          instances={instances}
-          onClose={() => setShowManageModal(false)}
-          onAdd={() => { setShowManageModal(false); setEditInstance(null); setShowInstanceForm(true) }}
-          onEdit={inst => { setShowManageModal(false); setEditInstance(inst); setShowInstanceForm(true) }}
-          onDelete={id => deleteInstance(id)}
         />
       )}
 

@@ -17,6 +17,7 @@ interface InstanceRow {
   config: string  // JSON
   enabled: number
   position: number
+  icon_id: string | null
   created_at: string
   updated_at: string
 }
@@ -28,6 +29,7 @@ interface CreateInstanceBody {
   token?: string   // HA only
   api_key?: string // Arr / Unraid
   enabled?: boolean
+  icon_id?: string | null
 }
 
 interface PatchInstanceBody {
@@ -36,6 +38,7 @@ interface PatchInstanceBody {
   token?: string
   api_key?: string
   enabled?: boolean
+  icon_id?: string | null
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -48,6 +51,7 @@ function sanitize(r: InstanceRow) {
     url: r.url,
     enabled: r.enabled === 1,
     position: r.position,
+    icon_id: r.icon_id ?? null,
     created_at: r.created_at,
     updated_at: r.updated_at,
   }
@@ -180,11 +184,21 @@ export async function instancesRoutes(app: FastifyInstance) {
     if (HA_TYPES.includes(type)) config.token = req.body.token!.trim()
     else config.api_key = req.body.api_key!.trim()
 
-    db.prepare(`INSERT INTO instances (id, type, name, url, config, enabled, position)
-      VALUES (?, ?, ?, ?, ?, ?, ?)`)
-      .run(id, type, name.trim(), cleanUrl, JSON.stringify(config), enabledInt, position)
+    const iconId = req.body.icon_id ?? null
+
+    db.prepare(`INSERT INTO instances (id, type, name, url, config, enabled, position, icon_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+      .run(id, type, name.trim(), cleanUrl, JSON.stringify(config), enabledInt, position, iconId)
 
     syncToOldTable(db, id, type, name.trim(), cleanUrl, config, enabledInt, position)
+
+    // Auto-create service entry if URL is not already tracked
+    const existingSvc = db.prepare('SELECT id FROM services WHERE url = ?').get(cleanUrl) as { id: string } | undefined
+    if (!existingSvc) {
+      const svcId = nanoid()
+      db.prepare('INSERT INTO services (id, name, url, icon_id) VALUES (?, ?, ?, ?)')
+        .run(svcId, name.trim(), cleanUrl, iconId)
+    }
 
     if (HA_TYPES.includes(type) && enabled) {
       ensureHaWsPersistent(id, cleanUrl, config.token!)
@@ -209,6 +223,8 @@ export async function instancesRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: 'url must be a valid http or https URL' })
     }
     const enabled = req.body.enabled !== undefined ? (req.body.enabled ? 1 : 0) : row.enabled
+    const newIconId = req.body.icon_id !== undefined ? req.body.icon_id : (row.icon_id ?? null)
+    const urlChanged = req.body.url !== undefined && url !== row.url
 
     if (HA_TYPES.includes(row.type)) {
       config.token = req.body.token?.trim() || config.token
@@ -216,10 +232,20 @@ export async function instancesRoutes(app: FastifyInstance) {
       if (req.body.api_key?.trim()) config.api_key = req.body.api_key.trim()
     }
 
-    db.prepare(`UPDATE instances SET name=?, url=?, config=?, enabled=?, updated_at=datetime('now') WHERE id=?`)
-      .run(name, url, JSON.stringify(config), enabled, row.id)
+    db.prepare(`UPDATE instances SET name=?, url=?, config=?, enabled=?, icon_id=?, updated_at=datetime('now') WHERE id=?`)
+      .run(name, url, JSON.stringify(config), enabled, newIconId, row.id)
 
     syncToOldTable(db, row.id, row.type, name, url, config, enabled, row.position)
+
+    // Auto-create service entry if URL changed and new URL is not already tracked
+    if (urlChanged) {
+      const existingSvc = db.prepare('SELECT id FROM services WHERE url = ?').get(url) as { id: string } | undefined
+      if (!existingSvc) {
+        const svcId = nanoid()
+        db.prepare('INSERT INTO services (id, name, url, icon_id) VALUES (?, ?, ?, ?)')
+          .run(svcId, name, url, newIconId)
+      }
+    }
 
     if (HA_TYPES.includes(row.type)) {
       invalidateHaWsClient(row.id)

@@ -6,8 +6,8 @@ interface InstanceState {
   instances: Instance[]
   loading: boolean
   loadInstances: () => Promise<void>
-  createInstance: (data: { type: InstanceType; name: string; url: string; token?: string; api_key?: string; enabled?: boolean }) => Promise<Instance>
-  updateInstance: (id: string, data: { name?: string; url?: string; token?: string; api_key?: string; enabled?: boolean }) => Promise<void>
+  createInstance: (data: { type: InstanceType; name: string; url: string; token?: string; api_key?: string; enabled?: boolean; icon_id?: string | null }) => Promise<Instance>
+  updateInstance: (id: string, data: { name?: string; url?: string; token?: string; api_key?: string; enabled?: boolean; icon_id?: string | null }) => Promise<void>
   deleteInstance: (id: string) => Promise<void>
   testInstance: (id: string) => Promise<{ ok: boolean; error?: string }>
 }

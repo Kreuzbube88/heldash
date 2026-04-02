@@ -53,6 +53,31 @@ function InstanceModal({
   const [iconId, setIconId] = useState<string | null>(instance?.icon_id ?? null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { confirm } = useConfirm()
+
+  const hasChanges = () => {
+    if (instance) {
+      return name !== instance.name ||
+        url !== instance.url ||
+        enabled !== instance.enabled ||
+        iconId !== instance.icon_id ||
+        credential.trim() !== ''
+    }
+    return name.trim() !== '' || url.trim() !== '' || credential.trim() !== '' || iconId !== null
+  }
+
+  const handleClose = async () => {
+    if (hasChanges()) {
+      const ok = await confirm({
+        title: 'Änderungen verwerfen?',
+        message: 'Es gibt ungespeicherte Änderungen. Möchtest du wirklich abbrechen?',
+        confirmLabel: 'Verwerfen',
+        danger: true,
+      })
+      if (!ok) return
+    }
+    onClose()
+  }
 
   const handleSave = async () => {
     if (!name.trim()) return setError('Name ist erforderlich')
@@ -82,11 +107,11 @@ function InstanceModal({
   }
 
   return (
-    <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+    <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) void handleClose() }}>
       <div className="glass modal" style={{ width: '100%', maxWidth: 460, padding: 24, borderRadius: 'var(--radius-xl)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <h3 style={{ margin: 0, fontFamily: 'var(--font-display)' }}>{instance ? 'Instanz bearbeiten' : 'Instanz hinzufügen'}</h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={20} /></button>
+          <button onClick={() => void handleClose()} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={20} /></button>
         </div>
 
         {error && <div className="error-banner" style={{ marginBottom: 16 }}>{error}</div>}
@@ -129,11 +154,21 @@ function InstanceModal({
           <div>
             <label className="field-label">Icon (optional)</label>
             <IconPicker value={iconId} onChange={setIconId} size="medium" />
+            {iconId && (
+              <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <img
+                  src={getIconUrl({ icon_id: iconId })}
+                  alt="Selected icon"
+                  style={{ width: 32, height: 32, objectFit: 'contain', borderRadius: 6, background: 'var(--glass-bg)', padding: 4 }}
+                />
+                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Ausgewähltes Icon</span>
+              </div>
+            )}
           </div>
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
-          <button className="btn btn-ghost" onClick={onClose}>Abbrechen</button>
+          <button className="btn btn-ghost" onClick={() => void handleClose()}>Abbrechen</button>
           <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
             {saving ? 'Speichern...' : 'Speichern'}
           </button>

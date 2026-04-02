@@ -116,6 +116,7 @@ export interface CustomButtonConfig {
 }
 
 export interface HomeAssistantConfig {
+  instance_id?: string  // links widget to HA instance (auto-created widgets)
   url: string
   entities: { entity_id: string; label: string }[]
   // token intentionally omitted — never sent to frontend

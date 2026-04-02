@@ -2016,12 +2016,10 @@ export function UnraidPage({ onNavigate }: { onNavigate?: (page: string) => void
             </span>
           </button>
         ))}
-        <button style={tabStyle(instTab === 'management')} onClick={() => setInstTab('management')}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Settings2 size={14} /> Verwaltung</span>
+        <button style={tabStyle(false)} onClick={() => onNavigate?.('instances')}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Settings2 size={14} /> Instanzen</span>
         </button>
       </div>
-
-      {instTab === 'management' && <ManagementTab />}
 
       {activeInst && (
         <div>

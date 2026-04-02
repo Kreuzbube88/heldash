@@ -200,6 +200,13 @@ export async function instancesRoutes(app: FastifyInstance) {
         .run(svcId, name.trim(), cleanUrl, iconId)
     }
 
+    if (HA_TYPES.includes(type)) {
+      const widgetId = nanoid()
+      const wMax = db.prepare('SELECT MAX(position) as m FROM widgets').get() as { m: number | null }
+      db.prepare(`INSERT INTO widgets (id, type, name, config, position, show_in_topbar, display_location) VALUES (?, 'home_assistant', ?, ?, ?, 0, 'sidebar')`)
+        .run(widgetId, name.trim(), JSON.stringify({ instance_id: id, entities: [] }), (wMax.m ?? -1) + 1)
+    }
+
     if (HA_TYPES.includes(type) && enabled) {
       ensureHaWsPersistent(id, cleanUrl, config.token!)
     }
@@ -237,6 +244,11 @@ export async function instancesRoutes(app: FastifyInstance) {
 
     syncToOldTable(db, row.id, row.type, name, url, config, enabled, row.position)
 
+    if (HA_TYPES.includes(row.type) && req.body.name) {
+      db.prepare(`UPDATE widgets SET name = ? WHERE type = 'home_assistant' AND json_extract(config, '$.instance_id') = ?`)
+        .run(name, row.id)
+    }
+
     // Auto-create service entry if URL changed and new URL is not already tracked
     if (urlChanged) {
       const existingSvc = db.prepare('SELECT id FROM services WHERE url = ?').get(url) as { id: string } | undefined
@@ -263,6 +275,11 @@ export async function instancesRoutes(app: FastifyInstance) {
   }, async (req, reply) => {
     const row = db.prepare('SELECT * FROM instances WHERE id = ?').get(req.params.id) as InstanceRow | undefined
     if (!row) return reply.status(404).send({ error: 'Not found' })
+
+    if (HA_TYPES.includes(row.type)) {
+      db.prepare(`DELETE FROM widgets WHERE type = 'home_assistant' AND json_extract(config, '$.instance_id') = ?`)
+        .run(row.id)
+    }
 
     deleteFromOldTable(db, row.id, row.type)
     db.prepare('DELETE FROM instances WHERE id = ?').run(row.id)

@@ -1503,8 +1503,12 @@ function UpsTab({ instanceId }: { instanceId: string }) {
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 'var(--spacing-sm)' }}>
         <button className="btn" onClick={() => { loadUpsDevices(instanceId); loadUpsConfig(instanceId) }}><RefreshCw size={14} /></button>
       </div>
-      {devices.length === 0 && !err ? (
-        <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-muted)' }}>Keine UPS-Geräte gefunden</div>
+      {devices.length === 0 && !cfg && !err ? (
+        <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-muted)' }}>
+          <AlertTriangle size={32} style={{ marginBottom: 'var(--spacing-sm)', opacity: 0.4 }} />
+          <div style={{ fontWeight: 600, marginBottom: 4 }}>Keine USV konfiguriert</div>
+          <div style={{ fontSize: 12 }}>Es wurde keine unterbrechungsfreie Stromversorgung (USV) erkannt.</div>
+        </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
           {devices.map((d, i) => {

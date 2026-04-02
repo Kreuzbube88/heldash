@@ -838,7 +838,12 @@ export async function unraidRoutes(app: FastifyInstance) {
     try {
       return await unraidGql(row.url, row.api_key, `query { network { id accessUrls { type name ipv4 ipv6 } } }`)
     } catch (e) {
-      return reply.status(502).send({ error: (e as Error).message })
+      const msg = (e as Error).message
+      // Schema may not have `network` field — return empty gracefully
+      if (msg.includes('Cannot query field') || msg.includes('network')) {
+        return { network: null }
+      }
+      return reply.status(502).send({ error: msg })
     }
   })
 
@@ -874,7 +879,12 @@ export async function unraidRoutes(app: FastifyInstance) {
       }`) as { upsDevices?: unknown[] }
       return { upsDevices: data.upsDevices ?? [] }
     } catch (e) {
-      return reply.status(502).send({ error: (e as Error).message })
+      const msg = (e as Error).message
+      // No UPS configured — return empty instead of error
+      if (msg.includes('apcaccess') || msg.includes('No UPS') || msg.includes('UPS data') || msg.includes('upsDevices')) {
+        return { upsDevices: [] }
+      }
+      return reply.status(502).send({ error: msg })
     }
   })
 
@@ -888,7 +898,11 @@ export async function unraidRoutes(app: FastifyInstance) {
       }`) as { upsConfiguration?: unknown }
       return { upsConfiguration: data.upsConfiguration ?? null }
     } catch (e) {
-      return reply.status(502).send({ error: (e as Error).message })
+      const msg = (e as Error).message
+      if (msg.includes('apcaccess') || msg.includes('No UPS') || msg.includes('UPS data') || msg.includes('upsConfiguration')) {
+        return { upsConfiguration: null }
+      }
+      return reply.status(502).send({ error: msg })
     }
   })
 
@@ -918,11 +932,11 @@ export async function unraidRoutes(app: FastifyInstance) {
   })
 
   // GET /api/unraid/:id/logs/* (wildcard for log file path)
-  app.get<{ Params: { id: string; '*': string }; Querystring: { lines?: number } }>('/api/unraid/:id/logs/*', { onRequest: [app.authenticate] }, async (req, reply) => {
+  app.get<{ Params: { id: string; '*': string }; Querystring: { lines?: string } }>('/api/unraid/:id/logs/*', { onRequest: [app.authenticate] }, async (req, reply) => {
     const row = await getInstance(req.params.id, reply)
     if (!row) return
     const logPath = decodeURIComponent(req.params['*'])
-    const lines = req.query.lines
+    const lines = req.query.lines ? parseInt(req.query.lines, 10) : undefined
     try {
       const data = await unraidGql(row.url, row.api_key, `query($path: String!, $lines: Int) {
         logFile(path: $path, lines: $lines) { path content totalLines startLine }

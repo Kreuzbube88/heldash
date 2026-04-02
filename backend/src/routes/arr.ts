@@ -471,7 +471,7 @@ export async function arrRoutes(app: FastifyInstance) {
       const yesterday = new Date(now)
       yesterday.setDate(yesterday.getDate() - 1)
       const [indexers, indexerStats, health, indexerStatus] = await Promise.all([
-        client.getIndexers(),
+        client.getIndexers().catch(() => []),
         client.getIndexerStats(yesterday.toISOString(), now.toISOString()).catch(() => []),
         client.getHealth().catch(() => []),
         client.getIndexerStatus().catch(() => []),

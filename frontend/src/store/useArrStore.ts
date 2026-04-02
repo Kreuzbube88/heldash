@@ -89,16 +89,18 @@ export const useArrStore = create<ArrState>((set, get) => ({
     const { instances } = get()
     await Promise.allSettled(
       instances.filter(i => i.enabled).map(async (i) => {
-        try {
-          const [status, stats] = await Promise.all([
-            api.arr.status(i.id),
-            api.arr.stats(i.id),
-          ])
-          set(state => ({
-            statuses: { ...state.statuses, [i.id]: status },
-            stats: { ...state.stats, [i.id]: stats },
-          }))
-        } catch { /* keep previous state on error */ }
+        const [statusResult, statsResult] = await Promise.allSettled([
+          api.arr.status(i.id),
+          api.arr.stats(i.id),
+        ])
+        set(state => ({
+          statuses: statusResult.status === 'fulfilled'
+            ? { ...state.statuses, [i.id]: statusResult.value }
+            : state.statuses,
+          stats: statsResult.status === 'fulfilled'
+            ? { ...state.stats, [i.id]: statsResult.value }
+            : state.stats,
+        }))
       })
     )
   },

@@ -235,23 +235,22 @@ export function Topbar({ page, onAddService, onAddInstance, onAddWidget, onCheck
           if (w.type === 'weather') {
             const weather = stats[w.id] as WeatherStats | undefined
             if (!weather || weather.error) return null
-            const WEATHER_LABELS: Record<number, string> = {
-              0: 'Clear', 1: 'Mainly clear', 2: 'Partly cloudy', 3: 'Overcast',
-              45: 'Foggy', 48: 'Rime fog',
-              51: 'Light drizzle', 53: 'Drizzle', 55: 'Dense drizzle',
-              61: 'Slight rain', 63: 'Rain', 65: 'Heavy rain',
-              71: 'Slight snow', 73: 'Snow', 75: 'Heavy snow', 77: 'Snow grains',
-              80: 'Showers', 81: 'Mod. showers', 82: 'Heavy showers',
-              85: 'Snow showers', 86: 'Heavy snow showers',
-              95: 'Thunderstorm', 96: 'Thunderstorm', 99: 'Thunderstorm',
+            const WEATHER_ICONS: Record<number, string> = {
+              0: '☀️', 1: '🌤️', 2: '⛅', 3: '☁️',
+              45: '🌫️', 48: '🌫️',
+              51: '🌦️', 53: '🌦️', 55: '🌦️',
+              61: '🌧️', 63: '🌧️', 65: '🌧️',
+              71: '🌨️', 73: '🌨️', 75: '🌨️', 77: '🌨️',
+              80: '🌦️', 81: '🌦️', 82: '🌧️',
+              85: '🌨️', 86: '🌨️',
+              95: '⛈️', 96: '⛈️', 99: '⛈️',
             }
-            const desc = WEATHER_LABELS[weather.weather_code] ?? `Code ${weather.weather_code}`
+            const weatherIcon = WEATHER_ICONS[weather.weather_code] ?? '🌡️'
             return (
               <div key={w.id} style={pillStyle}>
                 {label(`${w.name}:`)}
+                <span style={{ fontSize: 14 }}>{weatherIcon}</span>
                 {val(`${weather.temperature}${weather.unit}`, 'var(--accent)')}
-                {sep}
-                {muted(desc)}
                 {sep}
                 {muted('Feels')} {val(`${weather.apparent_temperature}${weather.unit}`)}
                 {sep}

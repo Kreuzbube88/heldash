@@ -1267,22 +1267,40 @@ function WidgetCard({
 
 // ── Weather widget view ───────────────────────────────────────────────────────
 
-const WEATHER_CODES: Record<number, string> = {
-  0: 'Clear sky', 1: 'Mainly clear', 2: 'Partly cloudy', 3: 'Overcast',
-  45: 'Foggy', 48: 'Depositing rime fog',
-  51: 'Light drizzle', 53: 'Moderate drizzle', 55: 'Dense drizzle',
-  61: 'Slight rain', 63: 'Moderate rain', 65: 'Heavy rain',
-  71: 'Slight snow', 73: 'Moderate snow', 75: 'Heavy snow', 77: 'Snow grains',
-  80: 'Slight showers', 81: 'Moderate showers', 82: 'Violent showers',
-  85: 'Slight snow showers', 86: 'Heavy snow showers',
-  95: 'Thunderstorm', 96: 'Thunderstorm w/ hail', 99: 'Thunderstorm w/ hail',
+const WEATHER_CODES: Record<number, { desc: string; icon: string }> = {
+  0: { desc: 'Clear sky', icon: '☀️' },
+  1: { desc: 'Mainly clear', icon: '🌤️' },
+  2: { desc: 'Partly cloudy', icon: '⛅' },
+  3: { desc: 'Overcast', icon: '☁️' },
+  45: { desc: 'Foggy', icon: '🌫️' },
+  48: { desc: 'Depositing rime fog', icon: '🌫️' },
+  51: { desc: 'Light drizzle', icon: '🌦️' },
+  53: { desc: 'Moderate drizzle', icon: '🌦️' },
+  55: { desc: 'Dense drizzle', icon: '🌦️' },
+  61: { desc: 'Slight rain', icon: '🌧️' },
+  63: { desc: 'Moderate rain', icon: '🌧️' },
+  65: { desc: 'Heavy rain', icon: '🌧️' },
+  71: { desc: 'Slight snow', icon: '🌨️' },
+  73: { desc: 'Moderate snow', icon: '🌨️' },
+  75: { desc: 'Heavy snow', icon: '🌨️' },
+  77: { desc: 'Snow grains', icon: '🌨️' },
+  80: { desc: 'Slight showers', icon: '🌦️' },
+  81: { desc: 'Moderate showers', icon: '🌦️' },
+  82: { desc: 'Violent showers', icon: '🌧️' },
+  85: { desc: 'Slight snow showers', icon: '🌨️' },
+  86: { desc: 'Heavy snow showers', icon: '🌨️' },
+  95: { desc: 'Thunderstorm', icon: '⛈️' },
+  96: { desc: 'Thunderstorm w/ hail', icon: '⛈️' },
+  99: { desc: 'Thunderstorm w/ hail', icon: '⛈️' },
 }
 
 export function WeatherWidgetView({ stats, config }: { stats: WeatherStats; config: WeatherWidgetConfig }) {
   if (stats.error) {
     return <div style={{ fontSize: 12, color: 'var(--status-offline)' }}>{stats.error}</div>
   }
-  const desc = WEATHER_CODES[stats.weather_code] ?? `Code ${stats.weather_code}`
+  const weather = WEATHER_CODES[stats.weather_code]
+  const desc = weather?.desc ?? `Code ${stats.weather_code}`
+  const icon = weather?.icon ?? '🌡️'
   const locationLabel = config.location_name || null
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -1292,11 +1310,14 @@ export function WeatherWidgetView({ stats, config }: { stats: WeatherStats; conf
           {locationLabel}
         </div>
       )}
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
-        <span style={{ fontSize: 36, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--accent)', lineHeight: 1 }}>
-          {stats.temperature}{stats.unit}
-        </span>
-        <span style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>{desc}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{ fontSize: 40, lineHeight: 1, flexShrink: 0 }}>{icon}</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <span style={{ fontSize: 32, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--accent)', lineHeight: 1 }}>
+            {stats.temperature}{stats.unit}
+          </span>
+          <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{desc}</span>
+        </div>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, fontSize: 12 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>

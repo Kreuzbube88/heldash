@@ -318,8 +318,19 @@ function SidebarWidget({ widget }: { widget: Widget }) {
     if (w.error) {
       body = <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>{w.error}</span>
     } else {
+      const SIDEBAR_WEATHER_ICONS: Record<number, string> = {
+        0: '☀️', 1: '🌤️', 2: '⛅', 3: '☁️',
+        45: '🌫️', 48: '🌫️',
+        51: '🌦️', 53: '🌦️', 55: '🌦️',
+        61: '🌧️', 63: '🌧️', 65: '🌧️',
+        71: '🌨️', 73: '🌨️', 75: '🌨️', 77: '🌨️',
+        80: '🌦️', 81: '🌦️', 82: '🌧️',
+        85: '🌨️', 86: '🌨️',
+        95: '⛈️', 96: '⛈️', 99: '⛈️',
+      }
+      const wIcon = SIDEBAR_WEATHER_ICONS[w.weather_code] ?? '🌡️'
       body = <>
-        {row('Temp', `${w.temperature}${w.unit}`, 'var(--accent)')}
+        {row('Temp', `${wIcon} ${w.temperature}${w.unit}`, 'var(--accent)')}
         {row('Feels', `${w.apparent_temperature}${w.unit}`)}
         {row('Humid', `${w.humidity}%`)}
         {row('Wind', `${w.wind_speed} km/h`)}

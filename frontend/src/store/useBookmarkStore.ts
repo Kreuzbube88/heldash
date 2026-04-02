@@ -7,7 +7,7 @@ interface BookmarkState {
   loading: boolean
   loadBookmarks: () => Promise<void>
   createBookmark: (name: string, url: string, description?: string) => Promise<Bookmark>
-  updateBookmark: (id: string, data: { name?: string; url?: string; description?: string }) => Promise<void>
+  updateBookmark: (id: string, data: { name?: string; url?: string; description?: string; icon_id?: string | null }) => Promise<void>
   deleteBookmark: (id: string) => Promise<void>
   uploadIcon: (id: string, file: File) => Promise<void>
   toggleDashboard: (id: string, show: boolean) => Promise<void>

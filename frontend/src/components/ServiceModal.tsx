@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import type { Service } from '../types'
 import { useStore } from '../store/useStore'
 import { useDashboardStore } from '../store/useDashboardStore'
 import { api } from '../api'
-import { X, Upload } from 'lucide-react'
+import { X } from 'lucide-react'
+import { IconPicker } from './IconPicker'
 
 interface Props {
   service?: Service | null
@@ -22,18 +23,16 @@ const defaultForm = {
 }
 
 export function ServiceModal({ service, onClose }: Props) {
-  const { createService, updateService, uploadServiceIcon, groups } = useStore()
+  const { createService, updateService, groups } = useStore()
   const { isOnDashboard, getDashboardItemId, addService, removeItem, removeByRef } = useDashboardStore()
   const [form, setForm] = useState(defaultForm)
   const [showOnDashboard, setShowOnDashboard] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  // Icon upload state
-  const [iconFile, setIconFile] = useState<File | null>(null)
-  const [iconPreview, setIconPreview] = useState<string | null>(null)
-  const [clearIconUrl, setClearIconUrl] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  // Icon picker state
+  const [iconId, setIconId] = useState<string | null>(null)
+  const [iconChanged, setIconChanged] = useState(false)
 
   useEffect(() => {
     if (service) {
@@ -52,35 +51,11 @@ export function ServiceModal({ service, onClose }: Props) {
       setForm(defaultForm)
       setShowOnDashboard(false)
     }
-    setIconFile(null)
-    setIconPreview(null)
-    setClearIconUrl(false)
+    setIconId(null)
+    setIconChanged(false)
   }, [service])
 
   const set = (key: string, value: unknown) => setForm(f => ({ ...f, [key]: value }))
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    if (file.size > 512 * 1024) {
-      setError('Das Bild darf maximal 512 KB groß sein.')
-      return
-    }
-    setError('')
-    setIconFile(file)
-    setClearIconUrl(false)
-    const reader = new FileReader()
-    reader.onload = () => setIconPreview(reader.result as string)
-    reader.readAsDataURL(file)
-  }
-
-  const handleRemoveIcon = (e: React.MouseEvent) => {
-    e.preventDefault()
-    setIconFile(null)
-    setIconPreview(null)
-    setClearIconUrl(true)
-    if (fileInputRef.current) fileInputRef.current.value = ''
-  }
 
   const handleSubmit = async () => {
     if (!form.name.trim() || !form.url.trim()) {
@@ -90,16 +65,15 @@ export function ServiceModal({ service, onClose }: Props) {
     setSaving(true)
     setError('')
     try {
-      const data: typeof defaultForm & { icon_url?: string | null } = {
+      const data: typeof defaultForm & { icon_id?: string | null } = {
         ...form,
         icon: form.icon || null,
         description: form.description || null,
         group_id: form.group_id || null,
         check_url: form.check_url || null,
       }
-      // If user removed the image without replacing, clear icon_url in DB
-      if (clearIconUrl && !iconFile) {
-        data.icon_url = null
+      if (iconChanged) {
+        data.icon_id = iconId
       }
 
       let serviceId: string
@@ -108,10 +82,6 @@ export function ServiceModal({ service, onClose }: Props) {
         await updateService(service.id, data)
       } else {
         serviceId = await createService(data)
-      }
-
-      if (iconFile) {
-        await uploadServiceIcon(serviceId, iconFile)
       }
 
       // Sync dashboard membership
@@ -131,10 +101,6 @@ export function ServiceModal({ service, onClose }: Props) {
       setSaving(false)
     }
   }
-
-  // Which icon to show in the preview area
-  const existingIconUrl = service?.icon_url && !clearIconUrl && !iconPreview ? service.icon_url : null
-  const hasIcon = !!(iconPreview || existingIconUrl)
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -170,41 +136,14 @@ export function ServiceModal({ service, onClose }: Props) {
           </div>
         </div>
 
-        {/* Icon image upload */}
+        {/* Icon image */}
         <div className="form-group">
-          <label className="form-label">Icon Bild (PNG, JPG, SVG · max. 512 KB)</label>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            {hasIcon && (
-              <img
-                src={iconPreview ?? existingIconUrl!}
-                alt="Vorschau"
-                style={{
-                  width: 40, height: 40,
-                  objectFit: 'contain',
-                  borderRadius: 'var(--radius-sm)',
-                  border: '1px solid var(--glass-border)',
-                  background: 'var(--glass-bg)',
-                  flexShrink: 0,
-                }}
-              />
-            )}
-            <label className="btn btn-ghost btn-sm" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <Upload size={13} />
-              {hasIcon ? 'Ersetzen' : 'Bild hochladen'}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/png,image/jpeg,image/svg+xml"
-                style={{ display: 'none' }}
-                onChange={handleFileChange}
-              />
-            </label>
-            {hasIcon && (
-              <button className="btn btn-ghost btn-sm" onClick={handleRemoveIcon} style={{ color: 'var(--text-muted)' }}>
-                Entfernen
-              </button>
-            )}
-          </div>
+          <label className="form-label">Icon Bild</label>
+          <IconPicker
+            iconId={iconId}
+            iconUrl={(!iconChanged && service?.icon_url) ? service.icon_url : null}
+            onChange={id => { setIconId(id); setIconChanged(true) }}
+          />
           <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, display: 'block' }}>
             Bild hat Vorrang vor dem Emoji-Icon.
           </span>

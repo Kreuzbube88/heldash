@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
+import { IconPicker } from '../components/IconPicker'
 import { useConfirm } from '../components/ConfirmDialog'
 import { useWidgetStore } from '../store/useWidgetStore'
 import { useDockerStore } from '../store/useDockerStore'
@@ -6,7 +7,7 @@ import { useDashboardStore } from '../store/useDashboardStore'
 import { useStore } from '../store/useStore'
 import { useHaStore } from '../store/useHaStore'
 import { useArrStore } from '../store/useArrStore'
-import { Trash2, Pencil, X, Check, Plus, Minus, LayoutDashboard, Shield, ShieldOff, Upload, Container, Play, Square, RotateCcw, Zap, Sun, ZapOff, Flame, BatteryCharging, Calendar, Film, Tv, Cloud } from 'lucide-react'
+import { Trash2, Pencil, X, Check, Plus, Minus, LayoutDashboard, Shield, ShieldOff, Container, Play, Square, RotateCcw, Zap, Sun, ZapOff, Flame, BatteryCharging, Calendar, Film, Tv, Cloud } from 'lucide-react'
 import type { Widget, ServerStatusConfig, AdGuardHomeConfig, CustomButtonConfig, HomeAssistantConfig, NginxPMConfig, HomeAssistantEnergyConfig, ServerStats, AdGuardStats, HaEntityState, NpmStats, EnergyData, CalendarWidgetConfig, CalendarEntry, WeatherWidgetConfig, WeatherStats } from '../types'
 import { normalizeUrl, containerCounts } from '../utils'
 
@@ -497,7 +498,7 @@ function WidgetForm({
   onCancel,
 }: {
   initial?: Widget
-  onSave: (data: { name: string; type: string; config: object; display_location: 'topbar' | 'sidebar' | 'none'; iconData?: { data: string; contentType: string } | null }) => Promise<void>
+  onSave: (data: { name: string; type: string; config: object; display_location: 'topbar' | 'sidebar' | 'none'; iconId?: string | null; iconChanged?: boolean }) => Promise<void>
   onCancel: () => void
 }) {
   const isEdit = !!initial
@@ -566,22 +567,11 @@ function WidgetForm({
   const [weatherGeocoding, setWeatherGeocoding] = useState(false)
 
   // icon
-  const [pendingIcon, setPendingIcon] = useState<{ data: string; contentType: string; preview: string } | null>(null)
-  const iconInputRef = useRef<HTMLInputElement>(null)
+  const [iconId, setIconId] = useState<string | null>(initial?.icon_id ?? null)
+  const [iconChanged, setIconChanged] = useState(false)
 
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
-
-  const handleIconFile = (file: File) => {
-    const reader = new FileReader()
-    reader.onload = e => {
-      const dataUrl = e.target?.result as string
-      const [header, data] = dataUrl.split(',')
-      const contentType = header.split(':')[1].split(';')[0]
-      setPendingIcon({ data, contentType, preview: dataUrl })
-    }
-    reader.readAsDataURL(file)
-  }
 
   // Load HA instances when energy type is selected; ARR instances for calendar
   useEffect(() => {
@@ -677,7 +667,7 @@ function WidgetForm({
 
     setSaving(true)
     try {
-      await onSave({ name: name.trim(), type, config, display_location: displayLocation, iconData: pendingIcon ? { data: pendingIcon.data, contentType: pendingIcon.contentType } : null })
+      await onSave({ name: name.trim(), type, config, display_location: displayLocation, iconId, iconChanged })
     } catch (e: unknown) {
       setError((e as Error).message)
     } finally {
@@ -745,43 +735,14 @@ function WidgetForm({
           <div>
             <label className="form-label" style={{ fontSize: 11 }}>
               Icon
-              {type === 'adguard_home' && <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginLeft: 6 }}>(auto-matched from app URL, or upload custom)</span>}
+              {type === 'adguard_home' && <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginLeft: 6 }}>(auto-matched from app URL, or custom)</span>}
               {type === 'docker_overview' && <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginLeft: 6 }}>(custom icon, or leave blank for default)</span>}
             </label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              {(pendingIcon?.preview ?? (isEdit ? initial?.icon_url : null)) && (
-                <img
-                  src={pendingIcon?.preview ?? initial?.icon_url ?? ''}
-                  alt=""
-                  style={{ width: 36, height: 36, objectFit: 'contain', borderRadius: 6, border: '1px solid var(--glass-border)' }}
-                />
-              )}
-              <input
-                ref={iconInputRef}
-                type="file"
-                accept="image/png,image/jpeg,image/svg+xml"
-                style={{ display: 'none' }}
-                onChange={e => { const f = e.target.files?.[0]; if (f) handleIconFile(f) }}
-              />
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                onClick={() => iconInputRef.current?.click()}
-                style={{ gap: 4, fontSize: 12 }}
-              >
-                <Upload size={12} /> {pendingIcon || (isEdit && initial?.icon_url) ? 'Change Icon' : 'Upload Icon'}
-              </button>
-              {(pendingIcon || (isEdit && initial?.icon_url)) && (
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-sm"
-                  onClick={() => setPendingIcon(null)}
-                  style={{ fontSize: 12, color: 'var(--text-muted)' }}
-                >
-                  <X size={12} />
-                </button>
-              )}
-            </div>
+            <IconPicker
+              iconId={iconId}
+              iconUrl={(!iconChanged && (isEdit ? initial?.icon_url ?? null : null)) ?? null}
+              onChange={id => { setIconId(id); setIconChanged(true) }}
+            />
           </div>
         )}
 
@@ -1464,7 +1425,7 @@ interface Props {
 
 export function WidgetsPage({ showAddForm, onFormClose }: Props) {
   const { isAdmin } = useStore()
-  const { widgets, loadWidgets, loadStats, createWidget, updateWidget, deleteWidget, uploadWidgetIcon, startPollingAll, stopPollingAll } = useWidgetStore()
+  const { widgets, loadWidgets, loadStats, createWidget, updateWidget, deleteWidget, startPollingAll, stopPollingAll } = useWidgetStore()
   const { isOnDashboard, addWidget, removeByRef } = useDashboardStore()
   const { loadContainers: loadDockerContainers } = useDockerStore()
   const { confirm: confirmDlg } = useConfirm()
@@ -1487,17 +1448,17 @@ export function WidgetsPage({ showAddForm, onFormClose }: Props) {
     return () => stopPollingAll()
   }, [widgetIds])
 
-  const handleCreate = async (data: { name: string; type: string; config: object; display_location: 'topbar' | 'sidebar' | 'none'; iconData?: { data: string; contentType: string } | null }) => {
-    const { iconData, ...widgetData } = data
+  const handleCreate = async (data: { name: string; type: string; config: object; display_location: 'topbar' | 'sidebar' | 'none'; iconId?: string | null; iconChanged?: boolean }) => {
+    const { iconId, iconChanged, ...widgetData } = data
     const id = await createWidget({ ...widgetData, show_in_topbar: widgetData.display_location === 'topbar' })
-    if (iconData) await uploadWidgetIcon(id, iconData.data, iconData.contentType)
+    if (iconChanged) await updateWidget(id, { icon_id: iconId ?? null })
     onFormClose()
   }
 
-  const handleUpdate = async (id: string, data: { name: string; type: string; config: object; display_location: 'topbar' | 'sidebar' | 'none'; iconData?: { data: string; contentType: string } | null }) => {
-    const { iconData, ...widgetData } = data
+  const handleUpdate = async (id: string, data: { name: string; type: string; config: object; display_location: 'topbar' | 'sidebar' | 'none'; iconId?: string | null; iconChanged?: boolean }) => {
+    const { iconId, iconChanged, ...widgetData } = data
     await updateWidget(id, { ...widgetData, show_in_topbar: widgetData.display_location === 'topbar' })
-    if (iconData) await uploadWidgetIcon(id, iconData.data, iconData.contentType)
+    if (iconChanged) await updateWidget(id, { icon_id: iconId ?? null })
     setEditingId(null)
   }
 

@@ -37,6 +37,12 @@ export const api = {
     import: (services: Record<string, unknown>[]) => req<{ imported: number; skipped: number; total: number; errors?: string[] }>('/services/import', { method: 'POST', body: JSON.stringify({ services }) }),
   },
 
+  icons: {
+    search: (q: string) => req<{ icons: Array<{ name: string; base: string; preview_url: string; categories: string[] }> }>(`/icons/search?q=${encodeURIComponent(q)}`),
+    download: (name: string, format?: string) => req<{ id: string; name: string; mime_type: string }>('/icons/download', { method: 'POST', body: JSON.stringify({ name, format }) }),
+    upload: (data: string, contentType: string, name?: string) => req<{ id: string; name: string; mime_type: string }>('/icons/upload', { method: 'POST', body: JSON.stringify({ data, content_type: contentType, name }) }),
+  },
+
   groups: {
     list: () => req<Group[]>('/groups'),
     create: (data: Partial<Group>) => req<Group>('/groups', { method: 'POST', body: JSON.stringify(data) }),
@@ -196,7 +202,7 @@ export const api = {
     list: () => req<Widget[]>('/widgets'),
     create: (data: { type: string; name: string; config: object; show_in_topbar?: boolean }) =>
       req<Widget>('/widgets', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: string, data: Partial<{ name: string; config: object; show_in_topbar: boolean; position: number }>) =>
+    update: (id: string, data: Partial<{ name: string; config: object; show_in_topbar: boolean; position: number; icon_id: string | null }>) =>
       req<Widget>(`/widgets/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     delete: (id: string) => req<void>(`/widgets/${id}`, { method: 'DELETE' }),
     stats: (id: string) => req<WidgetStats>(`/widgets/${id}/stats`),
@@ -542,7 +548,7 @@ export const api = {
     list: () => req<import('./types').Bookmark[]>('/bookmarks'),
     create: (name: string, url: string, description?: string) =>
       req<import('./types').Bookmark>('/bookmarks', { method: 'POST', body: JSON.stringify({ name, url, description }) }),
-    update: (id: string, data: { name?: string; url?: string; description?: string }) =>
+    update: (id: string, data: { name?: string; url?: string; description?: string; icon_id?: string | null }) =>
       req<import('./types').Bookmark>(`/bookmarks/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     delete: (id: string) => req<void>(`/bookmarks/${id}`, { method: 'DELETE' }),
     uploadIcon: (id: string, data: string, content_type: string) =>

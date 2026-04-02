@@ -3,6 +3,7 @@ import { Plus, Pencil, Trash2, ExternalLink, Upload, X, Download, LayoutDashboar
 import { useBookmarkStore } from '../store/useBookmarkStore'
 import { useStore } from '../store/useStore'
 import { useConfirm } from '../components/ConfirmDialog'
+import { IconPicker } from '../components/IconPicker'
 import type { Bookmark } from '../types'
 
 // ── Bookmark modal (add/edit) ─────────────────────────────────────────────────
@@ -14,23 +15,15 @@ function BookmarkModal({
 }: {
   bookmark?: Bookmark | null
   onClose: () => void
-  onSave: (name: string, url: string, description: string, file?: File) => Promise<void>
+  onSave: (name: string, url: string, description: string, iconId?: string | null, iconChanged?: boolean) => Promise<void>
 }) {
   const [name, setName] = useState(bookmark?.name ?? '')
   const [url, setUrl] = useState(bookmark?.url ?? '')
   const [description, setDescription] = useState(bookmark?.description ?? '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [pendingFile, setPendingFile] = useState<File | null>(null)
-  const [preview, setPreview] = useState<string | null>(bookmark?.icon_url ?? null)
-  const fileRef = useRef<HTMLInputElement>(null)
-
-  const handleFile = (file: File) => {
-    setPendingFile(file)
-    const reader = new FileReader()
-    reader.onload = e => setPreview(e.target?.result as string)
-    reader.readAsDataURL(file)
-  }
+  const [iconId, setIconId] = useState<string | null>(bookmark?.icon_id ?? null)
+  const [iconChanged, setIconChanged] = useState(false)
 
   const handleSave = async () => {
     if (!name.trim()) return setError('Name is required')
@@ -38,7 +31,7 @@ function BookmarkModal({
     setSaving(true)
     setError(null)
     try {
-      await onSave(name.trim(), url.trim(), description.trim(), pendingFile ?? undefined)
+      await onSave(name.trim(), url.trim(), description.trim(), iconId, iconChanged)
       onClose()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Save failed')
@@ -72,15 +65,11 @@ function BookmarkModal({
           </div>
           <div>
             <label className="field-label">Icon</label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              {preview && (
-                <img src={preview} alt="" style={{ width: 36, height: 36, objectFit: 'contain', borderRadius: 6, border: '1px solid var(--glass-border)' }} />
-              )}
-              <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => fileRef.current?.click()} style={{ gap: 6 }}>
-                <Upload size={12} /> {preview ? 'Ändern' : 'Hochladen'}
-              </button>
-            </div>
+            <IconPicker
+              iconId={iconId}
+              iconUrl={(!iconChanged && bookmark?.icon_url) ? bookmark.icon_url : null}
+              onChange={id => { setIconId(id); setIconChanged(true) }}
+            />
           </div>
         </div>
 
@@ -162,7 +151,7 @@ function BookmarkCard({
 // ── BookmarksPage ─────────────────────────────────────────────────────────────
 
 export function BookmarksPage() {
-  const { bookmarks, loading, loadBookmarks, createBookmark, updateBookmark, deleteBookmark, uploadIcon, toggleDashboard, exportBookmarks, importBookmarks } = useBookmarkStore()
+  const { bookmarks, loading, loadBookmarks, createBookmark, updateBookmark, deleteBookmark, toggleDashboard, exportBookmarks, importBookmarks } = useBookmarkStore()
   const { isAdmin, isAuthenticated } = useStore()
   const { confirm } = useConfirm()
   const [showModal, setShowModal] = useState(false)
@@ -174,13 +163,19 @@ export function BookmarksPage() {
 
   useEffect(() => { loadBookmarks().catch(e => setError(e instanceof Error ? e.message : 'Fehler beim Laden')) }, [])
 
-  const handleSave = async (name: string, url: string, description: string, file?: File) => {
+  const handleSave = async (name: string, url: string, description: string, iconId?: string | null, iconChanged?: boolean) => {
     if (editBookmark) {
-      await updateBookmark(editBookmark.id, { name, url, description: description || undefined })
-      if (file) await uploadIcon(editBookmark.id, file)
+      await updateBookmark(editBookmark.id, {
+        name,
+        url,
+        description: description || undefined,
+        ...(iconChanged ? { icon_id: iconId ?? null } : {}),
+      })
     } else {
       const bm = await createBookmark(name, url, description || undefined)
-      if (file) await uploadIcon(bm.id, file)
+      if (iconChanged && iconId != null) {
+        await updateBookmark(bm.id, { icon_id: iconId })
+      }
     }
   }
 

@@ -5,6 +5,7 @@ export interface Service {
   url: string
   icon: string | null
   icon_url: string | null
+  icon_id: string | null
   description: string | null
   tags: string[] // parsed from JSON string
   position_x: number
@@ -174,6 +175,7 @@ export interface Bookmark {
   url: string
   description: string | null
   icon_url: string | null
+  icon_id: string | null
   position: number
   show_on_dashboard: number
   created_at: string
@@ -220,6 +222,7 @@ export interface Widget {
   show_in_topbar: boolean  // deprecated: use display_location
   display_location: 'topbar' | 'sidebar' | 'none'
   icon_url: string | null
+  icon_id: string | null
   created_at: string
   updated_at: string
 }

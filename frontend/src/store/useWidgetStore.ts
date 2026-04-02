@@ -26,7 +26,7 @@ interface WidgetState {
 
   loadWidgets: () => Promise<void>
   createWidget: (data: { type: string; name: string; config: object; show_in_topbar?: boolean; display_location?: string }) => Promise<string>
-  updateWidget: (id: string, data: Partial<{ name: string; config: object; show_in_topbar: boolean; display_location: string; position: number }>) => Promise<void>
+  updateWidget: (id: string, data: Partial<{ name: string; config: object; show_in_topbar: boolean; display_location: string; position: number; icon_id: string | null }>) => Promise<void>
   deleteWidget: (id: string) => Promise<void>
   uploadWidgetIcon: (id: string, data: string, contentType: string) => Promise<void>
   loadStats: (id: string) => Promise<void>

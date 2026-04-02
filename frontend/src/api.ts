@@ -575,3 +575,16 @@ export const api = {
     reorder: (ids: string[]) => req<{ ok: boolean }>('/instances/reorder', { method: 'POST', body: JSON.stringify({ ids }) }),
   },
 }
+
+export function getIconUrl(entity: {
+  icon_id?: string | null
+  icon_url?: string | null
+}): string | null {
+  if (entity.icon_id) {
+    return `/api/icons/${entity.icon_id}`
+  }
+  if (entity.icon_url) {
+    return entity.icon_url
+  }
+  return null
+}

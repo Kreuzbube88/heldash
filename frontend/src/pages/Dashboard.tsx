@@ -10,14 +10,15 @@ import { ArrCardContent, SabnzbdCardContent, SeerrCardContent } from '../compone
 import { AdGuardStatsView, DockerOverviewContent, HaStatsView, CustomButtonsView, StatBar, NginxPMStatsView, HaEnergyWidgetView, CalendarWidgetContent, WeatherWidgetView } from './WidgetsPage'
 import type { Service, DashboardItem, DashboardServiceItem, DashboardArrItem, DashboardPlaceholderItem, DashboardWidgetItem, DashboardGroup, ServerStats, AdGuardStats, NpmStats, HaEntityState, AdGuardHomeConfig, Widget, EnergyData, CalendarEntry, WeatherStats, WeatherWidgetConfig } from '../types'
 import { normalizeUrl } from '../utils'
-import { api } from '../api'
+import { api, getIconUrl } from '../api'
 
 function DashboardWidgetIcon({ widget }: { widget: DashboardWidgetItem['widget'] }) {
   const { services } = useStore()
 
   if (widget.type === 'docker_overview') {
-    if (widget.icon_url) {
-      return <img src={widget.icon_url} alt="" style={{ width: 32, height: 32, objectFit: 'contain', borderRadius: 6, flexShrink: 0 }} />
+    const url = getIconUrl(widget)
+    if (url) {
+      return <img src={url} alt="" style={{ width: 32, height: 32, objectFit: 'contain', borderRadius: 6, flexShrink: 0 }} />
     }
     return <Container size={26} style={{ color: 'var(--accent)', flexShrink: 0 }} />
   }
@@ -31,10 +32,10 @@ function DashboardWidgetIcon({ widget }: { widget: DashboardWidgetItem['widget']
     const match = widgetUrl
       ? services.find(s => normalizeUrl(s.url) === widgetUrl || (s.check_url && normalizeUrl(s.check_url) === widgetUrl))
       : undefined
-    iconUrl = match?.icon_url ?? widget.icon_url ?? null
+    iconUrl = (match ? getIconUrl(match) : null) ?? getIconUrl(widget)
     iconEmoji = match?.icon ?? null
   } else {
-    iconUrl = widget.icon_url ?? null
+    iconUrl = getIconUrl(widget)
   }
 
   if (iconUrl) return <img src={iconUrl} alt="" style={{ width: 32, height: 32, objectFit: 'contain', borderRadius: 6, flexShrink: 0 }} />
@@ -922,8 +923,8 @@ export function Dashboard({ onEdit }: Props) {
                 style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 'var(--radius-md)', textDecoration: 'none', color: 'inherit', transition: 'var(--transition-base)' }}
               >
                 <div style={{ width: 28, height: 28, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 6, background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', overflow: 'hidden' }}>
-                  {bm.icon_url
-                    ? <img src={bm.icon_url} alt="" style={{ width: 22, height: 22, objectFit: 'contain' }} />
+                  {getIconUrl(bm)
+                    ? <img src={getIconUrl(bm)!} alt="" style={{ width: 22, height: 22, objectFit: 'contain' }} />
                     : <Home size={14} style={{ color: 'var(--text-muted)' }} />
                   }
                 </div>

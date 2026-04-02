@@ -4,7 +4,7 @@ import { useStore } from '../store/useStore'
 import { useDashboardStore } from '../store/useDashboardStore'
 import { useConfirm } from '../components/ConfirmDialog'
 import { Pencil, Trash2, GripVertical, Download, Upload, LayoutDashboard, Shield, ShieldOff, BarChart2, List } from 'lucide-react'
-import { api } from '../api'
+import { api, getIconUrl } from '../api'
 import {
   DndContext,
   DragEndEvent,
@@ -194,8 +194,8 @@ function SortableGroupSection({
                 <td style={tdStyle}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <span style={{ fontSize: 20, lineHeight: 1 }}>
-                      {s.icon_url ? (
-                        <img src={s.icon_url} alt="" style={{ width: 22, height: 22, objectFit: 'contain', borderRadius: 4 }} />
+                      {getIconUrl(s) ? (
+                        <img src={getIconUrl(s)!} alt="" style={{ width: 22, height: 22, objectFit: 'contain', borderRadius: 4 }} />
                       ) : (
                         s.icon ?? '🔗'
                       )}

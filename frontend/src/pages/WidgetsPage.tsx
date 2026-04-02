@@ -10,6 +10,7 @@ import { useArrStore } from '../store/useArrStore'
 import { Trash2, Pencil, X, Check, Plus, Minus, LayoutDashboard, Shield, ShieldOff, Container, Play, Square, RotateCcw, Zap, Sun, ZapOff, Flame, BatteryCharging, Calendar, Film, Tv, Cloud } from 'lucide-react'
 import type { Widget, ServerStatusConfig, AdGuardHomeConfig, CustomButtonConfig, HomeAssistantConfig, NginxPMConfig, HomeAssistantEnergyConfig, ServerStats, AdGuardStats, HaEntityState, NpmStats, EnergyData, CalendarWidgetConfig, CalendarEntry, WeatherWidgetConfig, WeatherStats } from '../types'
 import { normalizeUrl, containerCounts } from '../utils'
+import { getIconUrl } from '../api'
 
 // ── Energy Widget compact view ─────────────────────────────────────────────────
 
@@ -170,13 +171,14 @@ export function CalendarWidgetContent({ entries, compact = false }: { entries: C
   )
 }
 
-// ── Widget icon — URL-matched service icon or custom icon_url ─────────────────
-function WidgetIcon({ widget, size = 32 }: { widget: Pick<Widget, 'type' | 'config' | 'icon_url'>; size?: number }) {
+// ── Widget icon — URL-matched service icon or custom icon_id/icon_url ─────────
+function WidgetIcon({ widget, size = 32 }: { widget: Pick<Widget, 'type' | 'config' | 'icon_url' | 'icon_id'>; size?: number }) {
   const { services } = useStore()
 
   if (widget.type === 'docker_overview') {
-    if (widget.icon_url) {
-      return <img src={widget.icon_url} alt="" style={{ width: size, height: size, objectFit: 'contain', borderRadius: 6, flexShrink: 0 }} />
+    const url = getIconUrl(widget)
+    if (url) {
+      return <img src={url} alt="" style={{ width: size, height: size, objectFit: 'contain', borderRadius: 6, flexShrink: 0 }} />
     }
     return <Container size={size * 0.8} style={{ color: 'var(--accent)', flexShrink: 0 }} />
   }
@@ -190,10 +192,10 @@ function WidgetIcon({ widget, size = 32 }: { widget: Pick<Widget, 'type' | 'conf
     const match = widgetUrl
       ? services.find(s => normalizeUrl(s.url) === widgetUrl || (s.check_url && normalizeUrl(s.check_url) === widgetUrl))
       : undefined
-    iconUrl = match?.icon_url ?? widget.icon_url ?? null
+    iconUrl = (match ? getIconUrl(match) : null) ?? getIconUrl(widget)
     iconEmoji = match?.icon ?? null
   } else {
-    iconUrl = widget.icon_url ?? null
+    iconUrl = getIconUrl(widget)
   }
 
   if (iconUrl) {
@@ -740,7 +742,7 @@ function WidgetForm({
             </label>
             <IconPicker
               iconId={iconId}
-              iconUrl={(!iconChanged && (isEdit ? initial?.icon_url ?? null : null)) ?? null}
+              iconUrl={(!iconChanged && isEdit && initial) ? getIconUrl(initial) : null}
               onChange={id => { setIconId(id); setIconChanged(true) }}
             />
           </div>

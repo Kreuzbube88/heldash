@@ -163,6 +163,7 @@ function runMigrations(db: Database.Database, dataDir: string): number {
     'ALTER TABLE services ADD COLUMN icon_id TEXT REFERENCES icons(id)',
     'ALTER TABLE bookmarks ADD COLUMN icon_id TEXT REFERENCES icons(id)',
     'ALTER TABLE widgets ADD COLUMN icon_id TEXT REFERENCES icons(id)',
+    'ALTER TABLE network_devices ADD COLUMN icon_id TEXT REFERENCES icons(id)',
     // Unified instances — seed from old tables (INSERT OR IGNORE = idempotent)
     `INSERT OR IGNORE INTO instances (id, type, name, url, config, enabled, position, created_at, updated_at)
       SELECT id, 'ha', name, url, json_object('token', token), enabled, position, created_at, updated_at FROM ha_instances`,

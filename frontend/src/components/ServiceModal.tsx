@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import type { Service } from '../types'
 import { useStore } from '../store/useStore'
 import { useDashboardStore } from '../store/useDashboardStore'
-import { api } from '../api'
+import { api, getIconUrl } from '../api'
 import { X } from 'lucide-react'
 import { IconPicker } from './IconPicker'
 
@@ -141,7 +141,7 @@ export function ServiceModal({ service, onClose }: Props) {
           <label className="form-label">Icon Bild</label>
           <IconPicker
             iconId={iconId}
-            iconUrl={(!iconChanged && service?.icon_url) ? service.icon_url : null}
+            iconUrl={(!iconChanged && service) ? getIconUrl(service) : null}
             onChange={id => { setIconId(id); setIconChanged(true) }}
           />
           <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, display: 'block' }}>

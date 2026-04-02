@@ -5,7 +5,7 @@ import { useStore } from '../store/useStore'
 import { useActivityStore } from '../store/useActivityStore'
 import type { ActivityEntry } from '../store/useActivityStore'
 import { useRecyclarrStore } from '../store/useRecyclarrStore'
-import { api } from '../api'
+import { api, getIconUrl } from '../api'
 import type { Service } from '../types'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -484,14 +484,14 @@ function UptimeOverview({ services }: { services: Service[] }) {
           const d = await api.services_extra.healthHistory(s.id)
           return {
             serviceId: s.id, serviceName: s.name,
-            serviceIcon: s.icon ?? null, serviceIconUrl: s.icon_url ?? null,
+            serviceIcon: s.icon ?? null, serviceIconUrl: getIconUrl(s),
             lastStatus: s.last_status ?? null,
             history: d.history, uptimePercent7d: d.uptimePercent7d,
           }
         } catch {
           return {
             serviceId: s.id, serviceName: s.name,
-            serviceIcon: s.icon ?? null, serviceIconUrl: s.icon_url ?? null,
+            serviceIcon: s.icon ?? null, serviceIconUrl: getIconUrl(s),
             lastStatus: s.last_status ?? null,
             history: [], uptimePercent7d: null,
           }

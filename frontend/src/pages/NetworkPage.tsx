@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react'
 import { Plus, Wifi, WifiOff, Zap, Edit2, Trash2, Search, X, ChevronDown, ChevronRight } from 'lucide-react'
-import { api } from '../api'
+import { api, getIconUrl } from '../api'
 import { useStore } from '../store/useStore'
 import { useToast } from '../components/Toast'
+import { IconPicker } from '../components/IconPicker'
 import type { NetworkDevice, NetworkDeviceHistory, ScanResult } from '../types'
 
 // ── Add/Edit Device Modal ─────────────────────────────────────────────────────
@@ -18,6 +19,7 @@ function DeviceModal({ device, existingGroups, onClose, onSave }: DeviceModalPro
   const [name, setName] = useState(device?.name ?? '')
   const [ip, setIp] = useState(device?.ip ?? '')
   const [icon, setIcon] = useState(device?.icon ?? '🖥️')
+  const [iconId, setIconId] = useState<string | null>(device?.icon_id ?? null)
   const [groupName, setGroupName] = useState(device?.group_name ?? '')
   const [checkPort, setCheckPort] = useState(device?.check_port ? String(device.check_port) : '')
   const [useCustomPort, setUseCustomPort] = useState(!!device?.check_port)
@@ -43,6 +45,7 @@ function DeviceModal({ device, existingGroups, onClose, onSave }: DeviceModalPro
         name: name.trim(),
         ip: ip.trim(),
         icon,
+        icon_id: iconId ?? undefined,
         group_name: groupName.trim() || null,
         check_port: useCustomPort && checkPort ? parseInt(checkPort, 10) : null,
         wol_enabled: wolEnabled,
@@ -80,7 +83,16 @@ function DeviceModal({ device, existingGroups, onClose, onSave }: DeviceModalPro
           </div>
 
           <div>
-            <label className="field-label">Icon</label>
+            <label className="field-label">Icon (Bibliothek)</label>
+            <IconPicker
+              iconId={iconId}
+              iconUrl={null}
+              onChange={id => setIconId(id)}
+            />
+          </div>
+
+          <div>
+            <label className="field-label">Emoji (Fallback)</label>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {ICONS.map(i => (
                 <button
@@ -333,7 +345,11 @@ function DeviceCard({ device, isAdmin, onEdit, onDelete, onWol }: DeviceCardProp
         onClick={loadHistory}
         style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', cursor: 'pointer', position: 'relative' }}
       >
-        <span style={{ fontSize: 24, flexShrink: 0 }}>{device.icon}</span>
+        {(() => {
+          const iconUrl = getIconUrl(device)
+          if (iconUrl) return <img src={iconUrl} alt="" style={{ width: 32, height: 32, objectFit: 'contain', borderRadius: 6, flexShrink: 0 }} />
+          return <span style={{ fontSize: 24, flexShrink: 0 }}>{device.icon}</span>
+        })()}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 2 }}>{device.name}</div>
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-secondary)' }}>{device.ip}</div>

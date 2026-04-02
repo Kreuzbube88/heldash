@@ -255,7 +255,7 @@ export interface DashboardWidgetItem {
   position: number
   ref_id: string
   group_id?: string | null
-  widget: Pick<Widget, 'id' | 'type' | 'name' | 'config' | 'show_in_topbar' | 'icon_url'>
+  widget: Pick<Widget, 'id' | 'type' | 'name' | 'config' | 'show_in_topbar' | 'icon_url' | 'icon_id'>
 }
 
 export type DashboardItem = DashboardServiceItem | DashboardArrItem | DashboardPlaceholderItem | DashboardWidgetItem
@@ -471,6 +471,7 @@ export interface NetworkDevice {
   subnet: string | null
   group_name: string | null
   icon: string
+  icon_id: string | null
   last_status: string | null
   last_checked: string | null
   created_at: string

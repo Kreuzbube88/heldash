@@ -15,6 +15,7 @@ interface NetworkDeviceRow {
   subnet: string | null
   group_name: string | null
   icon: string
+  icon_id: string | null
   last_status: string | null
   last_checked: string | null
   created_at: string
@@ -29,6 +30,7 @@ interface CreateNetworkDeviceBody {
   check_port?: number
   group_name?: string
   icon?: string
+  icon_id?: string | null
   subnet?: string
 }
 
@@ -41,6 +43,7 @@ interface PatchNetworkDeviceBody {
   check_port?: number | null
   group_name?: string
   icon?: string
+  icon_id?: string | null
   subnet?: string
 }
 
@@ -56,6 +59,7 @@ function sanitizeDevice(row: NetworkDeviceRow) {
     subnet: row.subnet,
     group_name: row.group_name,
     icon: row.icon,
+    icon_id: row.icon_id ?? null,
     last_status: row.last_status,
     last_checked: row.last_checked,
     created_at: row.created_at,
@@ -119,14 +123,14 @@ export async function networkRoutes(app: FastifyInstance) {
     '/api/network/devices',
     { onRequest: [app.authenticate] },
     async (req, reply) => {
-      const { name, ip, mac, wol_enabled = false, wol_broadcast, check_port, group_name, icon = '🖥️', subnet } = req.body
+      const { name, ip, mac, wol_enabled = false, wol_broadcast, check_port, group_name, icon = '🖥️', icon_id, subnet } = req.body
       if (!name || !ip) return reply.status(400).send({ error: 'name and ip required' })
       const db = getDb()
       const id = nanoid()
       db.prepare(`
-        INSERT INTO network_devices (id, name, ip, mac, wol_enabled, wol_broadcast, check_port, group_name, icon, subnet)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(id, name, ip, mac ?? null, wol_enabled ? 1 : 0, wol_broadcast ?? null, check_port ?? null, group_name ?? null, icon, subnet ?? null)
+        INSERT INTO network_devices (id, name, ip, mac, wol_enabled, wol_broadcast, check_port, group_name, icon, icon_id, subnet)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(id, name, ip, mac ?? null, wol_enabled ? 1 : 0, wol_broadcast ?? null, check_port ?? null, group_name ?? null, icon, icon_id ?? null, subnet ?? null)
       const row = db.prepare('SELECT * FROM network_devices WHERE id = ?').get(id) as NetworkDeviceRow
       return sanitizeDevice(row)
     }
@@ -144,7 +148,7 @@ export async function networkRoutes(app: FastifyInstance) {
       db.prepare(`
         UPDATE network_devices SET
           name = ?, ip = ?, mac = ?, wol_enabled = ?, wol_broadcast = ?,
-          check_port = ?, group_name = ?, icon = ?, subnet = ?
+          check_port = ?, group_name = ?, icon = ?, icon_id = ?, subnet = ?
         WHERE id = ?
       `).run(
         b.name ?? row.name,
@@ -155,6 +159,7 @@ export async function networkRoutes(app: FastifyInstance) {
         b.check_port !== undefined ? (b.check_port ?? null) : row.check_port,
         b.group_name !== undefined ? (b.group_name || null) : row.group_name,
         b.icon ?? row.icon,
+        b.icon_id !== undefined ? (b.icon_id ?? null) : row.icon_id,
         b.subnet !== undefined ? (b.subnet || null) : row.subnet,
         req.params.id
       )

@@ -4,6 +4,7 @@ import { useBookmarkStore } from '../store/useBookmarkStore'
 import { useStore } from '../store/useStore'
 import { useConfirm } from '../components/ConfirmDialog'
 import { IconPicker } from '../components/IconPicker'
+import { getIconUrl } from '../api'
 import type { Bookmark } from '../types'
 
 // ── Bookmark modal (add/edit) ─────────────────────────────────────────────────
@@ -109,8 +110,8 @@ function BookmarkCard({
       onClick={() => window.open(bookmark.url, '_blank', 'noopener,noreferrer')}
     >
       <div style={{ width: 36, height: 36, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', overflow: 'hidden' }}>
-        {bookmark.icon_url ? (
-          <img src={bookmark.icon_url} alt="" style={{ width: 28, height: 28, objectFit: 'contain' }} />
+        {getIconUrl(bookmark) ? (
+          <img src={getIconUrl(bookmark)!} alt="" style={{ width: 28, height: 28, objectFit: 'contain' }} />
         ) : (
           <ExternalLink size={16} style={{ color: 'var(--text-muted)' }} />
         )}

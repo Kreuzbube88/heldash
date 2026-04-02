@@ -5,6 +5,7 @@ import { useConfirm } from './ConfirmDialog'
 import type { ArrStatus, ArrStats, ArrQueueItem, ArrCalendarItem, RadarrCalendarItem, SonarrCalendarItem, ProwlarrIndexer, SabnzbdQueueData, SabnzbdHistoryData, SabnzbdWarningItem, SeerrRequest, ArrHealthIssue } from '../types/arr'
 import { ChevronDown, ChevronUp, Check, X, Trash2, AlertTriangle } from 'lucide-react'
 import { normalizeUrl } from '../utils'
+import { getIconUrl } from '../api'
 
 // Minimal instance shape — works for both ArrInstance and dashboard partial
 export interface ArrInstanceBase {
@@ -251,7 +252,7 @@ export function ArrCardContent({ instance }: {
   const matchingSvc = services.find(s =>
     normalizeUrl(s.url) === instUrl || (s.check_url && normalizeUrl(s.check_url) === instUrl)
   )
-  const iconUrl = matchingSvc?.icon_url ?? null
+  const iconUrl = matchingSvc ? getIconUrl(matchingSvc) : null
   const iconEmoji = matchingSvc?.icon ?? null
   const [expanded, setExpanded] = useState<'queue' | 'calendar' | 'indexers' | 'health' | null>(null)
   const [loadingExpand, setLoadingExpand] = useState(false)
@@ -397,7 +398,7 @@ export function SabnzbdCardContent({ instance }: {
   const matchingSvc = services.find(s =>
     normalizeUrl(s.url) === instUrl || (s.check_url && normalizeUrl(s.check_url) === instUrl)
   )
-  const iconUrl = matchingSvc?.icon_url ?? null
+  const iconUrl = matchingSvc ? getIconUrl(matchingSvc) : null
   const iconEmoji = matchingSvc?.icon ?? null
   const [expanded, setExpanded] = useState<'queue' | 'history' | 'warnings' | null>(null)
   const [loadingExpand, setLoadingExpand] = useState(false)
@@ -617,7 +618,7 @@ export function SeerrCardContent({ instance }: { instance: ArrInstanceBase }) {
   const matchingSvc = services.find(s =>
     normalizeUrl(s.url) === instUrl || (s.check_url && normalizeUrl(s.check_url) === instUrl)
   )
-  const iconUrl = matchingSvc?.icon_url ?? null
+  const iconUrl = matchingSvc ? getIconUrl(matchingSvc) : null
   const iconEmoji = matchingSvc?.icon ?? null
 
   const [expanded, setExpanded] = useState(false)

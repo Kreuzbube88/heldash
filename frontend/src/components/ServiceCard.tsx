@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { Service } from '../types'
 import { useStore } from '../store/useStore'
 import { useConfirm } from './ConfirmDialog'
+import { getIconUrl } from '../api'
 import { RefreshCw, Pencil, Trash2 } from 'lucide-react'
 
 interface Props {
@@ -107,10 +108,10 @@ export function ServiceCard({ service, onEdit, hideAdminActions }: Props) {
 
       <div className="service-card-header">
         <div className="service-icon">
-          {service.icon_url && !imgError
+          {getIconUrl(service) && !imgError
             ? (
               <img
-                src={service.icon_url}
+                src={getIconUrl(service)!}
                 alt={service.name}
                 style={{ width: 28, height: 28, objectFit: 'contain' }}
                 onError={() => setImgError(true)}

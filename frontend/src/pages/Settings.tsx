@@ -7,6 +7,7 @@ import type { UserRecord, UserGroup, Service, Background, Settings as SettingsTy
 import type { ArrInstance } from '../types/arr'
 import { useToast } from '../components/Toast'
 import { useConfirm } from '../components/ConfirmDialog'
+import { getIconUrl } from '../api'
 
 type SettingsTab = 'general' | 'design' | 'users' | 'groups' | 'oidc'
 
@@ -136,7 +137,7 @@ function VisibilityChecklist({
   onSave,
 }: {
   label: string
-  items: { id: string; name: string; icon?: string | null; icon_url?: string | null }[]
+  items: { id: string; name: string; icon?: string | null; icon_url?: string | null; icon_id?: string | null }[]
   hiddenIds: string[]
   onSave: (hiddenIds: string[]) => Promise<void>
 }) {
@@ -168,8 +169,8 @@ function VisibilityChecklist({
               return (
                 <label key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer', userSelect: 'none' }}>
                   <input type="checkbox" checked={visible} onChange={() => toggle(item.id)} disabled={saving} style={{ accentColor: 'var(--accent)', width: 14, height: 14 }} />
-                  {item.icon_url
-                    ? <img src={item.icon_url} alt="" style={{ width: 16, height: 16, objectFit: 'contain', borderRadius: 3, flexShrink: 0 }} />
+                  {getIconUrl(item)
+                    ? <img src={getIconUrl(item)!} alt="" style={{ width: 16, height: 16, objectFit: 'contain', borderRadius: 3, flexShrink: 0 }} />
                     : item.icon ? <span style={{ fontSize: 14, lineHeight: 1 }}>{item.icon}</span> : null
                   }
                   <span style={{ color: visible ? 'var(--text-primary)' : 'var(--text-muted)' }}>{item.name}</span>

@@ -475,7 +475,7 @@ function OverviewTab({ instanceId }: { instanceId: string }) {
 // ── Array Tab ─────────────────────────────────────────────────────────────────
 
 function ArrayTab({ instanceId }: { instanceId: string }) {
-  const { array, parity, physicalDisks, loadArray, loadParity, loadPhysicalDisks, arrayStart, arrayStop, parityStart, parityPause, parityResume, parityCancel, diskMount, diskUnmount, errors } = useUnraidStore()
+  const { array, parity, physicalDisks, loadArray, loadParity, loadPhysicalDisks, arrayStart, arrayStop, parityStart, parityPause, parityResume, parityCancel, errors } = useUnraidStore()
   const { isAdmin } = useStore()
   const { toast } = useToast()
   const arrData = array[instanceId]
@@ -483,7 +483,6 @@ function ArrayTab({ instanceId }: { instanceId: string }) {
 
   const [confirm, setConfirm] = useState<{ action: string; msg: string; extra?: React.ReactNode; onConfirm?: () => void } | null>(null)
   const [parityCorrect, setParityCorrect] = useState(false)
-  const [diskLoading, setDiskLoading] = useState<Record<string, boolean>>({})
   const [showHistory, setShowHistory] = useState(false)
   const [showCaches, setShowCaches] = useState(false)
   const [showPhysical, setShowPhysical] = useState(false)
@@ -536,19 +535,6 @@ function ArrayTab({ instanceId }: { instanceId: string }) {
       toast({ message: (e as Error).message, type: 'error' })
     }
   }, [instanceId, parityCorrect])
-
-  const handleDiskMount = async (diskId: string, action: 'mount' | 'unmount') => {
-    setDiskLoading(s => ({ ...s, [`m_${diskId}`]: true }))
-    try {
-      if (action === 'mount') await diskMount(instanceId, diskId)
-      else await diskUnmount(instanceId, diskId)
-      toast({ message: `Disk ${action === 'mount' ? 'gemountet' : 'unmountet'}`, type: 'success' })
-    } catch (e) {
-      toast({ message: (e as Error).message, type: 'error' })
-    } finally {
-      setDiskLoading(s => ({ ...s, [`m_${diskId}`]: false }))
-    }
-  }
 
   const diskColorToStatus = (color?: string) => {
     if (!color) return undefined
@@ -622,13 +608,13 @@ function ArrayTab({ instanceId }: { instanceId: string }) {
           <div className="glass" style={{ borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
               <colgroup>
-                <col style={{ width: '8%' }} /><col style={{ width: '16%' }} /><col style={{ width: '14%' }} />
-                <col style={{ width: '10%' }} /><col style={{ width: '15%' }} /><col style={{ width: '8%' }} />
-                <col style={{ width: '16%' }} />{isAdmin && <col style={{ width: '13%' }} />}
+                <col style={{ width: '8%' }} /><col style={{ width: '18%' }} /><col style={{ width: '12%' }} />
+                <col style={{ width: '10%' }} /><col style={{ width: '14%' }} /><col style={{ width: '14%' }} />
+                <col style={{ width: '14%' }} /><col style={{ width: '10%' }} />
               </colgroup>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                  {['Typ', 'Name', 'Gerät', 'Größe', 'Status', 'Temp', 'Belegung', ...(isAdmin ? ['Aktionen'] : [])].map(h => (
+                  {['Slot', 'Name', 'Status', 'Typ', 'Größe', 'Belegt', 'Frei', 'Temp'].map(h => (
                     <th key={h} style={{ padding: 'var(--spacing-sm) var(--spacing-md)', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 500 }}>{h}</th>
                   ))}
                 </tr>
@@ -636,40 +622,25 @@ function ArrayTab({ instanceId }: { instanceId: string }) {
               <tbody>
                 {[...parities.map(d => ({ ...d, _section: 'parity' })), ...disks.map(d => ({ ...d, _section: 'data' }))].map((disk, i) => (
                   <tr key={disk.id ?? i} style={{ borderBottom: '1px solid var(--glass-border)', opacity: disk.status === 'DISK_NP' ? 0.5 : 1 }}>
-                    <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
-                      <span style={{ background: disk._section === 'parity' ? '#8b5cf6' : 'var(--accent)', color: '#000', borderRadius: 4, padding: '1px 5px', fontSize: 10, fontWeight: 600 }}>{disk._section === 'parity' ? 'Parity' : 'Daten'}</span>
+                    <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)', fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-muted)' }}>
+                      {disk.idx != null ? `${disk.idx}` : '–'}
                     </td>
                     <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)', fontWeight: 500 }}>{disk.name ?? '–'}</td>
-                    <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)', color: 'var(--text-muted)' }}>{disk.device ?? '–'}</td>
-                    <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>{formatKilobytes(disk.size)}</td>
                     <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         {disk.color && <span style={{ width: 8, height: 8, borderRadius: '50%', background: diskColorToStatus(disk.color), flexShrink: 0, display: 'inline-block' }} />}
                         <span style={{ background: diskStatusColor(disk.status), color: disk.status === 'DISK_OK' ? '#000' : 'var(--text-primary)', borderRadius: 4, padding: '1px 6px', fontSize: 11, fontWeight: 600 }}>{disk.status ?? '–'}</span>
                       </div>
                     </td>
-                    <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)', color: tempColor(disk.temp) }}>{disk.temp != null ? `${disk.temp}°C` : '–'}</td>
                     <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
-                      {disk.fsSize && disk.fsSize > 0 ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <div style={{ background: 'var(--glass-bg)', borderRadius: 2, height: 6, width: 60 }}>
-                            <div style={{ background: 'var(--accent)', height: '100%', borderRadius: 2, width: `${(disk.fsUsedPercent ?? 0).toFixed(0)}%` }} />
-                          </div>
-                          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{(disk.fsUsedPercent ?? 0).toFixed(0)}%</span>
-                        </div>
-                      ) : '–'}
+                      <span style={{ background: disk._section === 'parity' ? '#8b5cf6' : 'var(--accent)', color: '#000', borderRadius: 4, padding: '1px 5px', fontSize: 10, fontWeight: 600 }}>{disk._section === 'parity' ? 'Parity' : 'Daten'}</span>
                     </td>
-                    {isAdmin && (
-                      <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
-                        <div style={{ display: 'flex', gap: 4 }}>
-                          {disk._section === 'data' && arrState === 'started' && disk.status !== 'DISK_OK' && disk.status !== 'DISK_NP' && (
-                            <button className="btn" disabled={diskLoading[`m_${disk.id}`] || !disk.id} onClick={() => handleDiskMount(disk.id!, 'mount')} title="Mount" style={{ padding: '2px 6px', fontSize: 11 }}>
-                              {diskLoading[`m_${disk.id}`] ? <span className="spinner" style={{ width: 12, height: 12 }} /> : 'Mount'}
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    )}
+                    <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>{formatKilobytes(disk.size)}</td>
+                    <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>{formatKilobytes(disk.fsUsed)}</td>
+                    <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>{formatKilobytes(disk.fsFree)}</td>
+                    <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)', color: tempColor(disk.temp) }}>
+                      {disk.temp != null ? `${disk.temp}°C` : '–'}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -689,13 +660,13 @@ function ArrayTab({ instanceId }: { instanceId: string }) {
           ) : (
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, borderTop: '1px solid var(--border)', tableLayout: 'fixed' }}>
               <colgroup>
-                <col style={{ width: '9%' }} /><col style={{ width: '18%' }} /><col style={{ width: '16%' }} />
-                <col style={{ width: '11%' }} /><col style={{ width: '17%' }} /><col style={{ width: '9%' }} />
-                <col style={{ width: '20%' }} />
+                <col style={{ width: '8%' }} /><col style={{ width: '18%' }} /><col style={{ width: '12%' }} />
+                <col style={{ width: '10%' }} /><col style={{ width: '14%' }} /><col style={{ width: '14%' }} />
+                <col style={{ width: '14%' }} /><col style={{ width: '10%' }} />
               </colgroup>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                  {['Typ', 'Name', 'Gerät', 'Größe', 'Status', 'Temp', 'Belegung'].map(h => (
+                  {['Slot', 'Name', 'Status', 'Typ', 'Größe', 'Belegt', 'Frei', 'Temp'].map(h => (
                     <th key={h} style={{ padding: 'var(--spacing-sm) var(--spacing-md)', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 500 }}>{h}</th>
                   ))}
                 </tr>
@@ -705,25 +676,21 @@ function ArrayTab({ instanceId }: { instanceId: string }) {
                   const ctb = cacheDiskTypeBadge(disk)
                   return (
                   <tr key={disk.id ?? i} style={{ borderBottom: '1px solid var(--glass-border)' }}>
-                    <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
-                      <span style={{ color: ctb.color, fontWeight: 600, fontSize: 11 }}>{ctb.label}</span>
+                    <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)', fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-muted)' }}>
+                      {disk.idx != null ? `${disk.idx}` : '–'}
                     </td>
                     <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)', fontWeight: 500 }}>{disk.name ?? '–'}</td>
-                    <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)', color: 'var(--text-muted)' }}>{disk.device ?? '–'}</td>
-                    <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>{formatKilobytes(disk.size)}</td>
                     <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
                       <span style={{ background: diskStatusColor(disk.status), color: disk.status === 'DISK_OK' ? '#000' : 'var(--text-primary)', borderRadius: 4, padding: '1px 6px', fontSize: 11, fontWeight: 600 }}>{disk.status ?? '–'}</span>
                     </td>
-                    <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)', color: tempColor(disk.temp) }}>{disk.temp != null ? `${disk.temp}°C` : '–'}</td>
                     <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
-                      {disk.fsSize && disk.fsSize > 0 ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <div style={{ background: 'var(--glass-bg)', borderRadius: 2, height: 6, width: 60 }}>
-                            <div style={{ background: 'var(--accent)', height: '100%', borderRadius: 2, width: `${(disk.fsUsedPercent ?? 0).toFixed(0)}%` }} />
-                          </div>
-                          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{(disk.fsUsedPercent ?? 0).toFixed(0)}%</span>
-                        </div>
-                      ) : '–'}
+                      <span style={{ color: ctb.color, fontWeight: 600, fontSize: 11 }}>{ctb.label}</span>
+                    </td>
+                    <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>{formatKilobytes(disk.size)}</td>
+                    <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>{formatKilobytes(disk.fsUsed)}</td>
+                    <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>{formatKilobytes(disk.fsFree)}</td>
+                    <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)', color: tempColor(disk.temp) }}>
+                      {disk.temp != null ? `${disk.temp}°C` : '–'}
                     </td>
                   </tr>
                   )
@@ -1716,7 +1683,15 @@ function PluginsTab({ instanceId }: { instanceId: string }) {
             ))}
           </tbody>
         </table>
-        {pluginList.length === 0 && <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-muted)' }}>Keine Einträge</div>}
+        {pluginList.length === 0 && !err && (
+          <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-muted)' }}>
+            <Package size={48} style={{ marginBottom: 'var(--spacing-md)', opacity: 0.5 }} />
+            <div style={{ fontWeight: 600, marginBottom: 'var(--spacing-sm)' }}>Keine API-Plugins installiert</div>
+            <div style={{ fontSize: 13, maxWidth: 400, margin: '0 auto' }}>
+              Diese Liste zeigt nur Plugins die API-Module bereitstellen. Standard Community Apps Plugins erscheinen hier nicht.
+            </div>
+          </div>
+        )}
       </div>
       {confirmRemove && (
         <ConfirmModal
@@ -1864,87 +1839,6 @@ function ApiKeysTab({ instanceId }: { instanceId: string }) {
           danger
         />
       )}
-    </div>
-  )
-}
-
-// ── Network Tab ───────────────────────────────────────────────────────────────
-
-function NetworkTab({ instanceId }: { instanceId: string }) {
-  const { network, connect, loadNetwork, loadConnect, errors } = useUnraidStore()
-  const networkData = network[instanceId]
-  const connectData = connect[instanceId] as { connect?: { id?: string; dynamicRemoteAccess?: { enabledType?: string; runningType?: string; error?: string } }; remoteAccess?: { accessType?: string; forwardType?: string; port?: number } } | undefined
-  const err = errors[`network_${instanceId}`] ?? errors[`connect_${instanceId}`]
-
-  useEffect(() => {
-    loadNetwork(instanceId)
-    loadConnect(instanceId)
-  }, [instanceId])
-
-  const accessUrls = networkData?.accessUrls ?? []
-  const dynAccess = connectData?.connect?.dynamicRemoteAccess
-  const remAccess = connectData?.remoteAccess
-
-  const accessTypeColor = (t?: string) => {
-    if (!t) return 'var(--text-muted)'
-    if (t === 'LAN') return 'var(--accent)'
-    if (t === 'WAN') return 'var(--warning)'
-    return 'var(--text-secondary)'
-  }
-
-  return (
-    <div>
-      {err && <div className="error-banner" style={{ marginBottom: 'var(--spacing-md)' }}>{err}</div>}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 'var(--spacing-sm)' }}>
-        <button className="btn" onClick={() => { loadNetwork(instanceId); loadConnect(instanceId) }}><RefreshCw size={14} /></button>
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
-        {accessUrls.length > 0 && (
-          <div className="glass" style={{ borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
-            <div style={{ padding: 'var(--spacing-md)', fontWeight: 600, borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Globe size={14} /> Zugriffs-URLs
-            </div>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                  {['Typ', 'Name', 'IPv4', 'IPv6'].map(h => (
-                    <th key={h} style={{ padding: 'var(--spacing-sm) var(--spacing-md)', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 500 }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {accessUrls.map((u, i) => (
-                  <tr key={i} style={{ borderBottom: '1px solid var(--glass-border)' }}>
-                    <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
-                      <span style={{ background: 'var(--glass-bg)', color: accessTypeColor(u.type), borderRadius: 4, padding: '1px 6px', fontSize: 11, fontWeight: 600 }}>{u.type ?? '–'}</span>
-                    </td>
-                    <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)', fontWeight: 500 }}>{u.name ?? '–'}</td>
-                    <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)', fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-secondary)' }}>{u.ipv4 ?? '–'}</td>
-                    <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)', fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-muted)' }}>{u.ipv6 ?? '–'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-        {(dynAccess || remAccess) && (
-          <div className="glass" style={{ padding: 'var(--spacing-lg)', borderRadius: 'var(--radius-md)' }}>
-            <div style={{ fontWeight: 600, marginBottom: 'var(--spacing-sm)', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Network size={14} /> Remotezugriff
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              {dynAccess?.enabledType && <InfoRow icon={<Globe size={14} />} label="Aktivierter Typ" value={dynAccess.enabledType} />}
-              {dynAccess?.runningType && <InfoRow icon={<Activity size={14} />} label="Laufender Typ" value={dynAccess.runningType} />}
-              {dynAccess?.error && <InfoRow icon={<AlertTriangle size={14} />} label="Fehler" value={<span style={{ color: 'var(--status-offline)' }}>{dynAccess.error}</span>} />}
-              {remAccess?.accessType && <InfoRow icon={<Shield size={14} />} label="Zugriffstyp" value={remAccess.accessType} />}
-              {remAccess?.port != null && <InfoRow icon={<Network size={14} />} label="Port" value={String(remAccess.port)} />}
-            </div>
-          </div>
-        )}
-        {accessUrls.length === 0 && !dynAccess && !remAccess && !err && (
-          <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-muted)' }}>Keine Netzwerkdaten verfügbar</div>
-        )}
-      </div>
     </div>
   )
 }
@@ -2197,7 +2091,6 @@ const CONTENT_TABS = [
   { key: 'logs',          label: 'Logs' },
   { key: 'plugins',       label: 'Plugins' },
   { key: 'apikeys',       label: 'API Keys' },
-  { key: 'network',       label: 'Netzwerk' },
 ]
 
 export function UnraidPage() {
@@ -2292,7 +2185,6 @@ export function UnraidPage() {
           {contentTab === 'logs'          && <LogsTab          instanceId={activeInst.id} />}
           {contentTab === 'plugins'       && <PluginsTab       instanceId={activeInst.id} />}
           {contentTab === 'apikeys'       && <ApiKeysTab       instanceId={activeInst.id} />}
-          {contentTab === 'network'       && <NetworkTab       instanceId={activeInst.id} />}
         </div>
       )}
     </div>

@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useState } from 'react'
 import {
   LayoutDashboard, Settings, AppWindow, Info, Tv2, BarChart2, Container, Home,
-  ChevronLeft, ChevronRight, ScrollText, Network, HardDrive, Server, Bookmark,
+  ChevronLeft, ChevronRight, ScrollText, Network, HardDrive, Server, Bookmark, Link2,
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { useArrStore } from '../store/useArrStore'
@@ -123,6 +123,9 @@ export function Sidebar({ page, onNavigate }: Props) {
         )}
         {isAuthenticated && (
           <NavItem icon={<ScrollText size={16} />} label="Logbuch" active={page === 'logbuch'} onClick={() => onNavigate('logbuch')} collapsed={collapsed} />
+        )}
+        {isAdmin && (
+          <NavItem icon={<Link2 size={16} />} label="Instanzen" active={page === 'instances'} onClick={() => onNavigate('instances')} collapsed={collapsed} />
         )}
         {isAdmin && (
           <NavItem icon={<Settings size={16} />} label="Settings" active={page === 'settings'} onClick={() => onNavigate('settings')} collapsed={collapsed} />

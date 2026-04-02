@@ -17,6 +17,7 @@ import { BackupPage } from './pages/BackupPage'
 import { AboutPage } from './pages/AboutPage'
 import { UnraidPage } from './pages/UnraidPage'
 import { BookmarksPage } from './pages/BookmarksPage'
+import { InstancesPage } from './pages/InstancesPage'
 import { SetupPage } from './pages/SetupPage'
 import { ChangelogModal } from './components/ChangelogModal'
 import { ServiceModal } from './components/ServiceModal'
@@ -260,6 +261,7 @@ function App() {
               {page === 'backup' && <BackupPage />}
               {page === 'unraid' && <UnraidPage />}
               {page === 'bookmarks' && <BookmarksPage />}
+              {page === 'instances' && <InstancesPage />}
               {page === 'about' && <AboutPage onShowChangelog={() => setShowChangelog(true)} />}
             </div>
           </div>

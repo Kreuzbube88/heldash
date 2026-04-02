@@ -141,6 +141,9 @@ export async function haRoutes(app: FastifyInstance) {
       INSERT INTO ha_instances (id, name, url, token, enabled, position)
       VALUES (?, ?, ?, ?, ?, ?)
     `).run(id, name.trim(), cleanUrl, cleanToken, enabled ? 1 : 0, position)
+    db.prepare(`INSERT OR REPLACE INTO instances (id, type, name, url, config, enabled, position, created_at, updated_at)
+      VALUES (?, 'ha', ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`)
+      .run(id, name.trim(), cleanUrl, JSON.stringify({ token: cleanToken }), enabled ? 1 : 0, position)
     const row = db.prepare('SELECT * FROM ha_instances WHERE id = ?').get(id) as HaInstanceRow
     if (enabled) ensureHaWsPersistent(id, cleanUrl, cleanToken)
     return reply.status(201).send(sanitizeInstance(row))
@@ -162,6 +165,8 @@ export async function haRoutes(app: FastifyInstance) {
     db.prepare(`
       UPDATE ha_instances SET name=?, url=?, token=?, enabled=?, updated_at=datetime('now') WHERE id=?
     `).run(name, url, token, enabled, row.id)
+    db.prepare(`UPDATE instances SET name=?, url=?, config=?, enabled=?, updated_at=datetime('now') WHERE id=?`)
+      .run(name, url, JSON.stringify({ token }), enabled, row.id)
     // Invalidate WS client so it reconnects with updated credentials/URL
     invalidateHaWsClient(row.id)
     if (enabled) ensureHaWsPersistent(row.id, url, token)
@@ -178,6 +183,7 @@ export async function haRoutes(app: FastifyInstance) {
     if (!row) return reply.status(404).send({ error: 'Not found' })
     db.prepare('DELETE FROM ha_panels WHERE instance_id = ?').run(req.params.id)
     db.prepare('DELETE FROM ha_instances WHERE id = ?').run(req.params.id)
+    db.prepare('DELETE FROM instances WHERE id = ?').run(req.params.id)
     invalidateHaWsClient(req.params.id)
     logActivity('ha', `HA-Instanz "${row.name}" gelöscht`, 'warning', { instanceId: req.params.id })
     return reply.status(204).send()

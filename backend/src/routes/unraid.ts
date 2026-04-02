@@ -170,6 +170,9 @@ export async function unraidRoutes(app: FastifyInstance) {
     const maxPos = db().prepare('SELECT MAX(position) as m FROM unraid_instances').get() as { m: number | null }
     const position = (maxPos.m ?? -1) + 1
     db().prepare(`INSERT INTO unraid_instances (id, name, url, api_key, position) VALUES (?, ?, ?, ?, ?)`).run(id, name, url, api_key, position)
+    db().prepare(`INSERT OR REPLACE INTO instances (id, type, name, url, config, enabled, position, created_at, updated_at)
+      VALUES (?, 'unraid', ?, ?, ?, 1, ?, datetime('now'), datetime('now'))`)
+      .run(id, name, url, JSON.stringify({ api_key }), position)
     const row = db().prepare('SELECT * FROM unraid_instances WHERE id = ?').get(id) as UnraidInstanceRow
     return reply.status(201).send(sanitizeInstance(row))
   })
@@ -197,6 +200,8 @@ export async function unraidRoutes(app: FastifyInstance) {
     if (position !== undefined) { updates.push('position = ?'); vals.push(position) }
     db().prepare(`UPDATE unraid_instances SET ${updates.join(', ')} WHERE id = ?`).run(...vals, req.params.id)
     const updated = db().prepare('SELECT * FROM unraid_instances WHERE id = ?').get(req.params.id) as UnraidInstanceRow
+    db().prepare(`UPDATE instances SET name=?, url=?, config=?, enabled=?, updated_at=datetime('now') WHERE id=?`)
+      .run(updated.name, updated.url, JSON.stringify({ api_key: updated.api_key }), updated.enabled, req.params.id)
     return sanitizeInstance(updated)
   })
 
@@ -205,6 +210,7 @@ export async function unraidRoutes(app: FastifyInstance) {
     const row = db().prepare('SELECT * FROM unraid_instances WHERE id = ?').get(req.params.id) as UnraidInstanceRow | undefined
     if (!row) return reply.status(404).send({ error: 'Not found' })
     db().prepare('DELETE FROM unraid_instances WHERE id = ?').run(req.params.id)
+    db().prepare('DELETE FROM instances WHERE id = ?').run(req.params.id)
     return reply.status(204).send()
   })
 

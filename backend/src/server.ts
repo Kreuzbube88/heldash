@@ -35,6 +35,7 @@ import { resourcesRoutes } from './routes/resources'
 import { unraidRoutes } from './routes/unraid'
 import { bookmarksRoutes } from './routes/bookmarks'
 import { iconsRoutes } from './routes/icons'
+import { instancesRoutes } from './routes/instances'
 import { nanoid } from 'nanoid'
 import { promises as fsp } from 'fs'
 
@@ -276,6 +277,7 @@ async function start() {
   await app.register(unraidRoutes)
   await app.register(bookmarksRoutes)
   await app.register(iconsRoutes)
+  await app.register(instancesRoutes)
 
   // ── Docker container state poller (logs transitions to activity feed) ─────────
   if (dockerSocketPresent) {

@@ -293,6 +293,21 @@ export interface Background {
   file_path: string
 }
 
+// ── Unified instance registry ─────────────────────────────────────────────────
+
+export type InstanceType = 'ha' | 'radarr' | 'sonarr' | 'prowlarr' | 'sabnzbd' | 'seerr' | 'unraid'
+
+export interface Instance {
+  id: string
+  type: InstanceType
+  name: string
+  url: string
+  enabled: boolean
+  position: number
+  created_at: string
+  updated_at: string
+}
+
 // ── Home Assistant ────────────────────────────────────────────────────────────
 
 export interface HaInstance {

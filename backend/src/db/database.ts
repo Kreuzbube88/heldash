@@ -163,6 +163,13 @@ function runMigrations(db: Database.Database, dataDir: string): number {
     'ALTER TABLE services ADD COLUMN icon_id TEXT REFERENCES icons(id)',
     'ALTER TABLE bookmarks ADD COLUMN icon_id TEXT REFERENCES icons(id)',
     'ALTER TABLE widgets ADD COLUMN icon_id TEXT REFERENCES icons(id)',
+    // Unified instances — seed from old tables (INSERT OR IGNORE = idempotent)
+    `INSERT OR IGNORE INTO instances (id, type, name, url, config, enabled, position, created_at, updated_at)
+      SELECT id, 'ha', name, url, json_object('token', token), enabled, position, created_at, updated_at FROM ha_instances`,
+    `INSERT OR IGNORE INTO instances (id, type, name, url, config, enabled, position, created_at, updated_at)
+      SELECT id, type, name, url, json_object('api_key', api_key), enabled, position, created_at, updated_at FROM arr_instances`,
+    `INSERT OR IGNORE INTO instances (id, type, name, url, config, enabled, position, created_at, updated_at)
+      SELECT id, 'unraid', name, url, json_object('api_key', api_key), enabled, position, created_at, updated_at FROM unraid_instances`,
   ]
   for (const sql of migrations) {
     try {
@@ -511,6 +518,19 @@ function applySchema(db: Database.Database) {
       icon_url TEXT,
       position INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    -- Unified instance registry (mirrors ha_instances, arr_instances, unraid_instances)
+    CREATE TABLE IF NOT EXISTS instances (
+      id         TEXT PRIMARY KEY,
+      type       TEXT NOT NULL,
+      name       TEXT NOT NULL,
+      url        TEXT NOT NULL,
+      config     TEXT NOT NULL DEFAULT '{}',
+      enabled    INTEGER NOT NULL DEFAULT 1,
+      position   INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
     -- Icons: centralized icon storage (dashboardicons CDN cache + uploads)

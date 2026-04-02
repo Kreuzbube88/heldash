@@ -1,4 +1,4 @@
-import type { Service, Group, Settings, AuthUser, UserRecord, UserGroup, DashboardItem, DashboardGroup, DashboardResponse, Widget, WidgetStats, DockerContainer, ContainerStats, Background, HaInstance, HaPanel, HaEntityFull, HaArea, EnergyData, CalendarEntry, HaFloorplan, HaFloorplanEntity, HaAlert, HaHistoryEntry, NetworkDevice, NetworkDeviceHistory, ScanResult, BackupSource, BackupStatusResult, ResourceSnapshot, ChangelogRelease } from './types'
+import type { Service, Group, Settings, AuthUser, UserRecord, UserGroup, DashboardItem, DashboardGroup, DashboardResponse, Widget, WidgetStats, DockerContainer, ContainerStats, Background, HaInstance, HaPanel, HaEntityFull, HaArea, EnergyData, CalendarEntry, HaFloorplan, HaFloorplanEntity, HaAlert, HaHistoryEntry, NetworkDevice, NetworkDeviceHistory, ScanResult, BackupSource, BackupStatusResult, ResourceSnapshot, ChangelogRelease, Instance, InstanceType } from './types'
 import type { SyncHistoryEntry, BackupEntry } from './types/recyclarr'
 import type { UnraidInstance, UnraidInfo, UnraidArray, UnraidParityHistory, UnraidContainer, UnraidVm, UnraidShare, UnraidUser, UnraidNotifications, UnraidConfig, UnraidPhysicalDisk, UnraidService, UnraidFlash, UnraidServer, UnraidOwner, UnraidMe, UnraidNetworkAccess, UnraidConnect, UnraidUpsDevice, UnraidUpsConfig, UnraidLogFile, UnraidPlugin, UnraidApiKey, UnraidDockerNetwork, UnraidMetricsDetailed } from './types/unraid'
 import type { ArrInstance, ArrStatus, ArrStats, ArrQueueResponse, ArrCalendarItem, ProwlarrIndexer, SabnzbdQueueData, SabnzbdHistoryData, SeerrRequest, SeerrRequestsResponse, RadarrMovie, SonarrSeries, ArrCustomFormat, ArrCFSpecification, ArrQualityProfile } from './types/arr'
@@ -562,5 +562,16 @@ export const api = {
     },
     import: (bookmarks: Array<{ name: string; url: string; description?: string }>) =>
       req<{ imported: number; skipped: number; errors: string[] }>('/bookmarks/import', { method: 'POST', body: JSON.stringify({ bookmarks }) }),
+  },
+
+  instances: {
+    list: () => req<Instance[]>('/instances'),
+    create: (data: { type: InstanceType; name: string; url: string; token?: string; api_key?: string; enabled?: boolean }) =>
+      req<Instance>('/instances', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: { name?: string; url?: string; token?: string; api_key?: string; enabled?: boolean }) =>
+      req<Instance>(`/instances/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    delete: (id: string) => req<void>(`/instances/${id}`, { method: 'DELETE' }),
+    test: (id: string) => req<{ ok: boolean; error?: string }>(`/instances/${id}/test`, { method: 'POST', body: JSON.stringify({}) }),
+    reorder: (ids: string[]) => req<{ ok: boolean }>('/instances/reorder', { method: 'POST', body: JSON.stringify({ ids }) }),
   },
 }

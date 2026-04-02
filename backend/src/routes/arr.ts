@@ -274,10 +274,15 @@ export async function arrRoutes(app: FastifyInstance) {
       }
 
       const id = nanoid()
+      const cleanUrl = url.trim().replace(/\/$/, '')
+      const cleanKey = api_key.trim()
       db.prepare(`
         INSERT INTO arr_instances (id, type, name, url, api_key, enabled, position)
         VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).run(id, type, name.trim(), url.trim().replace(/\/$/, ''), api_key.trim(), enabled ? 1 : 0, position)
+      `).run(id, type, name.trim(), cleanUrl, cleanKey, enabled ? 1 : 0, position)
+      db.prepare(`INSERT OR REPLACE INTO instances (id, type, name, url, config, enabled, position, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`)
+        .run(id, type, name.trim(), cleanUrl, JSON.stringify({ api_key: cleanKey }), enabled ? 1 : 0, position)
 
       const row = db.prepare('SELECT * FROM arr_instances WHERE id = ?').get(id) as ArrInstanceRow
       logActivity('media', `${type}-Instanz "${name.trim()}" hinzugefügt`, 'info', { instanceId: id })
@@ -310,6 +315,8 @@ export async function arrRoutes(app: FastifyInstance) {
       db.prepare(`UPDATE arr_instances SET ${updates.join(', ')} WHERE id = ?`).run(...values)
 
       const updated = db.prepare('SELECT * FROM arr_instances WHERE id = ?').get(req.params.id) as ArrInstanceRow
+      db.prepare(`UPDATE instances SET name=?, url=?, config=?, enabled=?, updated_at=datetime('now') WHERE id=?`)
+        .run(updated.name, updated.url, JSON.stringify({ api_key: updated.api_key }), updated.enabled, req.params.id)
       return sanitize(updated)
     }
   )
@@ -325,6 +332,7 @@ export async function arrRoutes(app: FastifyInstance) {
       }
       db.prepare('DELETE FROM group_arr_visibility WHERE instance_id = ?').run(req.params.id)
       db.prepare('DELETE FROM arr_instances WHERE id = ?').run(req.params.id)
+      db.prepare('DELETE FROM instances WHERE id = ?').run(req.params.id)
       logActivity('media', `${existingInst.type}-Instanz "${existingInst.name}" gelöscht`, 'warning', { instanceId: req.params.id })
       return reply.status(204).send()
     }

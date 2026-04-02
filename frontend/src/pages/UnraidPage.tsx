@@ -608,13 +608,13 @@ function ArrayTab({ instanceId }: { instanceId: string }) {
           <div className="glass" style={{ borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
               <colgroup>
-                <col style={{ width: '8%' }} /><col style={{ width: '18%' }} /><col style={{ width: '12%' }} />
-                <col style={{ width: '10%' }} /><col style={{ width: '14%' }} /><col style={{ width: '14%' }} />
-                <col style={{ width: '14%' }} /><col style={{ width: '10%' }} />
+                <col style={{ width: '22%' }} /><col style={{ width: '14%' }} /><col style={{ width: '12%' }} />
+                <col style={{ width: '17%' }} /><col style={{ width: '17%' }} /><col style={{ width: '12%' }} />
+                <col style={{ width: '6%' }} />
               </colgroup>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                  {['Slot', 'Name', 'Status', 'Typ', 'Größe', 'Belegt', 'Frei', 'Temp'].map(h => (
+                  {['Name', 'Status', 'Typ', 'Größe', 'Belegt', 'Frei', 'Temp'].map(h => (
                     <th key={h} style={{ padding: 'var(--spacing-sm) var(--spacing-md)', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 500 }}>{h}</th>
                   ))}
                 </tr>
@@ -622,9 +622,6 @@ function ArrayTab({ instanceId }: { instanceId: string }) {
               <tbody>
                 {[...parities.map(d => ({ ...d, _section: 'parity' })), ...disks.map(d => ({ ...d, _section: 'data' }))].map((disk, i) => (
                   <tr key={disk.id ?? i} style={{ borderBottom: '1px solid var(--glass-border)', opacity: disk.status === 'DISK_NP' ? 0.5 : 1 }}>
-                    <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)', fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-muted)' }}>
-                      {disk.idx != null ? `${disk.idx}` : '–'}
-                    </td>
                     <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)', fontWeight: 500 }}>{disk.name ?? '–'}</td>
                     <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -660,13 +657,13 @@ function ArrayTab({ instanceId }: { instanceId: string }) {
           ) : (
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, borderTop: '1px solid var(--border)', tableLayout: 'fixed' }}>
               <colgroup>
-                <col style={{ width: '8%' }} /><col style={{ width: '18%' }} /><col style={{ width: '12%' }} />
-                <col style={{ width: '10%' }} /><col style={{ width: '14%' }} /><col style={{ width: '14%' }} />
-                <col style={{ width: '14%' }} /><col style={{ width: '10%' }} />
+                <col style={{ width: '22%' }} /><col style={{ width: '14%' }} /><col style={{ width: '12%' }} />
+                <col style={{ width: '17%' }} /><col style={{ width: '17%' }} /><col style={{ width: '12%' }} />
+                <col style={{ width: '6%' }} />
               </colgroup>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                  {['Slot', 'Name', 'Status', 'Typ', 'Größe', 'Belegt', 'Frei', 'Temp'].map(h => (
+                  {['Name', 'Status', 'Typ', 'Größe', 'Belegt', 'Frei', 'Temp'].map(h => (
                     <th key={h} style={{ padding: 'var(--spacing-sm) var(--spacing-md)', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 500 }}>{h}</th>
                   ))}
                 </tr>
@@ -676,9 +673,6 @@ function ArrayTab({ instanceId }: { instanceId: string }) {
                   const ctb = cacheDiskTypeBadge(disk)
                   return (
                   <tr key={disk.id ?? i} style={{ borderBottom: '1px solid var(--glass-border)' }}>
-                    <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)', fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-muted)' }}>
-                      {disk.idx != null ? `${disk.idx}` : '–'}
-                    </td>
                     <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)', fontWeight: 500 }}>{disk.name ?? '–'}</td>
                     <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
                       <span style={{ background: diskStatusColor(disk.status), color: disk.status === 'DISK_OK' ? '#000' : 'var(--text-primary)', borderRadius: 4, padding: '1px 6px', fontSize: 11, fontWeight: 600 }}>{disk.status ?? '–'}</span>
@@ -1470,7 +1464,7 @@ function UpsTab({ instanceId }: { instanceId: string }) {
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 'var(--spacing-sm)' }}>
         <button className="btn" onClick={() => { loadUpsDevices(instanceId); loadUpsConfig(instanceId) }}><RefreshCw size={14} /></button>
       </div>
-      {devices.length === 0 && !cfg && !err ? (
+      {devices.length === 0 && !err ? (
         <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-muted)' }}>
           <AlertTriangle size={32} style={{ marginBottom: 'var(--spacing-sm)', opacity: 0.4 }} />
           <div style={{ fontWeight: 600, marginBottom: 4 }}>Keine USV konfiguriert</div>

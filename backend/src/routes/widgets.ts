@@ -407,7 +407,7 @@ export async function widgetsRoutes(app: FastifyInstance) {
   // POST /api/widgets — create (admin only)
   app.post('/api/widgets', { preHandler: [app.requireAdmin] }, async (req, reply) => {
     const { type, name, config = {}, show_in_topbar = false, display_location = 'none' } = req.body as CreateWidgetBody
-    if (!['server_status', 'adguard_home', 'docker_overview', 'custom_button', 'home_assistant', 'pihole', 'nginx_pm', 'home_assistant_energy', 'calendar'].includes(type)) {
+    if (!['server_status', 'adguard_home', 'docker_overview', 'custom_button', 'home_assistant', 'pihole', 'nginx_pm', 'home_assistant_energy', 'calendar', 'weather'].includes(type)) {
       return reply.status(400).send({ error: 'Invalid widget type' })
     }
     if (!name?.trim()) return reply.status(400).send({ error: 'name is required' })
@@ -586,6 +586,41 @@ export async function widgetsRoutes(app: FastifyInstance) {
       const callerGroup = await callerGroupId(req)
       const { fetchCombinedCalendar } = await import('./arr')
       return await fetchCombinedCalendar(instanceIds, callerGroup, daysAhead)
+    }
+
+    if (row.type === 'weather') {
+      const lat = typeof config.lat === 'number' ? config.lat : parseFloat(String(config.lat ?? ''))
+      const lon = typeof config.lon === 'number' ? config.lon : parseFloat(String(config.lon ?? ''))
+      if (isNaN(lat) || isNaN(lon)) return { error: 'Invalid coordinates configured' }
+      try {
+        const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m&timezone=auto`
+        const res = await fetch(weatherUrl)
+        if (!res.ok) return { error: `Weather API error ${res.status}` }
+        const data = await res.json() as {
+          current: {
+            temperature_2m: number
+            apparent_temperature: number
+            relative_humidity_2m: number
+            precipitation: number
+            weather_code: number
+            wind_speed_10m: number
+            time: string
+          }
+          current_units: { temperature_2m: string }
+        }
+        return {
+          temperature: data.current.temperature_2m,
+          apparent_temperature: data.current.apparent_temperature,
+          humidity: data.current.relative_humidity_2m,
+          precipitation: data.current.precipitation,
+          weather_code: data.current.weather_code,
+          wind_speed: data.current.wind_speed_10m,
+          unit: data.current_units.temperature_2m,
+          timestamp: data.current.time,
+        }
+      } catch (err) {
+        return { error: (err as Error).message }
+      }
     }
 
     // server_status (default)

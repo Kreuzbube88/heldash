@@ -537,4 +537,15 @@ export const api = {
     deleteNotificationPerm:(id: string, notifId: string, type: string)    => req<{ ok: boolean }>(`/unraid/${id}/notifications/${encodeURIComponent(notifId)}?type=${type}`, { method: 'DELETE' }),
     metrics:               (id: string)                                    => req<{ metrics?: UnraidMetricsDetailed }>(`/unraid/${id}/metrics`),
   },
+
+  bookmarks: {
+    list: () => req<import('./types').Bookmark[]>('/bookmarks'),
+    create: (name: string, url: string) =>
+      req<import('./types').Bookmark>('/bookmarks', { method: 'POST', body: JSON.stringify({ name, url }) }),
+    update: (id: string, data: { name?: string; url?: string }) =>
+      req<import('./types').Bookmark>(`/bookmarks/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    delete: (id: string) => req<void>(`/bookmarks/${id}`, { method: 'DELETE' }),
+    uploadIcon: (id: string, data: string, content_type: string) =>
+      req<{ icon_url: string }>(`/bookmarks/${id}/icon`, { method: 'POST', body: JSON.stringify({ data, content_type }) }),
+  },
 }

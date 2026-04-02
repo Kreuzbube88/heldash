@@ -16,6 +16,7 @@ const POLL_INTERVALS: Record<string, number> = {
   home_assistant: 30000,
   home_assistant_energy: 30000,
   calendar: 300000,
+  weather: 600000,
 }
 
 interface WidgetState {

@@ -6,8 +6,8 @@ import { useDashboardStore } from '../store/useDashboardStore'
 import { useStore } from '../store/useStore'
 import { useHaStore } from '../store/useHaStore'
 import { useArrStore } from '../store/useArrStore'
-import { Trash2, Pencil, X, Check, Plus, Minus, LayoutDashboard, Shield, ShieldOff, Upload, Container, Play, Square, RotateCcw, Zap, Sun, ZapOff, Flame, BatteryCharging, Calendar, Film, Tv } from 'lucide-react'
-import type { Widget, ServerStatusConfig, AdGuardHomeConfig, CustomButtonConfig, HomeAssistantConfig, NginxPMConfig, HomeAssistantEnergyConfig, ServerStats, AdGuardStats, HaEntityState, NpmStats, EnergyData, CalendarWidgetConfig, CalendarEntry } from '../types'
+import { Trash2, Pencil, X, Check, Plus, Minus, LayoutDashboard, Shield, ShieldOff, Upload, Container, Play, Square, RotateCcw, Zap, Sun, ZapOff, Flame, BatteryCharging, Calendar, Film, Tv, Cloud } from 'lucide-react'
+import type { Widget, ServerStatusConfig, AdGuardHomeConfig, CustomButtonConfig, HomeAssistantConfig, NginxPMConfig, HomeAssistantEnergyConfig, ServerStats, AdGuardStats, HaEntityState, NpmStats, EnergyData, CalendarWidgetConfig, CalendarEntry, WeatherWidgetConfig, WeatherStats } from '../types'
 import { normalizeUrl, containerCounts } from '../utils'
 
 // ── Energy Widget compact view ─────────────────────────────────────────────────
@@ -501,7 +501,7 @@ function WidgetForm({
   onCancel: () => void
 }) {
   const isEdit = !!initial
-  type WidgetFormType = 'server_status' | 'adguard_home' | 'docker_overview' | 'custom_button' | 'home_assistant' | 'pihole' | 'nginx_pm' | 'home_assistant_energy' | 'calendar'
+  type WidgetFormType = 'server_status' | 'adguard_home' | 'docker_overview' | 'custom_button' | 'home_assistant' | 'pihole' | 'nginx_pm' | 'home_assistant_energy' | 'calendar' | 'weather'
   const [type, setType] = useState<WidgetFormType>(
     (initial?.type as WidgetFormType) ?? 'server_status'
   )
@@ -555,6 +555,12 @@ function WidgetForm({
   const [calInstanceIds, setCalInstanceIds] = useState<string[]>(existingCal?.instance_ids ?? [])
   const [calDaysAhead, setCalDaysAhead] = useState(existingCal?.days_ahead ?? 14)
 
+  // weather config
+  const existingWeather = initial?.type === 'weather' ? (initial.config as WeatherWidgetConfig) : null
+  const [weatherLat, setWeatherLat] = useState(existingWeather ? String(existingWeather.lat) : '')
+  const [weatherLon, setWeatherLon] = useState(existingWeather ? String(existingWeather.lon) : '')
+  const [weatherLocationName, setWeatherLocationName] = useState(existingWeather?.location_name ?? '')
+
   // icon
   const [pendingIcon, setPendingIcon] = useState<{ data: string; contentType: string; preview: string } | null>(null)
   const iconInputRef = useRef<HTMLInputElement>(null)
@@ -589,6 +595,7 @@ function WidgetForm({
     if (t === 'nginx_pm') return 'Nginx Proxy Manager'
     if (t === 'home_assistant_energy') return 'HA Energy'
     if (t === 'calendar') return 'Upcoming'
+    if (t === 'weather') return 'Weather'
     return 'Server Status'
   }
 
@@ -630,6 +637,11 @@ function WidgetForm({
       if (calInstanceIds.length === 0) return setError('Select at least one Radarr/Sonarr instance')
       const days = Math.max(1, Math.min(30, calDaysAhead))
       config = { instance_ids: calInstanceIds, days_ahead: days }
+    } else if (type === 'weather') {
+      const latNum = parseFloat(weatherLat)
+      const lonNum = parseFloat(weatherLon)
+      if (isNaN(latNum) || isNaN(lonNum)) return setError('Valid latitude and longitude are required')
+      config = { lat: latNum, lon: lonNum, ...(weatherLocationName.trim() ? { location_name: weatherLocationName.trim() } : {}) }
     } else {
       if (!agUrl.trim()) return setError('URL is required')
       if (!agUsername.trim()) return setError('Username is required')
@@ -687,6 +699,7 @@ function WidgetForm({
               <option value="nginx_pm">Nginx Proxy Manager</option>
               <option value="pihole">Pi-hole</option>
               <option value="server_status">Server Status</option>
+              <option value="weather">Weather</option>
             </select>
           </div>
         )}
@@ -953,6 +966,26 @@ function WidgetForm({
           </div>
         )}
 
+        {/* weather config */}
+        {type === 'weather' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ flex: 1 }}>
+                <label className="form-label" style={{ fontSize: 11 }}>Latitude</label>
+                <input className="form-input" value={weatherLat} onChange={e => setWeatherLat(e.target.value)} placeholder="51.5074" style={{ fontSize: 13 }} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label className="form-label" style={{ fontSize: 11 }}>Longitude</label>
+                <input className="form-input" value={weatherLon} onChange={e => setWeatherLon(e.target.value)} placeholder="-0.1278" style={{ fontSize: 13 }} />
+              </div>
+            </div>
+            <div>
+              <label className="form-label" style={{ fontSize: 11 }}>Location Name (optional)</label>
+              <input className="form-input" value={weatherLocationName} onChange={e => setWeatherLocationName(e.target.value)} placeholder="My City" style={{ fontSize: 13 }} />
+            </div>
+          </div>
+        )}
+
         {/* calendar config */}
         {type === 'calendar' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -1059,7 +1092,7 @@ function WidgetCard({
           <div>
             <div style={{ fontWeight: 600, fontSize: 14 }}>{widget.name}</div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, display: 'flex', gap: 8 }}>
-              <span>{{ adguard_home: 'AdGuard Home', docker_overview: 'Docker Overview', custom_button: 'Custom Buttons', home_assistant: 'Home Assistant', home_assistant_energy: 'HA Energy', pihole: 'Pi-hole', nginx_pm: 'Nginx Proxy Manager', calendar: 'Calendar' }[widget.type] ?? 'Server Status'}</span>
+              <span>{{ adguard_home: 'AdGuard Home', docker_overview: 'Docker Overview', custom_button: 'Custom Buttons', home_assistant: 'Home Assistant', home_assistant_energy: 'HA Energy', pihole: 'Pi-hole', nginx_pm: 'Nginx Proxy Manager', calendar: 'Calendar', weather: 'Weather' }[widget.type] ?? 'Server Status'}</span>
               {widget.display_location === 'topbar' && <span style={{ color: 'var(--accent)' }}>· Topbar</span>}
               {widget.display_location === 'sidebar' && <span style={{ color: 'var(--accent)' }}>· Sidebar</span>}
             </div>
@@ -1146,6 +1179,12 @@ function WidgetCard({
         ) : (
           <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '8px 0' }}>Loading calendar…</div>
         )
+      ) : widget.type === 'weather' ? (
+        s ? (
+          <WeatherWidgetView stats={s as WeatherStats} config={widget.config as WeatherWidgetConfig} />
+        ) : (
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '8px 0' }}>Loading weather…</div>
+        )
       ) : (
         // adguard_home
         s ? (
@@ -1171,6 +1210,63 @@ function WidgetCard({
           {isOnDashboard ? 'On Dashboard' : 'Add to Dashboard'}
         </button>
       )}
+    </div>
+  )
+}
+
+// ── Weather widget view ───────────────────────────────────────────────────────
+
+const WEATHER_CODES: Record<number, string> = {
+  0: 'Clear sky', 1: 'Mainly clear', 2: 'Partly cloudy', 3: 'Overcast',
+  45: 'Foggy', 48: 'Depositing rime fog',
+  51: 'Light drizzle', 53: 'Moderate drizzle', 55: 'Dense drizzle',
+  61: 'Slight rain', 63: 'Moderate rain', 65: 'Heavy rain',
+  71: 'Slight snow', 73: 'Moderate snow', 75: 'Heavy snow', 77: 'Snow grains',
+  80: 'Slight showers', 81: 'Moderate showers', 82: 'Violent showers',
+  85: 'Slight snow showers', 86: 'Heavy snow showers',
+  95: 'Thunderstorm', 96: 'Thunderstorm w/ hail', 99: 'Thunderstorm w/ hail',
+}
+
+export function WeatherWidgetView({ stats, config }: { stats: WeatherStats; config: WeatherWidgetConfig }) {
+  if (stats.error) {
+    return <div style={{ fontSize: 12, color: 'var(--status-offline)' }}>{stats.error}</div>
+  }
+  const desc = WEATHER_CODES[stats.weather_code] ?? `Code ${stats.weather_code}`
+  const locationLabel = config.location_name || null
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {locationLabel && (
+        <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
+          <Cloud size={11} />
+          {locationLabel}
+        </div>
+      )}
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
+        <span style={{ fontSize: 36, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--accent)', lineHeight: 1 }}>
+          {stats.temperature}{stats.unit}
+        </span>
+        <span style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>{desc}</span>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, fontSize: 12 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <span style={{ color: 'var(--text-muted)', fontSize: 10 }}>Feels like</span>
+          <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 500 }}>{stats.apparent_temperature}{stats.unit}</span>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <span style={{ color: 'var(--text-muted)', fontSize: 10 }}>Humidity</span>
+          <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 500 }}>{stats.humidity}%</span>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <span style={{ color: 'var(--text-muted)', fontSize: 10 }}>Wind</span>
+          <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 500 }}>{stats.wind_speed} km/h</span>
+        </div>
+        {stats.precipitation > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <span style={{ color: 'var(--text-muted)', fontSize: 10 }}>Precipitation</span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 500 }}>{stats.precipitation} mm</span>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

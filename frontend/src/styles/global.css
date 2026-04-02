@@ -2102,3 +2102,6 @@ select.input option {
   font-size: 12px;
   font-weight: 500;
 }
+
+/* ─── Bookmark card hover actions ─────────────────────────────────────────── */
+.glass:hover .bookmark-actions { opacity: 1 !important; }

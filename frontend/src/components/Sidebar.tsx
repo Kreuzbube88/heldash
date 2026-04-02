@@ -1,13 +1,13 @@
 import React, { useEffect, useLayoutEffect, useState } from 'react'
 import {
   LayoutDashboard, Settings, AppWindow, Info, Tv2, BarChart2, Container, Home,
-  ChevronLeft, ChevronRight, ScrollText, Network, HardDrive, Server,
+  ChevronLeft, ChevronRight, ScrollText, Network, HardDrive, Server, Bookmark,
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { useArrStore } from '../store/useArrStore'
 import { useWidgetStore } from '../store/useWidgetStore'
 import { useDockerStore } from '../store/useDockerStore'
-import type { Widget, ServerStats, AdGuardStats, HaEntityState, NpmStats, CalendarEntry } from '../types'
+import type { Widget, ServerStats, AdGuardStats, HaEntityState, NpmStats, CalendarEntry, WeatherStats } from '../types'
 import { containerCounts } from '../utils'
 import { LS_SIDEBAR_COLLAPSED } from '../constants'
 
@@ -114,6 +114,9 @@ export function Sidebar({ page, onNavigate }: Props) {
           </>
         )}
 
+        {isAuthenticated && (
+          <NavItem icon={<Bookmark size={16} />} label="Bookmarks" active={page === 'bookmarks'} onClick={() => onNavigate('bookmarks')} collapsed={collapsed} />
+        )}
         {isAuthenticated && (
           <NavItem icon={<Network size={16} />} label="Netzwerk" active={page === 'network'} onClick={() => onNavigate('network')} collapsed={collapsed} />
         )}
@@ -312,6 +315,18 @@ function SidebarWidget({ widget }: { widget: Widget }) {
       ))}
       {entries.length > 3 && <span style={{ color: 'var(--text-muted)', fontSize: 10 }}>+{entries.length - 3} more</span>}
     </>
+  } else if (widget.type === 'weather' && s) {
+    const w = s as WeatherStats
+    if (w.error) {
+      body = <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>{w.error}</span>
+    } else {
+      body = <>
+        {row('Temp', `${w.temperature}${w.unit}`, 'var(--accent)')}
+        {row('Feels', `${w.apparent_temperature}${w.unit}`)}
+        {row('Humid', `${w.humidity}%`)}
+        {row('Wind', `${w.wind_speed} km/h`)}
+      </>
+    }
   } else {
     return null
   }

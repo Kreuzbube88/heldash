@@ -150,6 +150,33 @@ export interface CalendarWidgetConfig {
   days_ahead: number
 }
 
+export interface WeatherWidgetConfig {
+  lat: number
+  lon: number
+  location_name?: string
+}
+
+export interface WeatherStats {
+  temperature: number
+  apparent_temperature: number
+  humidity: number
+  precipitation: number
+  weather_code: number
+  wind_speed: number
+  unit: string
+  timestamp: string
+  error?: string
+}
+
+export interface Bookmark {
+  id: string
+  name: string
+  url: string
+  icon_url: string | null
+  position: number
+  created_at: string
+}
+
 export interface CalendarEntry {
   id: string
   title: string
@@ -184,9 +211,9 @@ export interface EnergyData {
 
 export interface Widget {
   id: string
-  type: 'server_status' | 'adguard_home' | 'docker_overview' | 'custom_button' | 'home_assistant' | 'pihole' | 'nginx_pm' | 'home_assistant_energy' | 'calendar'
+  type: 'server_status' | 'adguard_home' | 'docker_overview' | 'custom_button' | 'home_assistant' | 'pihole' | 'nginx_pm' | 'home_assistant_energy' | 'calendar' | 'weather'
   name: string
-  config: ServerStatusConfig | AdGuardHomeConfig | CustomButtonConfig | HomeAssistantConfig | PiholeConfig | NginxPMConfig | CalendarWidgetConfig | Record<string, never>
+  config: ServerStatusConfig | AdGuardHomeConfig | CustomButtonConfig | HomeAssistantConfig | PiholeConfig | NginxPMConfig | CalendarWidgetConfig | WeatherWidgetConfig | Record<string, never>
   position: number
   show_in_topbar: boolean  // deprecated: use display_location
   display_location: 'topbar' | 'sidebar' | 'none'
@@ -215,7 +242,7 @@ export interface NpmStats {
   cert_expiring_soon: number  // expires within 30 days
 }
 
-export type WidgetStats = ServerStats | AdGuardStats | HaEntityState[] | NpmStats | CalendarEntry[]
+export type WidgetStats = ServerStats | AdGuardStats | HaEntityState[] | NpmStats | CalendarEntry[] | WeatherStats | EnergyData
 
 export interface DashboardWidgetItem {
   id: string

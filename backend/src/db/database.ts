@@ -424,6 +424,16 @@ function applySchema(db: Database.Database) {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    -- Bookmarks
+    CREATE TABLE IF NOT EXISTS bookmarks (
+      id       TEXT PRIMARY KEY,
+      name     TEXT NOT NULL,
+      url      TEXT NOT NULL,
+      icon_url TEXT,
+      position INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     -- Insert default settings if not exist
     INSERT OR IGNORE INTO settings (key, value) VALUES
       ('theme_mode', '"dark"'),

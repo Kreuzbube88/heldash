@@ -202,6 +202,7 @@ function ScannerModal({ defaultSubnet, existingIps, onClose, onAddDevice }: Scan
   const [results, setResults] = useState<ScanResult[]>([])
   const [scanned, setScanned] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [addedIps, setAddedIps] = useState<string[]>([])
 
   const isValidSubnet = (s: string) =>
     /^\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(s) ||
@@ -213,6 +214,7 @@ function ScannerModal({ defaultSubnet, existingIps, onClose, onAddDevice }: Scan
     setScanning(true)
     setError(null)
     setResults([])
+    setAddedIps([])
     try {
       const data = await api.network.scan(subnet.trim())
       setResults(data)
@@ -247,24 +249,29 @@ function ScannerModal({ defaultSubnet, existingIps, onClose, onAddDevice }: Scan
           <>
             <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12 }}>{results.length} Gerät{results.length !== 1 ? 'e' : ''} gefunden</p>
             {results.length > 0 && (
-              <div style={{ maxHeight: 320, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {results.map(r => {
-                  const exists = existingIps.includes(r.ip)
-                  return (
-                    <div key={r.ip} className="glass" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 'var(--radius-sm)' }}>
-                      <div>
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 600 }}>{r.ip}</span>
-                        <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 10 }}>Ports: {r.open_ports.join(', ')} · {r.latency}ms</span>
+              <>
+                <div style={{ maxHeight: 320, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {results.map(r => {
+                    const exists = existingIps.includes(r.ip) || addedIps.includes(r.ip)
+                    return (
+                      <div key={r.ip} className="glass" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 'var(--radius-sm)', opacity: exists ? 0.6 : 1 }}>
+                        <div>
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 600 }}>{r.ip}</span>
+                          <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 10 }}>Ports: {r.open_ports.join(', ')} · {r.latency}ms</span>
+                        </div>
+                        {exists ? (
+                          <span style={{ fontSize: 12, color: 'var(--status-online)', display: 'flex', alignItems: 'center', gap: 4 }}>✓ {existingIps.includes(r.ip) ? 'Vorhanden' : 'Hinzugefügt'}</span>
+                        ) : (
+                          <button className="btn btn-primary" style={{ padding: '4px 12px', fontSize: 12 }} onClick={() => { setAddedIps(prev => [...prev, r.ip]); onAddDevice(r.ip, r.open_ports) }}>Hinzufügen</button>
+                        )}
                       </div>
-                      {exists ? (
-                        <span style={{ fontSize: 12, color: 'var(--status-online)', display: 'flex', alignItems: 'center', gap: 4 }}>✓ Vorhanden</span>
-                      ) : (
-                        <button className="btn btn-primary" style={{ padding: '4px 12px', fontSize: 12 }} onClick={() => { onAddDevice(r.ip, r.open_ports); onClose() }}>Hinzufügen</button>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
+                    )
+                  })}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+                  <button className="btn btn-ghost" onClick={onClose} style={{ fontSize: 13 }}>Scan abschließen</button>
+                </div>
+              </>
             )}
           </>
         )}

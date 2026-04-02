@@ -4,6 +4,7 @@ import { useArrStore } from '../store/useArrStore'
 import { useDashboardStore } from '../store/useDashboardStore'
 import { useWidgetStore } from '../store/useWidgetStore'
 import { useDockerStore } from '../store/useDockerStore'
+import { useBookmarkStore } from '../store/useBookmarkStore'
 import { ServiceCard } from '../components/ServiceCard'
 import { ArrCardContent, SabnzbdCardContent, SeerrCardContent } from '../components/MediaCard'
 import { AdGuardStatsView, DockerOverviewContent, HaStatsView, CustomButtonsView, StatBar, NginxPMStatsView, HaEnergyWidgetView, CalendarWidgetContent, WeatherWidgetView } from './WidgetsPage'
@@ -737,7 +738,10 @@ export function Dashboard({ onEdit }: Props) {
   const { items, groups, editMode, guestMode, loading, reorder, reorderGroups, createGroup, showVisibilityOverlay, setShowVisibilityOverlay } = useDashboardStore()
   const { loadStats, startPollingAll, stopPollingAll } = useWidgetStore()
   const { loadContainers } = useDockerStore()
+  const { bookmarks, loadBookmarks } = useBookmarkStore()
   const [guestVisibility, setGuestVisibility] = useState<{ services: string[]; arr: string[]; widgets: string[] }>({ services: [], arr: [], widgets: [] })
+
+  const dashboardBookmarks = bookmarks.filter(b => b.show_on_dashboard !== 0)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -783,6 +787,13 @@ export function Dashboard({ onEdit }: Props) {
     }
   }, [showVisibilityOverlay, isAdmin])
 
+  // Load bookmarks if not yet loaded
+  useEffect(() => {
+    if (isAuthenticated && bookmarks.length === 0) {
+      loadBookmarks().catch(() => {})
+    }
+  }, [isAuthenticated])
+
   const isPlaceholder = (type: string) =>
     type === 'placeholder' || type === 'placeholder_app' || type === 'placeholder_widget' || type === 'placeholder_row'
 
@@ -818,7 +829,7 @@ export function Dashboard({ onEdit }: Props) {
     )
   }
 
-  if (!loading && !realGroupItems && !realUngroupedItems) {
+  if (!loading && !realGroupItems && !realUngroupedItems && dashboardBookmarks.length === 0) {
     return (
       <div className="empty-state">
         <div className="empty-state-icon">⬡</div>
@@ -894,6 +905,38 @@ export function Dashboard({ onEdit }: Props) {
         </DndContext>
       ) : (
         ungroupedSection
+      )}
+
+      {/* Bookmarks section */}
+      {dashboardBookmarks.length > 0 && (
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: 1, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 8 }}>Bookmarks</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 8 }}>
+            {dashboardBookmarks.map(bm => (
+              <a
+                key={bm.id}
+                href={bm.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="glass"
+                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 'var(--radius-md)', textDecoration: 'none', color: 'inherit', transition: 'var(--transition-base)' }}
+              >
+                <div style={{ width: 28, height: 28, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 6, background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', overflow: 'hidden' }}>
+                  {bm.icon_url
+                    ? <img src={bm.icon_url} alt="" style={{ width: 22, height: 22, objectFit: 'contain' }} />
+                    : <Home size={14} style={{ color: 'var(--text-muted)' }} />
+                  }
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{bm.name}</div>
+                  {bm.description && (
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{bm.description}</div>
+                  )}
+                </div>
+              </a>
+            ))}
+          </div>
+        </div>
       )}
 
     </div>

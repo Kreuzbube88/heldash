@@ -172,8 +172,10 @@ export interface Bookmark {
   id: string
   name: string
   url: string
+  description: string | null
   icon_url: string | null
   position: number
+  show_on_dashboard: number
   created_at: string
 }
 

@@ -540,12 +540,21 @@ export const api = {
 
   bookmarks: {
     list: () => req<import('./types').Bookmark[]>('/bookmarks'),
-    create: (name: string, url: string) =>
-      req<import('./types').Bookmark>('/bookmarks', { method: 'POST', body: JSON.stringify({ name, url }) }),
-    update: (id: string, data: { name?: string; url?: string }) =>
+    create: (name: string, url: string, description?: string) =>
+      req<import('./types').Bookmark>('/bookmarks', { method: 'POST', body: JSON.stringify({ name, url, description }) }),
+    update: (id: string, data: { name?: string; url?: string; description?: string }) =>
       req<import('./types').Bookmark>(`/bookmarks/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     delete: (id: string) => req<void>(`/bookmarks/${id}`, { method: 'DELETE' }),
     uploadIcon: (id: string, data: string, content_type: string) =>
       req<{ icon_url: string }>(`/bookmarks/${id}/icon`, { method: 'POST', body: JSON.stringify({ data, content_type }) }),
+    toggleDashboard: (id: string, show: boolean) =>
+      req<{ success: boolean }>(`/bookmarks/${id}/dashboard`, { method: 'PATCH', body: JSON.stringify({ show }) }),
+    export: async (): Promise<Blob> => {
+      const res = await fetch(`${BASE}/bookmarks/export`, { credentials: 'include', cache: 'no-store' })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      return res.blob()
+    },
+    import: (bookmarks: Array<{ name: string; url: string; description?: string }>) =>
+      req<{ imported: number; skipped: number; errors: string[] }>('/bookmarks/import', { method: 'POST', body: JSON.stringify({ bookmarks }) }),
   },
 }

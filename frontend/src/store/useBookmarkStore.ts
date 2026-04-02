@@ -6,13 +6,16 @@ interface BookmarkState {
   bookmarks: Bookmark[]
   loading: boolean
   loadBookmarks: () => Promise<void>
-  createBookmark: (name: string, url: string) => Promise<Bookmark>
-  updateBookmark: (id: string, data: { name?: string; url?: string }) => Promise<void>
+  createBookmark: (name: string, url: string, description?: string) => Promise<Bookmark>
+  updateBookmark: (id: string, data: { name?: string; url?: string; description?: string }) => Promise<void>
   deleteBookmark: (id: string) => Promise<void>
   uploadIcon: (id: string, file: File) => Promise<void>
+  toggleDashboard: (id: string, show: boolean) => Promise<void>
+  exportBookmarks: () => Promise<void>
+  importBookmarks: (file: File) => Promise<{ imported: number; skipped: number; errors: string[] }>
 }
 
-export const useBookmarkStore = create<BookmarkState>((set) => ({
+export const useBookmarkStore = create<BookmarkState>((set, get) => ({
   bookmarks: [],
   loading: false,
 
@@ -26,8 +29,8 @@ export const useBookmarkStore = create<BookmarkState>((set) => ({
     }
   },
 
-  createBookmark: async (name, url) => {
-    const bookmark = await api.bookmarks.create(name, url)
+  createBookmark: async (name, url, description) => {
+    const bookmark = await api.bookmarks.create(name, url, description)
     set(state => ({ bookmarks: [...state.bookmarks, bookmark] }))
     return bookmark
   },
@@ -51,5 +54,35 @@ export const useBookmarkStore = create<BookmarkState>((set) => ({
     })
     const { icon_url } = await api.bookmarks.uploadIcon(id, base64, file.type)
     set(state => ({ bookmarks: state.bookmarks.map(b => b.id === id ? { ...b, icon_url } : b) }))
+  },
+
+  toggleDashboard: async (id, show) => {
+    await api.bookmarks.toggleDashboard(id, show)
+    set(state => ({
+      bookmarks: state.bookmarks.map(b => b.id === id ? { ...b, show_on_dashboard: show ? 1 : 0 } : b),
+    }))
+  },
+
+  exportBookmarks: async () => {
+    const blob = await api.bookmarks.export()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `heldash-bookmarks-${new Date().toISOString().split('T')[0]}.json`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  },
+
+  importBookmarks: async (file) => {
+    const text = await file.text()
+    const data = JSON.parse(text) as { bookmarks?: unknown }
+    if (!Array.isArray(data.bookmarks)) {
+      throw new Error('Invalid file format: expected { bookmarks: [...] }')
+    }
+    const result = await api.bookmarks.import(data.bookmarks as Array<{ name: string; url: string; description?: string }>)
+    await get().loadBookmarks()
+    return result
   },
 }))

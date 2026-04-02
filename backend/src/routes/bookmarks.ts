@@ -10,25 +10,33 @@ interface BookmarkRow {
   id: string
   name: string
   url: string
+  description: string | null
   icon_url: string | null
   position: number
+  show_on_dashboard: number
   created_at: string
 }
 
 interface CreateBookmarkBody {
   name: string
   url: string
+  description?: string
 }
 
 interface PatchBookmarkBody {
   name?: string
   url?: string
+  description?: string
   position?: number
 }
 
 interface UploadIconBody {
   data: string
   content_type: string
+}
+
+interface ImportBookmarksBody {
+  bookmarks: Array<{ name: string; url: string; description?: string }>
 }
 
 export async function bookmarksRoutes(app: FastifyInstance) {
@@ -39,15 +47,54 @@ export async function bookmarksRoutes(app: FastifyInstance) {
     return db.prepare('SELECT * FROM bookmarks ORDER BY position, created_at').all() as BookmarkRow[]
   })
 
+  // GET /api/bookmarks/export — export as JSON (must be before /:id routes)
+  app.get('/api/bookmarks/export', { preHandler: [app.authenticate] }, async (_req, reply) => {
+    const rows = db.prepare(
+      'SELECT name, url, description, icon_url FROM bookmarks ORDER BY name ASC'
+    ).all() as Pick<BookmarkRow, 'name' | 'url' | 'description' | 'icon_url'>[]
+    const date = new Date().toISOString().split('T')[0]
+    reply.header('Content-Type', 'application/json')
+    reply.header('Content-Disposition', `attachment; filename="heldash-bookmarks-${date}.json"`)
+    return { bookmarks: rows }
+  })
+
+  // POST /api/bookmarks/import — import from JSON (must be before /:id routes)
+  app.post<{ Body: ImportBookmarksBody }>('/api/bookmarks/import', { preHandler: [app.authenticate] }, async (req, reply) => {
+    const { bookmarks } = req.body
+    if (!Array.isArray(bookmarks)) return reply.status(400).send({ error: 'bookmarks must be an array' })
+    const now = new Date().toISOString()
+    let imported = 0
+    let skipped = 0
+    const errors: string[] = []
+    for (const bm of bookmarks) {
+      try {
+        const existing = db.prepare('SELECT id FROM bookmarks WHERE url = ?').get(bm.url)
+        if (existing) { skipped++; continue }
+        const maxRow = db.prepare('SELECT MAX(position) as m FROM bookmarks').get() as { m: number | null }
+        const position = (maxRow.m ?? -1) + 1
+        const id = nanoid()
+        db.prepare(
+          'INSERT INTO bookmarks (id, name, url, description, position, created_at) VALUES (?, ?, ?, ?, ?, ?)'
+        ).run(id, bm.name, bm.url, bm.description ?? null, position, now)
+        imported++
+      } catch (err) {
+        errors.push(`${bm.name}: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      }
+    }
+    return { imported, skipped, errors }
+  })
+
   // POST /api/bookmarks — admin only
   app.post<{ Body: CreateBookmarkBody }>('/api/bookmarks', { preHandler: [app.requireAdmin] }, async (req, reply) => {
-    const { name, url } = req.body
+    const { name, url, description } = req.body
     if (!name?.trim()) return reply.status(400).send({ error: 'name is required' })
     if (!url?.trim()) return reply.status(400).send({ error: 'url is required' })
     const maxRow = db.prepare('SELECT MAX(position) as m FROM bookmarks').get() as { m: number | null }
     const position = (maxRow.m ?? -1) + 1
     const id = nanoid()
-    db.prepare('INSERT INTO bookmarks (id, name, url, position) VALUES (?, ?, ?, ?)').run(id, name.trim(), url.trim(), position)
+    db.prepare('INSERT INTO bookmarks (id, name, url, description, position) VALUES (?, ?, ?, ?, ?)').run(
+      id, name.trim(), url.trim(), description?.trim() ?? null, position
+    )
     return reply.status(201).send(db.prepare('SELECT * FROM bookmarks WHERE id = ?').get(id) as BookmarkRow)
   })
 
@@ -55,16 +102,25 @@ export async function bookmarksRoutes(app: FastifyInstance) {
   app.patch<{ Params: { id: string }; Body: PatchBookmarkBody }>('/api/bookmarks/:id', { preHandler: [app.requireAdmin] }, async (req, reply) => {
     const row = db.prepare('SELECT * FROM bookmarks WHERE id = ?').get(req.params.id) as BookmarkRow | undefined
     if (!row) return reply.status(404).send({ error: 'Not found' })
-    const { name, url, position } = req.body
+    const { name, url, description, position } = req.body
     const updates: string[] = []
     const values: unknown[] = []
     if (name !== undefined) { updates.push('name = ?'); values.push(name.trim()) }
     if (url !== undefined) { updates.push('url = ?'); values.push(url.trim()) }
+    if (description !== undefined) { updates.push('description = ?'); values.push(description.trim() || null) }
     if (position !== undefined) { updates.push('position = ?'); values.push(position) }
     if (updates.length > 0) {
       db.prepare(`UPDATE bookmarks SET ${updates.join(', ')} WHERE id = ?`).run(...values, req.params.id)
     }
     return db.prepare('SELECT * FROM bookmarks WHERE id = ?').get(req.params.id) as BookmarkRow
+  })
+
+  // PATCH /api/bookmarks/:id/dashboard — authenticated users (toggle own visibility)
+  app.patch<{ Params: { id: string }; Body: { show: boolean } }>('/api/bookmarks/:id/dashboard', { preHandler: [app.authenticate] }, async (req, reply) => {
+    const row = db.prepare('SELECT * FROM bookmarks WHERE id = ?').get(req.params.id) as BookmarkRow | undefined
+    if (!row) return reply.status(404).send({ error: 'Not found' })
+    db.prepare('UPDATE bookmarks SET show_on_dashboard = ? WHERE id = ?').run(req.body.show ? 1 : 0, req.params.id)
+    return { success: true }
   })
 
   // DELETE /api/bookmarks/:id — admin only

@@ -1,0 +1,79 @@
+name: 🌐 Add Translation
+description: Contribute a new language translation to HELDASH
+title: "[Translation] Add [LANGUAGE] support"
+labels: ["enhancement", "i18n", "translation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for contributing a translation! Please fill out the information below.
+
+  - type: input
+    id: language
+    attributes:
+      label: Language
+      description: Which language are you adding?
+      placeholder: e.g., French, Spanish, Italian, Portuguese
+    validations:
+      required: true
+
+  - type: input
+    id: language-code
+    attributes:
+      label: Language Code
+      description: ISO 639-1 two-letter code
+      placeholder: e.g., fr, es, it, pt
+    validations:
+      required: true
+
+  - type: dropdown
+    id: completion
+    attributes:
+      label: Translation Completion
+      description: How complete is your translation?
+      options:
+        - 100% (all 16 files)
+        - 75-99% (most files, some missing)
+        - 50-74% (work in progress)
+        - <50% (early draft)
+    validations:
+      required: true
+
+  - type: textarea
+    id: missing
+    attributes:
+      label: Missing or Incomplete Files (if <100%)
+      description: List any files that are incomplete or missing
+      placeholder: |
+        - about.json (only 50% translated, technical documentation TBD)
+        - logbuch.json (need help with activity log terminology)
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Pre-submission Checklist
+      description: Please confirm you've completed these steps
+      options:
+        - label: I've copied `frontend/src/locales/en/` to my language folder
+          required: true
+        - label: I've translated all JSON files (or listed incomplete ones above)
+          required: true
+        - label: I've kept technical terms untranslated (Docker, Unraid, HA, etc.)
+          required: true
+        - label: I've updated `frontend/src/i18n.ts` with imports
+          required: true
+        - label: I've updated `frontend/src/stores/useLanguageStore.ts` type
+          required: true
+        - label: I've added my language to SetupPage.tsx and Settings.tsx
+          required: true
+        - label: I've tested the translation locally (`npm run dev`)
+          required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional Notes
+      description: Any context, questions, or technical terms you're unsure about
+      placeholder: |
+        - Not sure if "Dashboard" should be translated or kept in English
+        - "Logbuch" doesn't have a direct translation in [language], used "Activity Log"

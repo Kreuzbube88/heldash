@@ -1,46 +1,68 @@
 # Contributing to HELDASH
 
-Thank you for your interest in contributing!
+[🇬🇧 English](#english) | [🇩🇪 Deutsch](#deutsch)
 
-## Language / i18n
+---
 
-The dashboard is currently German-only. If you'd like to add
-internationalization (i18n) support, here's what's involved:
+<a name="english"></a>
+## 🇬🇧 English
 
-**Scope:**
-- ~500-800 UI strings across frontend components
-- Recommended library: `i18next` + `react-i18next`
-- Language files: `frontend/src/locales/de.json` + your language
-- Language setting: stored per-user in the database
-- Language switch: in Settings → General
+### Adding a Translation
 
-**Please open an issue first** to discuss your approach before
-starting a large PR. This avoids duplicate work.
+HELDASH uses **react-i18next** for internationalization. Currently supported: German (default), English.
 
-## Tech Stack
+**To add your language:**
 
-| Layer | Technology |
-|---|---|
-| Frontend | React 18, TypeScript (strict), Vite 5 |
-| State | Zustand |
-| Styling | Vanilla CSS (CSS custom properties, no CSS-in-JS) |
-| Backend | Fastify 4, TypeScript (strict) |
-| Database | SQLite (better-sqlite3, WAL mode) |
+1. **Copy translation files:**
+```bash
+   cp -r frontend/src/locales/en frontend/src/locales/[your-lang]
+   # Example: cp -r frontend/src/locales/en frontend/src/locales/fr
+```
 
-## Code Standards
+2. **Translate all 16 JSON files:**
+   - `common.json` (navigation, buttons, status, toasts)
+   - `setup.json`, `settings.json`, `dashboard.json`
+   - `ha.json`, `docker.json`, `backup.json`, `network.json`
+   - `unraid.json`, `logbuch.json`, `about.json`, `bookmarks.json`
+   - `media.json`, `services.json`, `widgets.json`, `instances.json`
 
-- **TypeScript strict** throughout — no `any` types
-- **CSS variables only** — no hardcoded colors or inline styles
-  (exception: dynamic values only)
-- **No new dependencies** without a clear reason and discussion
-- **All API calls** via `api.ts` — never `fetch` directly in components
-- **All state mutations** via Zustand stores
-- **Icons** via `lucide-react` only
-- **No browser `alert`/`confirm`/`prompt`** — all feedback inline
+   **Keep untranslated:** Docker, Unraid, Home Assistant, technical terms, entity IDs
 
-## Getting Started
+3. **Update code:**
+   - Add imports to `frontend/src/i18n.ts`
+   - Update type in `frontend/src/stores/useLanguageStore.ts`
+   - Add option to `SetupPage.tsx` language selector
+   - Add option to `Settings.tsx` language dropdown
 
-Requirements: Node.js 20+, Docker (for testing)
+4. **Test locally:**
+```bash
+   cd frontend && npm run dev
+```
+
+5. **Submit PR:**
+   - Title: `feat: add [Language] translation`
+   - Include language code, completion percentage
+   - Mention any technical terms you kept in English
+
+**Questions?** Open an issue with the "Add Translation" template.
+
+---
+
+### Code Contributions
+
+**Tech Stack:**
+- Frontend: React 18, TypeScript strict, Vite 5, Zustand
+- Backend: Fastify 4, TypeScript strict, SQLite (better-sqlite3)
+- Styling: Vanilla CSS (CSS custom properties only)
+
+**Standards:**
+- TypeScript strict — no `any` types
+- All API calls via `api.ts` (never `fetch` in components)
+- All state via Zustand stores
+- CSS variables only (no inline styles except dynamic values)
+- Icons: `lucide-react` only
+
+**Setup:**
 ```bash
 # Backend
 cd backend && npm install && npm run dev
@@ -49,15 +71,81 @@ cd backend && npm install && npm run dev
 cd frontend && npm install && npm run dev
 ```
 
-Backend runs on port 8282, frontend dev server proxies API calls.
-
-## Pull Requests
-
-- Keep PRs focused — one feature or fix per PR
+**Pull Requests:**
+- One feature/fix per PR
 - Run `tsc` in both `backend/` and `frontend/` before submitting
-- Follow existing code patterns — read CLAUDE.md for architecture details
-- PRs that break TypeScript strict mode will not be merged
+- Follow existing patterns (see `CLAUDE.md`)
 
-## Questions
+---
 
-Open a GitHub Issue for questions, feature requests or bug reports.
+<a name="deutsch"></a>
+## 🇩🇪 Deutsch
+
+### Übersetzung hinzufügen
+
+HELDASH nutzt **react-i18next** für Internationalisierung. Aktuell verfügbar: Deutsch (Standard), Englisch.
+
+**So fügst du deine Sprache hinzu:**
+
+1. **Übersetzungsdateien kopieren:**
+```bash
+   cp -r frontend/src/locales/en frontend/src/locales/[deine-sprache]
+   # Beispiel: cp -r frontend/src/locales/en frontend/src/locales/fr
+```
+
+2. **Alle 16 JSON-Dateien übersetzen:**
+   - `common.json` (Navigation, Buttons, Status, Toasts)
+   - `setup.json`, `settings.json`, `dashboard.json`
+   - `ha.json`, `docker.json`, `backup.json`, `network.json`
+   - `unraid.json`, `logbuch.json`, `about.json`, `bookmarks.json`
+   - `media.json`, `services.json`, `widgets.json`, `instances.json`
+
+   **Nicht übersetzen:** Docker, Unraid, Home Assistant, technische Begriffe, Entity-IDs
+
+3. **Code aktualisieren:**
+   - Imports in `frontend/src/i18n.ts` hinzufügen
+   - Typ in `frontend/src/stores/useLanguageStore.ts` erweitern
+   - Option in `SetupPage.tsx` Sprachauswahl hinzufügen
+   - Option in `Settings.tsx` Dropdown hinzufügen
+
+4. **Lokal testen:**
+```bash
+   cd frontend && npm run dev
+```
+
+5. **Pull Request erstellen:**
+   - Titel: `feat: add [Sprache] translation`
+   - Sprachcode und Vollständigkeit angeben
+   - Technische Begriffe erwähnen die auf Englisch bleiben
+
+**Fragen?** Issue mit "Add Translation" Template öffnen.
+
+---
+
+### Code Contributions
+
+**Tech Stack:**
+- Frontend: React 18, TypeScript strict, Vite 5, Zustand
+- Backend: Fastify 4, TypeScript strict, SQLite (better-sqlite3)
+- Styling: Vanilla CSS (nur CSS custom properties)
+
+**Standards:**
+- TypeScript strict — keine `any` Types
+- Alle API-Calls über `api.ts` (nie `fetch` in Komponenten)
+- Alle State-Änderungen über Zustand Stores
+- Nur CSS-Variablen (keine Inline-Styles außer dynamische Werte)
+- Icons: nur `lucide-react`
+
+**Setup:**
+```bash
+# Backend
+cd backend && npm install && npm run dev
+
+# Frontend (separates Terminal)
+cd frontend && npm install && npm run dev
+```
+
+**Pull Requests:**
+- Ein Feature/Fix pro PR
+- `tsc` in `backend/` und `frontend/` vor Submit ausführen
+- Bestehenden Patterns folgen (siehe `CLAUDE.md`)

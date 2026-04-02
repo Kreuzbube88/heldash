@@ -1,0 +1,36 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 💬 GitHub Discussions
+    url: https://github.com/kreuzbube88/heldash/discussions
+    about: Ask questions, share ideas, or chat with the community
+  - name: 📖 Documentation
+    url: https://github.com/kreuzbube88/heldash#readme
+    about: Read the full documentation and guides
+```
+
+---
+
+## Final Structure:
+```
+.github/ISSUE_TEMPLATE/
+├── bug_report.yml              ← 🐛 Bug Reports
+├── feature_request.yml         ← ✨ Feature Requests
+├── translation.yml             ← 🌐 Translations (schon da)
+├── integration_request.yml     ← 🔌 Integration Requests
+├── question.yml                ← ❓ Questions/Support
+├── documentation.yml           ← 📖 Doc Issues
+└── config.yml                  ← ⚙️ Config (blank issue + links)
+```
+
+**Auswahl-Screen sieht dann so aus:**
+```
+┌──────────────────────────────────────┐
+│  🐛 Bug Report                       │
+│  🌐 Add Translation                  │
+│  ✨ Feature Request                  │
+│  🔌 Integration Request              │
+│  ❓ Question / Support               │
+│  📖 Documentation Issue              │
+│  💬 GitHub Discussions (link)       │
+│  📋 Open a blank issue              │
+└──────────────────────────────────────┘

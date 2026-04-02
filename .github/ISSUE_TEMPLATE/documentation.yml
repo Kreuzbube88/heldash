@@ -1,0 +1,42 @@
+name: 📖 Documentation Issue
+description: Report an issue with documentation or suggest improvements
+title: "[Docs] "
+labels: ["documentation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Found an error in the documentation or have a suggestion for improvement?
+
+  - type: dropdown
+    id: location
+    attributes:
+      label: Documentation Location
+      description: Where did you find the issue?
+      options:
+        - README.md
+        - CONTRIBUTING.md
+        - About page in dashboard
+        - GitHub Wiki
+        - Code comments
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: issue
+    attributes:
+      label: Issue Description
+      description: What's wrong or missing?
+      placeholder: |
+        The Unraid installation section says to use port 8080,
+        but the default is actually 8282.
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested Fix
+      description: How should it be corrected or improved?
+      placeholder: Change "port 8080" to "port 8282"

@@ -1,0 +1,103 @@
+name: 🐛 Bug Report
+description: Report a bug or unexpected behavior
+title: "[Bug] "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a bug! Please fill out the information below to help us investigate.
+
+  - type: dropdown
+    id: version
+    attributes:
+      label: HELDASH Version
+      description: Which version are you running?
+      options:
+        - v1.4.0 (latest)
+        - v1.3.3
+        - v1.3.0
+        - older version
+        - custom build / development
+    validations:
+      required: true
+
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Environment
+      description: How are you running HELDASH?
+      options:
+        - Unraid (Community App)
+        - Docker Compose
+        - Docker CLI
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: Browser
+      description: Which browser are you using?
+      placeholder: e.g., Chrome 120, Firefox 121, Safari 17
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear description of what the bug is
+      placeholder: When I click X, Y happens instead of Z
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to Reproduce
+      description: How can we reproduce this issue?
+      placeholder: |
+        1. Go to Settings → Docker
+        2. Click "Start Container"
+        3. See error message
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What should happen instead?
+      placeholder: Container should start successfully
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happens?
+      placeholder: Error message appears and container doesn't start
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / Screenshots
+      description: |
+        Paste relevant logs or attach screenshots.
+        Docker logs: `docker logs heldash`
+        Browser console: F12 → Console tab
+      placeholder: Paste logs or drag & drop screenshots here
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Pre-submission Checklist
+      options:
+        - label: I have checked existing issues for duplicates
+          required: true
+        - label: I am running the latest version (or specified above)
+          required: true
+        - label: I have included logs or screenshots (if applicable)

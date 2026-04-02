@@ -1,0 +1,58 @@
+name: ❓ Question / Support
+description: Ask a question or get help
+title: "[Question] "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have a question? Need help with setup or configuration?
+
+        **Before asking:**
+        - Check the [Documentation](https://github.com/kreuzbube88/heldash#documentation) in the About page
+        - Search [existing issues](https://github.com/kreuzbube88/heldash/issues?q=is%3Aissue)
+
+  - type: dropdown
+    id: topic
+    attributes:
+      label: Topic
+      description: What is your question about?
+      options:
+        - Installation / Setup
+        - Configuration / Settings
+        - Docker Integration
+        - Home Assistant Integration
+        - Unraid Integration
+        - Media (Radarr/Sonarr/etc.)
+        - Widgets
+        - User Management / Auth
+        - Backup / Export
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: What do you need help with?
+      placeholder: How do I configure Radarr to show in the dashboard?
+    validations:
+      required: true
+
+  - type: textarea
+    id: tried
+    attributes:
+      label: What I've Tried
+      description: What steps have you already taken?
+      placeholder: |
+        - Checked Settings → Media
+        - Added Radarr instance with API key
+        - Container is running
+
+  - type: input
+    id: version
+    attributes:
+      label: HELDASH Version
+      description: Which version are you running?
+      placeholder: v1.4.0

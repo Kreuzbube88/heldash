@@ -7,7 +7,7 @@ Personal homelab dashboard. Self-hosted on Unraid, single Docker container.
 | Layer | Tech |
 |---|---|
 | Frontend | React 18, TypeScript strict, Vite 5 |
-| State | Zustand: useStore · useArrStore · useDockerStore · useWidgetStore · useDashboardStore · useHaStore · useRecyclarrStore · useActivityStore |
+| State | Zustand: useStore · useArrStore · useDockerStore · useWidgetStore · useDashboardStore · useHaStore · useRecyclarrStore · useActivityStore · useBookmarkStore · useInstanceStore |
 | DnD | @dnd-kit/core + sortable + utilities |
 | Icons | lucide-react (16px topbar/sidebar, 14px headers, 12px buttons) |
 | Styling | Vanilla CSS, CSS custom properties, glass morphism |
@@ -19,16 +19,13 @@ Personal homelab dashboard. Self-hosted on Unraid, single Docker container.
 
 ## Architecture
 
-- Single container: Fastify serves `/api/*` + React SPA, no nginx inside
-- Frontend routing: no React Router — single `page` string in `App.tsx`
-- Auth: JWT httpOnly cookie; `app.authenticate` = verify JWT; `app.requireAdmin` = verify + `groupId === 'grp_admin'`
-- ACL: `grp_admin` full; `grp_guest` read-only, no Docker; custom groups sparse visibility (row = hidden)
-- Dashboard: 20-col CSS grid; apps=2 cols, widgets=4×2; `grid-auto-flow:dense`
-- Docker proxy: undici Pool (10 conn) → `/var/run/docker.sock`; SSE: `reply.hijack()` before Docker request
-- HA WS: `HaWsClient` per instanceId in `HaWsManager`; SSE fans events; backoff 5s→60s; invalidated on PATCH/DELETE
-- Recyclarr: generates recyclarr.yml (v8 syntax); syncs via docker exec (SSE stream); CF groups cached 5min; sync history max 10
-- Activity log: max 100 rows; rate-limited 1/entity/60s; never logs api_key/token/password
-- Resource history: 1min entries 25h, 15min entries 8 days; aggregation every 15min
+- Single container: Fastify serves `/api/*` + React SPA
+- Routing: single `page` string (no React Router)
+- Auth: JWT httpOnly cookie; `app.authenticate` / `app.requireAdmin`
+- ACL: `grp_admin` full, `grp_guest` read-only
+- Dashboard: 20-col grid, apps=2 cols, widgets=4×2
+- Docker: undici Pool → `/var/run/docker.sock`, SSE via `reply.hijack()`
+- HA WS: one `HaWsClient` per instance, backoff 5s→60s
 
 ## Frontend Rules (HELDASH-specific)
 
@@ -49,50 +46,49 @@ Personal homelab dashboard. Self-hosted on Unraid, single Docker container.
 - `sanitize()` strips `api_key`, `password_hash`, `token`, widget passwords — never in API responses
 - `{ logLevel: 'silent' }` not `{ disableRequestLogging: true }` (not in Fastify 4 types)
 
-## CSS Variables (quick ref)
+## i18n (v1.4.0+)
 
-Spacing 8px base: `xs`=4 `sm`=8 `md`=12 `lg`=16 `xl`=20 `2xl`=24 `3xl`=32
-Fonts: `--font-sans: Geist` | `--font-display: Space Mono` (h1–h4) | `--font-mono: JetBrains Mono`
-Radius: `sm`=8 `md`=12 `lg`=16 `xl`=24 `2xl`=32
-Transitions: `fast`=100ms | `base`=200ms | `smooth`=350ms bounce | `slow`=500ms
+Framework: react-i18next, DE (default) + EN
+- **NEVER hardcode UI strings** — always `useTranslation('namespace')`
+- New features: add keys to DE+EN JSON **before** coding
+- Pattern: `t('common:buttons.save')` or `t('pageSpecific.key')`
+- Keep untranslated: Docker, Unraid, HA, technical terms, entity IDs
+- Namespaces: common (shared) + page-specific (setup, settings, docker, ha, etc.)
+- Date/time formatting: adapt locale based on selected language
+
+## Icon System (v1.4.0+)
+
+Central: dashboardicons.com (1800+) + custom uploads
+- Use `IconPicker` component — never hardcode URLs
+- All entities support `icon_id`: services, widgets, bookmarks, instances, network devices
+- Migration auto-runs, old uploads work as fallback
+- Icons cached in DB, CDN fallback on miss
+
+## Central Instances (v1.4.0+)
+
+HA, Arr, Seerr, Unraid → `/instances` page only
+- Creating instance auto-creates service (if URL unique)
+- Instance cards on widgets page — settings only via `/instances`
+- Type-specific validation: HA=token, Arr=api_key, Unraid=api_key
+- Icon support via `icon_id` column
+
+## CSS Variables
+
+CSS: 8px spacing grid, Geist/Space Mono/JetBrains Mono, radius sm→2xl, transitions 100-500ms
 
 ## Gotchas
 
 - **better-sqlite3**: booleans → always `value ? 1 : 0`
 - **Docker Pool**: `new Pool('http://localhost', { socketPath: '/var/run/docker.sock', connections: 10 })` — NOT `undici.Client`
 - **SSE hijack**: `reply.hijack()` before Docker request; errors as SSE events after
-- **Docker log mux**: non-TTY frames have 8-byte header; first byte `0x01/0x02` = muxed
 - **Self-signed TLS**: all undici agents use `connect: { rejectUnauthorized: false }`
-- **DB migration**: `ALTER TABLE … ADD COLUMN` in try/catch — silently ignores "column exists"
-- **HA panels reorder**: `PATCH /api/ha/panels/reorder` registered BEFORE `PATCH /api/ha/panels/:id`
-- **HA WS**: `auth_invalid` sets `destroyed=true` to stop retry loops
 - **HA token**: `sanitizeInstance()` strips token; PATCH preserves with `token = req.body.token?.trim() || row.token`
-- **Activity log rate limit**: max 1 entry/entity/60s — prevents sensor flooding
-- **HA Alerts**: max 20 total; min 60s between triggers (last_triggered_at); SSE via `/api/ha/alerts/stream`
-- **Network Monitor**: subnet never auto-detect (Docker eth0 ≠ host IP); CIDR max /22 (1024 hosts)
 - **tcpPing**: always `socket.destroy()` after connect/error — never hangs
-- **WoL**: 102-byte magic packet; UDP dgram port 9; dgram = Node built-in
-- **CA Backup**: requires `/boot:ro` mount; no mount → clear error, no crash
-- **Recyclarr yaml_instance_key**: sanitized once on create, never regenerated
-- **Recyclarr api_key**: always from arr_instances — never stored in recyclarr_config
-- **User CF trash_id**: `user-{slug}` frozen on create — never regenerate on rename
-- **CF groups 50% threshold**: ≥50% CF overlap to include group in profile-cfs route
-- **last_checked column**: in `services` table it's `last_checked` (NOT `last_checked_at`)
-- **Service health scheduler**: server-side every 30s writes `last_status`; frontend polls every 15s
-- **Activity timestamps**: SQLite stores UTC without 'Z'; backend appends 'Z' before returning
-- **Docker Events pendingStops**: 5s delay before logging 'gestoppt'; 'start'/'restart' cancels timer
 - **FST_ERR_CTP_EMPTY_JSON_BODY**: frontend sends `body: JSON.stringify({})` for empty bodies
 - **pino-pretty**: must be in `dependencies` not devDependencies — crashes container if missing
 - **@fastify/rate-limit**: use `^8.0.0` with Fastify 4 (v9 = Fastify 5)
-- **Health score**: services 40pts + docker 30pts + recyclarr 20pts + ha 10pts
-- **Logbuch**: single source of truth for monitoring; new integrations → add tab to TABS array
-- **HA Floorplan**: single instance assumed in UI; images in `{DATA_DIR}/floorplans/`; positions as % for responsiveness
-- **Changelog Modal**: first start (null) → save silently, no modal; version change → show modal
-- **Healthcheck**: use `127.0.0.1` not `localhost` (IPv6 resolution)
-- **safeJson helper**: `{} as any` fallback for config props; `safeJson<unknown>(str, null)` for settings
 
 ## Deploy
-
 ```
 Build test:     "Build & Push Docker Image" workflow → version tag
 Release:        "Release Latest" workflow → bumps package.json, creates tag, sets latest

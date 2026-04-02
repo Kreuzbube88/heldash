@@ -1,0 +1,71 @@
+name: 🔌 Integration Request
+description: Request integration with a new service or API
+title: "[Integration] "
+labels: ["enhancement", "integration"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Request an integration with a new service, app, or API.
+
+  - type: input
+    id: service-name
+    attributes:
+      label: Service / App Name
+      description: What service would you like to integrate?
+      placeholder: e.g., Jellyfin, Nextcloud, Frigate, Tautulli
+    validations:
+      required: true
+
+  - type: dropdown
+    id: integration-type
+    attributes:
+      label: Integration Type
+      description: What type of integration do you want?
+      options:
+        - Widget (display stats in dashboard)
+        - Instance Management (like Radarr/Sonarr)
+        - Service Card (like current apps)
+        - Docker Container Control
+        - Home Assistant Entity
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: api-available
+    attributes:
+      label: API Availability
+      description: Does this service have a public API?
+      placeholder: e.g., Yes - REST API at https://example.com/api/docs
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use Case
+      description: What would you use this integration for?
+      placeholder: |
+        Display Jellyfin library stats (movies, shows, user count) as a widget.
+        Show recently watched items on dashboard.
+    validations:
+      required: true
+
+  - type: textarea
+    id: data-points
+    attributes:
+      label: Desired Data Points
+      description: What information should be displayed?
+      placeholder: |
+        - Total movies / shows
+        - Currently streaming users
+        - Recently added items
+        - Server CPU/RAM usage
+
+  - type: input
+    id: similar
+    attributes:
+      label: Similar Integrations
+      description: Link to similar integrations in other dashboards (optional)
+      placeholder: e.g., Homarr has Jellyfin widget - https://...

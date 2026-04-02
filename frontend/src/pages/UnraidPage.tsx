@@ -821,7 +821,7 @@ function ArrayTab({ instanceId }: { instanceId: string }) {
 // ── Docker Tab ────────────────────────────────────────────────────────────────
 
 function DockerTab({ instanceId }: { instanceId: string }) {
-  const { docker, loadDocker, dockerControl, dockerUpdateAll, errors } = useUnraidStore()
+  const { docker, loadDocker, dockerControl, dockerUpdateAll, removeDockerContainer, errors } = useUnraidStore()
   const { isAdmin } = useStore()
   const { toast } = useToast()
   const containers = docker[instanceId] ?? []
@@ -829,6 +829,7 @@ function DockerTab({ instanceId }: { instanceId: string }) {
   const [filter, setFilter] = useState<'all' | 'running' | 'stopped'>('all')
   const [actionLoading, setActionLoading] = useState<Record<string, string | undefined>>({})
   const [updatingAll, setUpdatingAll] = useState(false)
+  const [confirmRemove, setConfirmRemove] = useState<{ id: string; name: string } | null>(null)
 
   useEffect(() => {
     loadDocker(instanceId)
@@ -944,12 +945,31 @@ function DockerTab({ instanceId }: { instanceId: string }) {
                 {actionButton('Restart', <RotateCcw size={11} />, () => handleAction(c, 'restart'), 'yellow', !isRunning,              isLoading)}
                 {isRunning && actionButton('Pause',  <Pause size={11} />, () => handleAction(c, 'pause'),   'blue',   false, isLoading)}
                 {isPaused  && actionButton('Resume', <Play size={11} />,  () => handleAction(c, 'unpause'), 'yellow', false, isLoading)}
+                {isAdmin && c.id && actionButton('', <Trash2 size={11} />, () => setConfirmRemove({ id: c.id!, name }), 'red', isLoading, isLoading)}
               </div>
             </div>
           )
         })}
       </div>
       {filtered.length === 0 && <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: 'var(--spacing-2xl)' }}>Keine Container gefunden</div>}
+      {confirmRemove && (
+        <ConfirmModal
+          title="Container löschen"
+          message={`Container "${confirmRemove.name}" permanent löschen?`}
+          onConfirm={async () => {
+            const { id, name: n } = confirmRemove
+            setConfirmRemove(null)
+            try {
+              await removeDockerContainer(instanceId, id)
+              toast({ message: `${n} gelöscht`, type: 'success' })
+            } catch (e) {
+              toast({ message: (e as Error).message, type: 'error' })
+            }
+          }}
+          onCancel={() => setConfirmRemove(null)}
+          danger
+        />
+      )}
     </div>
   )
 }
@@ -1115,7 +1135,8 @@ function SharesTab({ instanceId }: { instanceId: string }) {
 // ── Notifications Tab ─────────────────────────────────────────────────────────
 
 function NotificationsTab({ instanceId }: { instanceId: string }) {
-  const { notifications, loadNotifications, loadNotificationsArchive, archiveNotification, archiveAllNotifications, errors } = useUnraidStore()
+  const { notifications, loadNotifications, loadNotificationsArchive, archiveNotification, archiveAllNotifications, deleteNotificationPerm, errors } = useUnraidStore()
+  const { isAdmin } = useStore()
   const { toast } = useToast()
   const data = notifications[instanceId]
   const [view, setView] = useState<'unread' | 'archive'>('unread')
@@ -1125,6 +1146,7 @@ function NotificationsTab({ instanceId }: { instanceId: string }) {
   const [archivingAll, setArchivingAll] = useState(false)
   const [selectedNotification, setSelectedNotification] = useState<UnraidNotification | null>(null)
   const [localList, setLocalList] = useState<UnraidNotification[]>([])
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; type: string } | null>(null)
   const err = errors[`notif_${instanceId}`]
 
   useEffect(() => {
@@ -1214,6 +1236,11 @@ function NotificationsTab({ instanceId }: { instanceId: string }) {
                       Als gelesen markieren
                     </button>
                   )}
+                  {isAdmin && n.id && (
+                    <button className="btn btn-danger" onClick={() => setConfirmDelete({ id: n.id!, type: view === 'archive' ? 'ARCHIVE' : 'UNREAD' })} style={{ padding: '2px 8px', fontSize: 12 }}>
+                      <Trash2 size={11} />
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -1287,6 +1314,24 @@ function NotificationsTab({ instanceId }: { instanceId: string }) {
             </div>
           </div>
         </div>
+      )}
+      {confirmDelete && (
+        <ConfirmModal
+          title="Benachrichtigung löschen"
+          message="Benachrichtigung permanent löschen? Dies kann nicht rückgängig gemacht werden."
+          onConfirm={async () => {
+            const { id, type } = confirmDelete
+            setConfirmDelete(null)
+            try {
+              await deleteNotificationPerm(instanceId, id, type)
+              toast({ message: 'Benachrichtigung gelöscht', type: 'success' })
+            } catch (e) {
+              toast({ message: (e as Error).message, type: 'error' })
+            }
+          }}
+          onCancel={() => setConfirmDelete(null)}
+          danger
+        />
       )}
     </div>
   )
@@ -1424,6 +1469,476 @@ function SystemTab({ instanceId }: { instanceId: string }) {
               </tbody>
             </table>
           </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── UPS Tab ───────────────────────────────────────────────────────────────────
+
+function UpsTab({ instanceId }: { instanceId: string }) {
+  const { upsDevices, upsConfig, loadUpsDevices, loadUpsConfig, errors } = useUnraidStore()
+  const devices = upsDevices[instanceId] ?? []
+  const cfg = upsConfig[instanceId]
+  const err = errors[`ups_${instanceId}`]
+
+  useEffect(() => {
+    loadUpsDevices(instanceId)
+    loadUpsConfig(instanceId)
+    const t = setInterval(() => loadUpsDevices(instanceId), 30_000)
+    return () => clearInterval(t)
+  }, [instanceId])
+
+  const statusColor = (s?: string) => {
+    if (!s) return 'var(--text-muted)'
+    if (s === 'OL' || s.includes('OL')) return 'var(--status-online)'
+    if (s.includes('OB') || s.includes('LB')) return 'var(--status-offline)'
+    return 'var(--warning)'
+  }
+
+  return (
+    <div>
+      {err && <div className="error-banner" style={{ marginBottom: 'var(--spacing-md)' }}>{err}</div>}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 'var(--spacing-sm)' }}>
+        <button className="btn" onClick={() => { loadUpsDevices(instanceId); loadUpsConfig(instanceId) }}><RefreshCw size={14} /></button>
+      </div>
+      {devices.length === 0 && !err ? (
+        <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-muted)' }}>Keine UPS-Geräte gefunden</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+          {devices.map((d, i) => {
+            const charge = d.battery?.chargeLevel ?? 0
+            const chargeColor = charge > 50 ? 'var(--status-online)' : charge > 20 ? 'var(--warning)' : 'var(--status-offline)'
+            return (
+              <div key={d.id ?? i} className="glass" style={{ padding: 'var(--spacing-lg)', borderRadius: 'var(--radius-md)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--spacing-md)' }}>
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 2 }}>{d.name ?? '–'}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{d.model ?? ''}</div>
+                  </div>
+                  {d.status && (
+                    <span style={{ background: 'var(--glass-bg)', color: statusColor(d.status), borderRadius: 'var(--radius-sm)', padding: '2px 10px', fontSize: 12, fontWeight: 600, border: `1px solid ${statusColor(d.status)}` }}>
+                      {d.status}
+                    </span>
+                  )}
+                </div>
+                {d.battery && (
+                  <div style={{ marginBottom: 'var(--spacing-md)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>
+                      <span>Akku</span>
+                      <span style={{ color: chargeColor, fontWeight: 600 }}>{charge}%</span>
+                    </div>
+                    <div style={{ background: 'var(--glass-bg)', borderRadius: 4, height: 8 }}>
+                      <div style={{ background: chargeColor, height: '100%', borderRadius: 4, width: `${charge}%`, transition: 'width 0.5s' }} />
+                    </div>
+                    <div style={{ display: 'flex', gap: 'var(--spacing-lg)', marginTop: 6, fontSize: 12, color: 'var(--text-muted)' }}>
+                      {d.battery.estimatedRuntime != null && <span>Laufzeit: <strong style={{ color: 'var(--text-primary)' }}>{d.battery.estimatedRuntime} Min</strong></span>}
+                      {d.battery.health && <span>Zustand: <strong style={{ color: 'var(--text-primary)' }}>{d.battery.health}</strong></span>}
+                    </div>
+                  </div>
+                )}
+                {d.power && (
+                  <div style={{ display: 'flex', gap: 'var(--spacing-lg)', fontSize: 12, color: 'var(--text-muted)' }}>
+                    {d.power.inputVoltage != null && <span>Eingang: <strong style={{ color: 'var(--text-primary)' }}>{d.power.inputVoltage} V</strong></span>}
+                    {d.power.outputVoltage != null && <span>Ausgang: <strong style={{ color: 'var(--text-primary)' }}>{d.power.outputVoltage} V</strong></span>}
+                    {d.power.loadPercentage != null && <span>Last: <strong style={{ color: 'var(--text-primary)' }}>{d.power.loadPercentage}%</strong></span>}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+          {cfg && (
+            <div className="glass" style={{ padding: 'var(--spacing-lg)', borderRadius: 'var(--radius-md)' }}>
+              <div style={{ fontWeight: 600, marginBottom: 'var(--spacing-sm)' }}>Konfiguration</div>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                {cfg.upsName     && <InfoRow icon={<Zap size={14} />}     label="UPS Name"   value={cfg.upsName} />}
+                {cfg.modelName   && <InfoRow icon={<Package size={14} />} label="Modell"      value={cfg.modelName} />}
+                {cfg.service     && <InfoRow icon={<Activity size={14} />} label="Service"    value={cfg.service} />}
+                {cfg.upsType     && <InfoRow icon={<Settings2 size={14} />} label="Typ"       value={cfg.upsType} />}
+                {cfg.device      && <InfoRow icon={<HardDrive size={14} />} label="Gerät"     value={cfg.device} />}
+                {cfg.batteryLevel != null && <InfoRow icon={<Zap size={14} />} label="Akku-Schwelle" value={`${cfg.batteryLevel}%`} />}
+                {cfg.minutes     != null  && <InfoRow icon={<Clock size={14} />} label="Minuten"   value={`${cfg.minutes} Min`} />}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Logs Tab ──────────────────────────────────────────────────────────────────
+
+function LogsTab({ instanceId }: { instanceId: string }) {
+  const { logs, loadLogs, errors } = useUnraidStore()
+  const { toast } = useToast()
+  const logFiles = logs[instanceId] ?? []
+  const err = errors[`logs_${instanceId}`]
+  const [viewLog, setViewLog] = useState<{ name: string; path: string } | null>(null)
+  const [logContent, setLogContent] = useState<string | null>(null)
+  const [logLoading, setLogLoading] = useState(false)
+
+  useEffect(() => { loadLogs(instanceId) }, [instanceId])
+
+  const handleView = async (path: string, name: string) => {
+    setViewLog({ name, path })
+    setLogContent(null)
+    setLogLoading(true)
+    try {
+      const data = await api.unraid.logFile(instanceId, path, 200)
+      setLogContent(data.logFile?.content ?? '')
+    } catch (e) {
+      toast({ message: (e as Error).message, type: 'error' })
+      setViewLog(null)
+    } finally {
+      setLogLoading(false)
+    }
+  }
+
+  return (
+    <div>
+      {err && <div className="error-banner" style={{ marginBottom: 'var(--spacing-md)' }}>{err}</div>}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 'var(--spacing-sm)' }}>
+        <button className="btn" onClick={() => loadLogs(instanceId)}><RefreshCw size={14} /></button>
+      </div>
+      <div className="glass" style={{ borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <thead>
+            <tr style={{ borderBottom: '1px solid var(--border)' }}>
+              {['Name', 'Größe', 'Geändert', ''].map(h => (
+                <th key={h} style={{ padding: 'var(--spacing-sm) var(--spacing-md)', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 500 }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {logFiles.map((f, i) => (
+              <tr key={f.path ?? i} style={{ borderBottom: '1px solid var(--glass-border)' }}>
+                <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)', fontFamily: 'var(--font-mono)', fontSize: 12 }}>{f.name ?? '–'}</td>
+                <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)', color: 'var(--text-muted)' }}>{f.size != null ? formatBytes(f.size) : '–'}</td>
+                <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)', color: 'var(--text-muted)' }}>{f.modifiedAt ? formatRelative(f.modifiedAt) : '–'}</td>
+                <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
+                  {f.path && (
+                    <button className="btn btn-primary" style={{ fontSize: 12, padding: '2px 10px' }} onClick={() => handleView(f.path!, f.name ?? f.path!)}>
+                      Anzeigen
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {logFiles.length === 0 && <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-muted)' }}>Keine Einträge</div>}
+      </div>
+
+      {viewLog && (
+        <div className="modal-overlay" onClick={() => setViewLog(null)}>
+          <div className="modal-content glass" onClick={e => e.stopPropagation()} style={{ maxWidth: 800, width: '100%', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+            <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 className="modal-title" style={{ fontFamily: 'var(--font-mono)', fontSize: 14 }}>{viewLog.name}</h3>
+              <button className="btn" onClick={() => setViewLog(null)}>✕</button>
+            </div>
+            <div className="modal-body" style={{ flex: 1, overflow: 'auto', padding: 0 }}>
+              {logLoading
+                ? <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center' }}><span className="spinner" style={{ width: 20, height: 20 }} /></div>
+                : <pre style={{ margin: 0, padding: 'var(--spacing-md)', fontSize: 11, fontFamily: 'var(--font-mono)', lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-all', color: 'var(--text-secondary)' }}>{logContent ?? ''}</pre>
+              }
+            </div>
+            <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button className="btn" onClick={() => setViewLog(null)}>Schließen</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Plugins Tab ───────────────────────────────────────────────────────────────
+
+function PluginsTab({ instanceId }: { instanceId: string }) {
+  const { plugins, loadPlugins, removePlugin, errors } = useUnraidStore()
+  const { isAdmin } = useStore()
+  const { toast } = useToast()
+  const pluginList = plugins[instanceId] ?? []
+  const err = errors[`plugins_${instanceId}`]
+  const [confirmRemove, setConfirmRemove] = useState<string[] | null>(null)
+
+  useEffect(() => { loadPlugins(instanceId) }, [instanceId])
+
+  const handleRemove = async (names: string[]) => {
+    try {
+      await removePlugin(instanceId, names)
+      toast({ message: `Plugin(s) entfernt`, type: 'success' })
+    } catch (e) {
+      toast({ message: (e as Error).message, type: 'error' })
+    }
+  }
+
+  return (
+    <div>
+      {err && <div className="error-banner" style={{ marginBottom: 'var(--spacing-md)' }}>{err}</div>}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 'var(--spacing-sm)' }}>
+        <button className="btn" onClick={() => loadPlugins(instanceId)}><RefreshCw size={14} /></button>
+      </div>
+      <div className="glass" style={{ borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <thead>
+            <tr style={{ borderBottom: '1px solid var(--border)' }}>
+              {['Name', 'Version', 'API', 'CLI', isAdmin ? 'Aktion' : ''].map(h => (
+                <th key={h} style={{ padding: 'var(--spacing-sm) var(--spacing-md)', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 500 }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {pluginList.map((p, i) => (
+              <tr key={p.name ?? i} style={{ borderBottom: '1px solid var(--glass-border)' }}>
+                <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)', fontWeight: 500 }}>{p.name ?? '–'}</td>
+                <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)', fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-muted)' }}>{p.version ?? '–'}</td>
+                <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
+                  {p.hasApiModule ? <Check size={14} color="var(--status-online)" /> : <span style={{ color: 'var(--text-muted)' }}>–</span>}
+                </td>
+                <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
+                  {p.hasCliModule ? <Check size={14} color="var(--status-online)" /> : <span style={{ color: 'var(--text-muted)' }}>–</span>}
+                </td>
+                {isAdmin && (
+                  <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
+                    <button className="btn btn-danger" style={{ fontSize: 12, padding: '2px 8px' }} onClick={() => setConfirmRemove([p.name!])}>
+                      <Trash2 size={11} /> Entfernen
+                    </button>
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {pluginList.length === 0 && <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-muted)' }}>Keine Einträge</div>}
+      </div>
+      {confirmRemove && (
+        <ConfirmModal
+          title="Plugin entfernen"
+          message={`Plugin "${confirmRemove.join(', ')}" entfernen?`}
+          onConfirm={() => { handleRemove(confirmRemove); setConfirmRemove(null) }}
+          onCancel={() => setConfirmRemove(null)}
+          danger
+        />
+      )}
+    </div>
+  )
+}
+
+// ── API Keys Tab ──────────────────────────────────────────────────────────────
+
+function ApiKeysTab({ instanceId }: { instanceId: string }) {
+  const { apiKeys, loadApiKeys, createApiKey, deleteApiKey, errors } = useUnraidStore()
+  const { isAdmin } = useStore()
+  const { toast } = useToast()
+  const data = apiKeys[instanceId]
+  const keyList = data?.apiKeys ?? []
+  const possibleRoles = data?.apiKeyPossibleRoles ?? []
+  const err = errors[`apikeys_${instanceId}`]
+  const [showCreate, setShowCreate] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [newDesc, setNewDesc] = useState('')
+  const [newRoles, setNewRoles] = useState<string[]>([])
+  const [creating, setCreating] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string } | null>(null)
+
+  useEffect(() => { loadApiKeys(instanceId) }, [instanceId])
+
+  const handleCreate = async () => {
+    setCreating(true)
+    try {
+      await createApiKey(instanceId, { name: newName, description: newDesc || undefined, roles: newRoles.length ? newRoles : undefined })
+      setShowCreate(false); setNewName(''); setNewDesc(''); setNewRoles([])
+      toast({ message: 'API Key erstellt', type: 'success' })
+    } catch (e) {
+      toast({ message: (e as Error).message, type: 'error' })
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteApiKey(instanceId, id)
+      toast({ message: 'API Key gelöscht', type: 'success' })
+    } catch (e) {
+      toast({ message: (e as Error).message, type: 'error' })
+    }
+  }
+
+  if (!isAdmin) {
+    return <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Nur für Administratoren.</div>
+  }
+
+  return (
+    <div>
+      {err && <div className="error-banner" style={{ marginBottom: 'var(--spacing-md)' }}>{err}</div>}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
+        <button className="btn" onClick={() => loadApiKeys(instanceId)}><RefreshCw size={14} /></button>
+        <button className="btn btn-primary" onClick={() => setShowCreate(true)} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <Plus size={14} /> Neuer API Key
+        </button>
+      </div>
+      <div className="glass" style={{ borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <thead>
+            <tr style={{ borderBottom: '1px solid var(--border)' }}>
+              {['Name', 'Beschreibung', 'Rollen', 'Erstellt', ''].map(h => (
+                <th key={h} style={{ padding: 'var(--spacing-sm) var(--spacing-md)', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 500 }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {keyList.map((k, i) => (
+              <tr key={k.id ?? i} style={{ borderBottom: '1px solid var(--glass-border)' }}>
+                <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)', fontWeight: 500 }}>{k.name ?? '–'}</td>
+                <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)', color: 'var(--text-muted)' }}>{k.description ?? '–'}</td>
+                <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
+                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                    {(k.roles ?? []).map(r => (
+                      <span key={r} style={{ background: 'var(--glass-bg)', color: 'var(--accent)', borderRadius: 4, padding: '1px 6px', fontSize: 11, fontWeight: 600 }}>{r}</span>
+                    ))}
+                  </div>
+                </td>
+                <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)', color: 'var(--text-muted)', fontSize: 12 }}>
+                  {k.createdAt ? formatRelative(k.createdAt) : '–'}
+                </td>
+                <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
+                  {k.id && (
+                    <button className="btn btn-danger" style={{ fontSize: 12, padding: '2px 8px' }} onClick={() => setConfirmDelete({ id: k.id!, name: k.name ?? k.id! })}>
+                      <Trash2 size={11} />
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {keyList.length === 0 && <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-muted)' }}>Keine Einträge</div>}
+      </div>
+
+      {showCreate && (
+        <div className="modal-overlay" onClick={() => setShowCreate(false)}>
+          <div className="modal-content glass" onClick={e => e.stopPropagation()} style={{ maxWidth: 480, width: '100%' }}>
+            <div className="modal-header">
+              <h3 className="modal-title">Neuer API Key</h3>
+            </div>
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
+              <input className="input" placeholder="Name *" value={newName} onChange={e => setNewName(e.target.value)} />
+              <input className="input" placeholder="Beschreibung" value={newDesc} onChange={e => setNewDesc(e.target.value)} />
+              {possibleRoles.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>Rollen</div>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {possibleRoles.map(r => (
+                      <button key={r} className={`btn${newRoles.includes(r) ? ' btn-primary' : ''}`} style={{ fontSize: 12, padding: '2px 10px' }} onClick={() => setNewRoles(prev => prev.includes(r) ? prev.filter(x => x !== r) : [...prev, r])}>
+                        {r}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="modal-footer" style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button className="btn" onClick={() => setShowCreate(false)}>Abbrechen</button>
+              <button className="btn btn-primary" onClick={handleCreate} disabled={!newName || creating}>
+                {creating ? <span className="spinner" style={{ width: 14, height: 14 }} /> : 'Erstellen'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmDelete && (
+        <ConfirmModal
+          title="API Key löschen"
+          message={`API Key "${confirmDelete.name}" löschen?`}
+          onConfirm={() => { handleDelete(confirmDelete.id); setConfirmDelete(null) }}
+          onCancel={() => setConfirmDelete(null)}
+          danger
+        />
+      )}
+    </div>
+  )
+}
+
+// ── Network Tab ───────────────────────────────────────────────────────────────
+
+function NetworkTab({ instanceId }: { instanceId: string }) {
+  const { network, connect, loadNetwork, loadConnect, errors } = useUnraidStore()
+  const networkData = network[instanceId]
+  const connectData = connect[instanceId] as { connect?: { id?: string; dynamicRemoteAccess?: { enabledType?: string; runningType?: string; error?: string } }; remoteAccess?: { accessType?: string; forwardType?: string; port?: number } } | undefined
+  const err = errors[`network_${instanceId}`] ?? errors[`connect_${instanceId}`]
+
+  useEffect(() => {
+    loadNetwork(instanceId)
+    loadConnect(instanceId)
+  }, [instanceId])
+
+  const accessUrls = networkData?.accessUrls ?? []
+  const dynAccess = connectData?.connect?.dynamicRemoteAccess
+  const remAccess = connectData?.remoteAccess
+
+  const accessTypeColor = (t?: string) => {
+    if (!t) return 'var(--text-muted)'
+    if (t === 'LAN') return 'var(--accent)'
+    if (t === 'WAN') return 'var(--warning)'
+    return 'var(--text-secondary)'
+  }
+
+  return (
+    <div>
+      {err && <div className="error-banner" style={{ marginBottom: 'var(--spacing-md)' }}>{err}</div>}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 'var(--spacing-sm)' }}>
+        <button className="btn" onClick={() => { loadNetwork(instanceId); loadConnect(instanceId) }}><RefreshCw size={14} /></button>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+        {accessUrls.length > 0 && (
+          <div className="glass" style={{ borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+            <div style={{ padding: 'var(--spacing-md)', fontWeight: 600, borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Globe size={14} /> Zugriffs-URLs
+            </div>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                  {['Typ', 'Name', 'IPv4', 'IPv6'].map(h => (
+                    <th key={h} style={{ padding: 'var(--spacing-sm) var(--spacing-md)', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 500 }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {accessUrls.map((u, i) => (
+                  <tr key={i} style={{ borderBottom: '1px solid var(--glass-border)' }}>
+                    <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
+                      <span style={{ background: 'var(--glass-bg)', color: accessTypeColor(u.type), borderRadius: 4, padding: '1px 6px', fontSize: 11, fontWeight: 600 }}>{u.type ?? '–'}</span>
+                    </td>
+                    <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)', fontWeight: 500 }}>{u.name ?? '–'}</td>
+                    <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)', fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-secondary)' }}>{u.ipv4 ?? '–'}</td>
+                    <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)', fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-muted)' }}>{u.ipv6 ?? '–'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {(dynAccess || remAccess) && (
+          <div className="glass" style={{ padding: 'var(--spacing-lg)', borderRadius: 'var(--radius-md)' }}>
+            <div style={{ fontWeight: 600, marginBottom: 'var(--spacing-sm)', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Network size={14} /> Remotezugriff
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              {dynAccess?.enabledType && <InfoRow icon={<Globe size={14} />} label="Aktivierter Typ" value={dynAccess.enabledType} />}
+              {dynAccess?.runningType && <InfoRow icon={<Activity size={14} />} label="Laufender Typ" value={dynAccess.runningType} />}
+              {dynAccess?.error && <InfoRow icon={<AlertTriangle size={14} />} label="Fehler" value={<span style={{ color: 'var(--status-offline)' }}>{dynAccess.error}</span>} />}
+              {remAccess?.accessType && <InfoRow icon={<Shield size={14} />} label="Zugriffstyp" value={remAccess.accessType} />}
+              {remAccess?.port != null && <InfoRow icon={<Network size={14} />} label="Port" value={String(remAccess.port)} />}
+            </div>
+          </div>
+        )}
+        {accessUrls.length === 0 && !dynAccess && !remAccess && !err && (
+          <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-muted)' }}>Keine Netzwerkdaten verfügbar</div>
         )}
       </div>
     </div>
@@ -1674,6 +2189,11 @@ const CONTENT_TABS = [
   { key: 'shares',        label: 'Freigaben' },
   { key: 'notifications', label: 'Benachrichtigungen' },
   { key: 'system',        label: 'System' },
+  { key: 'ups',           label: 'UPS' },
+  { key: 'logs',          label: 'Logs' },
+  { key: 'plugins',       label: 'Plugins' },
+  { key: 'apikeys',       label: 'API Keys' },
+  { key: 'network',       label: 'Netzwerk' },
 ]
 
 export function UnraidPage() {
@@ -1764,6 +2284,11 @@ export function UnraidPage() {
           {contentTab === 'shares'        && <SharesTab        instanceId={activeInst.id} />}
           {contentTab === 'notifications' && <NotificationsTab instanceId={activeInst.id} />}
           {contentTab === 'system'        && <SystemTab        instanceId={activeInst.id} />}
+          {contentTab === 'ups'           && <UpsTab           instanceId={activeInst.id} />}
+          {contentTab === 'logs'          && <LogsTab          instanceId={activeInst.id} />}
+          {contentTab === 'plugins'       && <PluginsTab       instanceId={activeInst.id} />}
+          {contentTab === 'apikeys'       && <ApiKeysTab       instanceId={activeInst.id} />}
+          {contentTab === 'network'       && <NetworkTab       instanceId={activeInst.id} />}
         </div>
       )}
     </div>

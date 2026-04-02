@@ -709,9 +709,8 @@ export async function unraidRoutes(app: FastifyInstance) {
     const row = await getInstance(req.params.id, reply)
     if (!row) return
     try {
-      return await unraidGql(row.url, row.api_key, `query {
-        users { name description role }
-      }`)
+      const data = await unraidGql(row.url, row.api_key, `query { me { id name description roles } }`) as { me?: unknown }
+      return { user: data.me ?? null }
     } catch (e) {
       return reply.status(502).send({ error: (e as Error).message })
     }
@@ -788,6 +787,303 @@ export async function unraidRoutes(app: FastifyInstance) {
           registrationType: data.registration?.type,
         },
       }
+    } catch (e) {
+      return reply.status(502).send({ error: (e as Error).message })
+    }
+  })
+
+  // GET /api/unraid/:id/services
+  app.get<{ Params: { id: string } }>('/api/unraid/:id/services', { onRequest: [app.authenticate] }, async (req, reply) => {
+    const row = await getInstance(req.params.id, reply)
+    if (!row) return
+    try {
+      const data = await unraidGql(row.url, row.api_key, `query { services { id name online version } }`) as { services?: unknown[] }
+      return { services: data.services ?? [] }
+    } catch (e) {
+      return reply.status(502).send({ error: (e as Error).message })
+    }
+  })
+
+  // GET /api/unraid/:id/flash
+  app.get<{ Params: { id: string } }>('/api/unraid/:id/flash', { onRequest: [app.authenticate] }, async (req, reply) => {
+    const row = await getInstance(req.params.id, reply)
+    if (!row) return
+    try {
+      const data = await unraidGql(row.url, row.api_key, `query { flash { id guid vendor product } }`) as { flash?: unknown }
+      return { flash: data.flash ?? null }
+    } catch (e) {
+      return reply.status(502).send({ error: (e as Error).message })
+    }
+  })
+
+  // GET /api/unraid/:id/server
+  app.get<{ Params: { id: string } }>('/api/unraid/:id/server', { onRequest: [app.authenticate] }, async (req, reply) => {
+    const row = await getInstance(req.params.id, reply)
+    if (!row) return
+    try {
+      return await unraidGql(row.url, row.api_key, `query {
+        server { id guid name status wanip lanip localurl remoteurl }
+        owner { username url avatar }
+        me { id name description roles }
+      }`)
+    } catch (e) {
+      return reply.status(502).send({ error: (e as Error).message })
+    }
+  })
+
+  // GET /api/unraid/:id/network
+  app.get<{ Params: { id: string } }>('/api/unraid/:id/network', { onRequest: [app.authenticate] }, async (req, reply) => {
+    const row = await getInstance(req.params.id, reply)
+    if (!row) return
+    try {
+      return await unraidGql(row.url, row.api_key, `query { network { id accessUrls { type name ipv4 ipv6 } } }`)
+    } catch (e) {
+      return reply.status(502).send({ error: (e as Error).message })
+    }
+  })
+
+  // GET /api/unraid/:id/connect
+  app.get<{ Params: { id: string } }>('/api/unraid/:id/connect', { onRequest: [app.authenticate] }, async (req, reply) => {
+    const row = await getInstance(req.params.id, reply)
+    if (!row) return
+    try {
+      return await unraidGql(row.url, row.api_key, `query {
+        connect {
+          id
+          dynamicRemoteAccess { enabledType runningType error }
+        }
+        cloud { apiKey { valid error } relay { status } cloud { status ip error } }
+        remoteAccess { accessType forwardType port }
+      }`)
+    } catch (e) {
+      return reply.status(502).send({ error: (e as Error).message })
+    }
+  })
+
+  // GET /api/unraid/:id/ups/devices
+  app.get<{ Params: { id: string } }>('/api/unraid/:id/ups/devices', { onRequest: [app.authenticate] }, async (req, reply) => {
+    const row = await getInstance(req.params.id, reply)
+    if (!row) return
+    try {
+      const data = await unraidGql(row.url, row.api_key, `query {
+        upsDevices {
+          id name model status
+          battery { chargeLevel estimatedRuntime health }
+          power { inputVoltage outputVoltage loadPercentage }
+        }
+      }`) as { upsDevices?: unknown[] }
+      return { upsDevices: data.upsDevices ?? [] }
+    } catch (e) {
+      return reply.status(502).send({ error: (e as Error).message })
+    }
+  })
+
+  // GET /api/unraid/:id/ups/configuration
+  app.get<{ Params: { id: string } }>('/api/unraid/:id/ups/configuration', { onRequest: [app.authenticate] }, async (req, reply) => {
+    const row = await getInstance(req.params.id, reply)
+    if (!row) return
+    try {
+      const data = await unraidGql(row.url, row.api_key, `query {
+        upsConfiguration { service upsCable upsType device batteryLevel minutes timeout nisIp upsName modelName }
+      }`) as { upsConfiguration?: unknown }
+      return { upsConfiguration: data.upsConfiguration ?? null }
+    } catch (e) {
+      return reply.status(502).send({ error: (e as Error).message })
+    }
+  })
+
+  // POST /api/unraid/:id/ups/configure
+  app.post<{ Params: { id: string }; Body: Record<string, unknown> }>('/api/unraid/:id/ups/configure', { onRequest: [app.requireAdmin] }, async (req, reply) => {
+    const row = await getInstance(req.params.id, reply)
+    if (!row) return
+    try {
+      await unraidGql(row.url, row.api_key, `mutation($config: UPSConfigInput!) { configureUps(config: $config) }`, { config: req.body })
+      logActivity('unraid', `UPS konfiguriert — ${row.name}`, 'info', { instanceId: req.params.id })
+      return { ok: true }
+    } catch (e) {
+      return reply.status(502).send({ error: (e as Error).message })
+    }
+  })
+
+  // GET /api/unraid/:id/logs — BEFORE wildcard logs/* route
+  app.get<{ Params: { id: string } }>('/api/unraid/:id/logs', { onRequest: [app.authenticate] }, async (req, reply) => {
+    const row = await getInstance(req.params.id, reply)
+    if (!row) return
+    try {
+      const data = await unraidGql(row.url, row.api_key, `query { logFiles { name path size modifiedAt } }`) as { logFiles?: unknown[] }
+      return { logFiles: data.logFiles ?? [] }
+    } catch (e) {
+      return reply.status(502).send({ error: (e as Error).message })
+    }
+  })
+
+  // GET /api/unraid/:id/logs/* (wildcard for log file path)
+  app.get<{ Params: { id: string; '*': string }; Querystring: { lines?: number } }>('/api/unraid/:id/logs/*', { onRequest: [app.authenticate] }, async (req, reply) => {
+    const row = await getInstance(req.params.id, reply)
+    if (!row) return
+    const logPath = decodeURIComponent(req.params['*'])
+    const lines = req.query.lines
+    try {
+      const data = await unraidGql(row.url, row.api_key, `query($path: String!, $lines: Int) {
+        logFile(path: $path, lines: $lines) { path content totalLines startLine }
+      }`, { path: logPath, lines }) as { logFile?: unknown }
+      return { logFile: data.logFile ?? null }
+    } catch (e) {
+      return reply.status(502).send({ error: (e as Error).message })
+    }
+  })
+
+  // GET /api/unraid/:id/plugins
+  app.get<{ Params: { id: string } }>('/api/unraid/:id/plugins', { onRequest: [app.authenticate] }, async (req, reply) => {
+    const row = await getInstance(req.params.id, reply)
+    if (!row) return
+    try {
+      const data = await unraidGql(row.url, row.api_key, `query { plugins { name version hasApiModule hasCliModule } }`) as { plugins?: unknown[] }
+      return { plugins: data.plugins ?? [] }
+    } catch (e) {
+      return reply.status(502).send({ error: (e as Error).message })
+    }
+  })
+
+  // DELETE /api/unraid/:id/plugins
+  app.delete<{ Params: { id: string }; Body: { names: string[] } }>('/api/unraid/:id/plugins', { onRequest: [app.requireAdmin] }, async (req, reply) => {
+    const row = await getInstance(req.params.id, reply)
+    if (!row) return
+    try {
+      const result = await unraidGql(row.url, row.api_key, `mutation($input: PluginManagementInput!) { removePlugin(input: $input) }`, { input: req.body })
+      logActivity('unraid', `Plugins entfernt: ${req.body.names.join(', ')} — ${row.name}`, 'info', { instanceId: req.params.id })
+      return result
+    } catch (e) {
+      return reply.status(502).send({ error: (e as Error).message })
+    }
+  })
+
+  // GET /api/unraid/:id/apikeys
+  app.get<{ Params: { id: string } }>('/api/unraid/:id/apikeys', { onRequest: [app.requireAdmin] }, async (req, reply) => {
+    const row = await getInstance(req.params.id, reply)
+    if (!row) return
+    try {
+      return await unraidGql(row.url, row.api_key, `query {
+        apiKeys { id key name description roles createdAt }
+        apiKeyPossibleRoles
+      }`)
+    } catch (e) {
+      return reply.status(502).send({ error: (e as Error).message })
+    }
+  })
+
+  // POST /api/unraid/:id/apikeys
+  app.post<{ Params: { id: string }; Body: { name: string; description?: string; roles?: string[] } }>('/api/unraid/:id/apikeys', { onRequest: [app.requireAdmin] }, async (req, reply) => {
+    const row = await getInstance(req.params.id, reply)
+    if (!row) return
+    try {
+      const result = await unraidGql(row.url, row.api_key, `mutation($input: CreateApiKeyInput!) { apiKey { create(input: $input) { id key name } } }`, { input: req.body })
+      logActivity('unraid', `API Key erstellt: ${req.body.name} — ${row.name}`, 'info', { instanceId: req.params.id })
+      return result
+    } catch (e) {
+      return reply.status(502).send({ error: (e as Error).message })
+    }
+  })
+
+  // DELETE /api/unraid/:id/apikeys/:keyId
+  app.delete<{ Params: { id: string; keyId: string } }>('/api/unraid/:id/apikeys/:keyId', { onRequest: [app.requireAdmin] }, async (req, reply) => {
+    const row = await getInstance(req.params.id, reply)
+    if (!row) return
+    const keyId = decodeURIComponent(req.params.keyId)
+    try {
+      await unraidGql(row.url, row.api_key, `mutation($input: DeleteApiKeyInput!) { apiKey { delete(input: $input) } }`, { input: { ids: [keyId] } })
+      logActivity('unraid', `API Key gelöscht: ${keyId} — ${row.name}`, 'warning', { instanceId: req.params.id })
+      return { ok: true }
+    } catch (e) {
+      return reply.status(502).send({ error: (e as Error).message })
+    }
+  })
+
+  // GET /api/unraid/:id/docker/networks — BEFORE /:containerName routes that conflict
+  app.get<{ Params: { id: string } }>('/api/unraid/:id/docker/networks', { onRequest: [app.authenticate] }, async (req, reply) => {
+    const row = await getInstance(req.params.id, reply)
+    if (!row) return
+    try {
+      const data = await unraidGql(row.url, row.api_key, `query {
+        docker { networks { id name created scope driver enableIPv6 internal attachable ingress } }
+      }`) as { docker?: { networks?: unknown[] } }
+      return { networks: data.docker?.networks ?? [] }
+    } catch (e) {
+      return reply.status(502).send({ error: (e as Error).message })
+    }
+  })
+
+  // GET /api/unraid/:id/docker/port-conflicts — BEFORE /:containerName routes
+  app.get<{ Params: { id: string } }>('/api/unraid/:id/docker/port-conflicts', { onRequest: [app.authenticate] }, async (req, reply) => {
+    const row = await getInstance(req.params.id, reply)
+    if (!row) return
+    try {
+      return await unraidGql(row.url, row.api_key, `query {
+        docker {
+          portConflicts {
+            containerPorts { privatePort type containers { id name } }
+            lanPorts { lanIpPort publicPort type containers { id name } }
+          }
+        }
+      }`)
+    } catch (e) {
+      return reply.status(502).send({ error: (e as Error).message })
+    }
+  })
+
+  // DELETE /api/unraid/:id/docker/:containerId (remove container)
+  app.delete<{ Params: { id: string; containerId: string }; Querystring: { withImage?: string } }>('/api/unraid/:id/docker/:containerId', { onRequest: [app.requireAdmin] }, async (req, reply) => {
+    const row = await getInstance(req.params.id, reply)
+    if (!row) return
+    const containerId = decodeURIComponent(req.params.containerId)
+    const withImage = req.query.withImage === 'true'
+    try {
+      await unraidGql(row.url, row.api_key, `mutation($id: PrefixedID!, $withImage: Boolean) { docker { removeContainer(id: $id, withImage: $withImage) } }`, { id: containerId, withImage })
+      logActivity('unraid', `Container gelöscht: ${containerId} — ${row.name}`, 'warning', { instanceId: req.params.id })
+      return { ok: true }
+    } catch (e) {
+      return reply.status(502).send({ error: (e as Error).message })
+    }
+  })
+
+  // POST /api/unraid/:id/notifications (create notification)
+  app.post<{ Params: { id: string }; Body: { title: string; subject: string; description: string; importance: string; link?: string } }>('/api/unraid/:id/notifications', { onRequest: [app.requireAdmin] }, async (req, reply) => {
+    const row = await getInstance(req.params.id, reply)
+    if (!row) return
+    try {
+      const result = await unraidGql(row.url, row.api_key, `mutation($input: NotificationData!) { createNotification(input: $input) { id title } }`, { input: req.body })
+      logActivity('unraid', `Benachrichtigung erstellt: ${req.body.title} — ${row.name}`, 'info', { instanceId: req.params.id })
+      return result
+    } catch (e) {
+      return reply.status(502).send({ error: (e as Error).message })
+    }
+  })
+
+  // DELETE /api/unraid/:id/notifications/:notifId (permanent delete)
+  app.delete<{ Params: { id: string; notifId: string }; Querystring: { type: string } }>('/api/unraid/:id/notifications/:notifId', { onRequest: [app.requireAdmin] }, async (req, reply) => {
+    const row = await getInstance(req.params.id, reply)
+    if (!row) return
+    const notifId = decodeURIComponent(req.params.notifId)
+    try {
+      await unraidGql(row.url, row.api_key, `mutation($id: PrefixedID!, $type: NotificationType!) { deleteNotification(id: $id, type: $type) { unread { total } } }`, { id: notifId, type: req.query.type })
+      logActivity('unraid', `Benachrichtigung gelöscht: ${notifId} — ${row.name}`, 'info', { instanceId: req.params.id })
+      return { ok: true }
+    } catch (e) {
+      return reply.status(502).send({ error: (e as Error).message })
+    }
+  })
+
+  // GET /api/unraid/:id/metrics
+  app.get<{ Params: { id: string } }>('/api/unraid/:id/metrics', { onRequest: [app.authenticate] }, async (req, reply) => {
+    const row = await getInstance(req.params.id, reply)
+    if (!row) return
+    try {
+      return await unraidGql(row.url, row.api_key, `query {
+        metrics {
+          cpu { percentTotal cpus { percentTotal percentUser percentSystem percentIdle } }
+          memory { total used free available active buffcache percentTotal swapTotal swapUsed swapFree percentSwapTotal }
+        }
+      }`)
     } catch (e) {
       return reply.status(502).send({ error: (e as Error).message })
     }

@@ -94,3 +94,18 @@ export interface UnraidRegistration {
   registration?: { id?: string; type?: string; state?: string; expiration?: string }
   vars?: { version?: string; name?: string; regTo?: string }
 }
+
+export interface UnraidService { id?: string; name?: string; online?: boolean; version?: string }
+export interface UnraidFlash { id?: string; guid?: string; vendor?: string; product?: string }
+export interface UnraidServer { id?: string; guid?: string; name?: string; status?: string; wanip?: string; lanip?: string; localurl?: string; remoteurl?: string }
+export interface UnraidOwner { username?: string; url?: string; avatar?: string }
+export interface UnraidMe { id?: string; name?: string; description?: string; roles?: string[] }
+export interface UnraidNetworkAccess { id?: string; accessUrls?: { type?: string; name?: string; ipv4?: string; ipv6?: string }[] }
+export interface UnraidConnect { id?: string; dynamicRemoteAccess?: { enabledType?: string; runningType?: string; error?: string }; cloud?: { cloud?: { status?: string; ip?: string; error?: string } } }
+export interface UnraidUpsDevice { id?: string; name?: string; model?: string; status?: string; battery?: { chargeLevel?: number; estimatedRuntime?: number; health?: string }; power?: { inputVoltage?: number; outputVoltage?: number; loadPercentage?: number } }
+export interface UnraidUpsConfig { service?: string; upsCable?: string; upsType?: string; device?: string; batteryLevel?: number; minutes?: number; timeout?: number; nisIp?: string; upsName?: string; modelName?: string }
+export interface UnraidLogFile { name?: string; path?: string; size?: number; modifiedAt?: string }
+export interface UnraidPlugin { name?: string; version?: string; hasApiModule?: boolean; hasCliModule?: boolean }
+export interface UnraidApiKey { id?: string; key?: string; name?: string; description?: string; roles?: string[]; createdAt?: string }
+export interface UnraidDockerNetwork { id?: string; name?: string; created?: string; driver?: string; scope?: string; enableIPv6?: boolean; internal?: boolean; attachable?: boolean; ingress?: boolean }
+export interface UnraidMetricsDetailed { cpu?: { percentTotal?: number; cpus?: { percentTotal?: number; percentUser?: number; percentSystem?: number; percentIdle?: number }[] }; memory?: { total?: number; used?: number; free?: number; available?: number; percentTotal?: number; swapTotal?: number; swapUsed?: number; percentSwapTotal?: number } }

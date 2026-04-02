@@ -1,6 +1,6 @@
 import type { Service, Group, Settings, AuthUser, UserRecord, UserGroup, DashboardItem, DashboardGroup, DashboardResponse, Widget, WidgetStats, DockerContainer, ContainerStats, Background, HaInstance, HaPanel, HaEntityFull, HaArea, EnergyData, CalendarEntry, HaFloorplan, HaFloorplanEntity, HaAlert, HaHistoryEntry, NetworkDevice, NetworkDeviceHistory, ScanResult, BackupSource, BackupStatusResult, ResourceSnapshot, ChangelogRelease } from './types'
 import type { SyncHistoryEntry, BackupEntry } from './types/recyclarr'
-import type { UnraidInstance, UnraidInfo, UnraidArray, UnraidParityHistory, UnraidContainer, UnraidVm, UnraidShare, UnraidUser, UnraidNotifications, UnraidConfig, UnraidPhysicalDisk } from './types/unraid'
+import type { UnraidInstance, UnraidInfo, UnraidArray, UnraidParityHistory, UnraidContainer, UnraidVm, UnraidShare, UnraidUser, UnraidNotifications, UnraidConfig, UnraidPhysicalDisk, UnraidService, UnraidFlash, UnraidServer, UnraidOwner, UnraidMe, UnraidNetworkAccess, UnraidConnect, UnraidUpsDevice, UnraidUpsConfig, UnraidLogFile, UnraidPlugin, UnraidApiKey, UnraidDockerNetwork, UnraidMetricsDetailed } from './types/unraid'
 import type { ArrInstance, ArrStatus, ArrStats, ArrQueueResponse, ArrCalendarItem, ProwlarrIndexer, SabnzbdQueueData, SabnzbdHistoryData, SeerrRequest, SeerrRequestsResponse, RadarrMovie, SonarrSeries, ArrCustomFormat, ArrCFSpecification, ArrQualityProfile } from './types/arr'
 import type { TmdbPage, TmdbGenre, TmdbProvider, TmdbTvDetail, TmdbDiscoverFilters } from './types/tmdb'
 import type { SeerrTvDetail, SeerrMovieDetail } from './types/seerr'
@@ -515,5 +515,26 @@ export const api = {
     physicalDisks:       (id: string)                                                                           => req<{ disks?: UnraidPhysicalDisk[] }>(`/unraid/${id}/physicaldisks`),
     diskMount:           (id: string, diskId: string)                                                           => req<unknown>(`/unraid/${id}/disks/${encodeURIComponent(diskId)}/mount`, { method: 'POST', body: JSON.stringify({}) }),
     diskUnmount:         (id: string, diskId: string)                                                           => req<unknown>(`/unraid/${id}/disks/${encodeURIComponent(diskId)}/unmount`, { method: 'POST', body: JSON.stringify({}) }),
+    services:              (id: string)                                    => req<{ services?: UnraidService[] }>(`/unraid/${id}/services`),
+    flash:                 (id: string)                                    => req<{ flash?: UnraidFlash }>(`/unraid/${id}/flash`),
+    server:                (id: string)                                    => req<{ server?: UnraidServer; owner?: UnraidOwner; me?: UnraidMe }>(`/unraid/${id}/server`),
+    network:               (id: string)                                    => req<{ network?: UnraidNetworkAccess }>(`/unraid/${id}/network`),
+    connect:               (id: string)                                    => req<{ connect?: UnraidConnect; cloud?: unknown; remoteAccess?: unknown }>(`/unraid/${id}/connect`),
+    upsDevices:            (id: string)                                    => req<{ upsDevices?: UnraidUpsDevice[] }>(`/unraid/${id}/ups/devices`),
+    upsConfig:             (id: string)                                    => req<{ upsConfiguration?: UnraidUpsConfig }>(`/unraid/${id}/ups/configuration`),
+    configureUps:          (id: string, config: object)                   => req<{ ok: boolean }>(`/unraid/${id}/ups/configure`, { method: 'POST', body: JSON.stringify(config) }),
+    logs:                  (id: string)                                    => req<{ logFiles?: UnraidLogFile[] }>(`/unraid/${id}/logs`),
+    logFile:               (id: string, path: string, lines?: number)     => req<{ logFile?: { path?: string; content?: string; totalLines?: number; startLine?: number } }>(`/unraid/${id}/logs/${encodeURIComponent(path)}${lines ? `?lines=${lines}` : ''}`),
+    plugins:               (id: string)                                    => req<{ plugins?: UnraidPlugin[] }>(`/unraid/${id}/plugins`),
+    removePlugin:          (id: string, names: string[])                  => req<unknown>(`/unraid/${id}/plugins`, { method: 'DELETE', body: JSON.stringify({ names }) }),
+    apiKeys:               (id: string)                                    => req<{ apiKeys?: UnraidApiKey[]; apiKeyPossibleRoles?: string[] }>(`/unraid/${id}/apikeys`),
+    createApiKey:          (id: string, data: object)                     => req<unknown>(`/unraid/${id}/apikeys`, { method: 'POST', body: JSON.stringify(data) }),
+    deleteApiKey:          (id: string, keyId: string)                    => req<{ ok: boolean }>(`/unraid/${id}/apikeys/${encodeURIComponent(keyId)}`, { method: 'DELETE' }),
+    dockerNetworks:        (id: string)                                    => req<{ networks?: UnraidDockerNetwork[] }>(`/unraid/${id}/docker/networks`),
+    portConflicts:         (id: string)                                    => req<{ docker?: { portConflicts?: unknown } }>(`/unraid/${id}/docker/port-conflicts`),
+    removeDockerContainer: (id: string, containerId: string, withImage?: boolean) => req<{ ok: boolean }>(`/unraid/${id}/docker/${encodeURIComponent(containerId)}${withImage ? '?withImage=true' : ''}`, { method: 'DELETE' }),
+    createNotification:    (id: string, data: object)                     => req<unknown>(`/unraid/${id}/notifications`, { method: 'POST', body: JSON.stringify(data) }),
+    deleteNotificationPerm:(id: string, notifId: string, type: string)    => req<{ ok: boolean }>(`/unraid/${id}/notifications/${encodeURIComponent(notifId)}?type=${type}`, { method: 'DELETE' }),
+    metrics:               (id: string)                                    => req<{ metrics?: UnraidMetricsDetailed }>(`/unraid/${id}/metrics`),
   },
 }

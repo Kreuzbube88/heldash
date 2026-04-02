@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { api } from '../api'
-import type { UnraidInstance, UnraidInfo, UnraidArray, UnraidParityHistory, UnraidContainer, UnraidVm, UnraidShare, UnraidUser, UnraidNotifications, UnraidConfig, UnraidPhysicalDisk } from '../types/unraid'
+import type { UnraidInstance, UnraidInfo, UnraidArray, UnraidParityHistory, UnraidContainer, UnraidVm, UnraidShare, UnraidUser, UnraidNotifications, UnraidConfig, UnraidPhysicalDisk, UnraidService, UnraidFlash, UnraidServer, UnraidOwner, UnraidMe, UnraidNetworkAccess, UnraidUpsDevice, UnraidUpsConfig, UnraidLogFile, UnraidPlugin, UnraidApiKey, UnraidDockerNetwork, UnraidMetricsDetailed } from '../types/unraid'
 
 interface UnraidState {
   instances:      UnraidInstance[]
@@ -54,6 +54,39 @@ interface UnraidState {
   updateInstance:      (id: string, data: object) => Promise<void>
   deleteInstance:      (id: string) => Promise<void>
   reorderInstances:    (ids: string[]) => Promise<void>
+
+  services:       Record<string, UnraidService[]>
+  flash:          Record<string, UnraidFlash | null>
+  server:         Record<string, { server?: UnraidServer; owner?: UnraidOwner; me?: UnraidMe } | null>
+  network:        Record<string, UnraidNetworkAccess | null>
+  connect:        Record<string, unknown>
+  upsDevices:     Record<string, UnraidUpsDevice[]>
+  upsConfig:      Record<string, UnraidUpsConfig | null>
+  logs:           Record<string, UnraidLogFile[]>
+  plugins:        Record<string, UnraidPlugin[]>
+  apiKeys:        Record<string, { apiKeys?: UnraidApiKey[]; apiKeyPossibleRoles?: string[] } | null>
+  dockerNetworks: Record<string, UnraidDockerNetwork[]>
+  metrics:        Record<string, UnraidMetricsDetailed | null>
+
+  loadServices:       (id: string) => Promise<void>
+  loadFlash:          (id: string) => Promise<void>
+  loadServer:         (id: string) => Promise<void>
+  loadNetwork:        (id: string) => Promise<void>
+  loadConnect:        (id: string) => Promise<void>
+  loadUpsDevices:     (id: string) => Promise<void>
+  loadUpsConfig:      (id: string) => Promise<void>
+  loadLogs:           (id: string) => Promise<void>
+  loadPlugins:        (id: string) => Promise<void>
+  loadApiKeys:        (id: string) => Promise<void>
+  loadDockerNetworks: (id: string) => Promise<void>
+  loadMetrics:        (id: string) => Promise<void>
+  configureUps:           (id: string, config: object) => Promise<void>
+  removePlugin:           (id: string, names: string[]) => Promise<void>
+  createApiKey:           (id: string, data: object) => Promise<void>
+  deleteApiKey:           (id: string, keyId: string) => Promise<void>
+  removeDockerContainer:  (id: string, containerId: string, withImage?: boolean) => Promise<void>
+  createNotification:     (id: string, data: object) => Promise<void>
+  deleteNotificationPerm: (id: string, notifId: string, type: string) => Promise<void>
 }
 
 export const useUnraidStore = create<UnraidState>((set, get) => ({
@@ -72,6 +105,18 @@ export const useUnraidStore = create<UnraidState>((set, get) => ({
   physicalDisks: {},
   loading:       {},
   errors:        {},
+  services:       {},
+  flash:          {},
+  server:         {},
+  network:        {},
+  connect:        {},
+  upsDevices:     {},
+  upsConfig:      {},
+  logs:           {},
+  plugins:        {},
+  apiKeys:        {},
+  dockerNetworks: {},
+  metrics:        {},
 
   loadInstances: async () => {
     try {
@@ -355,5 +400,184 @@ export const useUnraidStore = create<UnraidState>((set, get) => ({
   reorderInstances: async (ids) => {
     await api.unraid.instances.reorder(ids)
     await get().loadInstances()
+  },
+
+  loadServices: async (id) => {
+    set(s => ({ loading: { ...s.loading, [`services_${id}`]: true } }))
+    try {
+      const data = await api.unraid.services(id)
+      set(s => ({ services: { ...s.services, [id]: data.services ?? [] }, errors: { ...s.errors, [`services_${id}`]: null } }))
+    } catch (e) {
+      set(s => ({ errors: { ...s.errors, [`services_${id}`]: (e as Error).message } }))
+    } finally {
+      set(s => ({ loading: { ...s.loading, [`services_${id}`]: false } }))
+    }
+  },
+
+  loadFlash: async (id) => {
+    set(s => ({ loading: { ...s.loading, [`flash_${id}`]: true } }))
+    try {
+      const data = await api.unraid.flash(id)
+      set(s => ({ flash: { ...s.flash, [id]: data.flash ?? null }, errors: { ...s.errors, [`flash_${id}`]: null } }))
+    } catch (e) {
+      set(s => ({ errors: { ...s.errors, [`flash_${id}`]: (e as Error).message } }))
+    } finally {
+      set(s => ({ loading: { ...s.loading, [`flash_${id}`]: false } }))
+    }
+  },
+
+  loadServer: async (id) => {
+    set(s => ({ loading: { ...s.loading, [`server_${id}`]: true } }))
+    try {
+      const data = await api.unraid.server(id)
+      set(s => ({ server: { ...s.server, [id]: data }, errors: { ...s.errors, [`server_${id}`]: null } }))
+    } catch (e) {
+      set(s => ({ errors: { ...s.errors, [`server_${id}`]: (e as Error).message } }))
+    } finally {
+      set(s => ({ loading: { ...s.loading, [`server_${id}`]: false } }))
+    }
+  },
+
+  loadNetwork: async (id) => {
+    set(s => ({ loading: { ...s.loading, [`network_${id}`]: true } }))
+    try {
+      const data = await api.unraid.network(id)
+      set(s => ({ network: { ...s.network, [id]: data.network ?? null }, errors: { ...s.errors, [`network_${id}`]: null } }))
+    } catch (e) {
+      set(s => ({ errors: { ...s.errors, [`network_${id}`]: (e as Error).message } }))
+    } finally {
+      set(s => ({ loading: { ...s.loading, [`network_${id}`]: false } }))
+    }
+  },
+
+  loadConnect: async (id) => {
+    set(s => ({ loading: { ...s.loading, [`connect_${id}`]: true } }))
+    try {
+      const data = await api.unraid.connect(id)
+      set(s => ({ connect: { ...s.connect, [id]: data }, errors: { ...s.errors, [`connect_${id}`]: null } }))
+    } catch (e) {
+      set(s => ({ errors: { ...s.errors, [`connect_${id}`]: (e as Error).message } }))
+    } finally {
+      set(s => ({ loading: { ...s.loading, [`connect_${id}`]: false } }))
+    }
+  },
+
+  loadUpsDevices: async (id) => {
+    set(s => ({ loading: { ...s.loading, [`ups_${id}`]: true } }))
+    try {
+      const data = await api.unraid.upsDevices(id)
+      set(s => ({ upsDevices: { ...s.upsDevices, [id]: data.upsDevices ?? [] }, errors: { ...s.errors, [`ups_${id}`]: null } }))
+    } catch (e) {
+      set(s => ({ errors: { ...s.errors, [`ups_${id}`]: (e as Error).message } }))
+    } finally {
+      set(s => ({ loading: { ...s.loading, [`ups_${id}`]: false } }))
+    }
+  },
+
+  loadUpsConfig: async (id) => {
+    set(s => ({ loading: { ...s.loading, [`upsconfig_${id}`]: true } }))
+    try {
+      const data = await api.unraid.upsConfig(id)
+      set(s => ({ upsConfig: { ...s.upsConfig, [id]: data.upsConfiguration ?? null }, errors: { ...s.errors, [`upsconfig_${id}`]: null } }))
+    } catch (e) {
+      set(s => ({ errors: { ...s.errors, [`upsconfig_${id}`]: (e as Error).message } }))
+    } finally {
+      set(s => ({ loading: { ...s.loading, [`upsconfig_${id}`]: false } }))
+    }
+  },
+
+  loadLogs: async (id) => {
+    set(s => ({ loading: { ...s.loading, [`logs_${id}`]: true } }))
+    try {
+      const data = await api.unraid.logs(id)
+      set(s => ({ logs: { ...s.logs, [id]: data.logFiles ?? [] }, errors: { ...s.errors, [`logs_${id}`]: null } }))
+    } catch (e) {
+      set(s => ({ errors: { ...s.errors, [`logs_${id}`]: (e as Error).message } }))
+    } finally {
+      set(s => ({ loading: { ...s.loading, [`logs_${id}`]: false } }))
+    }
+  },
+
+  loadPlugins: async (id) => {
+    set(s => ({ loading: { ...s.loading, [`plugins_${id}`]: true } }))
+    try {
+      const data = await api.unraid.plugins(id)
+      set(s => ({ plugins: { ...s.plugins, [id]: data.plugins ?? [] }, errors: { ...s.errors, [`plugins_${id}`]: null } }))
+    } catch (e) {
+      set(s => ({ errors: { ...s.errors, [`plugins_${id}`]: (e as Error).message } }))
+    } finally {
+      set(s => ({ loading: { ...s.loading, [`plugins_${id}`]: false } }))
+    }
+  },
+
+  loadApiKeys: async (id) => {
+    set(s => ({ loading: { ...s.loading, [`apikeys_${id}`]: true } }))
+    try {
+      const data = await api.unraid.apiKeys(id)
+      set(s => ({ apiKeys: { ...s.apiKeys, [id]: data }, errors: { ...s.errors, [`apikeys_${id}`]: null } }))
+    } catch (e) {
+      set(s => ({ errors: { ...s.errors, [`apikeys_${id}`]: (e as Error).message } }))
+    } finally {
+      set(s => ({ loading: { ...s.loading, [`apikeys_${id}`]: false } }))
+    }
+  },
+
+  loadDockerNetworks: async (id) => {
+    set(s => ({ loading: { ...s.loading, [`dockernets_${id}`]: true } }))
+    try {
+      const data = await api.unraid.dockerNetworks(id)
+      set(s => ({ dockerNetworks: { ...s.dockerNetworks, [id]: data.networks ?? [] }, errors: { ...s.errors, [`dockernets_${id}`]: null } }))
+    } catch (e) {
+      set(s => ({ errors: { ...s.errors, [`dockernets_${id}`]: (e as Error).message } }))
+    } finally {
+      set(s => ({ loading: { ...s.loading, [`dockernets_${id}`]: false } }))
+    }
+  },
+
+  loadMetrics: async (id) => {
+    set(s => ({ loading: { ...s.loading, [`metrics_${id}`]: true } }))
+    try {
+      const data = await api.unraid.metrics(id)
+      set(s => ({ metrics: { ...s.metrics, [id]: data.metrics ?? null }, errors: { ...s.errors, [`metrics_${id}`]: null } }))
+    } catch (e) {
+      set(s => ({ errors: { ...s.errors, [`metrics_${id}`]: (e as Error).message } }))
+    } finally {
+      set(s => ({ loading: { ...s.loading, [`metrics_${id}`]: false } }))
+    }
+  },
+
+  configureUps: async (id, config) => {
+    await api.unraid.configureUps(id, config)
+    await get().loadUpsConfig(id)
+  },
+
+  removePlugin: async (id, names) => {
+    await api.unraid.removePlugin(id, names)
+    await get().loadPlugins(id)
+  },
+
+  createApiKey: async (id, data) => {
+    await api.unraid.createApiKey(id, data)
+    await get().loadApiKeys(id)
+  },
+
+  deleteApiKey: async (id, keyId) => {
+    await api.unraid.deleteApiKey(id, keyId)
+    await get().loadApiKeys(id)
+  },
+
+  removeDockerContainer: async (id, containerId, withImage) => {
+    await api.unraid.removeDockerContainer(id, containerId, withImage)
+    await get().loadDocker(id)
+  },
+
+  createNotification: async (id, data) => {
+    await api.unraid.createNotification(id, data)
+    await get().loadNotifications(id)
+  },
+
+  deleteNotificationPerm: async (id, notifId, type) => {
+    await api.unraid.deleteNotificationPerm(id, notifId, type)
+    await get().loadNotifications(id)
   },
 }))

@@ -224,8 +224,6 @@ function App() {
             onCheckAll={handleCheckAll}
             checking={checking}
             onLogin={() => setShowLogin(true)}
-            onAddHaInstance={() => setPage('instances')}
-            onAddHaPanel={() => setShowAddHaPanel(true)}
           />
           <div className="content-area">
             <div className="content-inner">

@@ -7,30 +7,38 @@ import {
   SkipBack, Play, Pause, SkipForward, ChevronUp, ChevronDown,
   Lock, Unlock, Shield, X, Clock,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useHaStore } from '../store/useHaStore'
 import type { HaPanel, HaEntityFull } from '../types'
 
 // ── Relative time ──────────────────────────────────────────────────────────────
 
-export function formatRelativeTime(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime()
-  const sec = Math.floor(diff / 1000)
-  if (sec < 60) return 'just now'
-  const min = Math.floor(sec / 60)
-  if (min < 60) return `${min} min ago`
-  const hr = Math.floor(min / 60)
-  if (hr < 24) return `${hr}h ago`
-  return new Date(iso).toLocaleDateString()
-}
-
 function RelativeTime({ iso }: { iso: string }) {
-  const [label, setLabel] = useState(() => formatRelativeTime(iso))
+  const { t } = useTranslation('ha')
+
+  const getLabel = () => {
+    const diff = Date.now() - new Date(iso).getTime()
+    const sec = Math.floor(diff / 1000)
+    if (sec < 60) return t('panel_card.relative_time.just_now')
+    const min = Math.floor(sec / 60)
+    if (min < 60) return t('panel_card.relative_time.minutes_ago', { min })
+    const hr = Math.floor(min / 60)
+    if (hr < 24) return t('panel_card.relative_time.hours_ago', { hr })
+    return new Date(iso).toLocaleDateString()
+  }
+
+  const [label, setLabel] = useState(() => getLabel())
   useEffect(() => {
-    setLabel(formatRelativeTime(iso))
-    const id = setInterval(() => setLabel(formatRelativeTime(iso)), 60_000)
+    setLabel(getLabel())
+    const id = setInterval(() => setLabel(getLabel()), 60_000)
     return () => clearInterval(id)
-  }, [iso])
-  return <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Updated {label}</span>
+  }, [iso, t])
+
+  return (
+    <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+      {t('panel_card.relative_time.updated', { time: label })}
+    </span>
+  )
 }
 
 // ── Domain helpers ─────────────────────────────────────────────────────────────
@@ -45,13 +53,11 @@ function stateColor(state: string): string {
   return 'var(--text-primary)'
 }
 
-function domainLabel(domain: string): string {
-  const labels: Record<string, string> = {
-    light: 'Light', switch: 'Switch', sensor: 'Sensor', binary_sensor: 'Binary Sensor',
-    climate: 'Climate', cover: 'Cover', media_player: 'Media Player', input_boolean: 'Input Boolean',
-    automation: 'Automation', fan: 'Fan', lock: 'Lock', scene: 'Scene', script: 'Script',
-  }
-  return labels[domain] ?? domain.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+function domainLabel(domain: string, t: (key: string) => string): string {
+  const key = `panel_card.domains.${domain}`
+  const translated = t(key)
+  if (translated !== key) return translated
+  return domain.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }
 
 // ── Optimistic update helper ───────────────────────────────────────────────────
@@ -85,6 +91,7 @@ interface ShellProps {
 }
 
 function PanelCardShell({ panel, entity, onEdit, onRemove, onShowHistory, isAdmin, dragHandleProps, children }: ShellProps) {
+  const { t } = useTranslation('ha')
   const domain = getDomain(panel.entity_id)
   const label = panel.label || entity?.attributes.friendly_name || panel.entity_id
 
@@ -102,7 +109,7 @@ function PanelCardShell({ panel, entity, onEdit, onRemove, onShowHistory, isAdmi
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {domainLabel(domain)}
+            {domainLabel(domain, t)}
           </div>
           <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {label}
@@ -110,14 +117,14 @@ function PanelCardShell({ panel, entity, onEdit, onRemove, onShowHistory, isAdmi
         </div>
         <div style={{ display: 'flex', gap: 4, flexShrink: 0, opacity: 0, transition: 'opacity var(--transition-fast)' }} className="card-actions">
           {isAdmin && entity && onShowHistory && (
-            <button className="btn btn-ghost btn-icon" style={{ width: 22, height: 22 }} onClick={() => onShowHistory(entity)} data-tooltip="Verlauf">
+            <button className="btn btn-ghost btn-icon" style={{ width: 22, height: 22 }} onClick={() => onShowHistory(entity)} data-tooltip={t('panel_card.tooltips.history')}>
               <Clock size={11} />
             </button>
           )}
-          <button className="btn btn-ghost btn-icon" style={{ width: 22, height: 22 }} onClick={onEdit} data-tooltip="Edit label">
+          <button className="btn btn-ghost btn-icon" style={{ width: 22, height: 22 }} onClick={onEdit} data-tooltip={t('panel_card.tooltips.edit')}>
             <Pencil size={11} />
           </button>
-          <button className="btn btn-ghost btn-icon" style={{ width: 22, height: 22, color: 'var(--status-offline)' }} onClick={onRemove} data-tooltip="Remove panel">
+          <button className="btn btn-ghost btn-icon" style={{ width: 22, height: 22, color: 'var(--status-offline)' }} onClick={onRemove} data-tooltip={t('panel_card.tooltips.remove')}>
             <Trash2 size={11} />
           </button>
         </div>
@@ -139,11 +146,12 @@ function PanelCardShell({ panel, entity, onEdit, onRemove, onShowHistory, isAdmi
 // ── Toggle button helper ───────────────────────────────────────────────────────
 
 function ToggleBtn({ isOn, busy, onToggle }: { isOn: boolean; busy: boolean; onToggle: () => void }) {
+  const { t } = useTranslation('ha')
   return (
     <button
       onClick={busy ? undefined : onToggle}
       style={{ background: 'none', border: 'none', cursor: busy ? 'wait' : 'pointer', color: isOn ? 'var(--status-online)' : 'var(--text-muted)', flexShrink: 0 }}
-      data-tooltip={isOn ? 'Turn off' : 'Turn on'}
+      data-tooltip={isOn ? t('panel_card.tooltips.turn_off') : t('panel_card.tooltips.turn_on')}
     >
       {busy
         ? <Loader size={22} className="spin" />
@@ -154,11 +162,9 @@ function ToggleBtn({ isOn, busy, onToggle }: { isOn: boolean; busy: boolean; onT
 }
 
 // ── Light card ─────────────────────────────────────────────────────────────────
-// Bug B: toggle always visible regardless of on/off state
-// Bug C: localBrightness / localColorTemp cleared only after service call +
-//        optimistic update, preventing WS events from causing slider flicker
 
 function LightCard({ panel, entity, instanceId }: { panel: HaPanel; entity: HaEntityFull; instanceId: string }) {
+  const { t } = useTranslation('ha')
   const { callService, updateEntityState } = useHaStore()
   const [busy, setBusy] = useState(false)
   const [localBrightness, setLocalBrightness] = useState<number | null>(null)
@@ -174,20 +180,17 @@ function LightCard({ panel, entity, instanceId }: { panel: HaPanel; entity: HaEn
   const minK = entity.attributes.min_color_temp_kelvin ?? 2700
   const maxK = entity.attributes.max_color_temp_kelvin ?? 6500
 
-  // Bug B: always use turn_on / turn_off explicitly (never light.toggle)
   const toggle = async () => {
     setBusy(true)
     const nextState = isOn ? 'off' : 'on'
     try {
       await callService(instanceId, 'light', isOn ? 'turn_off' : 'turn_on', panel.entity_id)
-      // Bug A: optimistic update — WS event will confirm shortly
       updateEntityState(instanceId, entity.entity_id, buildOptimistic(entity, nextState))
     } finally {
       setBusy(false)
     }
   }
 
-  // Bug C: clear local state only after service + optimistic update are applied
   const handleBrightness = (val: number) => {
     setLocalBrightness(val)
     setIsDraggingBrightness(true)
@@ -221,25 +224,22 @@ function LightCard({ panel, entity, instanceId }: { panel: HaPanel; entity: HaEn
     }, 300)
   }
 
-  // While dragging use local value; otherwise use entity value
   const displayBrightness = (isDraggingBrightness || localBrightness !== null) ? localBrightness : brightness
   const colorTempK = colorTemp !== undefined ? Math.round(1_000_000 / colorTemp) : undefined
   const displayColorTempK = (isDraggingColorTemp || localColorTemp !== null) ? localColorTemp : colorTempK
 
   return (
     <div>
-      {/* Bug B: toggle is always rendered (visible when on AND off) */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span style={{ fontSize: 22, fontWeight: 700, fontFamily: 'var(--font-mono)', color: stateColor(entity.state) }}>
           {entity.state}
         </span>
         <ToggleBtn isOn={isOn} busy={busy} onToggle={toggle} />
       </div>
-      {/* Bug B: sliders only when light is on */}
       {isOn && displayBrightness !== undefined && (
         <div style={{ marginTop: 10 }}>
           <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>
-            Brightness {Math.round(((displayBrightness ?? 0) / 255) * 100)}%
+            {t('panel_card.light.brightness', { pct: Math.round(((displayBrightness ?? 0) / 255) * 100) })}
           </div>
           <input
             type="range" className="ha-slider" min={0} max={255}
@@ -251,7 +251,7 @@ function LightCard({ panel, entity, instanceId }: { panel: HaPanel; entity: HaEn
       )}
       {isOn && displayColorTempK !== undefined && (
         <div style={{ marginTop: 8 }}>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Color Temp</div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>{t('panel_card.light.color_temp')}</div>
           <input
             type="range" className="ha-slider" min={minK} max={maxK}
             value={displayColorTempK ?? minK}
@@ -267,6 +267,7 @@ function LightCard({ panel, entity, instanceId }: { panel: HaPanel; entity: HaEn
 // ── Climate card ───────────────────────────────────────────────────────────────
 
 function ClimateCard({ panel, entity, instanceId }: { panel: HaPanel; entity: HaEntityFull; instanceId: string }) {
+  const { t } = useTranslation('ha')
   const { callService, updateEntityState } = useHaStore()
   const attrs = entity.attributes
   const current = attrs.current_temperature
@@ -298,7 +299,7 @@ function ClimateCard({ panel, entity, instanceId }: { panel: HaPanel; entity: Ha
     <div>
       {current !== undefined && (
         <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>
-          Current: <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{current}{unit}</span>
+          {t('panel_card.climate.current')} <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{current}{unit}</span>
         </div>
       )}
       {target !== undefined && (
@@ -338,6 +339,7 @@ function ClimateCard({ panel, entity, instanceId }: { panel: HaPanel; entity: Ha
 // ── Media player card ──────────────────────────────────────────────────────────
 
 function MediaPlayerCard({ panel, entity, instanceId }: { panel: HaPanel; entity: HaEntityFull; instanceId: string }) {
+  const { t } = useTranslation('ha')
   const { callService, updateEntityState } = useHaStore()
   const attrs = entity.attributes
   const volRef = useRef<ReturnType<typeof setTimeout>>()
@@ -404,7 +406,7 @@ function MediaPlayerCard({ panel, entity, instanceId }: { panel: HaPanel; entity
       {volume !== undefined && (
         <div style={{ marginTop: 8 }}>
           <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>
-            Volume {Math.round(volume * 100)}%
+            {t('panel_card.media.volume', { pct: Math.round(volume * 100) })}
           </div>
           <input
             type="range" className="ha-slider" min={0} max={1} step={0.01}
@@ -420,7 +422,7 @@ function MediaPlayerCard({ panel, entity, instanceId }: { panel: HaPanel; entity
           value={attrs.source ?? ''}
           onChange={e => call('select_source', { source: e.target.value })}
         >
-          <option value="" disabled>Source</option>
+          <option value="" disabled>{t('panel_card.media.source')}</option>
           {attrs.source_list.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
       )}
@@ -437,6 +439,7 @@ const COVER_OPTIMISTIC_STATE: Record<string, string> = {
 }
 
 function CoverCard({ panel, entity, instanceId }: { panel: HaPanel; entity: HaEntityFull; instanceId: string }) {
+  const { t } = useTranslation('ha')
   const { callService, updateEntityState } = useHaStore()
   const posRef = useRef<ReturnType<typeof setTimeout>>()
   const isOpen = entity.state === 'open'
@@ -468,13 +471,13 @@ function CoverCard({ panel, entity, instanceId }: { panel: HaPanel; entity: HaEn
     <div>
       <div style={{ fontSize: 13, color: stateColor(entity.state), marginBottom: 8 }}>{entity.state}</div>
       <div className="ha-cover-buttons">
-        <button className="btn btn-ghost" style={{ fontSize: 11, padding: '4px 8px' }} disabled={isOpen} onClick={() => call('open_cover')}>Open</button>
-        <button className="btn btn-ghost" style={{ fontSize: 11, padding: '4px 8px' }} onClick={() => call('stop_cover')}>Stop</button>
-        <button className="btn btn-ghost" style={{ fontSize: 11, padding: '4px 8px' }} disabled={isClosed} onClick={() => call('close_cover')}>Close</button>
+        <button className="btn btn-ghost" style={{ fontSize: 11, padding: '4px 8px' }} disabled={isOpen} onClick={() => call('open_cover')}>{t('panel_card.cover.open')}</button>
+        <button className="btn btn-ghost" style={{ fontSize: 11, padding: '4px 8px' }} onClick={() => call('stop_cover')}>{t('panel_card.cover.stop')}</button>
+        <button className="btn btn-ghost" style={{ fontSize: 11, padding: '4px 8px' }} disabled={isClosed} onClick={() => call('close_cover')}>{t('panel_card.cover.close')}</button>
       </div>
       {pos !== undefined && (
         <div style={{ marginTop: 8 }}>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Position {pos}%</div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>{t('panel_card.cover.position', { pct: pos })}</div>
           <input
             type="range" className="ha-slider" min={0} max={100}
             defaultValue={pos}
@@ -536,6 +539,7 @@ function SensorCard({ entity }: { entity: HaEntityFull }) {
 // ── Script / Scene card ────────────────────────────────────────────────────────
 
 function ScriptSceneCard({ panel, entity, instanceId }: { panel: HaPanel; entity: HaEntityFull; instanceId: string }) {
+  const { t } = useTranslation('ha')
   const { callService, updateEntityState } = useHaStore()
   const [busy, setBusy] = useState(false)
   const domain = getDomain(panel.entity_id)
@@ -556,7 +560,7 @@ function ScriptSceneCard({ panel, entity, instanceId }: { panel: HaPanel; entity
       <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{entity.state}</span>
       <button className="btn btn-primary" style={{ fontSize: 11, padding: '4px 12px', gap: 4 }} onClick={run} disabled={busy}>
         {busy ? <Loader size={12} className="spin" /> : null}
-        {isScript ? 'Run' : 'Activate'}
+        {isScript ? t('panel_card.script_scene.run') : t('panel_card.script_scene.activate')}
       </button>
     </div>
   )
@@ -571,6 +575,7 @@ interface PinModalProps {
 }
 
 function PinModal({ title, onConfirm, onClose }: PinModalProps) {
+  const { t } = useTranslation('ha')
   const [pin, setPin] = useState('')
 
   useEffect(() => {
@@ -617,7 +622,7 @@ function PinModal({ title, onConfirm, onClose }: PinModalProps) {
           ))}
         </div>
         <button className="btn btn-primary pin-confirm" onClick={handleConfirm} disabled={pin.length === 0}>
-          Bestätigen
+          {t('panel_card.pin.confirm')}
         </button>
       </div>
     </div>
@@ -634,6 +639,7 @@ interface LockCardProps {
 }
 
 function LockCard({ entity, panel, onCall }: LockCardProps) {
+  const { t } = useTranslation('ha')
   const [showPin, setShowPin] = useState(false)
   const [pendingAction, setPendingAction] = useState<'lock' | 'unlock' | null>(null)
   const [busy, setBusy] = useState(false)
@@ -658,21 +664,35 @@ function LockCard({ entity, panel, onCall }: LockCardProps) {
     }
   }
 
-  const stateLabel = isLocked ? 'Gesperrt' : isUnlocked ? 'Entsperrt' : 'Unbekannt'
-  const stateColor = isLocked ? 'var(--status-offline)' : isUnlocked ? 'var(--status-online)' : 'var(--text-muted)'
+  const stateLabel = isLocked
+    ? t('panel_card.lock.locked')
+    : isUnlocked
+    ? t('panel_card.lock.unlocked')
+    : t('panel_card.lock.unknown')
+  const stateColorVal = isLocked ? 'var(--status-offline)' : isUnlocked ? 'var(--status-online)' : 'var(--text-muted)'
+  const name = (entity.attributes.friendly_name as string | undefined) ?? entity.entity_id
+  const pinTitle = t('panel_card.pin.lock_title', {
+    name,
+    action: pendingAction === 'unlock'
+      ? t('panel_card.pin.unlock_action')
+      : t('panel_card.pin.lock_action'),
+  })
 
   return (
     <div className="lock-card">
-      <div className="lock-icon" style={{ color: stateColor }}>
+      <div className="lock-icon" style={{ color: stateColorVal }}>
         {isLocked ? <Lock size={48} /> : <Unlock size={48} />}
       </div>
-      <div className="lock-state-badge" style={{ color: stateColor }}>{stateLabel}</div>
+      <div className="lock-state-badge" style={{ color: stateColorVal }}>{stateLabel}</div>
       <button className="btn btn-primary" onClick={handleToggle} disabled={busy}>
-        {busy ? <Loader size={14} className="spin" /> : (isLocked ? 'Entsperren' : 'Sperren')}
+        {busy
+          ? <Loader size={14} className="spin" />
+          : isLocked ? t('panel_card.lock.unlock_btn') : t('panel_card.lock.lock_btn')
+        }
       </button>
       {showPin && (
         <PinModal
-          title={`Schloss ${(entity.attributes.friendly_name as string | undefined) ?? entity.entity_id} ${pendingAction === 'unlock' ? 'entsperren' : 'sperren'}`}
+          title={pinTitle}
           onConfirm={handlePinConfirm}
           onClose={() => { setShowPin(false); setPendingAction(null) }}
         />
@@ -693,6 +713,7 @@ interface AlarmCardProps {
 }
 
 function AlarmCard({ entity, panel, onCall }: AlarmCardProps) {
+  const { t } = useTranslation('ha')
   const [showPin, setShowPin] = useState(false)
   const [pendingService, setPendingService] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -700,14 +721,14 @@ function AlarmCard({ entity, panel, onCall }: AlarmCardProps) {
   const state = entity.state as AlarmState
 
   const stateLabel: Record<string, string> = {
-    disarmed: 'Deaktiviert',
-    armed_home: 'Scharf (Zuhause)',
-    armed_away: 'Scharf (Abwesend)',
-    armed_night: 'Scharf (Nacht)',
-    armed_vacation: 'Scharf (Urlaub)',
-    pending: 'Ausstehend',
-    triggered: 'AUSGELÖST',
-    arming: 'Wird scharf...',
+    disarmed: t('panel_card.alarm.disarmed'),
+    armed_home: t('panel_card.alarm.armed_home'),
+    armed_away: t('panel_card.alarm.armed_away'),
+    armed_night: t('panel_card.alarm.armed_night'),
+    armed_vacation: t('panel_card.alarm.armed_vacation'),
+    pending: t('panel_card.alarm.pending'),
+    triggered: t('panel_card.alarm.triggered'),
+    arming: t('panel_card.alarm.arming'),
   }
 
   const stateColorMap: Record<string, string> = {
@@ -741,6 +762,12 @@ function AlarmCard({ entity, panel, onCall }: AlarmCardProps) {
     }
   }
 
+  const pinTitle = t('panel_card.pin.alarm_title', {
+    action: pendingService === 'alarm_disarm'
+      ? t('panel_card.pin.alarm_disarm')
+      : t('panel_card.pin.alarm_arm'),
+  })
+
   return (
     <div className="alarm-card">
       <div className="alarm-state-icon" style={{ color }}>
@@ -750,18 +777,18 @@ function AlarmCard({ entity, panel, onCall }: AlarmCardProps) {
       <div className="alarm-actions">
         {state === 'disarmed' && (
           <>
-            <button className="btn btn-sm" onClick={() => triggerAction('alarm_arm_home')} disabled={busy}>Zuhause</button>
-            <button className="btn btn-sm" onClick={() => triggerAction('alarm_arm_away')} disabled={busy}>Abwesend</button>
-            <button className="btn btn-sm" onClick={() => triggerAction('alarm_arm_night')} disabled={busy}>Nacht</button>
+            <button className="btn btn-sm" onClick={() => triggerAction('alarm_arm_home')} disabled={busy}>{t('panel_card.alarm.action_home')}</button>
+            <button className="btn btn-sm" onClick={() => triggerAction('alarm_arm_away')} disabled={busy}>{t('panel_card.alarm.action_away')}</button>
+            <button className="btn btn-sm" onClick={() => triggerAction('alarm_arm_night')} disabled={busy}>{t('panel_card.alarm.action_night')}</button>
           </>
         )}
         {(state.startsWith('armed_') || state === 'triggered') && (
-          <button className="btn btn-primary" onClick={() => triggerAction('alarm_disarm')} disabled={busy}>Deaktivieren</button>
+          <button className="btn btn-primary" onClick={() => triggerAction('alarm_disarm')} disabled={busy}>{t('panel_card.alarm.action_disarm')}</button>
         )}
       </div>
       {showPin && (
         <PinModal
-          title={`Alarm ${pendingService === 'alarm_disarm' ? 'deaktivieren' : 'scharf stellen'}`}
+          title={pinTitle}
           onConfirm={handlePinConfirm}
           onClose={() => { setShowPin(false); setPendingService(null) }}
         />
@@ -774,7 +801,6 @@ function AlarmCard({ entity, panel, onCall }: AlarmCardProps) {
 
 const TOGGLE_DOMAINS = new Set(['switch', 'input_boolean', 'automation', 'fan', 'light', 'media_player'])
 const TOGGLE_MAP: Record<string, [string, string]> = { cover: ['cover', 'toggle'], lock: ['lock', 'toggle'] }
-// Domains where state is 'on'/'off' — safe for optimistic toggle
 const ON_OFF_DOMAINS = new Set(['switch', 'input_boolean', 'automation', 'fan'])
 
 function GenericCard({ panel, entity, instanceId }: { panel: HaPanel; entity: HaEntityFull; instanceId: string }) {
@@ -795,7 +821,6 @@ function GenericCard({ panel, entity, instanceId }: { panel: HaPanel; entity: Ha
     setBusy(true)
     try {
       await callService(instanceId, d, svc, panel.entity_id)
-      // Apply optimistic state only for domains with clear on/off semantics
       if (ON_OFF_DOMAINS.has(domain)) {
         updateEntityState(instanceId, entity.entity_id,
           buildOptimistic(entity, isOn ? 'off' : 'on'))

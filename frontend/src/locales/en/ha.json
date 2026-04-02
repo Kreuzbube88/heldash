@@ -93,5 +93,86 @@
     "connected": "Connected",
     "disconnected": "Disconnected",
     "connecting": "Connecting…"
+  },
+  "panel_card": {
+    "relative_time": {
+      "just_now": "just now",
+      "minutes_ago": "{{min}} min ago",
+      "hours_ago": "{{hr}}h ago",
+      "updated": "Updated {{time}}"
+    },
+    "domains": {
+      "light": "Light",
+      "switch": "Switch",
+      "sensor": "Sensor",
+      "binary_sensor": "Binary Sensor",
+      "climate": "Climate",
+      "cover": "Cover",
+      "media_player": "Media Player",
+      "input_boolean": "Input Boolean",
+      "automation": "Automation",
+      "fan": "Fan",
+      "lock": "Lock",
+      "scene": "Scene",
+      "script": "Script"
+    },
+    "tooltips": {
+      "history": "History",
+      "edit": "Edit label",
+      "remove": "Remove panel",
+      "turn_on": "Turn on",
+      "turn_off": "Turn off"
+    },
+    "light": {
+      "brightness": "Brightness {{pct}}%",
+      "color_temp": "Color Temp"
+    },
+    "climate": {
+      "current": "Current:"
+    },
+    "media": {
+      "volume": "Volume {{pct}}%",
+      "source": "Source"
+    },
+    "cover": {
+      "open": "Open",
+      "stop": "Stop",
+      "close": "Close",
+      "position": "Position {{pct}}%"
+    },
+    "script_scene": {
+      "run": "Run",
+      "activate": "Activate"
+    },
+    "pin": {
+      "confirm": "Confirm",
+      "lock_title": "Lock {{name}} {{action}}",
+      "lock_action": "lock",
+      "unlock_action": "unlock",
+      "alarm_title": "Alarm {{action}}",
+      "alarm_arm": "arm",
+      "alarm_disarm": "disarm"
+    },
+    "lock": {
+      "locked": "Locked",
+      "unlocked": "Unlocked",
+      "unknown": "Unknown",
+      "lock_btn": "Lock",
+      "unlock_btn": "Unlock"
+    },
+    "alarm": {
+      "disarmed": "Disarmed",
+      "armed_home": "Armed (Home)",
+      "armed_away": "Armed (Away)",
+      "armed_night": "Armed (Night)",
+      "armed_vacation": "Armed (Vacation)",
+      "pending": "Pending",
+      "triggered": "TRIGGERED",
+      "arming": "Arming...",
+      "action_home": "Home",
+      "action_away": "Away",
+      "action_night": "Night",
+      "action_disarm": "Disarm"
+    }
   }
 }

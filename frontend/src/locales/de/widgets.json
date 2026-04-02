@@ -3,25 +3,205 @@
   "add": "Widget hinzufügen",
   "edit": "Widget bearbeiten",
   "delete_confirm": "Widget löschen?",
+  "delete_confirm_title": "Widget \"{{name}}\" löschen?",
+  "delete_confirm_btn": "Löschen",
   "empty": {
     "title": "Keine Widgets",
-    "subtitle": "Füge Widgets hinzu um Live-Daten anzuzeigen."
+    "subtitle": "Füge Widgets hinzu um Live-Daten anzuzeigen.",
+    "admin": "Keine Widgets.\nKlicke auf \"+ Widget hinzufügen\".",
+    "guest": "Keine Widgets verfügbar."
   },
   "location": {
     "dashboard": "Dashboard",
     "topbar": "Topbar",
     "sidebar": "Sidebar"
   },
+  "arr_section_title": "Arr Instanzen",
+  "dashboard_toggle": {
+    "on": "Auf Dashboard",
+    "add": "Zum Dashboard"
+  },
+  "loading": {
+    "stats": "Lade Statistiken…",
+    "states": "Lade Zustände…",
+    "calendar": "Lade Kalender…",
+    "weather": "Lade Wetter…"
+  },
+  "type_names": {
+    "adguard_home": "AdGuard Home",
+    "docker_overview": "Docker Overview",
+    "custom_button": "Custom Buttons",
+    "home_assistant": "Home Assistant",
+    "home_assistant_energy": "HA Energy",
+    "pihole": "Pi-hole",
+    "nginx_pm": "Nginx Proxy Manager",
+    "calendar": "Kalender",
+    "weather": "Wetter",
+    "server_status": "Server Status"
+  },
+  "location_display": {
+    "topbar": "· Topbar",
+    "sidebar": "· Sidebar"
+  },
   "energy": {
     "not_configured": "Energy nicht in Home Assistant konfiguriert",
     "solar": "kWh solar",
     "grid": "kWh grid",
     "return": "kWh return",
-    "gas": "m³ gas"
+    "gas": "m³ gas",
+    "period_today": "Heute"
+  },
+  "calendar": {
+    "today": "Heute",
+    "tomorrow": "Morgen",
+    "nothing_upcoming": "Nichts geplant",
+    "more": "{{count}} weitere"
+  },
+  "ha_widget": {
+    "no_entities": "Keine Entitäten konfiguriert.",
+    "on": "An",
+    "off": "Aus"
+  },
+  "custom_button": {
+    "no_buttons": "Keine Schaltflächen konfiguriert."
+  },
+  "docker": {
+    "total": "Gesamt",
+    "running": "Läuft",
+    "stopped": "Gestoppt",
+    "restarting": "Neustart",
+    "select_container": "Container auswählen…",
+    "start": "Starten",
+    "stop": "Stoppen",
+    "restart": "Neustarten"
+  },
+  "server_status": {
+    "cpu": "CPU",
+    "ram": "RAM",
+    "not_mounted": "Nicht eingehängt",
+    "duplicate_of": "Duplikat von {{name}}"
+  },
+  "adguard": {
+    "unreachable": "Nicht erreichbar",
+    "total": "Gesamt",
+    "blocked": "Blockiert",
+    "rate": "Rate",
+    "protected": "Geschützt",
+    "paused": "Pausiert",
+    "pause": "Pausieren",
+    "enable": "Aktivieren"
+  },
+  "nginx": {
+    "proxies": "Proxies",
+    "streams": "Streams",
+    "certs": "Zertifikate",
+    "cert_expiring_soon": "{{count}} Zertifikat läuft in 30 Tagen ab",
+    "cert_expiring_soon_plural": "{{count}} Zertifikate laufen in 30 Tagen ab"
+  },
+  "weather": {
+    "feels_like": "Gefühlt",
+    "humidity": "Luftfeuchtigkeit",
+    "wind": "Wind",
+    "precipitation": "Niederschlag",
+    "codes": {
+      "0": "Klarer Himmel",
+      "1": "Meist klar",
+      "2": "Teilweise bewölkt",
+      "3": "Bedeckt",
+      "45": "Neblig",
+      "48": "Gefrierender Nebel",
+      "51": "Leichter Nieselregen",
+      "53": "Mäßiger Nieselregen",
+      "55": "Starker Nieselregen",
+      "61": "Leichter Regen",
+      "63": "Mäßiger Regen",
+      "65": "Starker Regen",
+      "71": "Leichter Schneefall",
+      "73": "Mäßiger Schneefall",
+      "75": "Starker Schneefall",
+      "77": "Schneekörner",
+      "80": "Leichte Schauer",
+      "81": "Mäßige Schauer",
+      "82": "Heftige Schauer",
+      "85": "Leichte Schneeschauer",
+      "86": "Starke Schneeschauer",
+      "95": "Gewitter",
+      "96": "Gewitter mit Hagel",
+      "99": "Gewitter mit Hagel"
+    }
   },
   "arr": {
     "dashboard_toggle": "Dashboard",
     "enable_dashboard": "Auf Dashboard anzeigen",
     "disable_dashboard": "Vom Dashboard entfernen"
+  },
+  "form": {
+    "title_new": "Neues Widget",
+    "title_edit": "Widget bearbeiten",
+    "type_label": "Typ",
+    "name_label": "Name",
+    "icon_label": "Icon",
+    "icon_hint_adguard": "(aus App-URL erkannt, oder eigenes)",
+    "icon_hint_docker": "(eigenes Icon oder leer lassen)",
+    "display_location_label": "Anzeigeort",
+    "save": "Speichern",
+    "saving": "Speichern…",
+    "cancel": "Abbrechen",
+    "keep_existing": "(leer lassen zum Beibehalten)",
+    "disks_label": "Festplatten",
+    "add_disk": "Festplatte hinzufügen",
+    "disk_no_disks": "Keine Festplatten konfiguriert. Klicke auf \"Festplatte hinzufügen\".",
+    "disk_name_placeholder": "Name (z.B. Daten)",
+    "disk_path_placeholder": "Pfad (z.B. /data)",
+    "buttons_label": "Schaltflächen",
+    "add_button": "Schaltfläche hinzufügen",
+    "no_buttons_form": "Keine Schaltflächen. Klicke auf \"Schaltfläche hinzufügen\".",
+    "button_label_placeholder": "Bezeichnung",
+    "entities_label": "Entitäten",
+    "add_entity": "Entität hinzufügen",
+    "no_entities_form": "Keine Entitäten. Klicke auf \"Entität hinzufügen\".",
+    "entity_label_placeholder": "Bezeichnung (z.B. Wohnzimmer)",
+    "entity_id_placeholder": "entity_id (z.B. light.living_room)",
+    "ha_url": "Home Assistant URL",
+    "ha_token": "Long-Lived Access Token",
+    "ha_instance": "HA-Instanz",
+    "ha_select_instance": "— Instanz auswählen —",
+    "energy_period": "Standard-Zeitraum",
+    "energy_today": "Heute",
+    "energy_week": "Diese Woche",
+    "energy_month": "Dieser Monat",
+    "pihole_url": "Pi-hole URL",
+    "pihole_password": "Admin-Passwort",
+    "pihole_v6": "Erfordert Pi-hole v6+",
+    "adguard_url": "AdGuard Home URL",
+    "username": "Benutzername",
+    "password": "Passwort",
+    "nginx_url": "Nginx Proxy Manager URL",
+    "username_email": "Benutzername / E-Mail",
+    "weather_input_city": "Stadtname",
+    "weather_input_coords": "Koordinaten",
+    "weather_city_label": "Stadtname",
+    "weather_city_placeholder": "z.B. Berlin, Deutschland",
+    "weather_lat": "Breitengrad",
+    "weather_lon": "Längengrad",
+    "weather_location_name": "Ortsname (optional)",
+    "weather_location_placeholder": "Meine Stadt",
+    "weather_geocoding": "Stadt wird gesucht…",
+    "weather_city_not_found": "Stadt nicht gefunden. Versuche anderen Namen oder Koordinaten.",
+    "weather_geocoding_failed": "Geocodierung fehlgeschlagen. Versuche Koordinaten.",
+    "calendar_instances": "Radarr / Sonarr Instanzen",
+    "calendar_no_instances": "Keine Radarr/Sonarr-Instanzen gefunden.",
+    "calendar_days_ahead": "Tage im Voraus (1–30)",
+    "errors": {
+      "name_required": "Name ist erforderlich",
+      "url_required": "URL ist erforderlich",
+      "token_required": "Token ist erforderlich",
+      "password_required": "Passwort ist erforderlich",
+      "username_required": "Benutzername ist erforderlich",
+      "ha_instance_required": "HA-Instanz ist erforderlich",
+      "calendar_instance_required": "Mindestens eine Radarr/Sonarr-Instanz auswählen",
+      "city_required": "Stadtname ist erforderlich",
+      "coords_required": "Gültige Breiten- und Längengrade erforderlich"
+    }
   }
 }

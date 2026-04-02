@@ -93,5 +93,86 @@
     "connected": "Verbunden",
     "disconnected": "Getrennt",
     "connecting": "Verbinde…"
+  },
+  "panel_card": {
+    "relative_time": {
+      "just_now": "Gerade eben",
+      "minutes_ago": "vor {{min}} Min.",
+      "hours_ago": "vor {{hr}} Std.",
+      "updated": "Aktualisiert {{time}}"
+    },
+    "domains": {
+      "light": "Licht",
+      "switch": "Schalter",
+      "sensor": "Sensor",
+      "binary_sensor": "Binärsensor",
+      "climate": "Klimaanlage",
+      "cover": "Rolladen",
+      "media_player": "Mediaplayer",
+      "input_boolean": "Eingabe Boolean",
+      "automation": "Automation",
+      "fan": "Lüfter",
+      "lock": "Schloss",
+      "scene": "Szene",
+      "script": "Skript"
+    },
+    "tooltips": {
+      "history": "Verlauf",
+      "edit": "Label bearbeiten",
+      "remove": "Panel entfernen",
+      "turn_on": "Einschalten",
+      "turn_off": "Ausschalten"
+    },
+    "light": {
+      "brightness": "Helligkeit {{pct}}%",
+      "color_temp": "Farbtemperatur"
+    },
+    "climate": {
+      "current": "Aktuell:"
+    },
+    "media": {
+      "volume": "Lautstärke {{pct}}%",
+      "source": "Quelle"
+    },
+    "cover": {
+      "open": "Öffnen",
+      "stop": "Stopp",
+      "close": "Schließen",
+      "position": "Position {{pct}}%"
+    },
+    "script_scene": {
+      "run": "Ausführen",
+      "activate": "Aktivieren"
+    },
+    "pin": {
+      "confirm": "Bestätigen",
+      "lock_title": "Schloss {{name}} {{action}}",
+      "lock_action": "sperren",
+      "unlock_action": "entsperren",
+      "alarm_title": "Alarm {{action}}",
+      "alarm_arm": "scharf stellen",
+      "alarm_disarm": "deaktivieren"
+    },
+    "lock": {
+      "locked": "Gesperrt",
+      "unlocked": "Entsperrt",
+      "unknown": "Unbekannt",
+      "lock_btn": "Sperren",
+      "unlock_btn": "Entsperren"
+    },
+    "alarm": {
+      "disarmed": "Deaktiviert",
+      "armed_home": "Scharf (Zuhause)",
+      "armed_away": "Scharf (Abwesend)",
+      "armed_night": "Scharf (Nacht)",
+      "armed_vacation": "Scharf (Urlaub)",
+      "pending": "Ausstehend",
+      "triggered": "AUSGELÖST",
+      "arming": "Wird scharf...",
+      "action_home": "Zuhause",
+      "action_away": "Abwesend",
+      "action_night": "Nacht",
+      "action_disarm": "Deaktivieren"
+    }
   }
 }

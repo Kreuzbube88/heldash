@@ -1430,7 +1430,7 @@ interface Props {
 export function WidgetsPage({ showAddForm, onFormClose }: Props) {
   const { isAdmin } = useStore()
   const { widgets, loadWidgets, loadStats, createWidget, updateWidget, deleteWidget, startPollingAll, stopPollingAll } = useWidgetStore()
-  const { isOnDashboard, addWidget, removeByRef } = useDashboardStore()
+  const { isOnDashboard, addWidget, addArrInstance, removeByRef } = useDashboardStore()
   const { loadContainers: loadDockerContainers } = useDockerStore()
   const { confirm: confirmDlg } = useConfirm()
   const { instances } = useInstanceStore()
@@ -1474,6 +1474,14 @@ export function WidgetsPage({ showAddForm, onFormClose }: Props) {
     const ok = await confirmDlg({ title: `Delete widget "${name}"?`, danger: true, confirmLabel: 'Delete' })
     if (!ok) return
     await deleteWidget(id)
+  }
+
+  const handleToggleArrDashboard = async (instanceId: string) => {
+    if (isOnDashboard('arr_instance', instanceId)) {
+      await removeByRef('arr_instance', instanceId)
+    } else {
+      await addArrInstance(instanceId)
+    }
   }
 
   const handleToggleDashboard = async (widget: Widget) => {
@@ -1545,10 +1553,22 @@ export function WidgetsPage({ showAddForm, onFormClose }: Props) {
           </div>
           <div className="card-grid" style={{ gap: 14 }}>
             {instances.filter(i => i.enabled && ['radarr', 'sonarr', 'prowlarr', 'sabnzbd', 'seerr'].includes(i.type)).map(instance => {
+              const onDashboard = isOnDashboard('arr_instance', instance.id)
+              const dashBtn = isAdmin && (
+                <button
+                  className={onDashboard ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'}
+                  onClick={() => handleToggleArrDashboard(instance.id)}
+                  style={{ gap: 4, fontSize: 12, alignSelf: 'flex-start' }}
+                >
+                  <LayoutDashboard size={12} />
+                  {onDashboard ? 'On Dashboard' : 'Add to Dashboard'}
+                </button>
+              )
               if (instance.type === 'sabnzbd') {
                 return (
                   <div key={instance.id} className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
                     <SabnzbdCardContent instance={instance} />
+                    {dashBtn}
                   </div>
                 )
               }
@@ -1556,6 +1576,7 @@ export function WidgetsPage({ showAddForm, onFormClose }: Props) {
                 return (
                   <div key={instance.id} className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
                     <SeerrCardContent instance={instance} />
+                    {dashBtn}
                   </div>
                 )
               }
@@ -1563,6 +1584,7 @@ export function WidgetsPage({ showAddForm, onFormClose }: Props) {
                 return (
                   <div key={instance.id} className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
                     <ArrCardContent instance={instance} />
+                    {dashBtn}
                   </div>
                 )
               }

@@ -55,6 +55,7 @@ interface CreateServiceBody {
   name: string
   url: string
   icon?: string | null
+  icon_id?: string | null
   description?: string | null
   group_id?: string | null
   tags?: string[]
@@ -164,18 +165,18 @@ export async function servicesRoutes(app: FastifyInstance) {
 
   // POST /api/services
   app.post<{ Body: CreateServiceBody }>('/api/services', { preHandler: [app.authenticate] }, async (req, reply) => {
-    const { name, url, icon, description, group_id, tags, check_enabled, check_url, check_interval, position_x, position_y, width, height } = req.body
+    const { name, url, icon, icon_id, description, group_id, tags, check_enabled, check_url, check_interval, position_x, position_y, width, height } = req.body
     if (!name || !url) return reply.status(400).send({ error: 'name and url are required' })
     if (!isValidHttpUrl(url)) return reply.status(400).send({ error: 'url must be a valid http or https URL' })
     if (check_url && !isValidHttpUrl(check_url)) return reply.status(400).send({ error: 'check_url must be a valid http or https URL' })
 
     const id = nanoid()
     db.prepare(`
-      INSERT INTO services (id, group_id, name, url, icon, description, tags, check_enabled, check_url, check_interval, position_x, position_y, width, height)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO services (id, group_id, name, url, icon, icon_id, description, tags, check_enabled, check_url, check_interval, position_x, position_y, width, height)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id, group_id ?? null, name, url,
-      icon ?? null, description ?? null,
+      icon ?? null, icon_id ?? null, description ?? null,
       JSON.stringify(tags ?? []),
       check_enabled !== false ? 1 : 0,
       check_url ?? null,

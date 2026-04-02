@@ -557,9 +557,13 @@ function WidgetForm({
 
   // weather config
   const existingWeather = initial?.type === 'weather' ? (initial.config as WeatherWidgetConfig) : null
+  const [weatherInputMode, setWeatherInputMode] = useState<'city' | 'coords'>('coords')
+  const [weatherCity, setWeatherCity] = useState('')
   const [weatherLat, setWeatherLat] = useState(existingWeather ? String(existingWeather.lat) : '')
   const [weatherLon, setWeatherLon] = useState(existingWeather ? String(existingWeather.lon) : '')
   const [weatherLocationName, setWeatherLocationName] = useState(existingWeather?.location_name ?? '')
+  const [weatherGeoError, setWeatherGeoError] = useState('')
+  const [weatherGeocoding, setWeatherGeocoding] = useState(false)
 
   // icon
   const [pendingIcon, setPendingIcon] = useState<{ data: string; contentType: string; preview: string } | null>(null)
@@ -638,10 +642,32 @@ function WidgetForm({
       const days = Math.max(1, Math.min(30, calDaysAhead))
       config = { instance_ids: calInstanceIds, days_ahead: days }
     } else if (type === 'weather') {
-      const latNum = parseFloat(weatherLat)
-      const lonNum = parseFloat(weatherLon)
-      if (isNaN(latNum) || isNaN(lonNum)) return setError('Valid latitude and longitude are required')
-      config = { lat: latNum, lon: lonNum, ...(weatherLocationName.trim() ? { location_name: weatherLocationName.trim() } : {}) }
+      if (weatherInputMode === 'city') {
+        if (!weatherCity.trim()) return setError('City name is required')
+        setWeatherGeoError('')
+        setWeatherGeocoding(true)
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(weatherCity.trim())}&format=json&limit=1`)
+          const geoData = await res.json() as Array<{ lat: string; lon: string; display_name: string }>
+          if (!geoData.length) {
+            setWeatherGeoError('City not found. Try a different name or use coordinates.')
+            setWeatherGeocoding(false)
+            return
+          }
+          const locationName = weatherLocationName.trim() || geoData[0].display_name.split(',')[0].trim()
+          config = { lat: parseFloat(geoData[0].lat), lon: parseFloat(geoData[0].lon), location_name: locationName }
+        } catch {
+          setWeatherGeoError('Geocoding failed. Try coordinates instead.')
+          setWeatherGeocoding(false)
+          return
+        }
+        setWeatherGeocoding(false)
+      } else {
+        const latNum = parseFloat(weatherLat)
+        const lonNum = parseFloat(weatherLon)
+        if (isNaN(latNum) || isNaN(lonNum)) return setError('Valid latitude and longitude are required')
+        config = { lat: latNum, lon: lonNum, ...(weatherLocationName.trim() ? { location_name: weatherLocationName.trim() } : {}) }
+      }
     } else {
       if (!agUrl.trim()) return setError('URL is required')
       if (!agUsername.trim()) return setError('Username is required')
@@ -969,16 +995,41 @@ function WidgetForm({
         {/* weather config */}
         {type === 'weather' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <div style={{ flex: 1 }}>
-                <label className="form-label" style={{ fontSize: 11 }}>Latitude</label>
-                <input className="form-input" value={weatherLat} onChange={e => setWeatherLat(e.target.value)} placeholder="51.5074" style={{ fontSize: 13 }} />
-              </div>
-              <div style={{ flex: 1 }}>
-                <label className="form-label" style={{ fontSize: 11 }}>Longitude</label>
-                <input className="form-input" value={weatherLon} onChange={e => setWeatherLon(e.target.value)} placeholder="-0.1278" style={{ fontSize: 13 }} />
-              </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button
+                type="button"
+                onClick={() => { setWeatherInputMode('city'); setWeatherGeoError('') }}
+                style={{ flex: 1, padding: '6px 10px', borderRadius: 'var(--radius-sm)', fontSize: 12, border: weatherInputMode === 'city' ? '2px solid var(--accent)' : '2px solid var(--glass-border)', background: weatherInputMode === 'city' ? 'var(--accent-subtle)' : 'var(--glass-bg)', cursor: 'pointer' }}
+              >
+                City Name
+              </button>
+              <button
+                type="button"
+                onClick={() => { setWeatherInputMode('coords'); setWeatherGeoError('') }}
+                style={{ flex: 1, padding: '6px 10px', borderRadius: 'var(--radius-sm)', fontSize: 12, border: weatherInputMode === 'coords' ? '2px solid var(--accent)' : '2px solid var(--glass-border)', background: weatherInputMode === 'coords' ? 'var(--accent-subtle)' : 'var(--glass-bg)', cursor: 'pointer' }}
+              >
+                Coordinates
+              </button>
             </div>
+            {weatherInputMode === 'city' ? (
+              <div>
+                <label className="form-label" style={{ fontSize: 11 }}>City Name</label>
+                <input className="form-input" value={weatherCity} onChange={e => { setWeatherCity(e.target.value); setWeatherGeoError('') }} placeholder="e.g. Berlin, Germany" style={{ fontSize: 13 }} />
+              </div>
+            ) : (
+              <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ flex: 1 }}>
+                  <label className="form-label" style={{ fontSize: 11 }}>Latitude</label>
+                  <input className="form-input" value={weatherLat} onChange={e => setWeatherLat(e.target.value)} placeholder="51.5074" style={{ fontSize: 13 }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label className="form-label" style={{ fontSize: 11 }}>Longitude</label>
+                  <input className="form-input" value={weatherLon} onChange={e => setWeatherLon(e.target.value)} placeholder="-0.1278" style={{ fontSize: 13 }} />
+                </div>
+              </div>
+            )}
+            {weatherGeoError && <div style={{ fontSize: 11, color: 'var(--status-offline)' }}>{weatherGeoError}</div>}
+            {weatherGeocoding && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Looking up city…</div>}
             <div>
               <label className="form-label" style={{ fontSize: 11 }}>Location Name (optional)</label>
               <input className="form-input" value={weatherLocationName} onChange={e => setWeatherLocationName(e.target.value)} placeholder="My City" style={{ fontSize: 13 }} />

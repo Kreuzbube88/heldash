@@ -100,6 +100,7 @@ export function Sidebar({ page, onNavigate }: Props) {
         {isAuthenticated && (
           <>
             <NavItem icon={<AppWindow size={16} />} label="Apps" active={page === 'services'} onClick={() => onNavigate('services')} collapsed={collapsed} />
+            <NavItem icon={<Bookmark size={16} />} label="Bookmarks" active={page === 'bookmarks'} onClick={() => onNavigate('bookmarks')} collapsed={collapsed} />
             {(isAdmin || instances.length > 0) && (
               <NavItem icon={<Tv2 size={16} />} label="Media" active={page === 'media'} onClick={() => onNavigate('media')} collapsed={collapsed} />
             )}
@@ -114,9 +115,6 @@ export function Sidebar({ page, onNavigate }: Props) {
           </>
         )}
 
-        {isAuthenticated && (
-          <NavItem icon={<Bookmark size={16} />} label="Bookmarks" active={page === 'bookmarks'} onClick={() => onNavigate('bookmarks')} collapsed={collapsed} />
-        )}
         {isAuthenticated && (
           <NavItem icon={<Network size={16} />} label="Netzwerk" active={page === 'network'} onClick={() => onNavigate('network')} collapsed={collapsed} />
         )}

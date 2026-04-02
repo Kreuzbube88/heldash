@@ -576,20 +576,20 @@ export function NetworkPage() {
         })
       )}
 
-      {showAddModal && (
-        <DeviceModal
-          device={editDevice ?? (prefilledIp ? { ip: prefilledIp } as NetworkDevice : null)}
-          existingGroups={existingGroups}
-          onClose={() => { setShowAddModal(false); setEditDevice(null); setPrefilledIp(null) }}
-          onSave={handleSave}
-        />
-      )}
       {showScanner && (
         <ScannerModal
           defaultSubnet={defaultSubnet}
           existingIps={existingIps}
           onClose={() => setShowScanner(false)}
           onAddDevice={handleAddFromScan}
+        />
+      )}
+      {showAddModal && (
+        <DeviceModal
+          device={editDevice ?? (prefilledIp ? { ip: prefilledIp } as NetworkDevice : null)}
+          existingGroups={existingGroups}
+          onClose={() => { setShowAddModal(false); setEditDevice(null); setPrefilledIp(null) }}
+          onSave={handleSave}
         />
       )}
     </div>

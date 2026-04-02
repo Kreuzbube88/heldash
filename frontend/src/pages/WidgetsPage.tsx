@@ -1546,13 +1546,25 @@ export function WidgetsPage({ showAddForm, onFormClose }: Props) {
           <div className="card-grid" style={{ gap: 14 }}>
             {instances.filter(i => i.enabled && ['radarr', 'sonarr', 'prowlarr', 'sabnzbd', 'seerr'].includes(i.type)).map(instance => {
               if (instance.type === 'sabnzbd') {
-                return <SabnzbdCardContent key={instance.id} instance={instance} />
+                return (
+                  <div key={instance.id} className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    <SabnzbdCardContent instance={instance} />
+                  </div>
+                )
               }
               if (instance.type === 'seerr') {
-                return <SeerrCardContent key={instance.id} instance={instance} />
+                return (
+                  <div key={instance.id} className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    <SeerrCardContent instance={instance} />
+                  </div>
+                )
               }
               if (['radarr', 'sonarr', 'prowlarr'].includes(instance.type)) {
-                return <ArrCardContent key={instance.id} instance={instance} />
+                return (
+                  <div key={instance.id} className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    <ArrCardContent instance={instance} />
+                  </div>
+                )
               }
               // HA and Unraid: simple info card
               const color = (ARR_TYPE_COLORS as Record<string, string>)[instance.type] ?? 'var(--accent)'

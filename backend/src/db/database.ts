@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3'
 import path from 'path'
 import fs from 'fs'
+import { nanoid } from 'nanoid'
 
 let db!: Database.Database
 
@@ -30,11 +31,81 @@ export function initDb(dataDir: string): number {
   db.pragma('foreign_keys = ON')
 
   applySchema(db)
-  return runMigrations(db)
+  return runMigrations(db, dataDir)
+}
+
+function migrateIconFiles(db: Database.Database, dataDir: string) {
+  const iconsDir = path.join(dataDir, 'icons')
+  if (!fs.existsSync(iconsDir)) return
+
+  const mimeMap: Record<string, string> = {
+    png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
+    svg: 'image/svg+xml', webp: 'image/webp',
+  }
+
+  // Migrate service icons
+  const services = db.prepare(
+    "SELECT id, icon_url FROM services WHERE icon_url IS NOT NULL AND icon_id IS NULL"
+  ).all() as { id: string; icon_url: string }[]
+
+  for (const svc of services) {
+    try {
+      const filename = path.basename(svc.icon_url)
+      const filePath = path.join(iconsDir, filename)
+      if (!fs.existsSync(filePath)) continue
+      const data = fs.readFileSync(filePath)
+      const ext = path.extname(filename).slice(1).toLowerCase()
+      const mimeType = mimeMap[ext] ?? 'image/png'
+      const id = nanoid()
+      db.prepare('INSERT INTO icons (id, name, source, data, mime_type) VALUES (?, ?, ?, ?, ?)')
+        .run(id, `service_${svc.id}`, 'upload', data, mimeType)
+      db.prepare('UPDATE services SET icon_id = ?, icon_url = NULL WHERE id = ?').run(id, svc.id)
+    } catch { /* skip files that can't be read */ }
+  }
+
+  // Migrate bookmark icons
+  const bookmarks = db.prepare(
+    "SELECT id, icon_url FROM bookmarks WHERE icon_url IS NOT NULL AND icon_id IS NULL"
+  ).all() as { id: string; icon_url: string }[]
+
+  for (const bm of bookmarks) {
+    try {
+      const filename = path.basename(bm.icon_url)
+      const filePath = path.join(iconsDir, filename)
+      if (!fs.existsSync(filePath)) continue
+      const data = fs.readFileSync(filePath)
+      const ext = path.extname(filename).slice(1).toLowerCase()
+      const mimeType = mimeMap[ext] ?? 'image/png'
+      const id = nanoid()
+      db.prepare('INSERT INTO icons (id, name, source, data, mime_type) VALUES (?, ?, ?, ?, ?)')
+        .run(id, `bm_${bm.id}`, 'upload', data, mimeType)
+      db.prepare('UPDATE bookmarks SET icon_id = ?, icon_url = NULL WHERE id = ?').run(id, bm.id)
+    } catch { /* skip */ }
+  }
+
+  // Migrate widget icons
+  const widgets = db.prepare(
+    "SELECT id, icon_url FROM widgets WHERE icon_url IS NOT NULL AND icon_id IS NULL"
+  ).all() as { id: string; icon_url: string }[]
+
+  for (const w of widgets) {
+    try {
+      const filename = path.basename(w.icon_url)
+      const filePath = path.join(iconsDir, filename)
+      if (!fs.existsSync(filePath)) continue
+      const data = fs.readFileSync(filePath)
+      const ext = path.extname(filename).slice(1).toLowerCase()
+      const mimeType = mimeMap[ext] ?? 'image/png'
+      const id = nanoid()
+      db.prepare('INSERT INTO icons (id, name, source, data, mime_type) VALUES (?, ?, ?, ?, ?)')
+        .run(id, `widget_${w.id}`, 'upload', data, mimeType)
+      db.prepare('UPDATE widgets SET icon_id = ?, icon_url = NULL WHERE id = ?').run(id, w.id)
+    } catch { /* skip */ }
+  }
 }
 
 // Returns count of newly applied migrations (columns that didn't exist yet)
-function runMigrations(db: Database.Database): number {
+function runMigrations(db: Database.Database, dataDir: string): number {
   let applied = 0
   const migrations: string[] = [
     'ALTER TABLE services ADD COLUMN icon_url TEXT',
@@ -89,6 +160,9 @@ function runMigrations(db: Database.Database): number {
       created_at  TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
     )`,
+    'ALTER TABLE services ADD COLUMN icon_id TEXT REFERENCES icons(id)',
+    'ALTER TABLE bookmarks ADD COLUMN icon_id TEXT REFERENCES icons(id)',
+    'ALTER TABLE widgets ADD COLUMN icon_id TEXT REFERENCES icons(id)',
   ]
   for (const sql of migrations) {
     try {
@@ -98,6 +172,8 @@ function runMigrations(db: Database.Database): number {
       // Column already exists – ignore
     }
   }
+
+  migrateIconFiles(db, dataDir)
 
   // Drop legacy TRaSH tables from old implementation (safe if already absent)
   const legacyTables = [
@@ -436,6 +512,19 @@ function applySchema(db: Database.Database) {
       position INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    -- Icons: centralized icon storage (dashboardicons CDN cache + uploads)
+    CREATE TABLE IF NOT EXISTS icons (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      source TEXT NOT NULL,
+      source_url TEXT,
+      data BLOB NOT NULL,
+      mime_type TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_icons_source ON icons(source);
+    CREATE INDEX IF NOT EXISTS idx_icons_name ON icons(name);
 
     -- Insert default settings if not exist
     INSERT OR IGNORE INTO settings (key, value) VALUES

@@ -18,6 +18,7 @@ interface WidgetRow {
   show_in_topbar: number
   display_location: string
   icon_url: string | null
+  icon_id: string | null
   created_at: string
   updated_at: string
 }
@@ -37,6 +38,7 @@ interface PatchWidgetBody {
   show_in_topbar?: boolean
   display_location?: string
   position?: number
+  icon_id?: string | null
 }
 
 interface AdGuardProtectionBody {
@@ -72,7 +74,7 @@ function sanitize(r: WidgetRow) {
     position: r.position,
     show_in_topbar: r.show_in_topbar === 1,
     display_location: (r.display_location ?? 'none') as 'topbar' | 'sidebar' | 'none',
-    icon_url: r.icon_url ?? null,
+    icon_url: r.icon_id ? `/api/icons/${r.icon_id}` : (r.icon_url ?? null),
     created_at: r.created_at,
     updated_at: r.updated_at,
   }
@@ -429,7 +431,7 @@ export async function widgetsRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string }
     const row = db.prepare('SELECT * FROM widgets WHERE id = ?').get(id) as WidgetRow | undefined
     if (!row) return reply.status(404).send({ error: 'Not found' })
-    const { name, config, show_in_topbar, display_location, position } = req.body as PatchWidgetBody
+    const { name, config, show_in_topbar, display_location, position, icon_id } = req.body as PatchWidgetBody
     const validLocations = ['topbar', 'sidebar', 'none']
     const resolvedLocation = display_location !== undefined
       ? (validLocations.includes(display_location) ? display_location : 'none')
@@ -485,6 +487,10 @@ export async function widgetsRoutes(app: FastifyInstance) {
       position ?? null,
       id
     )
+    if (icon_id !== undefined) {
+      db.prepare("UPDATE widgets SET icon_id = ?, icon_url = NULL, updated_at = datetime('now') WHERE id = ?")
+        .run(icon_id ?? null, id)
+    }
     const updated = db.prepare('SELECT * FROM widgets WHERE id = ?').get(id) as WidgetRow
     return sanitize(updated)
   })

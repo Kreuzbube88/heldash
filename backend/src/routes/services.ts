@@ -25,6 +25,7 @@ interface ServiceRow {
   url: string
   icon: string | null
   icon_url: string | null
+  icon_id: string | null
   description: string | null
   tags: string
   check_enabled: number
@@ -40,10 +41,12 @@ interface ServiceRow {
   updated_at: string
 }
 
-function mapServiceRow(row: ServiceRow): ServiceRow {
+function mapServiceRow(row: ServiceRow) {
   return {
     ...row,
     last_status: row.check_enabled === 1 && row.last_status === null ? 'unknown' : row.last_status,
+    icon_url: row.icon_id ? `/api/icons/${row.icon_id}` : row.icon_url,
+    tags: safeJson(row.tags, [] as string[]),
   }
 }
 
@@ -69,6 +72,7 @@ interface PatchServiceBody {
   url?: string
   icon?: string | null
   icon_url?: string | null
+  icon_id?: string | null
   description?: string | null
   group_id?: string | null
   tags?: string[]
@@ -196,7 +200,7 @@ export async function servicesRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: 'check_url must be a valid http or https URL' })
     }
 
-    const fields: (keyof PatchServiceBody)[] = ['name', 'url', 'icon', 'icon_url', 'description', 'group_id', 'tags', 'check_enabled', 'check_url', 'check_interval', 'position_x', 'position_y', 'width', 'height']
+    const fields: (keyof PatchServiceBody)[] = ['name', 'url', 'icon', 'description', 'group_id', 'tags', 'check_enabled', 'check_url', 'check_interval', 'position_x', 'position_y', 'width', 'height']
     const updates: string[] = ['updated_at = datetime(\'now\')']
     const values: unknown[] = []
 
@@ -211,6 +215,19 @@ export async function servicesRoutes(app: FastifyInstance) {
           values.push(req.body[field] ?? null)
         }
       }
+    }
+
+    // icon_id and icon_url are mutually exclusive — setting one clears the other
+    if (req.body.icon_id !== undefined) {
+      updates.push('icon_id = ?')
+      values.push(req.body.icon_id ?? null)
+      updates.push('icon_url = ?')
+      values.push(null)
+    } else if (req.body.icon_url !== undefined) {
+      updates.push('icon_url = ?')
+      values.push(req.body.icon_url ?? null)
+      updates.push('icon_id = ?')
+      values.push(null)
     }
 
     values.push(req.params.id)

@@ -12,6 +12,7 @@ interface BookmarkRow {
   url: string
   description: string | null
   icon_url: string | null
+  icon_id: string | null
   position: number
   show_on_dashboard: number
   created_at: string
@@ -28,6 +29,7 @@ interface PatchBookmarkBody {
   url?: string
   description?: string
   position?: number
+  icon_id?: string | null
 }
 
 interface UploadIconBody {
@@ -44,18 +46,19 @@ export async function bookmarksRoutes(app: FastifyInstance) {
 
   // GET /api/bookmarks — all authenticated users
   app.get('/api/bookmarks', { preHandler: [app.authenticate] }, async () => {
-    return db.prepare('SELECT * FROM bookmarks ORDER BY position, created_at').all() as BookmarkRow[]
+    const rows = db.prepare('SELECT * FROM bookmarks ORDER BY position, created_at').all() as BookmarkRow[]
+    return rows.map(r => ({ ...r, icon_url: r.icon_id ? `/api/icons/${r.icon_id}` : r.icon_url }))
   })
 
   // GET /api/bookmarks/export — export as JSON (must be before /:id routes)
   app.get('/api/bookmarks/export', { preHandler: [app.authenticate] }, async (_req, reply) => {
     const rows = db.prepare(
-      'SELECT name, url, description, icon_url FROM bookmarks ORDER BY name ASC'
-    ).all() as Pick<BookmarkRow, 'name' | 'url' | 'description' | 'icon_url'>[]
+      'SELECT name, url, description, icon_url, icon_id FROM bookmarks ORDER BY name ASC'
+    ).all() as Pick<BookmarkRow, 'name' | 'url' | 'description' | 'icon_url' | 'icon_id'>[]
     const date = new Date().toISOString().split('T')[0]
     reply.header('Content-Type', 'application/json')
     reply.header('Content-Disposition', `attachment; filename="heldash-bookmarks-${date}.json"`)
-    return { bookmarks: rows }
+    return { bookmarks: rows.map(r => ({ ...r, icon_url: r.icon_id ? `/api/icons/${r.icon_id}` : r.icon_url })) }
   })
 
   // POST /api/bookmarks/import — import from JSON (must be before /:id routes)
@@ -95,7 +98,8 @@ export async function bookmarksRoutes(app: FastifyInstance) {
     db.prepare('INSERT INTO bookmarks (id, name, url, description, position) VALUES (?, ?, ?, ?, ?)').run(
       id, name.trim(), url.trim(), description?.trim() ?? null, position
     )
-    return reply.status(201).send(db.prepare('SELECT * FROM bookmarks WHERE id = ?').get(id) as BookmarkRow)
+    const created = db.prepare('SELECT * FROM bookmarks WHERE id = ?').get(id) as BookmarkRow
+    return reply.status(201).send({ ...created, icon_url: created.icon_id ? `/api/icons/${created.icon_id}` : created.icon_url })
   })
 
   // PATCH /api/bookmarks/:id — admin only
@@ -109,10 +113,17 @@ export async function bookmarksRoutes(app: FastifyInstance) {
     if (url !== undefined) { updates.push('url = ?'); values.push(url.trim()) }
     if (description !== undefined) { updates.push('description = ?'); values.push(description.trim() || null) }
     if (position !== undefined) { updates.push('position = ?'); values.push(position) }
+    if (req.body.icon_id !== undefined) {
+      updates.push('icon_id = ?')
+      values.push(req.body.icon_id ?? null)
+      updates.push('icon_url = ?')
+      values.push(null)
+    }
     if (updates.length > 0) {
       db.prepare(`UPDATE bookmarks SET ${updates.join(', ')} WHERE id = ?`).run(...values, req.params.id)
     }
-    return db.prepare('SELECT * FROM bookmarks WHERE id = ?').get(req.params.id) as BookmarkRow
+    const updated = db.prepare('SELECT * FROM bookmarks WHERE id = ?').get(req.params.id) as BookmarkRow
+    return { ...updated, icon_url: updated.icon_id ? `/api/icons/${updated.icon_id}` : updated.icon_url }
   })
 
   // PATCH /api/bookmarks/:id/dashboard — authenticated users (toggle own visibility)

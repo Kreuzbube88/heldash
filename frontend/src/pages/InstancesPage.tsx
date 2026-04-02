@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Plus, Pencil, Trash2, Wifi, WifiOff, Loader2, X, CheckCircle2, XCircle } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useInstanceStore } from '../store/useInstanceStore'
 import { useConfirm } from '../components/ConfirmDialog'
 import { IconPicker } from '../components/IconPicker'
@@ -51,6 +52,7 @@ function InstanceModal({
   const [credential, setCredential] = useState('')
   const [enabled, setEnabled] = useState(instance?.enabled ?? true)
   const [iconId, setIconId] = useState<string | null>(instance?.icon_id ?? null)
+  const { t } = useTranslation('instances')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const { confirm } = useConfirm()
@@ -69,9 +71,9 @@ function InstanceModal({
   const handleClose = async () => {
     if (hasChanges()) {
       const ok = await confirm({
-        title: 'Änderungen verwerfen?',
-        message: 'Es gibt ungespeicherte Änderungen. Möchtest du wirklich abbrechen?',
-        confirmLabel: 'Verwerfen',
+        title: t('modal.discard_title'),
+        message: t('modal.discard_msg'),
+        confirmLabel: t('modal.discard_confirm'),
         danger: true,
       })
       if (!ok) return
@@ -80,9 +82,9 @@ function InstanceModal({
   }
 
   const handleSave = async () => {
-    if (!name.trim()) return setError('Name ist erforderlich')
-    if (!url.trim()) return setError('URL ist erforderlich')
-    if (!instance && !credential.trim()) return setError(needsToken(type) ? 'Token ist erforderlich' : 'API Key ist erforderlich')
+    if (!name.trim()) return setError(t('modal.name_required'))
+    if (!url.trim()) return setError(t('modal.url_required'))
+    if (!instance && !credential.trim()) return setError(needsToken(type) ? t('modal.token_required') : t('modal.api_key_required'))
     setSaving(true)
     setError(null)
     try {
@@ -100,7 +102,7 @@ function InstanceModal({
       await onSave(data)
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Speichern fehlgeschlagen')
+      setError(e instanceof Error ? e.message : t('modal.save_failed'))
     } finally {
       setSaving(false)
     }
@@ -110,7 +112,7 @@ function InstanceModal({
     <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) void handleClose() }}>
       <div className="glass modal" style={{ width: '100%', maxWidth: 460, padding: 24, borderRadius: 'var(--radius-xl)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <h3 style={{ margin: 0, fontFamily: 'var(--font-display)' }}>{instance ? 'Instanz bearbeiten' : 'Instanz hinzufügen'}</h3>
+          <h3 style={{ margin: 0, fontFamily: 'var(--font-display)' }}>{instance ? t('modal.title_edit') : t('modal.title_add')}</h3>
           <button onClick={() => void handleClose()} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={20} /></button>
         </div>
 
@@ -121,7 +123,7 @@ function InstanceModal({
             <div>
               <label className="field-label">Typ *</label>
               <select className="input" value={type} onChange={e => setType(e.target.value as InstanceType)}>
-                {ALL_TYPES.map(t => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
+                {ALL_TYPES.map(tp => <option key={tp} value={tp}>{TYPE_LABELS[tp]}</option>)}
               </select>
             </div>
           )}
@@ -137,7 +139,7 @@ function InstanceModal({
             <label className="field-label">
               {needsToken(type) ? 'Token' : 'API Key'}
               {!instance && ' *'}
-              {instance && ' (leer lassen = unverändert)'}
+              {instance && ` (${t('modal.credential_empty_hint')})`}
             </label>
             <input
               className="input"
@@ -161,16 +163,16 @@ function InstanceModal({
                   alt="Selected icon"
                   style={{ width: 32, height: 32, objectFit: 'contain', borderRadius: 6, background: 'var(--glass-bg)', padding: 4 }}
                 />
-                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Ausgewähltes Icon</span>
+                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{t('modal.selected_icon')}</span>
               </div>
             )}
           </div>
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
-          <button className="btn btn-ghost" onClick={() => void handleClose()}>Abbrechen</button>
+          <button className="btn btn-ghost" onClick={() => void handleClose()}>{t('modal.cancel')}</button>
           <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
-            {saving ? 'Speichern...' : 'Speichern'}
+            {saving ? t('modal.saving') : t('modal.save')}
           </button>
         </div>
       </div>
@@ -193,6 +195,7 @@ function InstanceCard({
   onDelete: () => void
   onTest: () => Promise<{ ok: boolean; error?: string }>
 }) {
+  const { t } = useTranslation('instances')
   const [testState, setTestState] = useState<TestState>('idle')
   const [testError, setTestError] = useState<string | null>(null)
 
@@ -243,7 +246,7 @@ function InstanceCard({
           className="btn-icon"
           onClick={handleTest}
           disabled={testState === 'testing'}
-          title="Verbindung testen"
+          title={t('card.test')}
           style={{ color: testState === 'ok' ? 'var(--status-online)' : testState === 'fail' ? 'var(--status-offline)' : undefined }}
         >
           {testState === 'testing' ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> :
@@ -251,8 +254,8 @@ function InstanceCard({
            testState === 'fail' ? <XCircle size={13} /> :
            <Wifi size={13} />}
         </button>
-        <button className="btn-icon" onClick={onEdit} title="Bearbeiten"><Pencil size={13} /></button>
-        <button className="btn-icon" onClick={onDelete} title="Löschen" style={{ color: 'var(--status-offline)' }}><Trash2 size={13} /></button>
+        <button className="btn-icon" onClick={onEdit} title={t('card.edit')}><Pencil size={13} /></button>
+        <button className="btn-icon" onClick={onDelete} title={t('card.delete')} style={{ color: 'var(--status-offline)' }}><Trash2 size={13} /></button>
       </div>
     </div>
   )
@@ -261,13 +264,14 @@ function InstanceCard({
 // ── InstancesPage ─────────────────────────────────────────────────────────────
 
 export function InstancesPage() {
+  const { t } = useTranslation('instances')
   const { instances, loading, loadInstances, createInstance, updateInstance, deleteInstance, testInstance } = useInstanceStore()
   const { confirm } = useConfirm()
   const [showModal, setShowModal] = useState(false)
   const [editInstance, setEditInstance] = useState<Instance | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => { loadInstances().catch(e => setError(e instanceof Error ? e.message : 'Fehler beim Laden')) }, [])
+  useEffect(() => { loadInstances().catch(e => setError(e instanceof Error ? e.message : t('load_error'))) }, [])
 
   const handleSave = async (data: { type: InstanceType; name: string; url: string; token?: string; api_key?: string; enabled: boolean; icon_id?: string | null }) => {
     if (editInstance) {
@@ -279,22 +283,22 @@ export function InstancesPage() {
 
   const handleDelete = async (instance: Instance) => {
     const ok = await confirm({
-      title: 'Instanz löschen',
-      message: `"${instance.name}" (${TYPE_LABELS[instance.type]}) wirklich löschen?`,
-      confirmLabel: 'Löschen',
+      title: t('delete_title'),
+      message: t('delete_msg', { name: instance.name, type: TYPE_LABELS[instance.type] }),
+      confirmLabel: t('delete_confirm'),
       danger: true,
     })
     if (!ok) return
     try {
       await deleteInstance(instance.id)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Fehler beim Löschen')
+      setError(e instanceof Error ? e.message : t('delete_error'))
     }
   }
 
   // Group by type
-  const byType = ALL_TYPES.reduce<Record<string, Instance[]>>((acc, t) => {
-    acc[t] = instances.filter(i => i.type === t).sort((a, b) => a.position - b.position || a.name.localeCompare(b.name))
+  const byType = ALL_TYPES.reduce<Record<string, Instance[]>>((acc, tp) => {
+    acc[tp] = instances.filter(i => i.type === tp).sort((a, b) => a.position - b.position || a.name.localeCompare(b.name))
     return acc
   }, {} as Record<string, Instance[]>)
 
@@ -306,23 +310,23 @@ export function InstancesPage() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h2 style={{ margin: 0, fontFamily: 'var(--font-display)' }}>Instanzen</h2>
-          <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text-muted)' }}>{totalCount} {totalCount === 1 ? 'Instanz' : 'Instanzen'} konfiguriert</p>
+          <h2 style={{ margin: 0, fontFamily: 'var(--font-display)' }}>{t('title')}</h2>
+          <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text-muted)' }}>{t('count', { count: totalCount })}</p>
           {error && <div className="error-banner" style={{ marginTop: 8 }}>{error}</div>}
         </div>
         <button className="btn btn-primary" onClick={() => { setEditInstance(null); setShowModal(true) }} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Plus size={14} /> Instanz hinzufügen
+          <Plus size={14} /> {t('add')}
         </button>
       </div>
 
       {totalCount === 0 ? (
         <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)' }}>
           <WifiOff size={40} style={{ marginBottom: 16, opacity: 0.4 }} />
-          <h3 style={{ fontFamily: 'var(--font-display)', marginBottom: 8 }}>Noch keine Instanzen</h3>
-          <button className="btn btn-primary" onClick={() => setShowModal(true)}>Erste Instanz hinzufügen</button>
+          <h3 style={{ fontFamily: 'var(--font-display)', marginBottom: 8 }}>{t('empty_title')}</h3>
+          <button className="btn btn-primary" onClick={() => setShowModal(true)}>{t('empty_add')}</button>
         </div>
       ) : (
-        ALL_TYPES.filter(t => byType[t].length > 0).map(type => (
+        ALL_TYPES.filter(tp => byType[tp].length > 0).map(type => (
           <div key={type}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
               <div style={{ width: 8, height: 8, borderRadius: '50%', background: TYPE_COLORS[type as InstanceType], flexShrink: 0 }} />

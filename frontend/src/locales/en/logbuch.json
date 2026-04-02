@@ -1,0 +1,83 @@
+{
+  "title": "Activity Log",
+  "tabs": {
+    "aktivitaeten": "Activities",
+    "uptime": "Uptime",
+    "sync": "Sync History",
+    "ressourcen": "Resources"
+  },
+  "health": {
+    "homelab_status": "Homelab Status",
+    "running": "running",
+    "docker_unavailable": "unavailable",
+    "recyclarr_none": "No sync",
+    "recyclarr_ok": "Last sync successful",
+    "recyclarr_fail": "Last sync failed",
+    "reachable": "reachable",
+    "total": "Total"
+  },
+  "calendar": {
+    "title": "Event Calendar — last 12 weeks",
+    "no_events": "No events",
+    "legend_few": "Few",
+    "legend_many": "Many / Errors",
+    "mon": "Mon",
+    "tue": "Tue",
+    "wed": "Wed",
+    "thu": "Thu",
+    "fri": "Fri",
+    "sat": "Sat",
+    "sun": "Sun"
+  },
+  "activity": {
+    "cat_all": "All",
+    "cat_system": "System",
+    "cat_network": "Network",
+    "time_today": "Today",
+    "time_7d": "7 days",
+    "time_30d": "30 days",
+    "search_placeholder": "Search…",
+    "refresh": "Refresh",
+    "empty": "No activities recorded yet",
+    "empty_filtered": "No entries for the selected filters",
+    "unstable_services": "Unstable Services",
+    "offline_today": "offline today",
+    "back": "Back",
+    "next": "Next",
+    "page": "Page {{page}} / {{total}} ({{count}} entries)"
+  },
+  "uptime": {
+    "title": "Uptime Overview",
+    "updated": "Updated",
+    "sort_label": "Sort",
+    "sort_name": "Name A→Z",
+    "sort_desc": "Uptime ↓",
+    "sort_asc": "Uptime ↑",
+    "total": "Total",
+    "online": "Online",
+    "offline": "Offline",
+    "avg_7d": "Avg Uptime 7d",
+    "no_data": "No data"
+  },
+  "sync": {
+    "empty": "No sync history available",
+    "refresh": "Refresh",
+    "created": "created",
+    "updated": "updated",
+    "deleted": "deleted",
+    "no_changes": "No changes",
+    "no_log": "No change log"
+  },
+  "resources": {
+    "no_data": "No data",
+    "load_error": "Failed to load",
+    "datapoints": "{{count}} data points",
+    "range_1h": "1 hr",
+    "range_24h": "24 hr",
+    "range_7d": "7 days",
+    "empty": "No resource data available yet.",
+    "empty_hint": "Data is recorded every minute — please wait a moment.",
+    "net_rx": "Net RX",
+    "net_tx": "Net TX"
+  }
+}

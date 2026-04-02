@@ -1,0 +1,27 @@
+{
+  "title": "Widgets",
+  "add": "Add Widget",
+  "edit": "Edit Widget",
+  "delete_confirm": "Delete widget?",
+  "empty": {
+    "title": "No Widgets",
+    "subtitle": "Add widgets to display live data."
+  },
+  "location": {
+    "dashboard": "Dashboard",
+    "topbar": "Topbar",
+    "sidebar": "Sidebar"
+  },
+  "energy": {
+    "not_configured": "Energy not configured in Home Assistant",
+    "solar": "kWh solar",
+    "grid": "kWh grid",
+    "return": "kWh return",
+    "gas": "m³ gas"
+  },
+  "arr": {
+    "dashboard_toggle": "Dashboard",
+    "enable_dashboard": "Show on Dashboard",
+    "disable_dashboard": "Remove from Dashboard"
+  }
+}

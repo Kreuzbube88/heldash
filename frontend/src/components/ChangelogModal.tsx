@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { X, Tag, ExternalLink } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { api } from '../api'
 import type { ChangelogRelease } from '../types'
 
@@ -52,6 +53,7 @@ function parseMarkdown(text: string): React.ReactNode[] {
 }
 
 export function ChangelogModal({ onClose }: Props) {
+  const { t } = useTranslation('about')
   const [releases, setReleases] = useState<ChangelogRelease[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -66,7 +68,7 @@ export function ChangelogModal({ onClose }: Props) {
           setExpanded(new Set([data[0].tag_name]))
         }
       })
-      .catch(e => setError(e instanceof Error ? e.message : 'Fehler beim Laden'))
+      .catch(e => setError(e instanceof Error ? e.message : t('changelog.load_error')))
       .finally(() => setLoading(false))
   }, [])
 
@@ -81,7 +83,7 @@ export function ChangelogModal({ onClose }: Props) {
 
   const fmtDate = (iso: string) => {
     try {
-      return new Date(iso).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })
+      return new Date(iso).toLocaleDateString(undefined, { day: '2-digit', month: 'long', year: 'numeric' })
     } catch { return iso }
   }
 
@@ -91,8 +93,8 @@ export function ChangelogModal({ onClose }: Props) {
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px 16px', borderBottom: '1px solid var(--glass-border)', flexShrink: 0 }}>
           <div>
-            <h3 style={{ margin: 0, fontFamily: 'var(--font-display)' }}>Changelog</h3>
-            <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--text-muted)' }}>HELDASH Release Notes</p>
+            <h3 style={{ margin: 0, fontFamily: 'var(--font-display)' }}>{t('changelog.title')}</h3>
+            <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--text-muted)' }}>{t('changelog.subtitle')}</p>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <a
@@ -119,14 +121,14 @@ export function ChangelogModal({ onClose }: Props) {
 
           {error && (
             <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
-              <p style={{ marginBottom: 8 }}>Releases konnten nicht geladen werden.</p>
+              <p style={{ marginBottom: 8 }}>{t('changelog.load_error')}</p>
               <p style={{ fontSize: 12 }}>{error}</p>
             </div>
           )}
 
           {!loading && !error && releases.length === 0 && (
             <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
-              Keine Releases gefunden
+              {t('changelog.no_releases')}
             </div>
           )}
 
@@ -145,7 +147,7 @@ export function ChangelogModal({ onClose }: Props) {
                     <span style={{ fontSize: 12, color: 'var(--text-secondary)', flex: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{release.name}</span>
                   )}
                   {isLatest && (
-                    <span style={{ fontSize: 10, padding: '2px 8px', background: 'var(--accent-subtle)', color: 'var(--accent)', borderRadius: 'var(--radius-sm)', fontWeight: 600, flexShrink: 0 }}>LATEST</span>
+                    <span style={{ fontSize: 10, padding: '2px 8px', background: 'var(--accent-subtle)', color: 'var(--accent)', borderRadius: 'var(--radius-sm)', fontWeight: 600, flexShrink: 0 }}>{t('changelog.latest').toUpperCase()}</span>
                   )}
                   <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>{fmtDate(release.published_at)}</span>
                 </button>

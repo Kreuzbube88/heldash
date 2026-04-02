@@ -1,0 +1,64 @@
+{
+  "title": "Backup Center",
+  "tabs": {
+    "overview": "Übersicht",
+    "guide": "Leitfaden"
+  },
+  "source": {
+    "add": "Quelle hinzufügen",
+    "add_first": "Erste Quelle hinzufügen",
+    "edit": "Quelle bearbeiten",
+    "modal_title_add": "Backup-Quelle hinzufügen",
+    "modal_title_edit": "Quelle bearbeiten",
+    "name": "Name *",
+    "name_placeholder": "Mein Backup",
+    "type": "Typ *",
+    "log_path": "Log-Pfad",
+    "url": "URL",
+    "api_key": "API Key",
+    "user": "Benutzer",
+    "password": "Passwort",
+    "backup_path": "Backup-Pfad",
+    "enabled": "Aktiviert",
+    "save": "Speichern",
+    "saving": "Speichern...",
+    "cancel": "Abbrechen",
+    "name_type_required": "Name und Typ sind erforderlich",
+    "save_error": "Fehler beim Speichern"
+  },
+  "status": {
+    "ok": "OK",
+    "outdated": "Veraltet",
+    "error": "Fehler",
+    "unknown": "Unbekannt",
+    "last_run": "Zuletzt",
+    "size": "Größe"
+  },
+  "actions": {
+    "docker_export": "Docker exportieren",
+    "refresh": "Aktualisieren",
+    "edit": "Bearbeiten",
+    "delete": "Löschen"
+  },
+  "empty": {
+    "title": "Keine Backup-Quellen",
+    "subtitle": "Füge Backup-Quellen hinzu um ihren Status zu überwachen"
+  },
+  "disabled_badge": "Deaktiviert",
+  "guide": {
+    "intro": "Best Practices und Empfehlungen für eine robuste Backup-Strategie."
+  },
+  "toast": {
+    "removed": "{{name}} entfernt",
+    "export_success": "Docker-Export heruntergeladen",
+    "export_failed": "Export fehlgeschlagen",
+    "error": "Fehler"
+  },
+  "types": {
+    "ca_backup_desc": "Liest das CA Backup Plugin Log von Unraid",
+    "duplicati_desc": "Verbindet sich mit der Duplicati Web-UI",
+    "kopia_desc": "Verbindet sich mit dem Kopia-Server",
+    "docker_desc": "Exportiert Container-Konfigurationen als JSON",
+    "vm_desc": "Prüft Backup-Dateien in einem lokalen Pfad"
+  }
+}

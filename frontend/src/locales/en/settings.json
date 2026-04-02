@@ -1,0 +1,51 @@
+{
+  "tabs": {
+    "general": "General",
+    "design": "Design",
+    "users": "Users",
+    "groups": "Groups",
+    "oidc": "OIDC / SSO"
+  },
+  "language": {
+    "label": "Language",
+    "de": "Deutsch",
+    "en": "English"
+  },
+  "user_edit": {
+    "group": "Group",
+    "no_group": "— no group —",
+    "active": "Active",
+    "disabled": "Disabled",
+    "new_password": "New Password (optional)",
+    "leave_empty": "Leave empty to keep",
+    "password_min": "Password min. 8 characters",
+    "saving": "Saving…",
+    "save": "Save",
+    "cancel": "Cancel"
+  },
+  "visibility": {
+    "label": "Visibility",
+    "none_configured": "None configured yet.",
+    "saving": "Saving…",
+    "apps": "Apps",
+    "media": "Media",
+    "widgets": "Widgets",
+    "docker": "Docker",
+    "background": "Background"
+  },
+  "docker_permissions": {
+    "title": "Docker Permissions",
+    "page_label": "Docker page in sidebar",
+    "page_desc": "Allow access to the Docker containers page",
+    "widget_label": "Docker Overview widget",
+    "widget_desc": "Show Docker Overview widgets on the dashboard"
+  },
+  "background": {
+    "title": "Dashboard Background",
+    "no_background": "— No background —",
+    "none_uploaded": "No backgrounds uploaded yet. Add them in Settings → General."
+  },
+  "general": {
+    "onboarding_restart": "Restart setup wizard"
+  }
+}

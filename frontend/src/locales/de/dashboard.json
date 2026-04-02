@@ -1,0 +1,19 @@
+{
+  "empty": {
+    "title": "Dashboard ist leer",
+    "subtitle": "Füge Apps und Widgets hinzu um loszulegen.",
+    "no_services": "Keine Services konfiguriert",
+    "add_service": "Service hinzufügen"
+  },
+  "edit": {
+    "done": "Fertig",
+    "edit_dashboard": "Dashboard bearbeiten",
+    "add_app": "App",
+    "add_widget": "Widget",
+    "add_row": "Zeile"
+  },
+  "guest_mode": "Gast-Modus",
+  "hidden": "Versteckt",
+  "visible": "Sichtbar",
+  "show_visibility": "Sichtbarkeit anzeigen"
+}

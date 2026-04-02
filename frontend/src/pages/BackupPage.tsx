@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { Plus, RefreshCw, Download, Trash2, Edit2, CheckCircle, XCircle, AlertTriangle, Clock, ChevronDown, ChevronRight } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { api } from '../api'
 import { useStore } from '../store/useStore'
 import { useToast } from '../components/Toast'
@@ -24,6 +25,7 @@ interface SourceModalProps {
 }
 
 function SourceModal({ source, onClose, onSave }: SourceModalProps) {
+  const { t } = useTranslation('backup')
   const [name, setName] = useState(source?.name ?? '')
   const [type, setType] = useState(source?.type ?? 'ca_backup')
   const [enabled, setEnabled] = useState(source?.enabled ?? true)
@@ -32,14 +34,14 @@ function SourceModal({ source, onClose, onSave }: SourceModalProps) {
   const [error, setError] = useState<string | null>(null)
 
   const handleSave = async () => {
-    if (!name.trim() || !type) { setError('Name und Typ sind erforderlich'); return }
+    if (!name.trim() || !type) { setError(t('source.name_type_required')); return }
     setSaving(true)
     setError(null)
     try {
       await onSave({ name: name.trim(), type, config, enabled })
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Fehler beim Speichern')
+      setError(e instanceof Error ? e.message : t('source.save_error'))
     } finally {
       setSaving(false)
     }
@@ -52,7 +54,7 @@ function SourceModal({ source, onClose, onSave }: SourceModalProps) {
   return (
     <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div className="glass modal" style={{ width: '100%', maxWidth: 520, padding: 24, borderRadius: 'var(--radius-xl)' }}>
-        <h3 style={{ margin: '0 0 20px', fontFamily: 'var(--font-display)' }}>{source ? 'Quelle bearbeiten' : 'Backup-Quelle hinzufügen'}</h3>
+        <h3 style={{ margin: '0 0 20px', fontFamily: 'var(--font-display)' }}>{source ? t('source.modal_title_edit') : t('source.modal_title_add')}</h3>
 
         {error && <div className="error-banner" style={{ marginBottom: 16 }}>{error}</div>}
 
@@ -121,7 +123,7 @@ function SourceModal({ source, onClose, onSave }: SourceModalProps) {
           )}
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <label className="field-label" style={{ margin: 0 }}>Aktiviert</label>
+            <label className="field-label" style={{ margin: 0 }}>{t('source.enabled')}</label>
             <button
               onClick={() => setEnabled(v => !v)}
               style={{ width: 40, height: 22, borderRadius: 11, background: enabled ? 'var(--accent)' : 'var(--glass-border)', border: 'none', cursor: 'pointer', position: 'relative', transition: 'background 200ms' }}
@@ -132,9 +134,9 @@ function SourceModal({ source, onClose, onSave }: SourceModalProps) {
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
-          <button className="btn btn-ghost" onClick={onClose}>Abbrechen</button>
+          <button className="btn btn-ghost" onClick={onClose}>{t('source.cancel')}</button>
           <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
-            {saving ? 'Speichern...' : 'Speichern'}
+            {saving ? t('source.saving') : t('source.save')}
           </button>
         </div>
       </div>
@@ -145,6 +147,7 @@ function SourceModal({ source, onClose, onSave }: SourceModalProps) {
 // ── Status Card ───────────────────────────────────────────────────────────────
 
 function StatusCard({ result }: { result: BackupStatusResult }) {
+  const { t } = useTranslation('backup')
   const [expanded, setExpanded] = useState(false)
 
   const StatusIcon = result.error
@@ -155,7 +158,7 @@ function StatusCard({ result }: { result: BackupStatusResult }) {
         ? () => <CheckCircle size={16} style={{ color: 'var(--status-online)' }} />
         : () => <Clock size={16} style={{ color: 'var(--text-muted)' }} />
 
-  const statusText = result.error ? 'Fehler' : result.success === false ? 'Veraltet' : result.success === true ? 'OK' : 'Unbekannt'
+  const statusText = result.error ? t('status.error') : result.success === false ? t('status.outdated') : result.success === true ? t('status.ok') : t('status.unknown')
   const statusColor = result.error ? 'var(--status-offline)' : result.success === false ? '#f59e0b' : result.success === true ? 'var(--status-online)' : 'var(--text-muted)'
 
   const typeLabel = BACKUP_TYPES.find(t => t.value === result.type)?.label ?? result.type
@@ -180,8 +183,8 @@ function StatusCard({ result }: { result: BackupStatusResult }) {
         </div>
         <div style={{ textAlign: 'right', flexShrink: 0 }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: statusColor }}>{statusText}</div>
-          {result.lastRun && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Zuletzt: {fmtDate(result.lastRun)}</div>}
-          {result.size && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Größe: {result.size}</div>}
+          {result.lastRun && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{t('status.last_run')}: {fmtDate(result.lastRun)}</div>}
+          {result.size && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{t('status.size')}: {result.size}</div>}
         </div>
         {expanded ? <ChevronDown size={14} style={{ flexShrink: 0, color: 'var(--text-muted)' }} /> : <ChevronRight size={14} style={{ flexShrink: 0, color: 'var(--text-muted)' }} />}
       </div>
@@ -366,6 +369,7 @@ function GuideTab() {
 // ── Main BackupPage ───────────────────────────────────────────────────────────
 
 export function BackupPage() {
+  const { t } = useTranslation('backup')
   const { isAdmin } = useStore()
   const [tab, setTab] = useState<'overview' | 'guide'>('overview')
   const [sources, setSources] = useState<BackupSource[]>([])
@@ -412,7 +416,7 @@ export function BackupPage() {
     try {
       await api.backup.sources.delete(source.id)
       await loadSources()
-      toast({ message: `${source.name} entfernt`, type: 'info' })
+      toast({ message: t('toast.removed', { name: source.name }), type: 'info' })
     } catch (e) {
       toast({ message: e instanceof Error ? e.message : 'Fehler', type: 'error' })
     }
@@ -428,9 +432,9 @@ export function BackupPage() {
       a.download = `heldash-docker-export-${new Date().toISOString().split('T')[0]}.json`
       a.click()
       URL.revokeObjectURL(url)
-      toast({ message: 'Docker-Export heruntergeladen', type: 'success' })
+      toast({ message: t('toast.export_success'), type: 'success' })
     } catch (e) {
-      toast({ message: e instanceof Error ? e.message : 'Export fehlgeschlagen', type: 'error' })
+      toast({ message: e instanceof Error ? e.message : t('toast.export_failed'), type: 'error' })
     } finally {
       setExportLoading(false)
     }
@@ -445,10 +449,10 @@ export function BackupPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-        <h2 style={{ margin: 0, fontFamily: 'var(--font-display)' }}>Backup Center</h2>
+        <h2 style={{ margin: 0, fontFamily: 'var(--font-display)' }}>{t('title')}</h2>
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn btn-ghost" onClick={handleDockerExport} disabled={exportLoading} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Download size={14} /> Docker exportieren
+            <Download size={14} /> {t('actions.docker_export')}
           </button>
           {isAdmin && (
             <button
@@ -456,7 +460,7 @@ export function BackupPage() {
               onClick={() => { setEditSource(null); setShowAddModal(true) }}
               style={{ display: 'flex', alignItems: 'center', gap: 6 }}
             >
-              <Plus size={14} /> Quelle hinzufügen
+              <Plus size={14} /> {t('source.add')}
             </button>
           )}
         </div>
@@ -464,19 +468,19 @@ export function BackupPage() {
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid var(--glass-border)', paddingBottom: 0 }}>
-        {[{ key: 'overview', label: 'Übersicht' }, { key: 'guide', label: 'Leitfaden' }].map(t => (
+        {[{ key: 'overview', label: t('tabs.overview') }, { key: 'guide', label: t('tabs.guide') }].map(tabItem => (
           <button
-            key={t.key}
-            onClick={() => setTab(t.key as 'overview' | 'guide')}
+            key={tabItem.key}
+            onClick={() => setTab(tabItem.key as 'overview' | 'guide')}
             style={{
               padding: '8px 16px', fontSize: 13, background: 'none', border: 'none', cursor: 'pointer',
-              borderBottom: tab === t.key ? '2px solid var(--accent)' : '2px solid transparent',
-              color: tab === t.key ? 'var(--accent)' : 'var(--text-secondary)',
-              fontWeight: tab === t.key ? 600 : 400,
+              borderBottom: tab === tabItem.key ? '2px solid var(--accent)' : '2px solid transparent',
+              color: tab === tabItem.key ? 'var(--accent)' : 'var(--text-secondary)',
+              fontWeight: tab === tabItem.key ? 600 : 400,
               marginBottom: -1,
             }}
           >
-            {t.label}
+            {tabItem.label}
           </button>
         ))}
       </div>
@@ -487,9 +491,9 @@ export function BackupPage() {
           {statusResults.length > 0 && (
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
               {[
-                { label: `${okCount} OK`, color: 'var(--status-online)' },
-                { label: `${warnCount} Veraltet`, color: '#f59e0b' },
-                { label: `${errCount} Fehler`, color: 'var(--status-offline)' },
+                { label: `${okCount} ${t('status.ok')}`, color: 'var(--status-online)' },
+                { label: `${warnCount} ${t('status.outdated')}`, color: '#f59e0b' },
+                { label: `${errCount} ${t('status.error')}`, color: 'var(--status-offline)' },
               ].map(s => (
                 <div key={s.label} className="glass" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 'var(--radius-md)', color: s.color, fontSize: 13, fontWeight: 500 }}>
                   {s.label}
@@ -502,7 +506,7 @@ export function BackupPage() {
                 style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}
               >
                 <RefreshCw size={13} style={{ animation: statusLoading ? 'spin 1s linear infinite' : 'none' }} />
-                Aktualisieren
+                {t('actions.refresh')}
               </button>
             </div>
           )}
@@ -511,10 +515,10 @@ export function BackupPage() {
           {sources.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)' }}>
               <div style={{ fontSize: 48, marginBottom: 16 }}>💾</div>
-              <h3 style={{ fontFamily: 'var(--font-display)', marginBottom: 8 }}>Keine Backup-Quellen</h3>
-              <p style={{ marginBottom: 20 }}>Füge Backup-Quellen hinzu um ihren Status zu überwachen</p>
+              <h3 style={{ fontFamily: 'var(--font-display)', marginBottom: 8 }}>{t('empty.title')}</h3>
+              <p style={{ marginBottom: 20 }}>{t('empty.subtitle')}</p>
               {isAdmin && (
-                <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>Erste Quelle hinzufügen</button>
+                <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>{t('source.add_first')}</button>
               )}
             </div>
           ) : (
@@ -532,7 +536,7 @@ export function BackupPage() {
                             const src = sources.find(s => s.id === result.id)
                             if (src) { setEditSource(src); setShowAddModal(true) }
                           }}
-                          title="Bearbeiten"
+                          title={t('actions.edit')}
                         >
                           <Edit2 size={13} />
                         </button>
@@ -542,7 +546,7 @@ export function BackupPage() {
                             const src = sources.find(s => s.id === result.id)
                             if (src) handleDelete(src)
                           }}
-                          title="Löschen"
+                          title={t('actions.delete')}
                           style={{ color: 'var(--status-offline)' }}
                         >
                           <Trash2 size={13} />
@@ -559,11 +563,11 @@ export function BackupPage() {
                       <div style={{ fontWeight: 600, fontSize: 14 }}>{source.name}</div>
                       <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{BACKUP_TYPES.find(t => t.value === source.type)?.label ?? source.type}</div>
                     </div>
-                    {!source.enabled && <span style={{ fontSize: 11, color: 'var(--text-muted)', padding: '2px 8px', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-sm)' }}>Deaktiviert</span>}
+                    {!source.enabled && <span style={{ fontSize: 11, color: 'var(--text-muted)', padding: '2px 8px', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-sm)' }}>{t('disabled_badge')}</span>}
                     {isAdmin && (
                       <div style={{ display: 'flex', gap: 4 }}>
-                        <button className="btn-icon" onClick={() => { setEditSource(source); setShowAddModal(true) }} title="Bearbeiten"><Edit2 size={13} /></button>
-                        <button className="btn-icon" onClick={() => handleDelete(source)} title="Löschen" style={{ color: 'var(--status-offline)' }}><Trash2 size={13} /></button>
+                        <button className="btn-icon" onClick={() => { setEditSource(source); setShowAddModal(true) }} title={t('actions.edit')}><Edit2 size={13} /></button>
+                        <button className="btn-icon" onClick={() => handleDelete(source)} title={t('actions.delete')} style={{ color: 'var(--status-offline)' }}><Trash2 size={13} /></button>
                       </div>
                     )}
                   </div>

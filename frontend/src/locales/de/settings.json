@@ -1,0 +1,51 @@
+{
+  "tabs": {
+    "general": "General",
+    "design": "Design",
+    "users": "Users",
+    "groups": "Groups",
+    "oidc": "OIDC / SSO"
+  },
+  "language": {
+    "label": "Sprache",
+    "de": "Deutsch",
+    "en": "English"
+  },
+  "user_edit": {
+    "group": "Gruppe",
+    "no_group": "— keine Gruppe —",
+    "active": "Aktiv",
+    "disabled": "Deaktiviert",
+    "new_password": "Neues Passwort (optional)",
+    "leave_empty": "Leer lassen um zu behalten",
+    "password_min": "Passwort min. 8 Zeichen",
+    "saving": "Speichern…",
+    "save": "Speichern",
+    "cancel": "Abbrechen"
+  },
+  "visibility": {
+    "label": "Sichtbarkeit",
+    "none_configured": "Noch nichts konfiguriert.",
+    "saving": "Speichern…",
+    "apps": "Apps",
+    "media": "Media",
+    "widgets": "Widgets",
+    "docker": "Docker",
+    "background": "Hintergrund"
+  },
+  "docker_permissions": {
+    "title": "Docker-Berechtigungen",
+    "page_label": "Docker-Seite in der Sidebar",
+    "page_desc": "Zugriff auf die Docker-Container-Seite erlauben",
+    "widget_label": "Docker-Übersicht Widget",
+    "widget_desc": "Docker-Übersicht Widgets auf dem Dashboard anzeigen"
+  },
+  "background": {
+    "title": "Dashboard-Hintergrund",
+    "no_background": "— Kein Hintergrund —",
+    "none_uploaded": "Noch keine Hintergründe hochgeladen. In Einstellungen → General hinzufügen."
+  },
+  "general": {
+    "onboarding_restart": "Einrichtungsassistenten neu starten"
+  }
+}

@@ -1,8 +1,15 @@
 import { useState } from 'react'
 import { useStore } from '../store/useStore'
+import { useTranslation } from 'react-i18next'
+import { useLanguageStore } from '../store/useLanguageStore'
+
+type SetupStep = 'language' | 'account'
 
 export function SetupPage() {
   const { setupAdmin } = useStore()
+  const { t } = useTranslation('setup')
+  const { language, setLanguage } = useLanguageStore()
+  const [step, setStep] = useState<SetupStep>('language')
   const [form, setForm] = useState({
     username: '',
     first_name: '',
@@ -21,11 +28,11 @@ export function SetupPage() {
     e.preventDefault()
     setError('')
 
-    if (!form.username.trim()) return setError('Username is required')
-    if (!form.first_name.trim()) return setError('First name is required')
-    if (!form.last_name.trim()) return setError('Last name is required')
-    if (form.password.length < 8) return setError('Password must be at least 8 characters')
-    if (form.password !== form.confirm) return setError('Passwords do not match')
+    if (!form.username.trim()) return setError(t('errors.username_required'))
+    if (!form.first_name.trim()) return setError(t('errors.first_name_required'))
+    if (!form.last_name.trim()) return setError(t('errors.last_name_required'))
+    if (form.password.length < 8) return setError(t('errors.password_min_length'))
+    if (form.password !== form.confirm) return setError(t('errors.passwords_no_match'))
 
     setLoading(true)
     try {
@@ -37,10 +44,58 @@ export function SetupPage() {
         password: form.password,
       })
     } catch (err: unknown) {
-      setError((err as Error).message ?? 'Setup failed')
+      setError((err as Error).message ?? t('errors.setup_failed'))
     } finally {
       setLoading(false)
     }
+  }
+
+  if (step === 'language') {
+    return (
+      <div className="setup-page">
+        <div className="setup-card glass">
+          <div className="setup-logo">
+            <img src="/favicon.png" alt="" className="setup-logo-icon" style={{ width: 36, height: 36, objectFit: 'contain' }} />
+            <span className="setup-logo-text">HELDASH</span>
+          </div>
+          <h2 className="setup-title">{t('language_step.title')}</h2>
+          <p className="setup-subtitle">{t('language_step.subtitle')}</p>
+
+          <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
+            <button
+              className="btn btn-ghost"
+              onClick={() => setLanguage('de')}
+              style={{
+                flex: 1,
+                padding: '12px 16px',
+                fontSize: 15,
+                border: language === 'de' ? '2px solid var(--accent)' : '2px solid var(--glass-border)',
+                background: language === 'de' ? 'var(--accent-subtle)' : 'transparent',
+              }}
+            >
+              🇩🇪 Deutsch
+            </button>
+            <button
+              className="btn btn-ghost"
+              onClick={() => setLanguage('en')}
+              style={{
+                flex: 1,
+                padding: '12px 16px',
+                fontSize: 15,
+                border: language === 'en' ? '2px solid var(--accent)' : '2px solid var(--glass-border)',
+                background: language === 'en' ? 'var(--accent-subtle)' : 'transparent',
+              }}
+            >
+              🇬🇧 English
+            </button>
+          </div>
+
+          <button className="btn btn-primary" onClick={() => setStep('account')} style={{ width: '100%' }}>
+            {t('language_step.continue')}
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -50,40 +105,40 @@ export function SetupPage() {
           <img src="/favicon.png" alt="" className="setup-logo-icon" style={{ width: 36, height: 36, objectFit: 'contain' }} />
           <span className="setup-logo-text">HELDASH</span>
         </div>
-        <h2 className="setup-title">Welcome — Create Admin Account</h2>
+        <h2 className="setup-title">{t('account_step.title')}</h2>
         <p className="setup-subtitle">
-          Set up your administrator account to get started.
+          {t('account_step.subtitle')}
         </p>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div className="form-group">
-            <label className="form-label">Username *</label>
+            <label className="form-label">{t('account_step.username')}</label>
             <input className="form-input" value={form.username} onChange={update('username')} autoFocus autoComplete="username" />
           </div>
 
           <div style={{ display: 'flex', gap: 12 }}>
             <div className="form-group" style={{ flex: 1 }}>
-              <label className="form-label">First Name *</label>
+              <label className="form-label">{t('account_step.first_name')}</label>
               <input className="form-input" value={form.first_name} onChange={update('first_name')} autoComplete="given-name" />
             </div>
             <div className="form-group" style={{ flex: 1 }}>
-              <label className="form-label">Last Name *</label>
+              <label className="form-label">{t('account_step.last_name')}</label>
               <input className="form-input" value={form.last_name} onChange={update('last_name')} autoComplete="family-name" />
             </div>
           </div>
 
           <div className="form-group">
-            <label className="form-label">Email <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(optional)</span></label>
+            <label className="form-label">{t('account_step.email')} <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>{t('common:form.optional', { ns: 'common' })}</span></label>
             <input className="form-input" type="email" value={form.email} onChange={update('email')} autoComplete="email" />
           </div>
 
           <div className="form-group">
-            <label className="form-label">Password *</label>
+            <label className="form-label">{t('account_step.password')}</label>
             <input className="form-input" type="password" value={form.password} onChange={update('password')} autoComplete="new-password" />
           </div>
 
           <div className="form-group">
-            <label className="form-label">Confirm Password *</label>
+            <label className="form-label">{t('account_step.confirm_password')}</label>
             <input className="form-input" type="password" value={form.confirm} onChange={update('confirm')} autoComplete="new-password" />
           </div>
 
@@ -92,7 +147,7 @@ export function SetupPage() {
           )}
 
           <button className="btn btn-primary" type="submit" disabled={loading} style={{ marginTop: 4 }}>
-            {loading ? <><div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} /> Setting up...</> : 'Create Account & Continue'}
+            {loading ? <><div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} /> {t('account_step.submitting')}</> : t('account_step.submit')}
           </button>
         </form>
       </div>

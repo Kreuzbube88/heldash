@@ -1,0 +1,46 @@
+{
+  "title": "Apps",
+  "add": "App hinzufügen",
+  "modal": {
+    "title_add": "App hinzufügen",
+    "title_edit": "App bearbeiten",
+    "name": "Name *",
+    "url": "URL *",
+    "icon_emoji": "Icon (Emoji)",
+    "icon_image": "Icon Bild",
+    "icon_image_hint": "Bild hat Vorrang vor dem Emoji-Icon.",
+    "group": "Gruppe",
+    "no_group": "— Keine Gruppe —",
+    "description": "Beschreibung",
+    "description_placeholder": "Movie management",
+    "enable_check": "Status-Check aktivieren",
+    "show_dashboard": "Auf Dashboard anzeigen",
+    "check_url": "Check URL (optionale Überschreibung)",
+    "check_url_placeholder": "Gleich wie URL",
+    "interval": "Intervall (Sek.)",
+    "name_url_required": "Name und URL sind erforderlich",
+    "save": "Speichern",
+    "add_btn": "App hinzufügen",
+    "cancel": "Abbrechen"
+  },
+  "table": {
+    "name": "Name",
+    "url": "URL",
+    "group": "Gruppe",
+    "status": "Status",
+    "uptime": "Uptime",
+    "actions": "Aktionen"
+  },
+  "history": {
+    "no_data": "Keine Verlaufsdaten"
+  },
+  "import_export": {
+    "import": "Importieren",
+    "export": "Exportieren"
+  },
+  "delete_confirm": "App löschen?",
+  "empty": {
+    "title": "Keine Apps",
+    "subtitle": "Füge deinen ersten Service hinzu."
+  }
+}

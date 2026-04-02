@@ -1,0 +1,19 @@
+{
+  "empty": {
+    "title": "Dashboard is empty",
+    "subtitle": "Add apps and widgets to get started.",
+    "no_services": "No services configured",
+    "add_service": "Add service"
+  },
+  "edit": {
+    "done": "Done",
+    "edit_dashboard": "Edit Dashboard",
+    "add_app": "App",
+    "add_widget": "Widget",
+    "add_row": "Row"
+  },
+  "guest_mode": "Guest Mode",
+  "hidden": "Hidden",
+  "visible": "Visible",
+  "show_visibility": "Show visibility"
+}

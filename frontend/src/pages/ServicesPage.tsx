@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import type { Service } from '../types'
+import { useTranslation } from 'react-i18next'
 import { useStore } from '../store/useStore'
 import { useDashboardStore } from '../store/useDashboardStore'
 import { useConfirm } from '../components/ConfirmDialog'
@@ -31,6 +32,7 @@ interface HealthHistoryData {
 }
 
 function UptimeBar({ serviceId }: { serviceId: string }) {
+  const { t } = useTranslation('services')
   const [data, setData] = useState<HealthHistoryData | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -42,7 +44,7 @@ function UptimeBar({ serviceId }: { serviceId: string }) {
 
   if (loading) return <div style={{ height: 24, display: 'flex', alignItems: 'center' }}><div className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} /></div>
   if (!data || data.history.length === 0) return (
-    <div style={{ fontSize: 11, color: 'var(--text-muted)', paddingTop: 4 }}>Keine Verlaufsdaten</div>
+    <div style={{ fontSize: 11, color: 'var(--text-muted)', paddingTop: 4 }}>{t('history.no_data')}</div>
   )
 
   // Show last 24 hours
@@ -54,7 +56,7 @@ function UptimeBar({ serviceId }: { serviceId: string }) {
     d.setHours(d.getHours() - i)
     const isoHour = d.toISOString().slice(0, 13) + ':00:00'
     const entry = data.history.find(h => h.hour.slice(0, 13) === isoHour.slice(0, 13))
-    blocks.push({ hour: d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }), uptime: entry ? entry.uptime : null })
+    blocks.push({ hour: d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }), uptime: entry ? entry.uptime : null })
   }
 
   return (

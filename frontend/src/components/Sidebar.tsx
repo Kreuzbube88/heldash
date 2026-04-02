@@ -3,6 +3,7 @@ import {
   LayoutDashboard, Settings, AppWindow, Info, Tv2, BarChart2, Container, Home,
   ChevronLeft, ChevronRight, ScrollText, Network, HardDrive, Server, Bookmark, Link2,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useStore } from '../store/useStore'
 import { useArrStore } from '../store/useArrStore'
 import { useWidgetStore } from '../store/useWidgetStore'
@@ -17,6 +18,7 @@ interface Props {
 }
 
 export function Sidebar({ page, onNavigate }: Props) {
+  const { t } = useTranslation('common')
   const { settings, services, isAdmin, isAuthenticated, authUser, userGroups } = useStore()
   const { instances } = useArrStore()
   const { widgets, loadStats, startPolling, stopPolling } = useWidgetStore()
@@ -95,47 +97,47 @@ export function Sidebar({ page, onNavigate }: Props) {
           </div>
         )}
 
-        <NavItem icon={<LayoutDashboard size={16} />} label="Dashboard" active={page === 'dashboard'} onClick={() => onNavigate('dashboard')} collapsed={collapsed} />
+        <NavItem icon={<LayoutDashboard size={16} />} label={t('nav.dashboard')} active={page === 'dashboard'} onClick={() => onNavigate('dashboard')} collapsed={collapsed} />
 
         {isAuthenticated && (
           <>
-            <NavItem icon={<AppWindow size={16} />} label="Apps" active={page === 'services'} onClick={() => onNavigate('services')} collapsed={collapsed} />
-            <NavItem icon={<Bookmark size={16} />} label="Bookmarks" active={page === 'bookmarks'} onClick={() => onNavigate('bookmarks')} collapsed={collapsed} />
+            <NavItem icon={<AppWindow size={16} />} label={t('nav.apps')} active={page === 'services'} onClick={() => onNavigate('services')} collapsed={collapsed} />
+            <NavItem icon={<Bookmark size={16} />} label={t('nav.bookmarks')} active={page === 'bookmarks'} onClick={() => onNavigate('bookmarks')} collapsed={collapsed} />
             {(isAdmin || instances.length > 0) && (
-              <NavItem icon={<Tv2 size={16} />} label="Media" active={page === 'media'} onClick={() => onNavigate('media')} collapsed={collapsed} />
+              <NavItem icon={<Tv2 size={16} />} label={t('nav.media')} active={page === 'media'} onClick={() => onNavigate('media')} collapsed={collapsed} />
             )}
             {(isAdmin || widgets.length > 0) && (
-              <NavItem icon={<BarChart2 size={16} />} label="Widgets" active={page === 'widgets'} onClick={() => onNavigate('widgets')} collapsed={collapsed} />
+              <NavItem icon={<BarChart2 size={16} />} label={t('nav.widgets')} active={page === 'widgets'} onClick={() => onNavigate('widgets')} collapsed={collapsed} />
             )}
             {canSeeDocker && (
-              <NavItem icon={<Container size={16} />} label="Docker" active={page === 'docker'} onClick={() => onNavigate('docker')} collapsed={collapsed} />
+              <NavItem icon={<Container size={16} />} label={t('nav.docker')} active={page === 'docker'} onClick={() => onNavigate('docker')} collapsed={collapsed} />
             )}
-            <NavItem icon={<Home size={16} />} label="Home Assistant" active={page === 'home_assistant'} onClick={() => onNavigate('home_assistant')} collapsed={collapsed} />
-            <NavItem icon={<Server size={16} />} label="Unraid" active={page === 'unraid'} onClick={() => onNavigate('unraid')} collapsed={collapsed} />
+            <NavItem icon={<Home size={16} />} label={t('nav.home_assistant')} active={page === 'home_assistant'} onClick={() => onNavigate('home_assistant')} collapsed={collapsed} />
+            <NavItem icon={<Server size={16} />} label={t('nav.unraid')} active={page === 'unraid'} onClick={() => onNavigate('unraid')} collapsed={collapsed} />
           </>
         )}
 
         {isAuthenticated && (
-          <NavItem icon={<Network size={16} />} label="Netzwerk" active={page === 'network'} onClick={() => onNavigate('network')} collapsed={collapsed} />
+          <NavItem icon={<Network size={16} />} label={t('nav.network')} active={page === 'network'} onClick={() => onNavigate('network')} collapsed={collapsed} />
         )}
         {isAuthenticated && (
-          <NavItem icon={<HardDrive size={16} />} label="Backup" active={page === 'backup'} onClick={() => onNavigate('backup')} collapsed={collapsed} />
+          <NavItem icon={<HardDrive size={16} />} label={t('nav.backup')} active={page === 'backup'} onClick={() => onNavigate('backup')} collapsed={collapsed} />
         )}
         {isAuthenticated && (
-          <NavItem icon={<ScrollText size={16} />} label="Logbuch" active={page === 'logbuch'} onClick={() => onNavigate('logbuch')} collapsed={collapsed} />
+          <NavItem icon={<ScrollText size={16} />} label={t('nav.logbuch')} active={page === 'logbuch'} onClick={() => onNavigate('logbuch')} collapsed={collapsed} />
         )}
         {isAdmin && (
-          <NavItem icon={<Link2 size={16} />} label="Instanzen" active={page === 'instances'} onClick={() => onNavigate('instances')} collapsed={collapsed} />
+          <NavItem icon={<Link2 size={16} />} label={t('nav.instances')} active={page === 'instances'} onClick={() => onNavigate('instances')} collapsed={collapsed} />
         )}
         {isAdmin && (
-          <NavItem icon={<Settings size={16} />} label="Settings" active={page === 'settings'} onClick={() => onNavigate('settings')} collapsed={collapsed} />
+          <NavItem icon={<Settings size={16} />} label={t('nav.settings')} active={page === 'settings'} onClick={() => onNavigate('settings')} collapsed={collapsed} />
         )}
-        <NavItem icon={<Info size={16} />} label="About" active={page === 'about'} onClick={() => onNavigate('about')} collapsed={collapsed} />
+        <NavItem icon={<Info size={16} />} label={t('nav.about')} active={page === 'about'} onClick={() => onNavigate('about')} collapsed={collapsed} />
 
         {/* Sidebar widgets (hidden when collapsed) */}
         {!collapsed && sidebarWidgets.length > 0 && (
           <div className="sidebar-widgets-section">
-            <span className="nav-section-label" style={{ marginTop: 16 }}>Widgets</span>
+            <span className="nav-section-label" style={{ marginTop: 16 }}>{t('sidebar.widgets')}</span>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '0 4px' }}>
               {sidebarWidgets.map(widget => (
                 <SidebarWidget key={widget.id} widget={widget} />
@@ -149,10 +151,10 @@ export function Sidebar({ page, onNavigate }: Props) {
           <button
             className="nav-item sidebar-collapse-btn"
             onClick={toggleCollapse}
-            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            title={collapsed ? t('sidebar.expand_sidebar') : t('sidebar.collapse_sidebar')}
             style={{ width: '100%', background: 'none', justifyContent: collapsed ? 'center' : 'flex-end', paddingRight: collapsed ? undefined : 14 }}
           >
-            {collapsed ? <ChevronRight size={16} /> : <><span style={{ fontSize: 12, marginRight: 4 }}>Collapse</span><ChevronLeft size={16} /></>}
+            {collapsed ? <ChevronRight size={16} /> : <><span style={{ fontSize: 12, marginRight: 4 }}>{t('sidebar.collapse')}</span><ChevronLeft size={16} /></>}
           </button>
         </div>
       </aside>
@@ -190,18 +192,19 @@ function NavItem({ icon, label, active, onClick, collapsed }: {
 // ── Bottom navigation bar (mobile only) ────────────────────────────────────────
 
 function BottomNavBar({ page, onNavigate }: { page: string; onNavigate: (p: string) => void }) {
+  const { t } = useTranslation('common')
   const { isAdmin, isAuthenticated, authUser, userGroups } = useStore()
   const { instances } = useArrStore()
   const userGroupData = userGroups.find(g => g.id === authUser?.groupId)
   const canSeeDocker = isAdmin || (userGroupData?.docker_access ?? false)
 
   const items: { icon: React.ReactNode; label: string; target: string; show: boolean }[] = [
-    { icon: <LayoutDashboard size={20} />, label: 'Dashboard', target: 'dashboard', show: true },
-    { icon: <AppWindow size={20} />, label: 'Apps', target: 'services', show: isAuthenticated },
-    { icon: <Tv2 size={20} />, label: 'Media', target: 'media', show: isAuthenticated && (isAdmin || instances.length > 0) },
-    { icon: <Container size={20} />, label: 'Docker', target: 'docker', show: canSeeDocker },
-    { icon: <Home size={20} />, label: 'Home', target: 'home_assistant', show: isAuthenticated },
-    { icon: <Settings size={20} />, label: 'Settings', target: 'settings', show: isAdmin },
+    { icon: <LayoutDashboard size={20} />, label: t('nav.dashboard'), target: 'dashboard', show: true },
+    { icon: <AppWindow size={20} />, label: t('nav.apps'), target: 'services', show: isAuthenticated },
+    { icon: <Tv2 size={20} />, label: t('nav.media'), target: 'media', show: isAuthenticated && (isAdmin || instances.length > 0) },
+    { icon: <Container size={20} />, label: t('nav.docker'), target: 'docker', show: canSeeDocker },
+    { icon: <Home size={20} />, label: t('nav.home_assistant'), target: 'home_assistant', show: isAuthenticated },
+    { icon: <Settings size={20} />, label: t('nav.settings'), target: 'settings', show: isAdmin },
   ]
 
   return (

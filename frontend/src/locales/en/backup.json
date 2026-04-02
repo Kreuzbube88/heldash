@@ -1,0 +1,64 @@
+{
+  "title": "Backup Center",
+  "tabs": {
+    "overview": "Overview",
+    "guide": "Guide"
+  },
+  "source": {
+    "add": "Add source",
+    "add_first": "Add first source",
+    "edit": "Edit source",
+    "modal_title_add": "Add Backup Source",
+    "modal_title_edit": "Edit Source",
+    "name": "Name *",
+    "name_placeholder": "My Backup",
+    "type": "Type *",
+    "log_path": "Log path",
+    "url": "URL",
+    "api_key": "API Key",
+    "user": "User",
+    "password": "Password",
+    "backup_path": "Backup path",
+    "enabled": "Enabled",
+    "save": "Save",
+    "saving": "Saving...",
+    "cancel": "Cancel",
+    "name_type_required": "Name and type are required",
+    "save_error": "Save failed"
+  },
+  "status": {
+    "ok": "OK",
+    "outdated": "Outdated",
+    "error": "Error",
+    "unknown": "Unknown",
+    "last_run": "Last",
+    "size": "Size"
+  },
+  "actions": {
+    "docker_export": "Export Docker",
+    "refresh": "Refresh",
+    "edit": "Edit",
+    "delete": "Delete"
+  },
+  "empty": {
+    "title": "No Backup Sources",
+    "subtitle": "Add backup sources to monitor their status"
+  },
+  "disabled_badge": "Disabled",
+  "guide": {
+    "intro": "Best practices and recommendations for a robust backup strategy."
+  },
+  "toast": {
+    "removed": "{{name}} removed",
+    "export_success": "Docker export downloaded",
+    "export_failed": "Export failed",
+    "error": "Error"
+  },
+  "types": {
+    "ca_backup_desc": "Reads the CA Backup plugin log from Unraid",
+    "duplicati_desc": "Connects to the Duplicati web UI",
+    "kopia_desc": "Connects to the Kopia server",
+    "docker_desc": "Exports container configurations as JSON",
+    "vm_desc": "Checks backup files in a local path"
+  }
+}

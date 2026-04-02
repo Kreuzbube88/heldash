@@ -1,0 +1,52 @@
+{
+  "title": "Instances",
+  "add": "Add Instance",
+  "count": "{{count}} instances configured",
+  "load_error": "Error loading",
+  "delete_title": "Delete Instance",
+  "delete_msg": "Really delete \"{{name}}\" ({{type}})?",
+  "delete_confirm": "Delete",
+  "delete_error": "Error deleting",
+  "empty_title": "No instances yet",
+  "empty_add": "Add first instance",
+  "modal": {
+    "title_add": "Add Instance",
+    "title_edit": "Edit Instance",
+    "type": "Type",
+    "name": "Name",
+    "url": "URL",
+    "token": "Token",
+    "api_key": "API Key",
+    "enabled": "Enabled",
+    "icon": "Icon",
+    "selected_icon": "Selected icon",
+    "save": "Save",
+    "saving": "Saving...",
+    "cancel": "Cancel",
+    "name_required": "Name is required",
+    "url_required": "URL is required",
+    "token_required": "Token is required",
+    "api_key_required": "API Key is required",
+    "save_failed": "Save failed",
+    "credential_empty_hint": "leave blank = unchanged",
+    "discard_title": "Discard changes?",
+    "discard_msg": "There are unsaved changes. Do you really want to cancel?",
+    "discard_confirm": "Discard"
+  },
+  "card": {
+    "test": "Test connection",
+    "edit": "Edit",
+    "delete": "Delete"
+  },
+  "test": {
+    "test": "Test",
+    "testing": "Testing…",
+    "success": "Connection successful",
+    "failed": "Connection failed"
+  },
+  "status": {
+    "online": "Online",
+    "offline": "Offline",
+    "checking": "Checking…"
+  }
+}

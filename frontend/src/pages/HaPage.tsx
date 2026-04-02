@@ -11,6 +11,7 @@ import {
   Search, ChevronDown, ChevronRight, Home, Sun, Zap, ZapOff, Flame, BatteryCharging, Settings, Bell, Play, ToggleLeft, ToggleRight,
 } from 'lucide-react'
 
+import { useTranslation } from 'react-i18next'
 import { useHaStore } from '../store/useHaStore'
 import { useStore } from '../store/useStore'
 import { api } from '../api'
@@ -53,9 +54,9 @@ function formatState(entity: HaEntityFull): string {
 
 // ── Domain filter tab helpers ──────────────────────────────────────────────────
 
-type BrowserTab = 'All' | 'Lights' | 'Climate' | 'Media' | 'Covers' | 'Switches' | 'Sensors' | 'Scripts' | 'Scenes' | 'Locks' | 'Alarme' | 'Other'
+type BrowserTab = 'All' | 'Lights' | 'Climate' | 'Media' | 'Covers' | 'Switches' | 'Sensors' | 'Scripts' | 'Scenes' | 'Locks' | 'Alarms' | 'Other'
 
-const BROWSER_TABS: BrowserTab[] = ['All', 'Lights', 'Climate', 'Media', 'Covers', 'Switches', 'Sensors', 'Scripts', 'Scenes', 'Locks', 'Alarme', 'Other']
+const BROWSER_TABS: BrowserTab[] = ['All', 'Lights', 'Climate', 'Media', 'Covers', 'Switches', 'Sensors', 'Scripts', 'Scenes', 'Locks', 'Alarms', 'Other']
 
 function domainToTab(domain: string): BrowserTab {
   switch (domain) {
@@ -68,7 +69,7 @@ function domainToTab(domain: string): BrowserTab {
     case 'script': return 'Scripts'
     case 'scene': return 'Scenes'
     case 'lock': return 'Locks'
-    case 'alarm_control_panel': return 'Alarme'
+    case 'alarm_control_panel': return 'Alarms'
     default: return 'Other'
   }
 }
@@ -76,6 +77,7 @@ function domainToTab(domain: string): BrowserTab {
 // ── Edit Panel Modal ──────────────────────────────────────────────────────────
 
 function EditPanelModal({ panel, onClose }: { panel: HaPanel; onClose: () => void }) {
+  const { t } = useTranslation('ha')
   const { updatePanel } = useHaStore()
   const [label, setLabel] = useState(panel.label ?? '')
   const [areaId, setAreaId] = useState<string | null>(panel.area_id ?? null)
@@ -137,14 +139,14 @@ function EditPanelModal({ panel, onClose }: { panel: HaPanel; onClose: () => voi
 
           {areas.length > 0 && (
             <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Raum</label>
+              <label className="form-label">{t('panel.room')}</label>
               <select
                 className="form-input"
                 value={areaId ?? ''}
                 onChange={e => setAreaId(e.target.value || null)}
                 style={{ fontSize: 14, padding: '10px 12px' }}
               >
-                <option value="">Kein Raum</option>
+                <option value="">{t('panel.no_room')}</option>
                 {areas.map(a => (
                   <option key={a.area_id} value={a.area_id}>{a.name}</option>
                 ))}
@@ -819,6 +821,7 @@ interface HaPageProps {
 }
 
 export function HaPage({ showAddPanel, onAddPanelClose, onNavigate }: HaPageProps = {}) {
+  const { t } = useTranslation('ha')
   const {
     instances, panels, stateMap, areas,
     loadInstances, loadPanels, loadStates, updateEntityState, loadAreas,
@@ -1048,14 +1051,14 @@ export function HaPage({ showAddPanel, onAddPanelClose, onNavigate }: HaPageProp
                     transition: 'all var(--transition-fast)',
                   }}
                 >
-                  {mode === 'flat' ? 'Flach' : 'Nach Raum'}
+                  {mode === 'flat' ? t('view.flat') : t('view.by_room')}
                 </button>
               ))}
             </div>
           )}
           {activeTab === 'panels' && enabledInstances.length > 0 && viewMode === 'grouped' && areasLoaded && activeAreas.length === 0 && (
             <span className="badge badge-neutral" style={{ fontSize: 11 }}>
-              Räume in Home Assistant nicht konfiguriert
+              {t('view.no_rooms')}
             </span>
           )}
           {enabledInstances.length > 0 && (
@@ -1077,7 +1080,7 @@ export function HaPage({ showAddPanel, onAddPanelClose, onNavigate }: HaPageProp
           {isAdmin && (
             <button className="btn btn-ghost" onClick={() => onNavigate?.('instances')} style={{ gap: 6 }}>
               <Settings size={14} />
-              Instanzen
+              {t('instances')}
             </button>
           )}
         </div>
@@ -1086,23 +1089,23 @@ export function HaPage({ showAddPanel, onAddPanelClose, onNavigate }: HaPageProp
       {/* Tab navigation */}
       {instances.length > 0 && (
         <div style={{ display: 'flex', gap: 0, marginBottom: 20, borderBottom: '1px solid var(--glass-border)' }}>
-          {(['panels', 'hausübersicht', 'gps', 'szenarien', 'automationen'] as const).map(tab => (
+          {(['panels', 'hausübersicht', 'gps', 'szenarien', 'automationen'] as const).map(tabKey => (
             <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
+              key={tabKey}
+              onClick={() => setActiveTab(tabKey)}
               style={{
-                padding: '8px 20px', border: 'none', borderBottom: `2px solid ${activeTab === tab ? 'var(--accent)' : 'transparent'}`,
+                padding: '8px 20px', border: 'none', borderBottom: `2px solid ${activeTab === tabKey ? 'var(--accent)' : 'transparent'}`,
                 cursor: 'pointer', fontSize: 13, background: 'transparent',
-                color: activeTab === tab ? 'var(--accent)' : 'var(--text-secondary)',
-                fontWeight: activeTab === tab ? 600 : 400,
+                color: activeTab === tabKey ? 'var(--accent)' : 'var(--text-secondary)',
+                fontWeight: activeTab === tabKey ? 600 : 400,
                 marginBottom: -1, transition: 'all var(--transition-fast)',
               }}
             >
-              {tab === 'panels' ? 'Panels'
-                : tab === 'hausübersicht' ? '🗺 Hausübersicht'
-                : tab === 'gps' ? '📍 GPS'
-                : tab === 'szenarien' ? '🎭 Szenarien'
-                : '⚡ Automationen'}
+              {tabKey === 'panels' ? 'Panels'
+                : tabKey === 'hausübersicht' ? `🗺 ${t('tabs.overview')}`
+                : tabKey === 'gps' ? '📍 GPS'
+                : tabKey === 'szenarien' ? `🎭 ${t('tabs.scenes')}`
+                : `⚡ ${t('tabs.automations')}`}
             </button>
           ))}
         </div>
@@ -1130,7 +1133,7 @@ export function HaPage({ showAddPanel, onAddPanelClose, onNavigate }: HaPageProp
             <input
               className="form-input"
               style={{ paddingLeft: 34, fontSize: 13 }}
-              placeholder="Szenarien suchen…"
+              placeholder={t('scenes.search')}
               value={scenesSearch}
               onChange={e => setScenesSearch(e.target.value)}
             />
@@ -1159,7 +1162,7 @@ export function HaPage({ showAddPanel, onAddPanelClose, onNavigate }: HaPageProp
                           background: domain === 'scene' ? 'rgba(var(--accent-rgb),0.15)' : 'var(--surface-3)',
                           color: domain === 'scene' ? 'var(--accent)' : 'var(--text-secondary)',
                         }}>
-                          {domain === 'scene' ? 'Szene' : 'Script'}
+                          {domain === 'scene' ? t('scenes.scene_label') : 'Script'}
                         </span>
                       </div>
                       <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -1179,14 +1182,14 @@ export function HaPage({ showAddPanel, onAddPanelClose, onNavigate }: HaPageProp
                         }}
                       >
                         {isRunning ? <Loader size={12} className="spin" /> : <Play size={12} />}
-                        {isRunning ? 'Ausgeführt!' : 'Ausführen'}
+                        {isRunning ? t('scenes.running') : t('scenes.run')}
                       </button>
                     </div>
                   )
                 })}
               {scenes.length === 0 && !scenesLoading && (
                 <p style={{ color: 'var(--text-muted)', fontSize: 13, gridColumn: '1/-1' }}>
-                  Keine Szenarien oder Scripts gefunden.
+                  {t('scenes.empty')}
                 </p>
               )}
             </div>
@@ -1202,7 +1205,7 @@ export function HaPage({ showAddPanel, onAddPanelClose, onNavigate }: HaPageProp
             <input
               className="form-input"
               style={{ paddingLeft: 34, fontSize: 13 }}
-              placeholder="Automationen suchen…"
+              placeholder={t('automations.search')}
               value={automationsSearch}
               onChange={e => setAutomationsSearch(e.target.value)}
             />
@@ -1247,7 +1250,7 @@ export function HaPage({ showAddPanel, onAddPanelClose, onNavigate }: HaPageProp
                         className="btn btn-ghost"
                         style={{ gap: 6, fontSize: 12, padding: '4px 10px', flexShrink: 0 }}
                         disabled={isTriggering || isToggling}
-                        title="Auslösen"
+                        title={t('automations.trigger')}
                         onClick={async () => {
                           setAutomationBusy(prev => ({ ...prev, [automation.entity_id]: 'trigger' }))
                           try {
@@ -1258,13 +1261,13 @@ export function HaPage({ showAddPanel, onAddPanelClose, onNavigate }: HaPageProp
                         }}
                       >
                         {isTriggering ? <Loader size={12} className="spin" /> : <Play size={12} />}
-                        Auslösen
+                        {t('automations.trigger')}
                       </button>
                       <button
                         className="btn btn-ghost"
                         style={{ gap: 6, fontSize: 12, padding: '4px 10px', flexShrink: 0, color: isEnabled ? 'var(--status-online)' : 'var(--text-muted)' }}
                         disabled={isToggling || isTriggering}
-                        title={isEnabled ? 'Deaktivieren' : 'Aktivieren'}
+                        title={isEnabled ? t('automations.disable') : t('automations.enable')}
                         onClick={async () => {
                           setAutomationBusy(prev => ({ ...prev, [automation.entity_id]: 'toggle' }))
                           try {
@@ -1282,14 +1285,14 @@ export function HaPage({ showAddPanel, onAddPanelClose, onNavigate }: HaPageProp
                         {isToggling
                           ? <Loader size={12} className="spin" />
                           : isEnabled ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}
-                        {isEnabled ? 'An' : 'Aus'}
+                        {isEnabled ? t('automations.on') : t('automations.off')}
                       </button>
                     </div>
                   )
                 })}
               {automations.length === 0 && !automationsLoading && (
                 <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>
-                  Keine Automationen gefunden.
+                  {t('automations.empty')}
                 </p>
               )}
             </div>
@@ -1305,7 +1308,7 @@ export function HaPage({ showAddPanel, onAddPanelClose, onNavigate }: HaPageProp
             <>
               <p style={{ fontSize: 14, marginBottom: 12 }}>No Home Assistant instances configured.</p>
               <button className="btn btn-primary" onClick={() => onNavigate?.('instances')} style={{ gap: 6 }}>
-                <Plus size={14} />Instanz hinzufügen
+                <Plus size={14} />{t('add_instance')}
               </button>
             </>
           ) : (
@@ -1403,7 +1406,7 @@ export function HaPage({ showAddPanel, onAddPanelClose, onNavigate }: HaPageProp
               <RoomSection
                 key="unassigned"
                 areaId={null}
-                areaName="Ohne Raum"
+                areaName={t('view.unassigned')}
                 panels={noRoomPanels}
                 stateMap={stateMap}
                 onRemove={id => removePanel(id)}

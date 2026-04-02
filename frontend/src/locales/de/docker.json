@@ -1,0 +1,34 @@
+{
+  "title": "Docker",
+  "stats": {
+    "total": "Total",
+    "running": "Running",
+    "stopped": "Stopped",
+    "restarting": "Restarting"
+  },
+  "table": {
+    "name": "Name",
+    "image": "Image",
+    "status": "Status",
+    "uptime": "Uptime",
+    "cpu_memory": "CPU / Memory"
+  },
+  "empty": {
+    "no_containers": "Keine Container gefunden.\nIst der Docker-Socket eingebunden?",
+    "no_filter_match": "Keine Container entsprechen dem Filter."
+  },
+  "filter": {
+    "placeholder": "Container filtern…"
+  },
+  "error": {
+    "socket_unavailable": "Docker-Socket nicht verfügbar. Stelle sicher, dass /var/run/docker.sock eingebunden ist."
+  },
+  "detail": {
+    "logs_filter": "Logs filtern…",
+    "waiting_for_logs": "Warte auf Logs…",
+    "no_lines_match": "Keine Zeilen entsprechen dem Filter.",
+    "start": "Start",
+    "stop": "Stop",
+    "restart": "Restart"
+  }
+}

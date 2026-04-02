@@ -1,0 +1,127 @@
+{
+  "title": "Unraid",
+  "admin_only": "Nur für Administratoren.",
+  "empty_entries": "Keine Einträge",
+  "ctab": {
+    "overview": "Übersicht",
+    "array": "HDD",
+    "docker": "Docker",
+    "vms": "VMs",
+    "shares": "Freigaben",
+    "notifications": "Benachrichtigungen",
+    "system": "System",
+    "ups": "UPS",
+    "logs": "Logs",
+    "plugins": "Plugins",
+    "apikeys": "API Keys"
+  },
+  "confirm": {
+    "title": "Bestätigen",
+    "ok": "Bestätigen",
+    "cancel": "Abbrechen"
+  },
+  "setup": {
+    "title": "Unraid verbinden",
+    "requires": "Erfordert Unraid 7.2 oder neuer.",
+    "api_key_step": "API Key erstellen",
+    "api_key_hint": "Name: z.B. \"HELDASH\" | Rolle: admin | Speichern → Key kopieren"
+  },
+  "instance": {
+    "add": "Instanz hinzufügen",
+    "manage": "Instanzen",
+    "no_instances": "Keine Unraid-Instanzen konfiguriert.",
+    "add_first": "Erste Instanz hinzufügen",
+    "test": "Testen",
+    "edit": "Bearbeiten",
+    "cancel": "Abbrechen",
+    "save": "Speichern",
+    "updated": "Instanz aktualisiert",
+    "disabled": "Deaktiviert",
+    "enabled_msg": "Aktiviert",
+    "delete_title": "Instanz entfernen",
+    "delete_msg": "Instanz entfernen? Alle gespeicherten Daten werden gelöscht.",
+    "deleted": "Instanz gelöscht",
+    "api_key_placeholder": "Neuer API Key (leer = unverändert)"
+  },
+  "array": {
+    "paused": "pausiert",
+    "running": "läuft…"
+  },
+  "disk": {
+    "name": "Name",
+    "status": "Status",
+    "type": "Typ",
+    "size": "Größe",
+    "used": "Belegt",
+    "free": "Frei",
+    "temp": "Temp",
+    "interface": "Schnittstelle"
+  },
+  "docker": {
+    "empty": "Keine Container gefunden",
+    "delete_title": "Container löschen",
+    "delete_msg": "Container \"{{name}}\" permanent löschen?",
+    "deleted": "{{name}} gelöscht"
+  },
+  "vm": {
+    "confirm_forcestop": "VM sofort beenden — Datenverlust möglich!",
+    "confirm_reset": "Hard Reset — Datenverlust möglich!",
+    "confirm_shutdown": "Ungespeicherte Daten in der VM können verloren gehen."
+  },
+  "notif": {
+    "unread": "Ungelesen",
+    "archive": "Archiv",
+    "archiving": "Wird archiviert…",
+    "mark_all_read": "Alle als gelesen markieren",
+    "close": "Schließen",
+    "mark_read": "Als gelesen markieren",
+    "delete_title": "Benachrichtigung löschen",
+    "delete_msg": "Benachrichtigung permanent löschen? Dies kann nicht rückgängig gemacht werden.",
+    "deleted": "Benachrichtigung gelöscht"
+  },
+  "system": {
+    "license": "Lizenz",
+    "registered_for": "Registriert für",
+    "license_type": "Lizenztyp",
+    "lic_status": "Status",
+    "lic_valid": "Aktiv",
+    "lic_invalid": "Ungültig",
+    "manufacturer": "Hersteller"
+  },
+  "ups": {
+    "device": "Gerät"
+  },
+  "logs": {
+    "modified": "Geändert",
+    "view": "Anzeigen"
+  },
+  "apikey": {
+    "new": "Neuer API Key",
+    "create": "Erstellen",
+    "created": "API Key erstellt",
+    "deleted": "API Key gelöscht",
+    "delete_title": "API Key löschen",
+    "delete_msg": "API Key \"{{name}}\" löschen?"
+  },
+  "actions": {
+    "start": "Starten",
+    "stop": "Stoppen",
+    "restart": "Neustarten",
+    "pause": "Pausieren",
+    "resume": "Fortsetzen",
+    "refresh": "Aktualisieren"
+  },
+  "status": {
+    "started": "Gestartet",
+    "stopped": "Gestoppt",
+    "paused": "Pausiert"
+  },
+  "uptime": {
+    "days": "T",
+    "hours": "Std",
+    "minutes": "Min"
+  },
+  "notifications": {
+    "no_notifications": "Keine Benachrichtigungen"
+  }
+}

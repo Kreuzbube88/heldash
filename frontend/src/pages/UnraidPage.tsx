@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useStore } from '../store/useStore'
 import { useUnraidStore } from '../store/useUnraidStore'
 import { useToast } from '../components/Toast'
@@ -235,6 +236,7 @@ function ConfirmModal({ title, message, onConfirm, onCancel, danger = false, chi
   onConfirm: () => void; onCancel: () => void
   danger?: boolean; children?: React.ReactNode
 }) {
+  const { t } = useTranslation('unraid')
   return (
     <div className="modal-overlay" onClick={onCancel}>
       <div className="modal-content glass" onClick={e => e.stopPropagation()}>
@@ -246,8 +248,8 @@ function ConfirmModal({ title, message, onConfirm, onCancel, danger = false, chi
           {children}
         </div>
         <div className="modal-footer" style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button className="btn" onClick={onCancel}>Abbrechen</button>
-          <button className={`btn ${danger ? 'btn-danger' : 'btn-primary'}`} onClick={onConfirm}>Bestätigen</button>
+          <button className="btn" onClick={onCancel}>{t('confirm.cancel')}</button>
+          <button className={`btn ${danger ? 'btn-danger' : 'btn-primary'}`} onClick={onConfirm}>{t('confirm.ok')}</button>
         </div>
       </div>
     </div>
@@ -257,28 +259,29 @@ function ConfirmModal({ title, message, onConfirm, onCancel, danger = false, chi
 // ── Setup Screen ──────────────────────────────────────────────────────────────
 
 function SetupScreen({ onNavigate }: { onNavigate?: (page: string) => void }) {
+  const { t } = useTranslation('unraid')
   return (
     <div style={{ maxWidth: 560, margin: '80px auto', padding: '0 var(--spacing-md)' }}>
       <div className="glass" style={{ padding: 'var(--spacing-2xl)', borderRadius: 'var(--radius-xl)', textAlign: 'center' }}>
         <Server size={40} style={{ color: 'var(--accent)', marginBottom: 'var(--spacing-md)' }} />
-        <h2 style={{ margin: '0 0 var(--spacing-sm)', fontFamily: 'var(--font-display)' }}>Unraid verbinden</h2>
-        <p style={{ color: 'var(--text-secondary)', marginBottom: 'var(--spacing-xl)' }}>Erfordert Unraid 7.2 oder neuer.</p>
+        <h2 style={{ margin: '0 0 var(--spacing-sm)', fontFamily: 'var(--font-display)' }}>{t('setup.title')}</h2>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: 'var(--spacing-xl)' }}>{t('setup.requires')}</p>
 
         <div className="glass" style={{ padding: 'var(--spacing-lg)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--spacing-md)', textAlign: 'left' }}>
           <div style={{ display: 'flex', gap: 'var(--spacing-md)', alignItems: 'flex-start' }}>
             <span style={{ background: 'var(--accent)', color: '#000', borderRadius: '50%', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>1</span>
             <div>
-              <div style={{ fontWeight: 600, marginBottom: 4 }}>API Key erstellen</div>
+              <div style={{ fontWeight: 600, marginBottom: 4 }}>{t('setup.api_key_step')}</div>
               <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: 13 }}>
                 Unraid WebGUI → Settings → Management Access → API Keys → "Create"<br />
-                Name: z.B. "HELDASH" | Rolle: admin | Speichern → Key kopieren
+                {t('setup.api_key_hint')}
               </p>
             </div>
           </div>
         </div>
 
         <button className="btn btn-primary" onClick={() => onNavigate?.('instances')} style={{ width: '100%', gap: 6, justifyContent: 'center' }}>
-          <Plus size={14} /> Instanz hinzufügen
+          <Plus size={14} /> {t('instance.add')}
         </button>
       </div>
     </div>
@@ -414,6 +417,7 @@ function OverviewTab({ instanceId }: { instanceId: string }) {
 // ── Array Tab ─────────────────────────────────────────────────────────────────
 
 function ArrayTab({ instanceId }: { instanceId: string }) {
+  const { t } = useTranslation('unraid')
   const { array, parity, physicalDisks, loadArray, loadParity, loadPhysicalDisks, arrayStart, arrayStop, parityStart, parityPause, parityResume, parityCancel, errors } = useUnraidStore()
   const { isAdmin } = useStore()
   const { toast } = useToast()
@@ -527,7 +531,7 @@ function ArrayTab({ instanceId }: { instanceId: string }) {
       {(isParityRunning || isParityPaused) && pcs && (
         <div className="glass" style={{ padding: 'var(--spacing-md)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--spacing-md)', borderLeft: `4px solid ${isParityPaused ? 'var(--warning)' : 'var(--accent)'}` }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <span style={{ fontWeight: 600, fontSize: 13 }}>Parity Check {isParityPaused ? '(pausiert)' : 'läuft…'}</span>
+            <span style={{ fontWeight: 600, fontSize: 13 }}>Parity Check {isParityPaused ? `(${t('array.paused')})` : t('array.running')}</span>
             <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{(pcs.progress ?? 0).toFixed(1)}%</span>
           </div>
           <div style={{ background: 'var(--glass-bg)', borderRadius: 4, height: 6, marginBottom: 8 }}>
@@ -553,7 +557,7 @@ function ArrayTab({ instanceId }: { instanceId: string }) {
               </colgroup>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                  {['Name', 'Status', 'Typ', 'Größe', 'Belegt', 'Frei', 'Temp'].map(h => (
+                  {[t('disk.name'), t('disk.status'), t('disk.type'), t('disk.size'), t('disk.used'), t('disk.free'), t('disk.temp')].map(h => (
                     <th key={h} style={{ padding: 'var(--spacing-sm) var(--spacing-md)', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 500 }}>{h}</th>
                   ))}
                 </tr>
@@ -602,7 +606,7 @@ function ArrayTab({ instanceId }: { instanceId: string }) {
               </colgroup>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                  {['Name', 'Status', 'Typ', 'Größe', 'Belegt', 'Frei', 'Temp'].map(h => (
+                  {[t('disk.name'), t('disk.status'), t('disk.type'), t('disk.size'), t('disk.used'), t('disk.free'), t('disk.temp')].map(h => (
                     <th key={h} style={{ padding: 'var(--spacing-sm) var(--spacing-md)', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 500 }}>{h}</th>
                   ))}
                 </tr>
@@ -675,7 +679,7 @@ function ArrayTab({ instanceId }: { instanceId: string }) {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, borderTop: '1px solid var(--border)' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                  {['Name', 'Typ', 'Größe', 'Schnittstelle', 'S/N', 'SMART', 'Temp', 'Status'].map(h => (
+                  {[t('disk.name'), t('disk.type'), t('disk.size'), t('disk.interface'), 'S/N', 'SMART', t('disk.temp'), t('disk.status')].map(h => (
                     <th key={h} style={{ padding: 'var(--spacing-sm) var(--spacing-md)', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 500 }}>{h}</th>
                   ))}
                 </tr>
@@ -705,7 +709,7 @@ function ArrayTab({ instanceId }: { instanceId: string }) {
 
       {confirm && (
         <ConfirmModal
-          title="Bestätigen"
+          title={t('confirm.title')}
           message={confirm.msg}
           onConfirm={() => { setConfirm(null); confirm.onConfirm ? confirm.onConfirm() : runConfirm(confirm.action) }}
           onCancel={() => setConfirm(null)}
@@ -721,6 +725,7 @@ function ArrayTab({ instanceId }: { instanceId: string }) {
 // ── Docker Tab ────────────────────────────────────────────────────────────────
 
 function DockerTab({ instanceId }: { instanceId: string }) {
+  const { t } = useTranslation('unraid')
   const { docker, loadDocker, dockerControl, dockerUpdateAll, removeDockerContainer, errors } = useUnraidStore()
   const { isAdmin } = useStore()
   const { toast } = useToast()
@@ -851,17 +856,17 @@ function DockerTab({ instanceId }: { instanceId: string }) {
           )
         })}
       </div>
-      {filtered.length === 0 && <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: 'var(--spacing-2xl)' }}>Keine Container gefunden</div>}
+      {filtered.length === 0 && <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: 'var(--spacing-2xl)' }}>{t('docker.empty')}</div>}
       {confirmRemove && (
         <ConfirmModal
-          title="Container löschen"
-          message={`Container "${confirmRemove.name}" permanent löschen?`}
+          title={t('docker.delete_title')}
+          message={t('docker.delete_msg', { name: confirmRemove.name })}
           onConfirm={async () => {
             const { id, name: n } = confirmRemove
             setConfirmRemove(null)
             try {
               await removeDockerContainer(instanceId, id)
-              toast({ message: `${n} gelöscht`, type: 'success' })
+              toast({ message: t('docker.deleted', { name: n }), type: 'success' })
             } catch (e) {
               toast({ message: (e as Error).message, type: 'error' })
             }
@@ -877,6 +882,7 @@ function DockerTab({ instanceId }: { instanceId: string }) {
 // ── VMs Tab ───────────────────────────────────────────────────────────────────
 
 function VmsTab({ instanceId }: { instanceId: string }) {
+  const { t } = useTranslation('unraid')
   const { vms, loadVms, vmControl, errors } = useUnraidStore()
   const { toast } = useToast()
   const domains = [...(vms[instanceId] ?? [])].sort((a, b) => (a.name ?? '').toLowerCase().localeCompare((b.name ?? '').toLowerCase()))
@@ -955,8 +961,8 @@ function VmsTab({ instanceId }: { instanceId: string }) {
       </div>
       {confirm && (
         <ConfirmModal
-          title="Bestätigen"
-          message={confirm.action === 'forcestop' ? 'VM sofort beenden — Datenverlust möglich!' : confirm.action === 'reset' ? 'Hard Reset — Datenverlust möglich!' : 'Ungespeicherte Daten in der VM können verloren gehen.'}
+          title={t('confirm.ok')}
+          message={confirm.action === 'forcestop' ? t('vm.confirm_forcestop') : confirm.action === 'reset' ? t('vm.confirm_reset') : t('vm.confirm_shutdown')}
           onConfirm={() => { handleVmAction(confirm.vm, confirm.action); setConfirm(null) }}
           onCancel={() => setConfirm(null)}
           danger
@@ -1035,6 +1041,7 @@ function SharesTab({ instanceId }: { instanceId: string }) {
 // ── Notifications Tab ─────────────────────────────────────────────────────────
 
 function NotificationsTab({ instanceId }: { instanceId: string }) {
+  const { t } = useTranslation('unraid')
   const { notifications, loadNotifications, loadNotificationsArchive, archiveNotification, archiveAllNotifications, deleteNotificationPerm, errors } = useUnraidStore()
   const { isAdmin } = useStore()
   const { toast } = useToast()
@@ -1156,13 +1163,13 @@ function NotificationsTab({ instanceId }: { instanceId: string }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
         <div style={{ display: 'flex', gap: 4 }}>
           <button className={`btn${view === 'unread' ? ' btn-primary' : ''}`} onClick={() => setView('unread')} style={{ fontSize: 13 }}>
-            Ungelesen {unread > 0 && <span style={{ color: 'var(--warning)', background: 'rgba(234,179,8,0.12)', borderRadius: 10, padding: '0 5px', fontSize: 10, fontWeight: 700, marginLeft: 4 }}>{unread}</span>}
+            {t('notif.unread')} {unread > 0 && <span style={{ color: 'var(--warning)', background: 'rgba(234,179,8,0.12)', borderRadius: 10, padding: '0 5px', fontSize: 10, fontWeight: 700, marginLeft: 4 }}>{unread}</span>}
           </button>
-          <button className={`btn${view === 'archive' ? ' btn-primary' : ''}`} onClick={() => setView('archive')} style={{ fontSize: 13 }}>Archiv</button>
+          <button className={`btn${view === 'archive' ? ' btn-primary' : ''}`} onClick={() => setView('archive')} style={{ fontSize: 13 }}>{t('notif.archive')}</button>
         </div>
         {view === 'unread' && localList.length > 0 && (
           <button className="btn btn-primary" disabled={archivingAll} onClick={handleArchiveAll}>
-            {archivingAll ? <><div className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} /> Wird archiviert…</> : 'Alle als gelesen markieren'}
+            {archivingAll ? <><div className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} /> {t('notif.archiving')}</> : t('notif.mark_all_read')}
           </button>
         )}
       </div>
@@ -1199,7 +1206,7 @@ function NotificationsTab({ instanceId }: { instanceId: string }) {
               </p>
             </div>
             <div className="modal-footer" style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button className="btn" onClick={() => setSelectedNotification(null)}>Schließen</button>
+              <button className="btn" onClick={() => setSelectedNotification(null)}>{t('notif.close')}</button>
               {selectedNotification.id && (
                 <button
                   className="btn btn-primary"
@@ -1208,7 +1215,7 @@ function NotificationsTab({ instanceId }: { instanceId: string }) {
                     setSelectedNotification(null)
                   }}
                 >
-                  Als gelesen markieren
+                  {t('notif.mark_read')}
                 </button>
               )}
             </div>
@@ -1217,14 +1224,14 @@ function NotificationsTab({ instanceId }: { instanceId: string }) {
       )}
       {confirmDelete && (
         <ConfirmModal
-          title="Benachrichtigung löschen"
-          message="Benachrichtigung permanent löschen? Dies kann nicht rückgängig gemacht werden."
+          title={t('notif.delete_title')}
+          message={t('notif.delete_msg')}
           onConfirm={async () => {
             const { id, type } = confirmDelete
             setConfirmDelete(null)
             try {
               await deleteNotificationPerm(instanceId, id, type)
-              toast({ message: 'Benachrichtigung gelöscht', type: 'success' })
+              toast({ message: t('notif.deleted'), type: 'success' })
             } catch (e) {
               toast({ message: (e as Error).message, type: 'error' })
             }
@@ -1240,6 +1247,7 @@ function NotificationsTab({ instanceId }: { instanceId: string }) {
 // ── System Tab ────────────────────────────────────────────────────────────────
 
 function SystemTab({ instanceId }: { instanceId: string }) {
+  const { t } = useTranslation('unraid')
   const { info, config, users, loadInfo, loadConfig, loadUsers, errors } = useUnraidStore()
   const data = info[instanceId]
   const cfgData = config[instanceId]
@@ -1308,7 +1316,7 @@ function SystemTab({ instanceId }: { instanceId: string }) {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                  {['Slot', 'Größe', 'Typ', 'Speed', 'Hersteller', 'Part-Nr.'].map(h => (
+                  {['Slot', t('disk.size'), t('disk.type'), 'Speed', t('system.manufacturer'), 'Part-Nr.'].map(h => (
                     <th key={h} style={{ padding: 'var(--spacing-sm) var(--spacing-md)', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 500 }}>{h}</th>
                   ))}
                 </tr>
@@ -1331,15 +1339,15 @@ function SystemTab({ instanceId }: { instanceId: string }) {
 
         {cfg && (
           <div className="glass" style={{ padding: 'var(--spacing-lg)', borderRadius: 'var(--radius-md)' }}>
-            <div style={{ fontWeight: 600, marginBottom: 'var(--spacing-sm)' }}>Lizenz</div>
+            <div style={{ fontWeight: 600, marginBottom: 'var(--spacing-sm)' }}>{t('system.license')}</div>
             {cfg.error && <div className="error-banner" style={{ marginBottom: 8 }}>{cfg.error}</div>}
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <InfoRow icon={<Key size={14} />}    label="Registriert für" value={cfg.registrationTo} />
-              <InfoRow icon={<Tag size={14} />}    label="Lizenztyp"       value={cfg.registrationType} />
-              <InfoRow icon={<Shield size={14} />} label="Status"          value={
+              <InfoRow icon={<Key size={14} />}    label={t('system.registered_for')} value={cfg.registrationTo} />
+              <InfoRow icon={<Tag size={14} />}    label={t('system.license_type')}    value={cfg.registrationType} />
+              <InfoRow icon={<Shield size={14} />} label={t('system.lic_status')}       value={
                 cfg.valid
-                  ? <span style={{ color: 'var(--status-online)', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Check size={12} /> Aktiv</span>
-                  : <span style={{ color: 'var(--status-offline)', display: 'inline-flex', alignItems: 'center', gap: 4 }}><AlertTriangle size={12} /> Ungültig</span>
+                  ? <span style={{ color: 'var(--status-online)', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Check size={12} /> {t('system.lic_valid')}</span>
+                  : <span style={{ color: 'var(--status-offline)', display: 'inline-flex', alignItems: 'center', gap: 4 }}><AlertTriangle size={12} /> {t('system.lic_invalid')}</span>
               } />
             </div>
           </div>
@@ -1378,6 +1386,7 @@ function SystemTab({ instanceId }: { instanceId: string }) {
 // ── UPS Tab ───────────────────────────────────────────────────────────────────
 
 function UpsTab({ instanceId }: { instanceId: string }) {
+  const { t } = useTranslation('unraid')
   const { upsDevices, upsConfig, loadUpsDevices, loadUpsConfig, errors } = useUnraidStore()
   const devices = upsDevices[instanceId] ?? []
   const cfg = upsConfig[instanceId]
@@ -1460,7 +1469,7 @@ function UpsTab({ instanceId }: { instanceId: string }) {
                 {cfg.modelName   && <InfoRow icon={<Package size={14} />} label="Modell"      value={cfg.modelName} />}
                 {cfg.service     && <InfoRow icon={<Activity size={14} />} label="Service"    value={cfg.service} />}
                 {cfg.upsType     && <InfoRow icon={<Settings2 size={14} />} label="Typ"       value={cfg.upsType} />}
-                {cfg.device      && <InfoRow icon={<HardDrive size={14} />} label="Gerät"     value={cfg.device} />}
+                {cfg.device      && <InfoRow icon={<HardDrive size={14} />} label={t('ups.device')}     value={cfg.device} />}
                 {cfg.batteryLevel != null && <InfoRow icon={<Zap size={14} />} label="Akku-Schwelle" value={`${cfg.batteryLevel}%`} />}
                 {cfg.minutes     != null  && <InfoRow icon={<Clock size={14} />} label="Minuten"   value={`${cfg.minutes} Min`} />}
               </div>
@@ -1475,6 +1484,7 @@ function UpsTab({ instanceId }: { instanceId: string }) {
 // ── Logs Tab ──────────────────────────────────────────────────────────────────
 
 function LogsTab({ instanceId }: { instanceId: string }) {
+  const { t } = useTranslation('unraid')
   const { logs, loadLogs, errors } = useUnraidStore()
   const { toast } = useToast()
   const logFiles = logs[instanceId] ?? []
@@ -1510,7 +1520,7 @@ function LogsTab({ instanceId }: { instanceId: string }) {
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>
             <tr style={{ borderBottom: '1px solid var(--border)' }}>
-              {['Name', 'Größe', 'Geändert', ''].map(h => (
+              {[t('disk.name'), t('disk.size'), t('logs.modified'), ''].map(h => (
                 <th key={h} style={{ padding: 'var(--spacing-sm) var(--spacing-md)', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 500 }}>{h}</th>
               ))}
             </tr>
@@ -1524,7 +1534,7 @@ function LogsTab({ instanceId }: { instanceId: string }) {
                 <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
                   {f.path && (
                     <button className="btn btn-primary" style={{ fontSize: 12, padding: '2px 10px' }} onClick={() => handleView(f.path!, f.name ?? f.path!)}>
-                      Anzeigen
+                      {t('logs.view')}
                     </button>
                   )}
                 </td>
@@ -1532,7 +1542,7 @@ function LogsTab({ instanceId }: { instanceId: string }) {
             ))}
           </tbody>
         </table>
-        {logFiles.length === 0 && <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-muted)' }}>Keine Einträge</div>}
+        {logFiles.length === 0 && <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-muted)' }}>{t('empty_entries')}</div>}
       </div>
 
       {viewLog && (
@@ -1549,7 +1559,7 @@ function LogsTab({ instanceId }: { instanceId: string }) {
               }
             </div>
             <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <button className="btn" onClick={() => setViewLog(null)}>Schließen</button>
+              <button className="btn" onClick={() => setViewLog(null)}>{t('confirm.cancel')}</button>
             </div>
           </div>
         </div>
@@ -1642,6 +1652,7 @@ function PluginsTab({ instanceId }: { instanceId: string }) {
 // ── API Keys Tab ──────────────────────────────────────────────────────────────
 
 function ApiKeysTab({ instanceId }: { instanceId: string }) {
+  const { t } = useTranslation('unraid')
   const { apiKeys, loadApiKeys, createApiKey, deleteApiKey, errors } = useUnraidStore()
   const { isAdmin } = useStore()
   const { toast } = useToast()
@@ -1663,7 +1674,7 @@ function ApiKeysTab({ instanceId }: { instanceId: string }) {
     try {
       await createApiKey(instanceId, { name: newName, description: newDesc || undefined, roles: newRoles.length ? newRoles : undefined })
       setShowCreate(false); setNewName(''); setNewDesc(''); setNewRoles([])
-      toast({ message: 'API Key erstellt', type: 'success' })
+      toast({ message: t('apikey.created'), type: 'success' })
     } catch (e) {
       toast({ message: (e as Error).message, type: 'error' })
     } finally {
@@ -1674,14 +1685,14 @@ function ApiKeysTab({ instanceId }: { instanceId: string }) {
   const handleDelete = async (id: string) => {
     try {
       await deleteApiKey(instanceId, id)
-      toast({ message: 'API Key gelöscht', type: 'success' })
+      toast({ message: t('apikey.deleted'), type: 'success' })
     } catch (e) {
       toast({ message: (e as Error).message, type: 'error' })
     }
   }
 
   if (!isAdmin) {
-    return <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Nur für Administratoren.</div>
+    return <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>{t('admin_only')}</div>
   }
 
   return (
@@ -1690,7 +1701,7 @@ function ApiKeysTab({ instanceId }: { instanceId: string }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
         <button className="btn" onClick={() => loadApiKeys(instanceId)}><RefreshCw size={14} /></button>
         <button className="btn btn-primary" onClick={() => setShowCreate(true)} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <Plus size={14} /> Neuer API Key
+          <Plus size={14} /> {t('apikey.new')}
         </button>
       </div>
       <div className="glass" style={{ borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
@@ -1728,14 +1739,14 @@ function ApiKeysTab({ instanceId }: { instanceId: string }) {
             ))}
           </tbody>
         </table>
-        {keyList.length === 0 && <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-muted)' }}>Keine Einträge</div>}
+        {keyList.length === 0 && <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-muted)' }}>{t('empty_entries')}</div>}
       </div>
 
       {showCreate && (
         <div className="modal-overlay" onClick={() => setShowCreate(false)}>
           <div className="modal-content glass" onClick={e => e.stopPropagation()} style={{ maxWidth: 480, width: '100%' }}>
             <div className="modal-header">
-              <h3 className="modal-title">Neuer API Key</h3>
+              <h3 className="modal-title">{t('apikey.new')}</h3>
             </div>
             <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
               <input className="input" placeholder="Name *" value={newName} onChange={e => setNewName(e.target.value)} />
@@ -1756,7 +1767,7 @@ function ApiKeysTab({ instanceId }: { instanceId: string }) {
             <div className="modal-footer" style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
               <button className="btn" onClick={() => setShowCreate(false)}>Abbrechen</button>
               <button className="btn btn-primary" onClick={handleCreate} disabled={!newName || creating}>
-                {creating ? <span className="spinner" style={{ width: 14, height: 14 }} /> : 'Erstellen'}
+                {creating ? <span className="spinner" style={{ width: 14, height: 14 }} /> : t('apikey.create')}
               </button>
             </div>
           </div>
@@ -1765,8 +1776,8 @@ function ApiKeysTab({ instanceId }: { instanceId: string }) {
 
       {confirmDelete && (
         <ConfirmModal
-          title="API Key löschen"
-          message={`API Key "${confirmDelete.name}" löschen?`}
+          title={t('apikey.delete_title')}
+          message={t('apikey.delete_msg', { name: confirmDelete.name })}
           onConfirm={() => { handleDelete(confirmDelete.id); setConfirmDelete(null) }}
           onCancel={() => setConfirmDelete(null)}
           danger
@@ -1783,6 +1794,7 @@ function SortableInstanceCard({ instance, onUpdate, onDelete }: {
   onUpdate: (id: string, data: object) => Promise<void>
   onDelete: (id: string) => Promise<void>
 }) {
+  const { t } = useTranslation('unraid')
   const { online } = useUnraidStore()
   const { toast } = useToast()
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: instance.id })
@@ -1818,7 +1830,7 @@ function SortableInstanceCard({ instance, onUpdate, onDelete }: {
       if (editKey) body.api_key = editKey
       await onUpdate(instance.id, body)
       setEditing(false)
-      toast({ message: 'Instanz aktualisiert', type: 'success' })
+      toast({ message: t('instance.updated'), type: 'success' })
     } catch (e) {
       toast({ message: (e as Error).message, type: 'error' })
     } finally {
@@ -1840,7 +1852,7 @@ function SortableInstanceCard({ instance, onUpdate, onDelete }: {
           </div>
           <div style={{ display: 'flex', gap: 4 }}>
             <button className="btn" onClick={handlePing} disabled={pinging} style={{ padding: '3px 8px', fontSize: 12 }}>
-              {pinging ? <span className="spinner" style={{ width: 12, height: 12 }} /> : 'Testen'}
+              {pinging ? <span className="spinner" style={{ width: 12, height: 12 }} /> : t('instance.test')}
               {pingResult === true && !pinging && <span style={{ color: 'var(--status-online)', marginLeft: 4 }}>✓</span>}
               {pingResult === false && !pinging && <span style={{ color: 'var(--status-offline)', marginLeft: 4 }}>✗</span>}
             </button>
@@ -1852,11 +1864,11 @@ function SortableInstanceCard({ instance, onUpdate, onDelete }: {
                 setEditing(true)
               }
             }} style={{ padding: '3px 8px', fontSize: 12 }}>
-              {editing ? 'Abbrechen' : 'Bearbeiten'}
+              {editing ? t('instance.cancel') : t('instance.edit')}
             </button>
             <button
               className="btn"
-              onClick={() => onUpdate(instance.id, { enabled: !instance.enabled }).then(() => toast({ message: instance.enabled ? 'Deaktiviert' : 'Aktiviert', type: 'success' })).catch(e => toast({ message: (e as Error).message, type: 'error' }))}
+              onClick={() => onUpdate(instance.id, { enabled: !instance.enabled }).then(() => toast({ message: instance.enabled ? t('instance.disabled') : t('instance.enabled_msg'), type: 'success' })).catch(e => toast({ message: (e as Error).message, type: 'error' }))}
               style={{ padding: '3px 8px', fontSize: 12, opacity: instance.enabled ? 1 : 0.5 }}
             >
               {instance.enabled ? <Eye size={12} /> : <EyeOff size={12} />}
@@ -1872,15 +1884,15 @@ function SortableInstanceCard({ instance, onUpdate, onDelete }: {
             <input className="input" value={editName} onChange={e => setEditName(e.target.value)} placeholder="Name" />
             <input className="input" value={editUrl} onChange={e => setEditUrl(e.target.value)} placeholder="URL" />
             <div style={{ position: 'relative' }}>
-              <input className="input" type={showKey ? 'text' : 'password'} value={editKey} onChange={e => setEditKey(e.target.value)} placeholder="Neuer API Key (leer = unverändert)" style={{ paddingRight: 40 }} />
+              <input className="input" type={showKey ? 'text' : 'password'} value={editKey} onChange={e => setEditKey(e.target.value)} placeholder={t('instance.api_key_placeholder')} style={{ paddingRight: 40 }} />
               <button className="btn" onClick={() => setShowKey(v => !v)} style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', padding: '2px 6px', minHeight: 'unset' }}>
                 {showKey ? <EyeOff size={12} /> : <Eye size={12} />}
               </button>
             </div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button className="btn" onClick={() => setEditing(false)}>Abbrechen</button>
+              <button className="btn" onClick={() => setEditing(false)}>{t('instance.cancel')}</button>
               <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
-                {saving ? <span className="spinner" style={{ width: 14, height: 14 }} /> : 'Speichern'}
+                {saving ? <span className="spinner" style={{ width: 14, height: 14 }} /> : t('instance.save')}
               </button>
             </div>
           </div>
@@ -1889,9 +1901,9 @@ function SortableInstanceCard({ instance, onUpdate, onDelete }: {
 
       {confirmDelete && (
         <ConfirmModal
-          title="Instanz entfernen"
-          message="Instanz entfernen? Alle gespeicherten Daten werden gelöscht."
-          onConfirm={() => { onDelete(instance.id).then(() => toast({ message: 'Instanz gelöscht', type: 'success' })).catch(e => toast({ message: (e as Error).message, type: 'error' })); setConfirmDelete(false) }}
+          title={t('instance.delete_title')}
+          message={t('instance.delete_msg')}
+          onConfirm={() => { onDelete(instance.id).then(() => toast({ message: t('instance.deleted'), type: 'success' })).catch(e => toast({ message: (e as Error).message, type: 'error' })); setConfirmDelete(false) }}
           onCancel={() => setConfirmDelete(false)}
           danger
         />
@@ -1903,6 +1915,7 @@ function SortableInstanceCard({ instance, onUpdate, onDelete }: {
 // ── Management Tab ────────────────────────────────────────────────────────────
 
 function ManagementTab() {
+  const { t } = useTranslation('unraid')
   const { instances, reorderInstances, updateInstance, deleteInstance } = useUnraidStore()
   const { isAdmin } = useStore()
   const { toast } = useToast()
@@ -1919,7 +1932,7 @@ function ManagementTab() {
   }
 
   if (!isAdmin) {
-    return <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Nur für Administratoren.</div>
+    return <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>{t('admin_only')}</div>
   }
 
   return (
@@ -1939,21 +1952,10 @@ function ManagementTab() {
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
-const CONTENT_TABS = [
-  { key: 'overview',      label: 'Übersicht' },
-  { key: 'array',         label: 'HDD' },
-  { key: 'docker',        label: 'Docker' },
-  { key: 'vms',           label: 'VMs' },
-  { key: 'shares',        label: 'Freigaben' },
-  { key: 'notifications', label: 'Benachrichtigungen' },
-  { key: 'system',        label: 'System' },
-  { key: 'ups',           label: 'UPS' },
-  { key: 'logs',          label: 'Logs' },
-  { key: 'plugins',       label: 'Plugins' },
-  { key: 'apikeys',       label: 'API Keys' },
-]
+const CONTENT_TAB_KEYS = ['overview', 'array', 'docker', 'vms', 'shares', 'notifications', 'system', 'ups', 'logs', 'plugins', 'apikeys'] as const
 
 export function UnraidPage({ onNavigate }: { onNavigate?: (page: string) => void } = {}) {
+  const { t } = useTranslation('unraid')
   const { instances, selectedId, online, loadInstances, setSelected, pingAll } = useUnraidStore()
   const [instTab, setInstTab] = useState<string>('') // selected instance id or 'management'
   const [contentTab, setContentTab] = useState('overview')
@@ -2017,7 +2019,7 @@ export function UnraidPage({ onNavigate }: { onNavigate?: (page: string) => void
           </button>
         ))}
         <button style={tabStyle(false)} onClick={() => onNavigate?.('instances')}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Settings2 size={14} /> Instanzen</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Settings2 size={14} /> {t('instance.manage')}</span>
         </button>
       </div>
 
@@ -2025,9 +2027,9 @@ export function UnraidPage({ onNavigate }: { onNavigate?: (page: string) => void
         <div>
           {/* Content tab bar */}
           <div style={{ display: 'flex', overflowX: 'auto', borderBottom: '1px solid var(--border)', marginBottom: 'var(--spacing-lg)', gap: 4 }}>
-            {CONTENT_TABS.map(t => (
-              <button key={t.key} style={tabStyle(contentTab === t.key)} onClick={() => setContentTab(t.key)}>
-                {t.label}
+            {CONTENT_TAB_KEYS.map(key => (
+              <button key={key} style={tabStyle(contentTab === key)} onClick={() => setContentTab(key)}>
+                {t(`ctab.${key}`)}
               </button>
             ))}
           </div>

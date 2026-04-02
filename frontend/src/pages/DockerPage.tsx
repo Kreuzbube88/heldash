@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useDockerStore } from '../store/useDockerStore'
 import { useStore } from '../store/useStore'
+import { useTranslation } from 'react-i18next'
 import { ArrowLeft, RefreshCw, Play, Square, RotateCcw, Search, ChevronUp, ChevronDown } from 'lucide-react'
 import type { DockerContainer, ContainerStats, DockerLogEvent } from '../types'
 import { containerCounts } from '../utils'
@@ -147,6 +148,7 @@ function ContainerTable({
   onSort: (col: SortCol) => void
   onSelect: (id: string) => void
 }) {
+  const { t } = useTranslation('docker')
   const filtered = containers.filter(c =>
     c.name.toLowerCase().includes(filter.toLowerCase()) ||
     c.image.toLowerCase().includes(filter.toLowerCase())
@@ -159,18 +161,18 @@ function ContainerTable({
       <div className="empty-state">
         <div className="empty-state-icon">🐳</div>
         <div className="empty-state-text">
-          {containers.length === 0 ? 'No containers found.\nIs the Docker socket mounted?' : 'No containers match the filter.'}
+          {containers.length === 0 ? t('empty.no_containers') : t('empty.no_filter_match')}
         </div>
       </div>
     )
   }
 
   const cols: { label: string; col: SortCol }[] = [
-    { label: 'Name', col: 'name' },
-    { label: 'Image', col: 'image' },
-    { label: 'Status', col: 'state' },
-    { label: 'Uptime', col: 'uptime' },
-    { label: 'CPU / Memory', col: 'cpu' },
+    { label: t('table.name'), col: 'name' },
+    { label: t('table.image'), col: 'image' },
+    { label: t('table.status'), col: 'state' },
+    { label: t('table.uptime'), col: 'uptime' },
+    { label: t('table.cpu_memory'), col: 'cpu' },
   ]
 
   return (
@@ -248,6 +250,7 @@ function ContainerDetail({
   container: DockerContainer
   onBack: () => void
 }) {
+  const { t } = useTranslation('docker')
   const { isAdmin } = useStore()
   const { controlContainer, loadContainers } = useDockerStore()
   const [logs, setLogs] = useState<DockerLogEvent[]>([])
@@ -335,17 +338,17 @@ function ContainerDetail({
             <button className="btn btn-ghost btn-sm" onClick={() => handleControl('start')}
               disabled={controlling || currentState === 'running'}
               style={{ gap: 5, fontSize: 12, color: (!controlling && currentState !== 'running') ? 'var(--status-online)' : undefined, borderColor: (!controlling && currentState !== 'running') ? 'rgba(34,197,94,0.35)' : undefined }}>
-              {controlling ? <div className="spinner" style={{ width: 10, height: 10, borderWidth: 1.5 }} /> : <Play size={12} />} Start
+              {controlling ? <div className="spinner" style={{ width: 10, height: 10, borderWidth: 1.5 }} /> : <Play size={12} />} {t('detail.start')}
             </button>
             <button className="btn btn-ghost btn-sm" onClick={() => handleControl('stop')}
               disabled={controlling || currentState !== 'running'}
               style={{ gap: 5, fontSize: 12, color: (!controlling && currentState === 'running') ? 'var(--status-offline)' : undefined, borderColor: (!controlling && currentState === 'running') ? 'rgba(239,68,68,0.35)' : undefined }}>
-              {controlling ? <div className="spinner" style={{ width: 10, height: 10, borderWidth: 1.5 }} /> : <Square size={12} />} Stop
+              {controlling ? <div className="spinner" style={{ width: 10, height: 10, borderWidth: 1.5 }} /> : <Square size={12} />} {t('detail.stop')}
             </button>
             <button className="btn btn-ghost btn-sm" onClick={() => handleControl('restart')}
               disabled={controlling}
               style={{ gap: 5, fontSize: 12, color: !controlling ? '#f59e0b' : undefined, borderColor: !controlling ? 'rgba(245,158,11,0.35)' : undefined }}>
-              {controlling ? <div className="spinner" style={{ width: 10, height: 10, borderWidth: 1.5 }} /> : <RotateCcw size={12} />} Restart
+              {controlling ? <div className="spinner" style={{ width: 10, height: 10, borderWidth: 1.5 }} /> : <RotateCcw size={12} />} {t('detail.restart')}
             </button>
           </div>
         )}
@@ -363,7 +366,7 @@ function ContainerDetail({
           <Search size={13} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
           <input
             className="form-input"
-            placeholder="Filter logs…"
+            placeholder={t('detail.logs_filter')}
             value={logFilter}
             onChange={e => setLogFilter(e.target.value)}
             style={{ flex: 1, fontSize: 12, padding: '4px 8px', height: 30 }}
@@ -387,7 +390,7 @@ function ContainerDetail({
         <div style={{ flex: 1, overflowY: 'auto', padding: '10px 16px' }}>
           {visibleLogs.length === 0 && (
             <div style={{ fontSize: 12, color: 'var(--text-muted)', padding: '16px 0' }}>
-              {logs.length === 0 ? 'Waiting for logs…' : 'No lines match the filter.'}
+              {logs.length === 0 ? t('detail.waiting_for_logs') : t('detail.no_lines_match')}
             </div>
           )}
           {visibleLogs.map((evt, i) => <LogLine key={i} evt={evt} />)}
@@ -400,6 +403,7 @@ function ContainerDetail({
 
 // ── Main Docker page ──────────────────────────────────────────────────────────
 export function DockerPage() {
+  const { t } = useTranslation('docker')
   const { containers, stats, loading, error, loadContainers, loadAllStats } = useDockerStore()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [filter, setFilter] = useState('')
@@ -453,17 +457,17 @@ export function DockerPage() {
       {/* Toolbar: overview pills left, filter+refresh right */}
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <StatPill label="Total"      value={containers.length} color="var(--accent)" />
-          <StatPill label="Running"    value={running}    color="var(--status-online)" />
-          <StatPill label="Stopped"    value={stopped}    color="var(--text-muted)" />
-          <StatPill label="Restarting" value={restarting} color="#f59e0b" />
+          <StatPill label={t('stats.total')}      value={containers.length} color="var(--accent)" />
+          <StatPill label={t('stats.running')}    value={running}    color="var(--status-online)" />
+          <StatPill label={t('stats.stopped')}    value={stopped}    color="var(--text-muted)" />
+          <StatPill label={t('stats.restarting')} value={restarting} color="#f59e0b" />
         </div>
         <div style={{ flex: 1 }} />
         <div style={{ position: 'relative' }}>
           <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
           <input
             className="form-input"
-            placeholder="Filter containers…"
+            placeholder={t('filter.placeholder')}
             value={filter}
             onChange={e => setFilter(e.target.value)}
             style={{ paddingLeft: 30, fontSize: 13, width: 220 }}
@@ -481,7 +485,7 @@ export function DockerPage() {
       {error && (
         <div style={{ fontSize: 13, color: 'var(--status-offline)', padding: '12px 16px', background: 'rgba(239,68,68,0.08)', borderRadius: 'var(--radius-md)' }}>
           {error.includes('503') || error.toLowerCase().includes('docker unavailable')
-            ? 'Docker socket unavailable. Make sure /var/run/docker.sock is mounted.'
+            ? t('error.socket_unavailable')
             : error}
         </div>
       )}

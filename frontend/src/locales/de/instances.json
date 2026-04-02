@@ -1,0 +1,52 @@
+{
+  "title": "Instanzen",
+  "add": "Instanz hinzufügen",
+  "count": "{{count}} Instanzen konfiguriert",
+  "load_error": "Fehler beim Laden",
+  "delete_title": "Instanz löschen",
+  "delete_msg": "\"{{name}}\" ({{type}}) wirklich löschen?",
+  "delete_confirm": "Löschen",
+  "delete_error": "Fehler beim Löschen",
+  "empty_title": "Noch keine Instanzen",
+  "empty_add": "Erste Instanz hinzufügen",
+  "modal": {
+    "title_add": "Instanz hinzufügen",
+    "title_edit": "Instanz bearbeiten",
+    "type": "Typ",
+    "name": "Name",
+    "url": "URL",
+    "token": "Token",
+    "api_key": "API Key",
+    "enabled": "Aktiviert",
+    "icon": "Icon",
+    "selected_icon": "Ausgewähltes Icon",
+    "save": "Speichern",
+    "saving": "Speichern...",
+    "cancel": "Abbrechen",
+    "name_required": "Name ist erforderlich",
+    "url_required": "URL ist erforderlich",
+    "token_required": "Token ist erforderlich",
+    "api_key_required": "API Key ist erforderlich",
+    "save_failed": "Speichern fehlgeschlagen",
+    "credential_empty_hint": "leer lassen = unverändert",
+    "discard_title": "Änderungen verwerfen?",
+    "discard_msg": "Es gibt ungespeicherte Änderungen. Möchtest du wirklich abbrechen?",
+    "discard_confirm": "Verwerfen"
+  },
+  "card": {
+    "test": "Verbindung testen",
+    "edit": "Bearbeiten",
+    "delete": "Löschen"
+  },
+  "test": {
+    "test": "Testen",
+    "testing": "Teste…",
+    "success": "Verbindung erfolgreich",
+    "failed": "Verbindung fehlgeschlagen"
+  },
+  "status": {
+    "online": "Online",
+    "offline": "Offline",
+    "checking": "Prüfen…"
+  }
+}

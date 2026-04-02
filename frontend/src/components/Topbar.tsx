@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { Sun, Moon, RefreshCw, Plus, LogIn, LogOut, Pencil, LayoutGrid, LayoutList, Minus, Users } from 'lucide-react'
+import { useLanguageStore } from '../store/useLanguageStore'
 import { useStore } from '../store/useStore'
 import { useDashboardStore } from '../store/useDashboardStore'
 import { useWidgetStore } from '../store/useWidgetStore'
@@ -25,6 +26,8 @@ const ACCENTS: { value: ThemeAccent; label: string; color: string }[] = [
 ]
 
 export function Topbar({ page, onAddService, onAddInstance, onAddWidget, onCheckAll, checking, onLogin }: Props) {
+  const { language } = useLanguageStore()
+  const dateLocale = language === 'de' ? 'de-DE' : 'en-US'
   const { settings, setThemeMode, setThemeAccent, isAuthenticated, isAdmin, authUser, logout, loadAll } = useStore()
   const { loadDashboard, editMode, setEditMode, addPlaceholder, guestMode, setGuestMode } = useDashboardStore()
   const { widgets, stats, loadWidgets, loadStats, startPolling, stopPolling } = useWidgetStore()
@@ -78,9 +81,9 @@ export function Topbar({ page, onAddService, onAddInstance, onAddWidget, onCheck
   return (
     <header className="topbar">
       <div className="topbar-title">
-        <span>{serverNow.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</span>
+        <span>{serverNow.toLocaleDateString(dateLocale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</span>
         <span style={{ marginLeft: 10, fontVariantNumeric: 'tabular-nums' }}>
-          {serverNow.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+          {serverNow.toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
         </span>
       </div>
 

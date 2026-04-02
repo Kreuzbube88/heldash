@@ -1,0 +1,27 @@
+{
+  "language_step": {
+    "title": "Choose Language",
+    "subtitle": "Select your preferred language.",
+    "continue": "Continue"
+  },
+  "account_step": {
+    "title": "Welcome — Create Admin Account",
+    "subtitle": "Set up your administrator account to get started.",
+    "username": "Username *",
+    "first_name": "First Name *",
+    "last_name": "Last Name *",
+    "email": "Email",
+    "password": "Password *",
+    "confirm_password": "Confirm Password *",
+    "submit": "Create Account & Continue",
+    "submitting": "Setting up…"
+  },
+  "errors": {
+    "username_required": "Username is required",
+    "first_name_required": "First name is required",
+    "last_name_required": "Last name is required",
+    "password_min_length": "Password must be at least 8 characters",
+    "passwords_no_match": "Passwords do not match",
+    "setup_failed": "Setup failed"
+  }
+}

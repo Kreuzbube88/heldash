@@ -1,0 +1,16 @@
+{
+  "title": "About",
+  "code": {
+    "copy": "Kopieren",
+    "copied": "Kopiert!"
+  },
+  "changelog": {
+    "title": "Changelog",
+    "subtitle": "HELDASH Release Notes",
+    "github": "GitHub",
+    "loading": "Lade…",
+    "load_error": "Releases konnten nicht geladen werden.",
+    "no_releases": "Keine Releases gefunden",
+    "latest": "Neueste"
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "title": "Lesezeichen",
+  "add": "Lesezeichen hinzufügen",
+  "modal": {
+    "title_add": "Bookmark hinzufügen",
+    "title_edit": "Bookmark bearbeiten",
+    "name": "Name *",
+    "name_placeholder": "Mein Link",
+    "url": "URL *",
+    "description": "Beschreibung",
+    "save": "Speichern",
+    "saving": "Speichern…",
+    "cancel": "Abbrechen",
+    "name_required": "Name ist erforderlich",
+    "url_required": "URL ist erforderlich",
+    "save_failed": "Speichern fehlgeschlagen"
+  },
+  "actions": {
+    "edit": "Bearbeiten",
+    "delete": "Löschen",
+    "open": "Öffnen",
+    "dashboard": "Dashboard"
+  },
+  "empty": {
+    "title": "Keine Lesezeichen",
+    "subtitle": "Füge Links zu häufig besuchten Seiten hinzu."
+  },
+  "delete_confirm": "Lesezeichen löschen?",
+  "import_export": {
+    "import": "Importieren",
+    "export": "Exportieren"
+  }
+}

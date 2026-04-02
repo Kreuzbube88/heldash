@@ -1,0 +1,33 @@
+{
+  "title": "Bookmarks",
+  "add": "Add Bookmark",
+  "modal": {
+    "title_add": "Add Bookmark",
+    "title_edit": "Edit Bookmark",
+    "name": "Name *",
+    "name_placeholder": "My Link",
+    "url": "URL *",
+    "description": "Description",
+    "save": "Save",
+    "saving": "Saving…",
+    "cancel": "Cancel",
+    "name_required": "Name is required",
+    "url_required": "URL is required",
+    "save_failed": "Save failed"
+  },
+  "actions": {
+    "edit": "Edit",
+    "delete": "Delete",
+    "open": "Open",
+    "dashboard": "Dashboard"
+  },
+  "empty": {
+    "title": "No Bookmarks",
+    "subtitle": "Add links to frequently visited pages."
+  },
+  "delete_confirm": "Delete bookmark?",
+  "import_export": {
+    "import": "Import",
+    "export": "Export"
+  }
+}

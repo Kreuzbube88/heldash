@@ -1,0 +1,97 @@
+{
+  "title": "Home Assistant",
+  "tabs": {
+    "overview": "Hausübersicht",
+    "scenes": "Szenarien",
+    "automations": "Automationen"
+  },
+  "instance": {
+    "add": "Instanz hinzufügen",
+    "edit": "Instanz bearbeiten",
+    "no_instances": "Keine Home Assistant Instanzen konfiguriert.",
+    "add_first": "Erste Instanz hinzufügen",
+    "name": "Name",
+    "url": "URL",
+    "token": "Long-Lived Access Token",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "saving": "Speichern…",
+    "delete_confirm": "Instanz löschen?",
+    "delete_confirm_msg": "Alle Panels dieser Instanz werden ebenfalls gelöscht."
+  },
+  "panel": {
+    "add": "Panel hinzufügen",
+    "edit": "Panel bearbeiten",
+    "label": "Label",
+    "label_placeholder": "Leer = HA-Name verwenden",
+    "room": "Raum",
+    "no_room": "Kein Raum",
+    "area": "Bereich",
+    "no_area": "— Kein Bereich —",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "delete_confirm": "Panel entfernen?"
+  },
+  "browser": {
+    "title": "Entität auswählen",
+    "search": "Entitäten suchen…",
+    "add": "Hinzufügen",
+    "added": "Hinzugefügt",
+    "loading": "Lade Entitäten…",
+    "error": "Fehler beim Laden"
+  },
+  "floorplan": {
+    "title": "Grundriss",
+    "upload": "Bild hochladen",
+    "no_image": "Kein Grundriss-Bild vorhanden.",
+    "place_entity": "Entität platzieren"
+  },
+  "alerts": {
+    "title": "Alarme",
+    "add": "Alarm hinzufügen",
+    "no_alerts": "Keine Alarme konfiguriert.",
+    "entity": "Entität",
+    "condition": "Bedingung",
+    "message": "Nachricht",
+    "min_interval": "Min. Interval (Sek.)",
+    "delete_confirm": "Alarm löschen?"
+  },
+  "history": {
+    "title": "Verlauf",
+    "no_data": "Keine Verlaufsdaten",
+    "loading": "Lade Verlauf…"
+  },
+  "view": {
+    "panels": "Panels",
+    "floorplan": "Grundriss",
+    "gps": "GPS",
+    "alerts": "Alarme",
+    "flat": "Flach",
+    "by_room": "Nach Raum",
+    "no_rooms": "Räume in Home Assistant nicht konfiguriert",
+    "unassigned": "Ohne Raum"
+  },
+  "scenes": {
+    "search": "Szenarien suchen…",
+    "scene_label": "Szene",
+    "run": "Ausführen",
+    "running": "Ausgeführt!",
+    "empty": "Keine Szenarien oder Scripts gefunden."
+  },
+  "automations": {
+    "search": "Automationen suchen…",
+    "trigger": "Auslösen",
+    "enable": "Aktivieren",
+    "disable": "Deaktivieren",
+    "on": "An",
+    "off": "Aus",
+    "empty": "Keine Automationen gefunden."
+  },
+  "instances": "Instanzen",
+  "add_instance": "Instanz hinzufügen",
+  "status": {
+    "connected": "Verbunden",
+    "disconnected": "Getrennt",
+    "connecting": "Verbinde…"
+  }
+}

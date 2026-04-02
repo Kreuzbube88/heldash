@@ -1,0 +1,83 @@
+{
+  "title": "Logbuch",
+  "tabs": {
+    "aktivitaeten": "Aktivitäten",
+    "uptime": "Uptime",
+    "sync": "Sync-Verlauf",
+    "ressourcen": "Ressourcen"
+  },
+  "health": {
+    "homelab_status": "Homelab Status",
+    "running": "laufend",
+    "docker_unavailable": "nicht verfügbar",
+    "recyclarr_none": "Kein Sync",
+    "recyclarr_ok": "Letzter Sync erfolgreich",
+    "recyclarr_fail": "Letzter Sync fehlgeschlagen",
+    "reachable": "erreichbar",
+    "total": "Gesamt"
+  },
+  "calendar": {
+    "title": "Ereignis-Kalender — letzte 12 Wochen",
+    "no_events": "Keine Events",
+    "legend_few": "Wenig",
+    "legend_many": "Viel / Fehler",
+    "mon": "Mo",
+    "tue": "Di",
+    "wed": "Mi",
+    "thu": "Do",
+    "fri": "Fr",
+    "sat": "Sa",
+    "sun": "So"
+  },
+  "activity": {
+    "cat_all": "Alle",
+    "cat_system": "System",
+    "cat_network": "Netzwerk",
+    "time_today": "Heute",
+    "time_7d": "7 Tage",
+    "time_30d": "30 Tage",
+    "search_placeholder": "Suchen…",
+    "refresh": "Aktualisieren",
+    "empty": "Noch keine Aktivitäten aufgezeichnet",
+    "empty_filtered": "Keine Einträge für die gewählten Filter",
+    "unstable_services": "Instabile Services",
+    "offline_today": "offline heute",
+    "back": "Zurück",
+    "next": "Weiter",
+    "page": "Seite {{page}} / {{total}} ({{count}} Einträge)"
+  },
+  "uptime": {
+    "title": "Uptime Übersicht",
+    "updated": "Aktualisiert",
+    "sort_label": "Sortierung",
+    "sort_name": "Name A→Z",
+    "sort_desc": "Uptime ↓",
+    "sort_asc": "Uptime ↑",
+    "total": "Gesamt",
+    "online": "Online",
+    "offline": "Offline",
+    "avg_7d": "Ø Uptime 7 Tage",
+    "no_data": "Keine Daten"
+  },
+  "sync": {
+    "empty": "Kein Sync-Verlauf vorhanden",
+    "refresh": "Aktualisieren",
+    "created": "erstellt",
+    "updated": "aktualisiert",
+    "deleted": "gelöscht",
+    "no_changes": "Keine Änderungen",
+    "no_log": "Kein Änderungsprotokoll"
+  },
+  "resources": {
+    "no_data": "Keine Daten",
+    "load_error": "Fehler beim Laden",
+    "datapoints": "{{count}} Messpunkte",
+    "range_1h": "1 Std.",
+    "range_24h": "24 Std.",
+    "range_7d": "7 Tage",
+    "empty": "Noch keine Ressourcen-Daten vorhanden.",
+    "empty_hint": "Daten werden minütlich aufgezeichnet — bitte warte einen Moment.",
+    "net_rx": "Netz RX",
+    "net_tx": "Netz TX"
+  }
+}

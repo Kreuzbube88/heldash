@@ -1,5 +1,7 @@
 import { useEffect, useState, Component } from 'react'
 import type { ErrorInfo, ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
+import { useLanguageStore } from './store/useLanguageStore'
 import { useStore } from './store/useStore'
 import { useDashboardStore } from './store/useDashboardStore'
 import { Sidebar } from './components/Sidebar'
@@ -87,7 +89,13 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
 function App() {
   const { loadAll, loadServices, checkAllServices, checkAuth, startHealthPolling, settings, authReady, needsSetup, isAdmin, isAuthenticated, authUser, userGroups, myBackground, loadMyBackground } = useStore()
   const { loadDashboard } = useDashboardStore()
+  const { language } = useLanguageStore()
+  const { i18n } = useTranslation()
   const [page, setPage] = useState('dashboard')
+
+  useEffect(() => {
+    i18n.changeLanguage(language)
+  }, [language, i18n])
   const [showModal, setShowModal] = useState(false)
   const [showLogin, setShowLogin] = useState(false)
   const [editService, setEditService] = useState<Service | null>(null)

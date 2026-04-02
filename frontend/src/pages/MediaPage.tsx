@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { api } from '../api'
 import { useStore } from '../store/useStore'
 import { useArrStore } from '../store/useArrStore'
@@ -1783,6 +1784,7 @@ function RecyclarrWizard({ instances, onClose, onComplete }: {
   onClose: () => void
   onComplete: (cfg: WizardConfig) => Promise<void>
 }) {
+  const { t } = useTranslation('media')
   const [step, setStep] = useState(1)
   const [selectedInstanceId, setSelectedInstanceId] = useState(instances[0]?.id ?? '')
   const [profilesList, setProfilesList] = useState<{ trash_id: string; name: string }[]>([])
@@ -1862,24 +1864,24 @@ function RecyclarrWizard({ instances, onClose, onComplete }: {
         <div style={{ display: 'flex', alignItems: 'center' }}>
           <div style={{ flex: 1 }}>
             <span style={{ fontSize: 16, fontWeight: 600 }}>Recyclarr einrichten</span>
-            <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 12 }}>Schritt {step} von 5</span>
+            <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 12 }}>{t('wizard.step_of', { step, total: 5 })}</span>
           </div>
           <button className="btn btn-ghost btn-sm" onClick={() => setConfirmClose(true)} style={{ fontSize: 12 }}><X size={14} /></button>
         </div>
 
         {confirmClose && (
           <div style={{ padding: '10px 14px', background: 'rgba(248,113,113,0.08)', borderRadius: 'var(--radius-md)' }}>
-            <p style={{ fontSize: 13, marginBottom: 8 }}>Einrichtung abbrechen? Eingaben gehen verloren.</p>
+            <p style={{ fontSize: 13, marginBottom: 8 }}>{t('wizard.cancel_confirm')}</p>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn btn-ghost btn-sm" onClick={() => setConfirmClose(false)} style={{ fontSize: 12 }}>Weitermachen</button>
-              <button className="btn btn-sm" onClick={onClose} style={{ fontSize: 12, background: 'rgba(248,113,113,0.15)', color: '#f87171', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 'var(--radius-sm)', padding: '4px 12px', cursor: 'pointer' }}>Beenden</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => setConfirmClose(false)} style={{ fontSize: 12 }}>{t('wizard.continue')}</button>
+              <button className="btn btn-sm" onClick={onClose} style={{ fontSize: 12, background: 'rgba(248,113,113,0.15)', color: '#f87171', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 'var(--radius-sm)', padding: '4px 12px', cursor: 'pointer' }}>{t('wizard.quit')}</button>
             </div>
           </div>
         )}
 
         {step === 1 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <h4 style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>Instanz wählen</h4>
+            <h4 style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>{t('wizard.select_instance')}</h4>
             {instances.map(inst => (
               <label key={inst.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: selectedInstanceId === inst.id ? 'rgba(var(--accent-rgb), 0.08)' : 'rgba(var(--text-rgb), 0.04)', borderRadius: 'var(--radius-md)', cursor: 'pointer', border: selectedInstanceId === inst.id ? '1px solid rgba(var(--accent-rgb), 0.25)' : '1px solid transparent' }}>
                 <input type="radio" name="wizard-inst" checked={selectedInstanceId === inst.id} onChange={() => setSelectedInstanceId(inst.id)} />
@@ -1895,14 +1897,14 @@ function RecyclarrWizard({ instances, onClose, onComplete }: {
 
         {step === 2 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <h4 style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>Profile wählen</h4>
+            <h4 style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>{t('wizard.select_profiles')}</h4>
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer', marginBottom: 4 }}>
               <input type="checkbox" checked={qualDef} onChange={e => setQualDef(e.target.checked)} />
-              Quality Definition aktivieren
-              <span className="badge-neutral" style={{ fontSize: 10 }}>Empfohlen</span>
+              {t('wizard.quality_def_enable')}
+              <span className="badge-neutral" style={{ fontSize: 10 }}>{t('wizard.recommended')}</span>
             </label>
             {loadingProfiles ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} /><span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Lade Profile…</span></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} /><span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{t('wizard.loading_profiles')}</span></div>
             ) : (
               profilesList.map(p => (
                 <label key={p.trash_id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: selectedProfiles.includes(p.trash_id) ? 'rgba(var(--accent-rgb), 0.08)' : 'rgba(var(--text-rgb), 0.04)', borderRadius: 'var(--radius-md)', cursor: 'pointer', border: selectedProfiles.includes(p.trash_id) ? '1px solid rgba(var(--accent-rgb), 0.25)' : '1px solid transparent' }}>
@@ -1920,22 +1922,22 @@ function RecyclarrWizard({ instances, onClose, onComplete }: {
 
         {step === 3 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <h4 style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>Basis-Einstellungen</h4>
+            <h4 style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>{t('wizard.basic_settings')}</h4>
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
               <input type="checkbox" checked={germanOnly} onChange={e => setGermanOnly(e.target.checked)} />
-              Nur deutsche Releases (min. Score 10000)
-              <span className="badge-neutral" style={{ fontSize: 10 }}>Releases ohne deutschen Ton werden ignoriert</span>
+              {t('wizard.german_only')}
+              <span className="badge-neutral" style={{ fontSize: 10 }}>{t('wizard.german_only_hint')}</span>
             </label>
           </div>
         )}
 
         {step === 4 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <h4 style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>User CFs zuweisen</h4>
+            <h4 style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>{t('wizard.assign_user_cfs')}</h4>
             {loadingUserCfs ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} /><span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Lade User CFs…</span></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} /><span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{t('wizard.loading_user_cfs')}</span></div>
             ) : userCfs.length === 0 ? (
-              <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Noch keine eigenen CFs vorhanden.</p>
+              <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>{t('wizard.no_user_cfs')}</p>
             ) : (
               userCfs.map(cf => (
                 <label key={cf.trash_id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: selectedUserCfs.includes(cf.trash_id) ? 'rgba(var(--accent-rgb), 0.08)' : 'rgba(var(--text-rgb), 0.04)', borderRadius: 'var(--radius-md)', cursor: 'pointer', border: selectedUserCfs.includes(cf.trash_id) ? '1px solid rgba(var(--accent-rgb), 0.25)' : '1px solid transparent' }}>
@@ -1951,32 +1953,32 @@ function RecyclarrWizard({ instances, onClose, onComplete }: {
 
         {step === 5 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <h4 style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>Zusammenfassung</h4>
+            <h4 style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>{t('wizard.summary')}</h4>
             <div style={{ fontSize: 13, display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <div><strong>Instanz:</strong> {selectedInstance?.name} ({selectedInstance?.type})</div>
-              <div><strong>Profile:</strong> {selectedProfiles.map(tid => profilesList.find(p => p.trash_id === tid)?.name).join(', ') || '–'}</div>
-              <div><strong>Quality Definition:</strong> {qualDef ? 'Ja' : 'Nein'}</div>
-              <div><strong>Nur deutsch:</strong> {germanOnly ? 'Ja (min. 10000)' : 'Nein'}</div>
+              <div><strong>{t('wizard.instance')}:</strong> {selectedInstance?.name} ({selectedInstance?.type})</div>
+              <div><strong>{t('wizard.profiles')}:</strong> {selectedProfiles.map(tid => profilesList.find(p => p.trash_id === tid)?.name).join(', ') || '–'}</div>
+              <div><strong>Quality Definition:</strong> {qualDef ? t('common_yes') : t('common_no')}</div>
+              <div><strong>{t('wizard.german_only_label')}:</strong> {germanOnly ? t('wizard.yes_german') : t('common_no')}</div>
               <div><strong>User CFs:</strong> {selectedUserCfs.length}</div>
             </div>
           </div>
         )}
 
         <div style={{ display: 'flex', gap: 8, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
-          {step > 1 && <button className="btn btn-ghost btn-sm" onClick={() => setStep(s => s - 1)} style={{ fontSize: 12 }}>Zurück</button>}
+          {step > 1 && <button className="btn btn-ghost btn-sm" onClick={() => setStep(s => s - 1)} style={{ fontSize: 12 }}>{t('common_back')}</button>}
           <div style={{ flex: 1 }} />
           {step < 5 && (
             <button className="btn btn-primary btn-sm"
               onClick={() => setStep(s => s + 1)}
               disabled={(step === 1 && !selectedInstanceId) || (step === 2 && selectedProfiles.length === 0)}
               style={{ fontSize: 12 }}>
-              Weiter
+              {t('common_next')}
             </button>
           )}
           {step === 5 && (
             <button className="btn btn-primary btn-sm" onClick={handleComplete} disabled={saving} style={{ fontSize: 12, gap: 4 }}>
               {saving ? <div className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} /> : <Check size={12} />}
-              {saving ? 'Erstelle…' : 'Konfiguration erstellen'}
+              {saving ? t('wizard.creating') : t('wizard.create_config')}
             </button>
           )}
         </div>
@@ -2052,6 +2054,7 @@ function formatRelativeTime(isoStr: string | null): string {
 }
 
 function RecyclarrTab() {
+  const { t } = useTranslation('media')
   const { isAdmin } = useStore()
   const { instances } = useArrStore()
   const {
@@ -2393,14 +2396,14 @@ function RecyclarrTab() {
     try {
       const expr = buildCronExpression(globalScheduleMode, globalScheduleTime, globalScheduleWeekday, globalScheduleCustom)
       if (expr !== 'manual' && !isValidCron(expr)) {
-        setScheduleSaveError('Ungültiger Cron-Ausdruck')
+        setScheduleSaveError(t('recyclarr.cron_invalid'))
         return
       }
       await saveSchedule(expr)
       setScheduleSaveSuccess(true)
       setTimeout(() => setScheduleSaveSuccess(false), 3000)
     } catch (e) {
-      setScheduleSaveError(e instanceof Error ? e.message : 'Speichern fehlgeschlagen')
+      setScheduleSaveError(e instanceof Error ? e.message : t('common_save_failed'))
     } finally {
       setScheduleSaving(false)
     }
@@ -2409,7 +2412,7 @@ function RecyclarrTab() {
   if (radarrSonarrInstances.length === 0 && activeServiceTab !== 'zeitplan') {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
-        <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Keine Radarr- oder Sonarr-Instanzen konfiguriert.</p>
+        <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>{t('recyclarr.no_instances')}</p>
       </div>
     )
   }
@@ -2423,13 +2426,13 @@ function RecyclarrTab() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
             <div style={{ width: 8, height: 8, borderRadius: '50%', background: containerRunning === null ? 'var(--text-muted)' : containerRunning ? '#10b981' : '#f87171' }} />
             <span style={{ color: 'var(--text-secondary)' }}>
-              {containerRunning === null ? 'Container…' : containerRunning ? 'Läuft' : 'Gestoppt'}
+              {containerRunning === null ? t('recyclarr.container_checking') : containerRunning ? t('recyclarr.container_running') : t('recyclarr.container_stopped')}
             </span>
           </div>
 
           {currentConfig?.lastSyncedAt && (
             <span className={`badge ${currentConfig.lastSyncSuccess ? 'badge-success' : 'badge-error'}`} style={{ fontSize: 10 }}>
-              Letzter Sync: {formatRelativeTime(currentConfig.lastSyncedAt)}
+              {t('recyclarr.last_sync')}: {formatRelativeTime(currentConfig.lastSyncedAt)}
             </span>
           )}
 
@@ -2440,12 +2443,12 @@ function RecyclarrTab() {
               try {
                 const res = await api.recyclarr.previewYaml()
                 setYamlPreview(res.yaml)
-              } catch { setYamlPreview('Fehler beim Laden') }
+              } catch { setYamlPreview(t('common_load_error')) }
             }
             setShowYamlPreview(v => !v)
           }} style={{ fontSize: 12, gap: 4 }}>
             <ChevronDown size={12} style={{ transform: showYamlPreview ? 'rotate(180deg)' : undefined, transition: '150ms' }} />
-            YAML anzeigen
+            {t('recyclarr.show_yaml')}
           </button>
 
           {instanceId && (
@@ -2460,7 +2463,7 @@ function RecyclarrTab() {
               }).catch(() => {}).finally(() => setAddProfileLoading(false))
             }} style={{ fontSize: 12, gap: 4 }}>
               <Plus size={12} />
-              Profil hinzufügen
+              {t('recyclarr.add_profile')}
             </button>
           )}
 
@@ -2471,18 +2474,18 @@ function RecyclarrTab() {
           {!showResetConfirm ? (
             <button className="btn btn-ghost btn-sm" onClick={() => setShowResetConfirm(true)}
               style={{ fontSize: 12, gap: 4, color: '#f87171', borderColor: 'rgba(248,113,113,0.3)' }}>
-              <X size={12} /> Config zurücksetzen
+              <X size={12} /> {t('recyclarr.reset_config')}
             </button>
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Wirklich?</span>
-              <button className="btn btn-ghost btn-sm" onClick={() => setShowResetConfirm(false)} style={{ fontSize: 12 }}>Abbrechen</button>
+              <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{t('common_sure')}</span>
+              <button className="btn btn-ghost btn-sm" onClick={() => setShowResetConfirm(false)} style={{ fontSize: 12 }}>{t('common_cancel')}</button>
               <button className="btn btn-sm" onClick={async () => {
                 setResetting(true)
                 try { await resetConfig() } catch { /* ignore */ } finally { setResetting(false); setShowResetConfirm(false) }
               }} disabled={resetting}
                 style={{ fontSize: 12, background: 'rgba(248,113,113,0.15)', color: '#f87171', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 'var(--radius-sm)', padding: '4px 10px', cursor: 'pointer' }}>
-                {resetting ? '…' : 'Ja, zurücksetzen'}
+                {resetting ? '…' : t('recyclarr.yes_reset')}
               </button>
             </div>
           )}
@@ -2495,7 +2498,7 @@ function RecyclarrTab() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 13, fontWeight: 600 }}>recyclarr.yml</span>
             <div style={{ flex: 1 }} />
-            <button className="btn btn-ghost btn-sm" onClick={() => navigator.clipboard.writeText(yamlPreview)} style={{ fontSize: 11 }}>Kopieren</button>
+            <button className="btn btn-ghost btn-sm" onClick={() => navigator.clipboard.writeText(yamlPreview)} style={{ fontSize: 11 }}>{t('common_copy')}</button>
           </div>
           <pre style={{ fontFamily: 'var(--font-mono)', fontSize: 11, background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: 12, overflowX: 'auto', overflowY: 'auto', maxHeight: 400, margin: 0, whiteSpace: 'pre', color: 'var(--text-primary)' }}>
             {yamlPreview.replace(/api_key:\s*(\S{4})(\S+)/g, (_, last4) => `api_key: ••••••••${last4}`)}
@@ -2507,14 +2510,14 @@ function RecyclarrTab() {
       {containerRunning === false && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 'var(--radius-md)' }}>
           <AlertTriangle size={14} style={{ color: '#f87171', flexShrink: 0 }} />
-          <span style={{ fontSize: 13, color: '#f87171' }}>Recyclarr-Container läuft nicht. Sync nicht möglich.</span>
+          <span style={{ fontSize: 13, color: '#f87171' }}>{t('recyclarr.container_not_running')}</span>
         </div>
       )}
 
       {/* ── Sync section ── */}
       {isAdmin && (
         <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <h4 style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>Synchronisation</h4>
+          <h4 style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>{t('recyclarr.sync_title')}</h4>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             <button className="btn btn-primary btn-sm" onClick={() => sync(undefined)} disabled={syncing}
               style={{ fontSize: 12, gap: 4 }}>
@@ -2531,8 +2534,8 @@ function RecyclarrTab() {
             )}
             {syncDone && syncExitCode !== null && (
               syncExitCode === 0
-                ? <span className="badge-success" style={{ fontSize: 11 }}>Sync abgeschlossen</span>
-                : <span className="badge-error" style={{ fontSize: 11 }}>Sync fehlgeschlagen</span>
+                ? <span className="badge-success" style={{ fontSize: 11 }}>{t('recyclarr.sync_done')}</span>
+                : <span className="badge-error" style={{ fontSize: 11 }}>{t('recyclarr.sync_failed')}</span>
             )}
           </div>
           {/* Sync history collapsible */}
@@ -2547,7 +2550,7 @@ function RecyclarrTab() {
                 style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: 12, padding: '4px 0', width: '100%' }}
               >
                 <ChevronRight size={12} style={{ transform: historyOpen ? 'rotate(90deg)' : 'none', transition: 'transform var(--transition-base)' }} />
-                Verlauf anzeigen
+                {t('recyclarr.show_history')}
               </button>
               {historyOpen && (
                 <>
@@ -2560,7 +2563,7 @@ function RecyclarrTab() {
                   )}
                   <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
                     {syncHistory.length === 0
-                      ? <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Kein Verlauf vorhanden</div>
+                      ? <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{t('recyclarr.no_history')}</div>
                       : syncHistory.map(h => (
                           <div key={h.id} style={{ display: 'flex', alignItems: 'baseline', gap: 10, padding: '6px 8px', borderRadius: 'var(--radius-sm)', background: 'rgba(0,0,0,0.15)' }}>
                             <span className={h.success ? 'badge-success' : 'badge-error'} style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, flexShrink: 0 }}>
@@ -2602,13 +2605,13 @@ function RecyclarrTab() {
               {backupsOpen && (
                 <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
                   {backups.length === 0
-                    ? <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Keine Backups vorhanden</div>
+                    ? <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{t('recyclarr.no_backups')}</div>
                     : backups.map(b => (
                         <div key={b.filename} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 8px', borderRadius: 'var(--radius-sm)', background: 'rgba(0,0,0,0.15)' }}>
                           <span style={{ fontSize: 11, color: 'var(--text-secondary)', flex: 1, fontFamily: 'var(--font-mono)' }}>{b.filename}</span>
                           <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{(b.size / 1024).toFixed(1)} KB</span>
                           {restoreSuccess === b.filename
-                            ? <span className="badge-success" style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4 }}>Wiederhergestellt</span>
+                            ? <span className="badge-success" style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4 }}>{t('recyclarr.restored')}</span>
                             : (
                               <button
                                 className="btn btn-ghost btn-sm"
@@ -2625,7 +2628,7 @@ function RecyclarrTab() {
                                 }}
                                 style={{ fontSize: 11, padding: '2px 8px' }}
                               >
-                                {restoringBackup === b.filename ? '…' : 'Wiederherstellen'}
+                                {restoringBackup === b.filename ? '…' : t('recyclarr.restore')}
                               </button>
                             )
                           }
@@ -2671,7 +2674,7 @@ function RecyclarrTab() {
             color: activeServiceTab === 'zeitplan' ? 'var(--accent)' : 'var(--text-secondary)',
             border: activeServiceTab === 'zeitplan' ? '1px solid rgba(var(--accent-rgb), 0.25)' : '1px solid transparent',
             cursor: 'pointer', fontFamily: 'var(--font-sans)',
-          }}>Zeitplan</button>
+          }}>{t('recyclarr.schedule')}</button>
       </div>
 
       {/* ── Service tab content ── */}
@@ -2683,7 +2686,7 @@ function RecyclarrTab() {
             <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 16, display: 'flex', flexDirection: 'column', gap: 10, border: '1px solid rgba(245,158,11,0.3)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <AlertTriangle size={14} style={{ color: '#f59e0b', flexShrink: 0 }} />
-                <span className="badge-warning" style={{ fontSize: 12 }}>Scores wurden manuell in {activeServiceTab === 'radarr' ? 'Radarr' : 'Sonarr'} geändert</span>
+                <span className="badge-warning" style={{ fontSize: 12 }}>{t('recyclarr.scores_changed', { app: activeServiceTab === 'radarr' ? 'Radarr' : 'Sonarr' })}</span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 {scoreChanges.slice(0, 5).map((ch, i) => (
@@ -2691,18 +2694,18 @@ function RecyclarrTab() {
                     {ch.cfName}: {ch.oldScore} → {ch.newScore} ({ch.profileName})
                   </div>
                 ))}
-                {scoreChanges.length > 5 && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>…und {scoreChanges.length - 5} weitere</div>}
+                {scoreChanges.length > 5 && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{t('recyclarr.and_more', { count: scoreChanges.length - 5 })}</div>}
               </div>
-              <span className="badge-neutral" style={{ fontSize: 10 }}>Nicht übernommene Änderungen werden beim nächsten Sync zurückgesetzt</span>
+              <span className="badge-neutral" style={{ fontSize: 10 }}>{t('recyclarr.changes_reset_on_sync')}</span>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button className="btn btn-primary btn-sm" onClick={async () => {
                   setAcceptingChanges(true)
                   try { await acceptScoreChanges(instanceId!, scoreChanges); setScoreChanges([]) } catch { /* ignore */ }
                   setAcceptingChanges(false)
                 }} disabled={acceptingChanges} style={{ fontSize: 12 }}>
-                  {acceptingChanges ? '…' : 'Änderungen übernehmen'}
+                  {acceptingChanges ? '…' : t('recyclarr.accept_changes')}
                 </button>
-                <button className="btn btn-ghost btn-sm" onClick={() => setScoreChanges([])} style={{ fontSize: 12 }}>Ignorieren</button>
+                <button className="btn btn-ghost btn-sm" onClick={() => setScoreChanges([])} style={{ fontSize: 12 }}>{t('common_ignore')}</button>
               </div>
             </div>
           )}
@@ -2710,7 +2713,7 @@ function RecyclarrTab() {
           {/* Profile selector / empty state */}
           {configuredProfiles.length === 0 ? (
             <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 32, textAlign: 'center' }}>
-              <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>Keine Profile konfiguriert.</p>
+              <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>{t('recyclarr.no_profiles')}</p>
               {isAdmin && (
                 <button className="btn btn-primary btn-sm" onClick={() => {
                   setAddProfileStep(1)
@@ -2721,7 +2724,7 @@ function RecyclarrTab() {
                     setAddProfileProfiles(r.profiles)
                   }).catch(() => {}).finally(() => setAddProfileLoading(false))
                 }} style={{ fontSize: 12, gap: 4 }}>
-                  <Plus size={12} /> Profil hinzufügen
+                  <Plus size={12} /> {t('recyclarr.add_profile')}
                 </button>
               )}
             </div>
@@ -2750,10 +2753,10 @@ function RecyclarrTab() {
                     className="btn btn-ghost btn-sm"
                     onClick={() => setShowProfileComparison(true)}
                     style={{ fontSize: 11, marginLeft: 'auto', gap: 4 }}
-                    title="Profile vergleichen"
+                    title={t('recyclarr.compare_profiles')}
                   >
                     <LayoutGrid size={11} />
-                    Vergleichen
+                    {t('recyclarr.compare')}
                   </button>
                 )}
               </div>
@@ -2776,8 +2779,8 @@ function RecyclarrTab() {
                     )}
                     {isAdmin && confirmDeleteProfile === selectedProfileId && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Profil entfernen?</span>
-                        <button className="btn btn-ghost btn-sm" onClick={() => setConfirmDeleteProfile(null)} style={{ fontSize: 11 }}>Abbrechen</button>
+                        <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{t('recyclarr.remove_profile_confirm')}</span>
+                        <button className="btn btn-ghost btn-sm" onClick={() => setConfirmDeleteProfile(null)} style={{ fontSize: 11 }}>{t('common_cancel')}</button>
                         <button className="btn btn-sm" onClick={() => {
                           setLocalProfilesConfig(prev => prev.filter(pc => pc.trash_id !== selectedProfileId))
                           setLocalScoreOverrides(prev => prev.filter(o => o.profileTrashId !== selectedProfileId))
@@ -2786,7 +2789,7 @@ function RecyclarrTab() {
                           setConfirmDeleteProfile(null)
                         }}
                           style={{ fontSize: 11, background: 'rgba(248,113,113,0.15)', color: '#f87171', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 'var(--radius-sm)', padding: '3px 8px', cursor: 'pointer' }}>
-                          Entfernen
+                          {t('recyclarr.remove')}
                         </button>
                       </div>
                     )}
@@ -2808,7 +2811,7 @@ function RecyclarrTab() {
                           className={heatmapView ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'}
                           onClick={() => setHeatmapView(v => !v)}
                           style={{ fontSize: 10, padding: '2px 8px', gap: 4, flexShrink: 0 }}
-                          title="Heatmap-Ansicht"
+                          title={t('recyclarr.heatmap_view')}
                         >
                           <LayoutGrid size={10} />
                           Heatmap
@@ -2820,11 +2823,11 @@ function RecyclarrTab() {
                         {currentArrDataLoading || profileCfGroupsLoading ? (
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <div className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} />
-                            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Lade CFs…</span>
+                            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{t('recyclarr.loading_cfs')}</span>
                           </div>
                         ) : !currentArrData || currentArrData.profiles.length === 0 ? (
                           <span className="badge-neutral" style={{ fontSize: 11, alignSelf: 'flex-start' }}>
-                            Noch kein Sync — CFs werden nach dem ersten Sync angezeigt
+                            {t('recyclarr.no_sync_yet')}
                           </span>
                         ) : profileCfs.length === 0 && profileCfGroupsWarning ? (
                           <span className="badge-warning" style={{ fontSize: 11, alignSelf: 'flex-start' }}>
@@ -2832,7 +2835,7 @@ function RecyclarrTab() {
                           </span>
                         ) : (() => {
                           if (profileCfs.length === 0) return (
-                            <span className="badge-neutral" style={{ fontSize: 11, alignSelf: 'flex-start' }}>Keine CFs in diesem Profil</span>
+                            <span className="badge-neutral" style={{ fontSize: 11, alignSelf: 'flex-start' }}>{t('recyclarr.no_cfs_in_profile')}</span>
                           )
                           if (heatmapView) {
                             // ── Heatmap view (uses profileCfs) ──
@@ -2891,7 +2894,7 @@ function RecyclarrTab() {
                                 <span style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
                                   {item.name}
                                   {item.isUserCf && <span className="badge-accent" style={{ fontSize: 9 }}>User CF</span>}
-                                  {notManaged && <span className="badge-neutral" style={{ fontSize: 9 }}>Nicht von Recyclarr verwaltet</span>}
+                                  {notManaged && <span className="badge-neutral" style={{ fontSize: 9 }}>{t('recyclarr.not_managed')}</span>}
                                 </span>
                                 <span style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'right' }}>{item.currentScore}</span>
                                 <input
@@ -2920,7 +2923,7 @@ function RecyclarrTab() {
 
                           const colHeader = (
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 100px 100px', gap: 8, padding: '4px 8px', fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>
-                              <span>Name</span><span style={{ textAlign: 'right' }}>Aktueller Score</span><span style={{ textAlign: 'right' }}>Override</span><span />
+                              <span>Name</span><span style={{ textAlign: 'right' }}>{t('recyclarr.current_score')}</span><span style={{ textAlign: 'right' }}>{t('recyclarr.override')}</span><span />
                             </div>
                           )
 
@@ -2971,7 +2974,7 @@ function RecyclarrTab() {
                                           style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: 11, fontWeight: 600, padding: '2px 8px 4px', fontFamily: 'var(--font-sans)' }}
                                         >
                                           {isCollapsed ? <ChevronRight size={11} /> : <ChevronDown size={11} />}
-                                          Allgemein
+                                          {t('recyclarr.general')}
                                           <span className="badge-neutral" style={{ fontSize: 9 }}>{ungrouped.length} CFs</span>
                                         </button>
                                         {!isCollapsed && (
@@ -2995,10 +2998,10 @@ function RecyclarrTab() {
                               {profileCfNotInProfile.length > 0 && (
                                 <details style={{ marginTop: 8 }}>
                                   <summary style={{ fontSize: 11, color: 'var(--text-muted)', cursor: 'pointer', padding: '2px 0' }}>
-                                    Nicht im Profil ({profileCfNotInProfile.length})
+                                    {t('recyclarr.not_in_profile', { count: profileCfNotInProfile.length })}
                                   </summary>
                                   <div style={{ padding: '4px 8px 2px' }}>
-                                    <span className="badge-neutral" style={{ fontSize: 9 }}>CFs in Radarr/Sonarr die Recyclarr für dieses Profil nicht verwaltet</span>
+                                    <span className="badge-neutral" style={{ fontSize: 9 }}>{t('recyclarr.not_in_profile_hint')}</span>
                                   </div>
                                   <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 4 }}>
                                     {[...profileCfNotInProfile].sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase())).map(item => (
@@ -3022,21 +3025,21 @@ function RecyclarrTab() {
                     <button onClick={() => setUserCfsCollapsed(v => !v)}
                       style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-primary)', padding: '0 0 8px 0', width: '100%', textAlign: 'left' }}>
                       {userCfsCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
-                      Eigene Custom Formats
+                      {t('recyclarr.user_cfs')}
                       <span className="badge-neutral" style={{ fontSize: 10 }}>{userCfsFromFs.length}</span>
                     </button>
                     {!userCfsCollapsed && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                         <span className="badge-neutral" style={{ fontSize: 10, alignSelf: 'flex-start', marginBottom: 4 }}>
-                          User CFs werden von Recyclarr nie zurückgesetzt — kein Eintrag in Ausnahmen nötig
+                          {t('recyclarr.user_cfs_hint')}
                         </span>
                         {userCfsFromFsLoading ? (
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <div className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} />
-                            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Lade User CFs…</span>
+                            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{t('wizard.loading_user_cfs')}</span>
                           </div>
                         ) : userCfsFromFs.length === 0 ? (
-                          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Noch keine eigenen CFs vorhanden</span>
+                          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{t('recyclarr.no_user_cfs')}</span>
                         ) : (
                           [...userCfsFromFs].sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase())).map(cf => {
                             const entry = localUserCfs.find(u => u.trash_id === cf.trash_id && u.profileTrashId === selectedProfileId)
@@ -3066,7 +3069,7 @@ function RecyclarrTab() {
                                     ))}
                                     style={{ width: 80, textAlign: 'right', fontSize: 12 }}
                                   />
-                                ) : <span className="badge-neutral" style={{ fontSize: 10 }}>Nicht aktiv</span>}
+                                ) : <span className="badge-neutral" style={{ fontSize: 10 }}>{t('recyclarr.inactive')}</span>}
                               </div>
                             )
                           })
@@ -3078,14 +3081,14 @@ function RecyclarrTab() {
                   {/* Save button */}
                   {isAdmin && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 4, borderTop: '1px solid var(--border)' }}>
-                      {hasUnsavedChanges && <span className="badge-warning" style={{ fontSize: 10 }}>Ungespeicherte Änderungen</span>}
-                      {saveSuccess && <span className="badge-success" style={{ fontSize: 10 }}>Gespeichert</span>}
+                      {hasUnsavedChanges && <span className="badge-warning" style={{ fontSize: 10 }}>{t('common_unsaved_changes')}</span>}
+                      {saveSuccess && <span className="badge-success" style={{ fontSize: 10 }}>{t('common_saved')}</span>}
                       {saveError && <span style={{ fontSize: 11, color: '#f87171' }}>{saveError}</span>}
                       <div style={{ flex: 1 }} />
                       <button className="btn btn-primary btn-sm" onClick={handleSave} disabled={saving || !hasUnsavedChanges}
                         style={{ fontSize: 12, gap: 4 }}>
                         {saving ? <div className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} /> : <Check size={12} />}
-                        {saving ? 'Speichern…' : 'Änderungen speichern'}
+                        {saving ? t('common_saving') : t('recyclarr.save_changes')}
                       </button>
                     </div>
                   )}
@@ -3096,7 +3099,7 @@ function RecyclarrTab() {
                       <button onClick={() => setAdvancedCollapsed(v => !v)}
                         style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer', padding: '0 0 8px 0' }}>
                         {advancedCollapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
-                        Erweiterte Einstellungen
+                        {t('recyclarr.advanced_settings')}
                       </button>
                       {!advancedCollapsed && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '12px 14px', background: 'rgba(var(--text-rgb), 0.04)', borderRadius: 'var(--radius-md)' }}>
@@ -3105,11 +3108,11 @@ function RecyclarrTab() {
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                             <label style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Min Format Score</label>
                             <input type="number" className="form-input" style={{ width: 120 }}
-                              placeholder="0 = deaktiviert"
+                              placeholder={t('recyclarr.zero_disabled')}
                               value={activeProfileConfig.min_format_score ?? ''}
                               onChange={e => setLocalProfilesConfig(prev => prev.map(pc => pc.trash_id === selectedProfileId ? { ...pc, min_format_score: e.target.value === '' ? undefined : parseInt(e.target.value, 10) || 0 } : pc))}
                             />
-                            <span className="badge-neutral" style={{ fontSize: 10, alignSelf: 'flex-start' }}>10000 = Nur deutsche Releases</span>
+                            <span className="badge-neutral" style={{ fontSize: 10, alignSelf: 'flex-start' }}>{t('recyclarr.german_releases_hint')}</span>
                           </div>
 
                           {/* min_upgrade_format_score */}
@@ -3144,7 +3147,7 @@ function RecyclarrTab() {
                             {activeProfileConfig.reset_unmatched_scores_enabled && (
                               <>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                  <label style={{ fontSize: 11, color: 'var(--text-muted)' }}>Ausnahmen (CF-Namen)</label>
+                                  <label style={{ fontSize: 11, color: 'var(--text-muted)' }}>{t('recyclarr.exceptions_cf')}</label>
                                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 4 }}>
                                     {(activeProfileConfig.reset_unmatched_scores_except ?? []).map((ex, idx) => (
                                       <span key={idx} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', background: 'rgba(var(--accent-rgb), 0.1)', border: '1px solid rgba(var(--accent-rgb), 0.25)', borderRadius: 'var(--radius-sm)', fontSize: 11, color: 'var(--accent)' }}>
@@ -3165,11 +3168,11 @@ function RecyclarrTab() {
                                       setNewExceptInput('')
                                     }}><Plus size={11} /></button>
                                   </div>
-                                  <span className="badge-neutral" style={{ fontSize: 10, alignSelf: 'flex-start' }}>Nur für CFs die nicht über diesen Tab konfiguriert sind</span>
+                                  <span className="badge-neutral" style={{ fontSize: 10, alignSelf: 'flex-start' }}>{t('recyclarr.exceptions_cf_hint')}</span>
                                 </div>
 
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                  <label style={{ fontSize: 11, color: 'var(--text-muted)' }}>Ausnahmen (Regex-Muster)</label>
+                                  <label style={{ fontSize: 11, color: 'var(--text-muted)' }}>{t('recyclarr.exceptions_regex')}</label>
                                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 4 }}>
                                     {(activeProfileConfig.reset_unmatched_scores_except_patterns ?? []).map((pat, idx) => {
                                       let valid = false
@@ -3194,7 +3197,7 @@ function RecyclarrTab() {
                                       setNewExceptPatternInput('')
                                     }}><Plus size={11} /></button>
                                   </div>
-                                  <span className="badge-neutral" style={{ fontSize: 10, alignSelf: 'flex-start' }}>Reguläre Ausdrücke, Groß-/Kleinschreibung ignoriert</span>
+                                  <span className="badge-neutral" style={{ fontSize: 10, alignSelf: 'flex-start' }}>{t('recyclarr.exceptions_regex_hint')}</span>
                                 </div>
                               </>
                             )}
@@ -3203,8 +3206,8 @@ function RecyclarrTab() {
                           {/* delete_old_custom_formats */}
                           <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer' }}>
                             <input type="checkbox" checked={localDeleteOldCfs} onChange={e => setLocalDeleteOldCfs(e.target.checked)} />
-                            <span style={{ color: 'var(--text-secondary)' }}>Nicht mehr verwendete CFs löschen</span>
-                            {localDeleteOldCfs && <span className="badge-error" style={{ fontSize: 10 }}>Löscht von Recyclarr erstellte CFs</span>}
+                            <span style={{ color: 'var(--text-secondary)' }}>{t('recyclarr.delete_old_cfs')}</span>
+                            {localDeleteOldCfs && <span className="badge-error" style={{ fontSize: 10 }}>{t('recyclarr.delete_old_cfs_warn')}</span>}
                           </label>
 
                           {/* preferred_ratio */}
@@ -3243,8 +3246,8 @@ function RecyclarrTab() {
       {activeServiceTab === 'zeitplan' && isAdmin && (
         <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <h4 className="section-header" style={{ margin: 0 }}>Automatischer Sync</h4>
-            <span className="badge-neutral" style={{ fontSize: 10 }}>Gilt für alle konfigurierten Instanzen gleichzeitig</span>
+            <h4 className="section-header" style={{ margin: 0 }}>{t('recyclarr.auto_sync')}</h4>
+            <span className="badge-neutral" style={{ fontSize: 10 }}>{t('recyclarr.auto_sync_hint')}</span>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -3253,32 +3256,30 @@ function RecyclarrTab() {
                 <input type="radio" name="globalScheduleMode" checked={globalScheduleMode === mode} onChange={() => setGlobalScheduleMode(mode)} />
                 {mode === 'manual' && (
                   <span>
-                    <strong>Manuell</strong>
-                    <span style={{ color: 'var(--text-muted)', marginLeft: 8 }}>Kein automatischer Sync — nur über &apos;Global Sync&apos; Button</span>
+                    <strong>{t('recyclarr.schedule_manual')}</strong>
+                    <span style={{ color: 'var(--text-muted)', marginLeft: 8 }}>{t('recyclarr.schedule_manual_hint')}</span>
                   </span>
                 )}
                 {mode === 'daily' && (
                   <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <strong>Täglich</strong> um
+                    <strong>{t('recyclarr.schedule_daily')}</strong> {t('recyclarr.schedule_at')}
                     <input type="time" className="form-input" value={globalScheduleTime} onChange={e => setGlobalScheduleTime(e.target.value)} style={{ width: 110 }} />
-                    Uhr
                   </span>
                 )}
                 {mode === 'weekly' && (
                   <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <strong>Wöchentlich</strong> jeden
+                    <strong>{t('recyclarr.schedule_weekly')}</strong> {t('recyclarr.schedule_every')}
                     <select className="form-input" value={globalScheduleWeekday} onChange={e => setGlobalScheduleWeekday(e.target.value)} style={{ maxWidth: 100 }}>
-                      {['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].map((d, i) => <option key={i} value={String(i + 1)}>{d}</option>)}
+                      {[t('recyclarr.weekday_mon'), t('recyclarr.weekday_tue'), t('recyclarr.weekday_wed'), t('recyclarr.weekday_thu'), t('recyclarr.weekday_fri'), t('recyclarr.weekday_sat'), t('recyclarr.weekday_sun')].map((d, i) => <option key={i} value={String(i + 1)}>{d}</option>)}
                     </select>
-                    um
+                    {t('recyclarr.schedule_at')}
                     <input type="time" className="form-input" value={globalScheduleTime} onChange={e => setGlobalScheduleTime(e.target.value)} style={{ width: 110 }} />
-                    Uhr
                   </span>
                 )}
                 {mode === 'custom' && (
                   <span style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <strong>Benutzerdefiniert</strong>
+                      <strong>{t('recyclarr.schedule_custom')}</strong>
                       <input
                         className="form-input"
                         value={globalScheduleCustom}
@@ -3288,8 +3289,8 @@ function RecyclarrTab() {
                       />
                       {globalScheduleMode === 'custom' && globalScheduleCustom && (
                         isValidCron(globalScheduleCustom)
-                          ? <span className="badge-success" style={{ fontSize: 10 }}>Gültiger Ausdruck</span>
-                          : <span className="badge-error" style={{ fontSize: 10 }}>Ungültiger Ausdruck</span>
+                          ? <span className="badge-success" style={{ fontSize: 10 }}>{t('recyclarr.cron_valid')}</span>
+                          : <span className="badge-error" style={{ fontSize: 10 }}>{t('recyclarr.cron_invalid')}</span>
                       )}
                     </span>
                     {globalScheduleMode === 'custom' && globalScheduleCustom && isValidCron(globalScheduleCustom) && (
@@ -3309,9 +3310,9 @@ function RecyclarrTab() {
               style={{ fontSize: 12, gap: 4 }}
             >
               {scheduleSaving ? <div className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} /> : <Check size={12} />}
-              {scheduleSaving ? 'Speichern…' : 'Zeitplan speichern'}
+              {scheduleSaving ? t('common_saving') : t('recyclarr.save_schedule')}
             </button>
-            {scheduleSaveSuccess && <span className="badge-success" style={{ fontSize: 10 }}>Gespeichert</span>}
+            {scheduleSaveSuccess && <span className="badge-success" style={{ fontSize: 10 }}>{t('common_saved')}</span>}
             {scheduleSaveError && <span style={{ fontSize: 11, color: '#f87171' }}>{scheduleSaveError}</span>}
           </div>
 
@@ -3327,8 +3328,8 @@ function RecyclarrTab() {
             return (
               <div>
                 {latest.lastSyncSuccess
-                  ? <span className="badge-success" style={{ fontSize: 11 }}>Letzter Sync: {formatRelativeTime(latest.lastSyncedAt)}</span>
-                  : <span className="badge-error" style={{ fontSize: 11 }}>Fehlgeschlagen: {formatRelativeTime(latest.lastSyncedAt)}</span>}
+                  ? <span className="badge-success" style={{ fontSize: 11 }}>{t('recyclarr.last_sync')}: {formatRelativeTime(latest.lastSyncedAt)}</span>
+                  : <span className="badge-error" style={{ fontSize: 11 }}>{t('recyclarr.sync_failed')}: {formatRelativeTime(latest.lastSyncedAt)}</span>}
               </div>
             )
           })()}
@@ -3344,15 +3345,15 @@ function RecyclarrTab() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }}>
           <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 24, width: '100%', maxWidth: 520, display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center' }}>
-              <span style={{ fontWeight: 600, fontSize: 15, flex: 1 }}>Profil hinzufügen — Schritt {addProfileStep} von 2</span>
+              <span style={{ fontWeight: 600, fontSize: 15, flex: 1 }}>{t('recyclarr.add_profile_step', { step: addProfileStep })}</span>
               <button className="btn btn-ghost btn-sm" onClick={() => setShowAddProfile(false)} style={{ fontSize: 12 }}><X size={14} /></button>
             </div>
             {addProfileStep === 1 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {addProfileLoading ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} /><span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Lade Profile…</span></div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} /><span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{t('wizard.loading_profiles')}</span></div>
                 ) : addProfileProfiles.length === 0 ? (
-                  <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Alle verfügbaren Profile bereits konfiguriert.</p>
+                  <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>{t('recyclarr.all_profiles_configured')}</p>
                 ) : (
                   addProfileProfiles.map(p => (
                     <label key={p.trash_id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: addProfileSelected.includes(p.trash_id) ? 'rgba(var(--accent-rgb), 0.08)' : 'rgba(var(--text-rgb), 0.04)', borderRadius: 'var(--radius-md)', cursor: 'pointer', border: addProfileSelected.includes(p.trash_id) ? '1px solid rgba(var(--accent-rgb), 0.25)' : '1px solid transparent' }}>
@@ -3366,9 +3367,9 @@ function RecyclarrTab() {
                   ))
                 )}
                 <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                  <button className="btn btn-ghost btn-sm" onClick={() => setShowAddProfile(false)} style={{ fontSize: 12 }}>Abbrechen</button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => setShowAddProfile(false)} style={{ fontSize: 12 }}>{t('common_cancel')}</button>
                   <div style={{ flex: 1 }} />
-                  <button className="btn btn-primary btn-sm" disabled={addProfileSelected.length === 0} onClick={() => setAddProfileStep(2)} style={{ fontSize: 12 }}>Weiter</button>
+                  <button className="btn btn-primary btn-sm" disabled={addProfileSelected.length === 0} onClick={() => setAddProfileStep(2)} style={{ fontSize: 12 }}>{t('common_next')}</button>
                 </div>
               </div>
             )}
@@ -3376,16 +3377,16 @@ function RecyclarrTab() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
                   <input type="checkbox" checked={addProfileQualDef} onChange={e => setAddProfileQualDef(e.target.checked)} />
-                  Quality Definition aktivieren
-                  <span className="badge-neutral" style={{ fontSize: 10 }}>Empfohlen</span>
+                  {t('wizard.quality_def_enable')}
+                  <span className="badge-neutral" style={{ fontSize: 10 }}>{t('wizard.recommended')}</span>
                 </label>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
                   <input type="checkbox" checked={addProfileMinScore} onChange={e => setAddProfileMinScore(e.target.checked)} />
-                  Nur deutsche Releases (min. Score 10000)
-                  <span className="badge-neutral" style={{ fontSize: 10 }}>Releases ohne deutschen Ton werden ignoriert</span>
+                  {t('wizard.german_only')}
+                  <span className="badge-neutral" style={{ fontSize: 10 }}>{t('wizard.german_only_hint')}</span>
                 </label>
                 <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                  <button className="btn btn-ghost btn-sm" onClick={() => setAddProfileStep(1)} style={{ fontSize: 12 }}>Zurück</button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => setAddProfileStep(1)} style={{ fontSize: 12 }}>{t('common_back')}</button>
                   <div style={{ flex: 1 }} />
                   <button className="btn btn-primary btn-sm" onClick={() => {
                     const newPcs: import('../types/recyclarr').RecyclarrProfileConfig[] = addProfileSelected.map(tid => {
@@ -3402,7 +3403,7 @@ function RecyclarrTab() {
                     setLocalProfilesConfig(prev => [...prev, ...newPcs])
                     setSelectedProfileId(newPcs[0]?.trash_id ?? selectedProfileId)
                     setShowAddProfile(false)
-                  }} style={{ fontSize: 12 }}>Profil hinzufügen</button>
+                  }} style={{ fontSize: 12 }}>{t('recyclarr.add_profile')}</button>
                 </div>
               </div>
             )}
@@ -3432,7 +3433,7 @@ function RecyclarrTab() {
           <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 24, maxWidth: 900, width: '100%', maxHeight: '85vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: 16 }}
             onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 16, margin: 0, flex: 1 }}>Profil-Vergleich</h3>
+              <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 16, margin: 0, flex: 1 }}>{t('recyclarr.profile_comparison')}</h3>
               <button className="btn btn-ghost btn-icon" onClick={() => setShowProfileComparison(false)} style={{ width: 28, height: 28, padding: 0 }}>
                 <X size={14} />
               </button>
@@ -3448,7 +3449,7 @@ function RecyclarrTab() {
                 const cfList = Array.from(allCfNames).sort()
                 if (cfList.length === 0) return (
                   <div style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', padding: 24 }}>
-                    Noch kein Sync — Daten werden nach dem ersten Sync angezeigt
+                    {t('recyclarr.no_sync_yet')}
                   </div>
                 )
                 return (
@@ -3859,6 +3860,7 @@ function UserCfRow({
   onCopy?: () => void
   onCreateInArr?: () => Promise<void>
 }) {
+  const { t } = useTranslation('media')
   const [hovered, setHovered] = useState(false)
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
@@ -3870,7 +3872,7 @@ function UserCfRow({
     try {
       await onCreateInArr()
     } catch (e: unknown) {
-      setCreateError((e as Error).message ?? 'Fehler beim Erstellen')
+      setCreateError((e as Error).message ?? t('cf.create_error'))
     } finally {
       setCreating(false)
     }
@@ -3892,20 +3894,20 @@ function UserCfRow({
           <span
             className="badge-warning"
             style={{ fontSize: 11, cursor: 'default' }}
-            title={`JSON-Datei vorhanden aber CF nicht in ${serviceLabel} gefunden. Importieren oder löschen.`}
+            title={t('cf.local_only_hint', { app: serviceLabel })}
           >
-            Nur lokal
+            {t('cf.local_only')}
           </span>
         )}
         {isAdmin && (
           <div style={{ display: 'flex', gap: 4, opacity: hovered ? 1 : 0, transition: 'opacity var(--transition-fast)' }}>
             {onExport && (
-              <button onClick={onExport} title="Exportieren" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4 }}>
+              <button onClick={onExport} title={t('common_export')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4 }}>
                 <Download size={12} />
               </button>
             )}
             {onCopy && (
-              <button onClick={onCopy} title="Kopieren" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4 }}>
+              <button onClick={onCopy} title={t('common_copy')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4 }}>
                 <Copy size={12} />
               </button>
             )}
@@ -3913,7 +3915,7 @@ function UserCfRow({
               <button
                 onClick={handleCreateInArr}
                 disabled={creating}
-                title={`In ${serviceLabel} erstellen`}
+                title={t('cf.create_in_app', { app: serviceLabel })}
                 style={{ background: 'none', border: 'none', cursor: creating ? 'not-allowed' : 'pointer', color: 'var(--text-muted)', padding: 4 }}
               >
                 <Plus size={12} />
@@ -3940,20 +3942,20 @@ function UserCfRow({
       {confirmingDelete && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           {inUse ? (
-            <span className="badge-error" style={{ fontSize: 11 }}>In Recyclarr aktiv — zuerst im Recyclarr-Tab entfernen</span>
+            <span className="badge-error" style={{ fontSize: 11 }}>{t('cf.in_use_hint')}</span>
           ) : (
             <>
               <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
                 {notInArr
-                  ? `Nur JSON-Datei löschen — CF existiert nicht in ${serviceLabel}`
-                  : 'Wirklich löschen?'}
+                  ? t('cf.delete_local_only', { app: serviceLabel })
+                  : t('cf.delete_confirm')}
               </span>
               <button
                 onClick={onDeleteConfirm}
                 className="btn btn-sm"
                 style={{ fontSize: 11, padding: '2px 8px', background: 'rgba(248,113,113,0.12)', color: '#f87171', border: '1px solid rgba(248,113,113,0.3)' }}
-              >{notInArr ? 'Löschen' : 'Ja'}</button>
-              <button onClick={onDeleteCancel} className="btn btn-ghost btn-sm" style={{ fontSize: 11, padding: '2px 8px' }}>{notInArr ? 'Abbrechen' : 'Nein'}</button>
+              >{notInArr ? t('common_delete') : t('common_yes')}</button>
+              <button onClick={onDeleteCancel} className="btn btn-ghost btn-sm" style={{ fontSize: 11, padding: '2px 8px' }}>{notInArr ? t('common_cancel') : t('common_no')}</button>
             </>
           )}
           {deleteError && !inUse && <span className="badge-error" style={{ fontSize: 11 }}>{deleteError}</span>}
@@ -3966,9 +3968,9 @@ function UserCfRow({
 // ── CF Edit Modal ─────────────────────────────────────────────────────────────
 
 function parseCfApiError(msg: string): string {
-  if (msg.includes('Must be unique')) return 'Name bereits vergeben — ein CF mit diesem Namen existiert bereits'
-  if (msg.includes('Regex Pattern must not be empty')) return 'Regex-Wert darf nicht leer sein'
-  if (/Condition name.{0,5}cannot be empty/i.test(msg)) return 'Condition Name ist Pflichtfeld'
+  if (msg.includes('Must be unique')) return 'cf.api_name_taken'
+  if (msg.includes('Regex Pattern must not be empty')) return 'cf.api_regex_empty'
+  if (/Condition name.{0,5}cannot be empty/i.test(msg)) return 'cf.condition_name_required'
   return msg
 }
 
@@ -4004,6 +4006,7 @@ function CfEditModal({
   const [showAddMenu, setShowAddMenu] = useState(false)
   const [showTemplatePicker, setShowTemplatePicker] = useState(false)
 
+  const { t } = useTranslation('media')
   const isEdit = initial !== null
   const frozenTrashId = initialTrashId
   const displayTrashId = frozenTrashId ?? (name.trim() ? toUserSlug(name.trim()) : '')
@@ -4039,13 +4042,13 @@ function CfEditModal({
       setJsonText('')
       setJsonImportOpen(false)
     } catch {
-      setJsonError('Ungültiges JSON')
+      setJsonError(t('cf.invalid_json'))
     }
   }
 
   async function handleSave() {
     const trimmedName = name.trim()
-    if (!trimmedName) { setError('Name ist erforderlich'); return }
+    if (!trimmedName) { setError(t('cf.name_required')); return }
 
     // Client-side duplicate check
     const isDuplicate = existingNames.some(n =>
@@ -4053,14 +4056,14 @@ function CfEditModal({
       (!isEdit || n.toLowerCase() !== (initial?.name ?? '').toLowerCase())
     )
     if (isDuplicate) {
-      setError(`Ein Custom Format mit diesem Namen existiert bereits`)
+      setError(t('cf.name_duplicate'))
       return
     }
 
     const errors: Record<number, { name?: string; field?: string }> = {}
     specs.forEach((spec, idx) => {
       if (!spec.name.trim()) {
-        errors[idx] = { ...errors[idx], name: 'Condition Name ist Pflichtfeld' }
+        errors[idx] = { ...errors[idx], name: t('cf.condition_name_required') }
       }
       const entry = schema.find(s => s.implementation === spec.implementation)
       if (entry && entry.fields.length > 0) {
@@ -4069,7 +4072,7 @@ function CfEditModal({
           const val = spec.fields.find(f => f.name === fieldDef.name)?.value
           return val === undefined || val === null || String(val).trim() === ''
         })
-        if (hasEmptyField) errors[idx] = { ...errors[idx], field: 'Wert ist Pflichtfeld' }
+        if (hasEmptyField) errors[idx] = { ...errors[idx], field: t('cf.condition_value_required') }
       }
     })
     if (Object.keys(errors).length > 0) {
@@ -4092,7 +4095,8 @@ function CfEditModal({
       })
       setSaved(true)
     } catch (e: unknown) {
-      setError(parseCfApiError((e as Error).message))
+      const errKey = parseCfApiError((e as Error).message)
+      setError(errKey.startsWith('cf.') ? t(errKey) : errKey)
       setSaving(false)
     }
   }
@@ -4102,11 +4106,11 @@ function CfEditModal({
       <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 16px' }}>
         <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 24, width: '100%', maxWidth: 440 }}>
           <div className="badge-success" style={{ fontSize: 13, display: 'inline-block', marginBottom: 16 }}>
-            CF erstellt — jetzt im Recyclarr-Tab einem Profil zuweisen
+            {t('cf.created_hint')}
           </div>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-            <button onClick={onClose} className="btn btn-ghost">Schließen</button>
-            <button onClick={() => { onClose(); onSwitchToRecyclarr() }} className="btn btn-primary">Zum Recyclarr-Tab</button>
+            <button onClick={onClose} className="btn btn-ghost">{t('common_close')}</button>
+            <button onClick={() => { onClose(); onSwitchToRecyclarr() }} className="btn btn-primary">{t('cf.go_to_recyclarr')}</button>
           </div>
         </div>
       </div>
@@ -4118,7 +4122,7 @@ function CfEditModal({
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 200, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', overflowY: 'auto', padding: '40px 16px' }}>
       <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 24, width: '100%', maxWidth: 600 }}>
         <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 20, fontFamily: 'var(--font-sans)' }}>
-          {isEdit ? 'Custom Format bearbeiten' : 'Custom Format erstellen'}
+          {isEdit ? t('cf.edit_title') : t('cf.create_title')}
         </h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
@@ -4136,8 +4140,8 @@ function CfEditModal({
                 <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-sans)' }}>Trash ID:</span>
                 <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>{displayTrashId}</span>
                 {isEdit
-                  ? <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>(unveränderlich)</span>
-                  : <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>(wird automatisch generiert)</span>
+                  ? <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{t('cf.trash_id_frozen')}</span>
+                  : <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{t('cf.trash_id_auto')}</span>
                 }
               </div>
             )}
@@ -4176,7 +4180,7 @@ function CfEditModal({
                   className="btn btn-ghost"
                   style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}
                 >
-                  <Plus size={11} /> Condition hinzufügen
+                  <Plus size={11} /> {t('cf.add_condition')}
                 </button>
               ) : (
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -4185,14 +4189,14 @@ function CfEditModal({
                     className="btn btn-ghost"
                     style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}
                   >
-                    <BookOpen size={11} /> Aus Vorlage
+                    <BookOpen size={11} /> {t('cf.from_template')}
                   </button>
                   <button
                     onClick={() => { setSpecs(prev => [...prev, initDraftSpec(schema)]); setShowAddMenu(false) }}
                     className="btn btn-ghost"
                     style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}
                   >
-                    <Plus size={11} /> Leer beginnen
+                    <Plus size={11} /> {t('cf.blank')}
                   </button>
                   <button
                     onClick={() => setShowAddMenu(false)}
@@ -4204,7 +4208,7 @@ function CfEditModal({
               )}
             </div>
             {specs.length === 0 && (
-              <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '4px 0 8px' }}>Keine Conditions definiert</p>
+              <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '4px 0 8px' }}>{t('cf.no_conditions')}</p>
             )}
             {specs.map((spec, idx) => {
               const schemaEntry = schema.find(s => s.implementation === spec.implementation)
@@ -4242,13 +4246,13 @@ function CfEditModal({
                   <div style={{ display: 'flex', gap: 16, marginBottom: schemaEntry && schemaEntry.fields.length > 0 ? 8 : 0, flexWrap: 'wrap' }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, cursor: 'pointer', userSelect: 'none' }}>
                       <input type="checkbox" checked={spec.negate} onChange={e => updateSpec(idx, s => ({ ...s, negate: e.target.checked }))} />
-                      Nicht erfüllt
+                      {t('cf.negate')}
                     </label>
                     <label
                       style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, cursor: 'pointer', userSelect: 'none' }}
                     >
                       <input type="checkbox" checked={spec.required} onChange={e => updateSpec(idx, s => ({ ...s, required: e.target.checked }))} />
-                      Pflichtbedingung
+                      {t('cf.required')}
                     </label>
                   </div>
                   {schemaEntry && schemaEntry.fields.map(fieldDef => {
@@ -4267,11 +4271,11 @@ function CfEditModal({
             })}
             {specs.length >= 2 && (
               <div className="badge-neutral" style={{ fontSize: 11, display: 'inline-block', marginTop: 4 }}>
-                Verschiedene Typen: UND — Gleicher Typ mehrfach: ODER (außer Pflicht)
+                {t('cf.conditions_logic')}
               </div>
             )}
             <div className="badge-neutral" style={{ fontSize: 11, display: 'inline-block', marginTop: 4 }}>
-              Pflichtbedingung: CF greift nur wenn diese Condition erfüllt ist, unabhängig von anderen Conditions desselben Typs
+              {t('cf.required_logic')}
             </div>
           </div>
 
@@ -4281,7 +4285,7 @@ function CfEditModal({
               onClick={() => setJsonImportOpen(v => !v)}
               style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--accent)', fontFamily: 'var(--font-sans)', padding: 0 }}
             >
-              JSON importieren {jsonImportOpen ? '▴' : '▾'}
+              {t('cf.json_import')} {jsonImportOpen ? '▴' : '▾'}
             </button>
             {jsonImportOpen && (
               <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -4295,7 +4299,7 @@ function CfEditModal({
                 />
                 {jsonError && <span className="badge-error" style={{ fontSize: 11 }}>{jsonError}</span>}
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <button onClick={handleJsonImport} className="btn btn-ghost" style={{ fontSize: 12 }}>Importieren</button>
+                  <button onClick={handleJsonImport} className="btn btn-ghost" style={{ fontSize: 12 }}>{t('cf.import')}</button>
                   <span className="badge-neutral" style={{ fontSize: 11 }}>Kompatibel mit Radarr/Sonarr Export und TRaSH Guides JSON</span>
                 </div>
               </div>
@@ -4304,9 +4308,9 @@ function CfEditModal({
 
           {error && <span className="badge-error" style={{ fontSize: 12 }}>{error}</span>}
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
-            <button onClick={onClose} className="btn btn-ghost">Abbrechen</button>
+            <button onClick={onClose} className="btn btn-ghost">{t('common_cancel')}</button>
             <button onClick={handleSave} disabled={saving} className="btn btn-primary">
-              {saving ? 'Speichern…' : 'Speichern'}
+              {saving ? t('common_saving') : t('common_save')}
             </button>
           </div>
         </div>
@@ -4346,6 +4350,7 @@ function CopyCfModal({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const { t } = useTranslation('media')
   const { createCustomFormat, loadCustomFormats, loadUserCfFiles, customFormats } = useArrStore()
   const targetInstance = useMemo(
     () => instances.find(i => i.enabled && i.type === destService) ?? null,
@@ -4355,9 +4360,9 @@ function CopyCfModal({
   const isDuplicate = newName.trim() !== '' && existingNames.some(n => n.toLowerCase() === newName.trim().toLowerCase())
 
   async function handleCopy() {
-    if (!newName.trim()) { setError('Name ist erforderlich'); return }
-    if (!targetInstance) { setError('Keine Ziel-Instanz gefunden'); return }
-    if (isDuplicate) { setError('Ein CF mit diesem Namen existiert bereits'); return }
+    if (!newName.trim()) { setError(t('cf.name_required')); return }
+    if (!targetInstance) { setError(t('cf.no_target_instance')); return }
+    if (isDuplicate) { setError(t('cf.name_duplicate')); return }
     const newTrashId = toUserSlug(newName.trim())
     const specs = cf.specifications.map(s => normalizeArrSpec(s as unknown as {
       name: string; implementation: string; implementationName?: string
@@ -4374,8 +4379,8 @@ function CopyCfModal({
       })
       await Promise.all([loadCustomFormats(targetInstance.id), loadUserCfFiles(destService)])
       const msg = destService !== currentService
-        ? `Kopiert nach ${destService} — wechsle zum ${destService}-Tab um ihn zu sehen`
-        : `"${newName.trim()}" wurde kopiert`
+        ? t('cf.copied_to_service', { service: destService })
+        : t('cf.copied', { name: newName.trim() })
       onCopied(destService, msg)
     } catch (e: unknown) {
       setError((e as Error).message)
@@ -4393,12 +4398,12 @@ function CopyCfModal({
         </h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div>
-            <label className="form-label">Kopieren nach:</label>
+            <label className="form-label">{t('cf.copy_to')}:</label>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, userSelect: 'none' }}>
                 <input type="radio" name="destService" checked={destService === currentService}
                   onChange={() => { setDestService(currentService); setError(null) }} />
-                Gleiche Instanz ({capService(currentService)})
+                {t('cf.same_instance')} ({capService(currentService)})
               </label>
               {hasOtherService && (
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, userSelect: 'none' }}>
@@ -4410,20 +4415,20 @@ function CopyCfModal({
             </div>
           </div>
           <div>
-            <label className="form-label">Neuer Name *</label>
+            <label className="form-label">{t('cf.new_name')} *</label>
             <input
               className="form-input"
               value={newName}
               onChange={e => { setNewName(e.target.value); if (error) setError(null) }}
               style={{ width: '100%', boxSizing: 'border-box' }}
             />
-            {isDuplicate && <span className="badge-error" style={{ fontSize: 11, display: 'block', marginTop: 4 }}>Name bereits vergeben</span>}
+            {isDuplicate && <span className="badge-error" style={{ fontSize: 11, display: 'block', marginTop: 4 }}>{t('cf.name_taken')}</span>}
           </div>
           {error && <span className="badge-error" style={{ fontSize: 12 }}>{error}</span>}
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-            <button onClick={onClose} className="btn btn-ghost">Abbrechen</button>
+            <button onClick={onClose} className="btn btn-ghost">{t('common_cancel')}</button>
             <button onClick={handleCopy} disabled={saving || isDuplicate || !newName.trim()} className="btn btn-primary">
-              {saving ? 'Kopieren…' : 'Kopieren'}
+              {saving ? t('cf.copying') : t('common_copy')}
             </button>
           </div>
         </div>
@@ -4445,6 +4450,7 @@ function ImportModal({
   onClose: () => void
   onImported: (count: number) => void
 }) {
+  const { t } = useTranslation('media')
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [importable, setImportable] = useState<ArrCustomFormat[]>([])
@@ -4510,13 +4516,13 @@ function ImportModal({
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 200, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', overflowY: 'auto', padding: '40px 16px' }}>
       <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 24, width: '100%', maxWidth: 560 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <h3 style={{ fontSize: 16, fontWeight: 600, fontFamily: 'var(--font-sans)' }}>Custom Formats importieren</h3>
+          <h3 style={{ fontSize: 16, fontWeight: 600, fontFamily: 'var(--font-sans)' }}>{t('cf.import_title')}</h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4 }}>
             <X size={16} />
           </button>
         </div>
 
-        {loading && <p style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', padding: '24px 0' }}>Lade…</p>}
+        {loading && <p style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', padding: '24px 0' }}>{t('common_loading')}</p>}
 
         {fetchError && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: 'rgba(248,113,113,0.08)', borderRadius: 'var(--radius-sm)' }}>
@@ -4531,25 +4537,25 @@ function ImportModal({
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                 <span style={{ fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-sans)' }}>
-                  Importierbar
+                  {t('cf.importable')}
                 </span>
                 <span className="badge-neutral" style={{ fontSize: 11 }}>{importable.length}</span>
                 {importable.length > 0 && (
                   <div style={{ display: 'flex', gap: 6, marginLeft: 'auto' }}>
                     <button onClick={() => setSelectedImport(new Set(importable.map(c => c.id)))}
                       className="btn btn-ghost btn-sm" style={{ fontSize: 11, padding: '2px 8px' }}>
-                      Alle auswählen
+                      {t('cf.select_all')}
                     </button>
                     <button onClick={() => setSelectedImport(new Set())}
                       className="btn btn-ghost btn-sm" style={{ fontSize: 11, padding: '2px 8px' }}>
-                      Alle abwählen
+                      {t('cf.deselect_all')}
                     </button>
                   </div>
                 )}
               </div>
               {importable.length === 0 ? (
                 <div className="badge-neutral" style={{ fontSize: 12, display: 'block', padding: '8px 12px', lineHeight: 1.5 }}>
-                  Keine importierbaren CFs gefunden — alle vorhandenen CFs werden bereits von Recyclarr verwaltet
+                  {t('cf.no_importable')}
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 200, overflowY: 'auto' }}>
@@ -4571,7 +4577,7 @@ function ImportModal({
               <div>
                 <div style={{ marginBottom: 8 }}>
                   <span style={{ fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-sans)' }}>
-                    Bereits verwaltet — Unterschied erkannt
+                    {t('cf.already_managed_changed')}
                   </span>
                   <span className="badge-neutral" style={{ fontSize: 11, marginLeft: 6 }}>{managedWithChanges.length}</span>
                 </div>
@@ -4583,8 +4589,8 @@ function ImportModal({
                         onChange={() => setSelectedOverwrite(prev => toggle(prev, cf.id))} />
                       <span style={{ fontSize: 13, flex: 1 }}>{cf.name}</span>
                       <span className="badge-warning" style={{ fontSize: 11 }}
-                        title="JSON-Datei weicht von Radarr/Sonarr ab">
-                        Lokal abweichend
+                        title={t('cf.locally_different_hint')}>
+                        {t('cf.locally_different')}
                       </span>
                     </label>
                   ))}
@@ -4595,9 +4601,9 @@ function ImportModal({
             {saveError && <span className="badge-error" style={{ fontSize: 12 }}>{saveError}</span>}
 
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
-              <button onClick={onClose} className="btn btn-ghost">Abbrechen</button>
+              <button onClick={onClose} className="btn btn-ghost">{t('common_cancel')}</button>
               <button onClick={handleImport} disabled={saving || totalSelected === 0} className="btn btn-primary">
-                {saving ? 'Importieren…' : `Importieren (${totalSelected} ausgewählt)`}
+                {saving ? t('cf.importing') : t('cf.import_count', { count: totalSelected })}
               </button>
             </div>
           </div>
@@ -4610,6 +4616,7 @@ function ImportModal({
 // ── CF Manager Tab ─────────────────────────────────────────────────────────────
 
 function CfManagerTab({ onSwitchTab }: { onSwitchTab: (tab: MediaTab) => void }) {
+  const { t } = useTranslation('media')
   const { isAdmin } = useStore()
   const {
     instances, customFormats, cfSchemas, userCfFiles,
@@ -4621,7 +4628,7 @@ function CfManagerTab({ onSwitchTab }: { onSwitchTab: (tab: MediaTab) => void })
     const types = new Set(
       instances.filter(i => i.enabled && (i.type === 'radarr' || i.type === 'sonarr')).map(i => i.type as 'radarr' | 'sonarr')
     )
-    return (['radarr', 'sonarr'] as const).filter(t => types.has(t))
+    return (['radarr', 'sonarr'] as const).filter(svc => types.has(svc))
   }, [instances])
 
   const [service, setService] = useState<'radarr' | 'sonarr'>(() => serviceTypes[0] ?? 'radarr')
@@ -4646,7 +4653,7 @@ function CfManagerTab({ onSwitchTab }: { onSwitchTab: (tab: MediaTab) => void })
       loadCustomFormats(activeInstance.id),
       loadUserCfFiles(service),
       loadCfSchema(activeInstance.id),
-    ]).catch((e: unknown) => setLoadError((e as Error).message ?? 'Fehler beim Laden'))
+    ]).catch((e: unknown) => setLoadError((e as Error).message ?? t('common_load_error')))
   }, [activeInstance?.id, service]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const cfFiles = userCfFiles[service] ?? []
@@ -4711,7 +4718,7 @@ function CfManagerTab({ onSwitchTab }: { onSwitchTab: (tab: MediaTab) => void })
   if (serviceTypes.length === 0) {
     return (
       <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 48, textAlign: 'center' }}>
-        <p style={{ fontSize: 14, color: 'var(--text-muted)' }}>Keine Radarr/Sonarr-Instanzen konfiguriert.</p>
+        <p style={{ fontSize: 14, color: 'var(--text-muted)' }}>{t('recyclarr.no_instances')}</p>
       </div>
     )
   }
@@ -4749,14 +4756,14 @@ function CfManagerTab({ onSwitchTab }: { onSwitchTab: (tab: MediaTab) => void })
                 style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}
                 disabled={!activeInstance}
               >
-                <Upload size={12} /> Importieren
+                <Upload size={12} /> {t('cf.import')}
               </button>
               <button
                 onClick={() => setEditingCf('new')}
                 className="btn btn-primary"
                 style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}
               >
-                <Plus size={12} /> Erstellen
+                <Plus size={12} /> {t('cf.create')}
               </button>
             </>
           )}
@@ -4791,7 +4798,7 @@ function CfManagerTab({ onSwitchTab }: { onSwitchTab: (tab: MediaTab) => void })
         {displayItems.length === 0 ? (
           <div style={{ padding: '32px 0', textAlign: 'center' }}>
             <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: cfFiles.length === 0 && isAdmin && !search ? 16 : 0 }}>
-              {search ? 'Keine Custom Formats gefunden' : 'Keine eigenen Custom Formats vorhanden'}
+              {search ? t('cf.not_found') : t('cf.none')}
             </p>
             {cfFiles.length === 0 && isAdmin && !search && (
               <button
@@ -4799,7 +4806,7 @@ function CfManagerTab({ onSwitchTab }: { onSwitchTab: (tab: MediaTab) => void })
                 className="btn btn-primary"
                 style={{ fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 4 }}
               >
-                <Plus size={12} /> CF erstellen
+                <Plus size={12} /> {t('cf.create')}
               </button>
             )}
           </div>
@@ -4867,7 +4874,7 @@ function CfManagerTab({ onSwitchTab }: { onSwitchTab: (tab: MediaTab) => void })
           onClose={() => setShowImport(false)}
           onImported={count => {
             setShowImport(false)
-            setActionSuccess(`${count} CF${count !== 1 ? 's' : ''} importiert`)
+            setActionSuccess(t('cf.imported_count', { count }))
             Promise.all([loadCustomFormats(activeInstance.id), loadUserCfFiles(service)]).catch(() => {})
           }}
         />

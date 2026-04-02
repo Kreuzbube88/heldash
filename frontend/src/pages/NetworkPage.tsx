@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { Plus, Wifi, WifiOff, Zap, Edit2, Trash2, Search, X, ChevronDown, ChevronRight } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { api, getIconUrl } from '../api'
 import { useStore } from '../store/useStore'
 import { useToast } from '../components/Toast'
@@ -16,6 +17,7 @@ interface DeviceModalProps {
 }
 
 function DeviceModal({ device, existingGroups, onClose, onSave }: DeviceModalProps) {
+  const { t } = useTranslation('network')
   const [name, setName] = useState(device?.name ?? '')
   const [ip, setIp] = useState(device?.ip ?? '')
   const [icon, setIcon] = useState(device?.icon ?? '🖥️')
@@ -35,7 +37,7 @@ function DeviceModal({ device, existingGroups, onClose, onSave }: DeviceModalPro
 
   const handleSave = async () => {
     if (!name.trim() || !ip.trim()) {
-      setError('Name und IP-Adresse sind erforderlich')
+      setError(t('device.name_ip_required'))
       return
     }
     setSaving(true)
@@ -55,7 +57,7 @@ function DeviceModal({ device, existingGroups, onClose, onSave }: DeviceModalPro
       })
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Fehler beim Speichern')
+      setError(e instanceof Error ? e.message : t('device.save_error'))
     } finally {
       setSaving(false)
     }
@@ -66,7 +68,7 @@ function DeviceModal({ device, existingGroups, onClose, onSave }: DeviceModalPro
   return (
     <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div className="glass modal" style={{ width: '100%', maxWidth: 520, padding: 24, borderRadius: 'var(--radius-xl)' }}>
-        <h3 style={{ margin: '0 0 20px', fontFamily: 'var(--font-display)' }}>{device?.id ? 'Gerät bearbeiten' : 'Gerät hinzufügen'}</h3>
+        <h3 style={{ margin: '0 0 20px', fontFamily: 'var(--font-display)' }}>{device?.id ? t('device.edit') : t('device.add')}</h3>
 
         {error && <div className="error-banner" style={{ marginBottom: 16 }}>{error}</div>}
 
@@ -189,9 +191,9 @@ function DeviceModal({ device, existingGroups, onClose, onSave }: DeviceModalPro
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
-          <button className="btn btn-ghost" onClick={onClose}>Abbrechen</button>
+          <button className="btn btn-ghost" onClick={onClose}>{t('device.cancel')}</button>
           <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
-            {saving ? 'Speichern...' : 'Speichern'}
+            {saving ? t('device.saving') : t('device.save')}
           </button>
         </div>
       </div>
@@ -209,6 +211,7 @@ interface ScannerModalProps {
 }
 
 function ScannerModal({ defaultSubnet, existingIps, onClose, onAddDevice }: ScannerModalProps) {
+  const { t } = useTranslation('network')
   const [subnet, setSubnet] = useState(defaultSubnet)
   const [scanning, setScanning] = useState(false)
   const [results, setResults] = useState<ScanResult[]>([])
@@ -221,8 +224,8 @@ function ScannerModal({ defaultSubnet, existingIps, onClose, onAddDevice }: Scan
     /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\/\d{1,2}$/.test(s)
 
   const handleScan = async () => {
-    if (!subnet.trim()) { setError('Subnetz eingeben'); return }
-    if (!isValidSubnet(subnet.trim())) { setError('Format: 192.168.1.0/24 oder 10.10.0.0/20 (max. /20)'); return }
+    if (!subnet.trim()) { setError(t('scanner.enter_subnet')); return }
+    if (!isValidSubnet(subnet.trim())) { setError(t('scanner.invalid_format')); return }
     setScanning(true)
     setError(null)
     setResults([])
@@ -232,7 +235,7 @@ function ScannerModal({ defaultSubnet, existingIps, onClose, onAddDevice }: Scan
       setResults(data)
       setScanned(true)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Scan fehlgeschlagen')
+      setError(e instanceof Error ? e.message : t('scanner.scan_failed'))
     } finally {
       setScanning(false)
     }
@@ -242,24 +245,24 @@ function ScannerModal({ defaultSubnet, existingIps, onClose, onAddDevice }: Scan
     <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div className="glass modal" style={{ width: '100%', maxWidth: 640, padding: 24, borderRadius: 'var(--radius-xl)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <h3 style={{ margin: 0, fontFamily: 'var(--font-display)' }}>Netzwerk scannen</h3>
+          <h3 style={{ margin: 0, fontFamily: 'var(--font-display)' }}>{t('scanner.title')}</h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={20} /></button>
         </div>
 
         <div style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
           <input className="input" style={{ flex: 1 }} value={subnet} onChange={e => setSubnet(e.target.value)} placeholder="z.B. 192.168.1.0/24 oder 10.10.0.0/20" />
           <button className="btn btn-primary" onClick={handleScan} disabled={scanning}>
-            {scanning ? 'Scanne...' : 'Scannen'}
+            {scanning ? t('scanner.scanning') : t('scanner.scan')}
           </button>
         </div>
-        <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 12, marginTop: 0 }}>Unterstützt /20–/32 (max. 4096 Hosts)</p>
+        <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 12, marginTop: 0 }}>{t('scanner.hint')}</p>
 
-        {!scanned && !error && <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 0 }}>Scan dauert ca. 20–30 Sekunden</p>}
+        {!scanned && !error && <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 0 }}>{t('scanner.duration')}</p>}
         {error && <div className="error-banner" style={{ marginBottom: 12 }}>{error}</div>}
 
         {scanned && !scanning && (
           <>
-            <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12 }}>{results.length} Gerät{results.length !== 1 ? 'e' : ''} gefunden</p>
+            <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12 }}>{results.length !== 1 ? t('scanner.found_plural', { count: results.length }) : t('scanner.found_single', { count: results.length })}</p>
             {results.length > 0 && (
               <>
                 <div style={{ maxHeight: 320, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -272,16 +275,16 @@ function ScannerModal({ defaultSubnet, existingIps, onClose, onAddDevice }: Scan
                           <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 10 }}>Ports: {r.open_ports.join(', ')} · {r.latency}ms</span>
                         </div>
                         {exists ? (
-                          <span style={{ fontSize: 12, color: 'var(--status-online)', display: 'flex', alignItems: 'center', gap: 4 }}>✓ {existingIps.includes(r.ip) ? 'Vorhanden' : 'Hinzugefügt'}</span>
+                          <span style={{ fontSize: 12, color: 'var(--status-online)', display: 'flex', alignItems: 'center', gap: 4 }}>✓ {existingIps.includes(r.ip) ? t('scanner.existing') : t('scanner.added')}</span>
                         ) : (
-                          <button className="btn btn-primary" style={{ padding: '4px 12px', fontSize: 12 }} onClick={() => { setAddedIps(prev => [...prev, r.ip]); onAddDevice(r.ip, r.open_ports) }}>Hinzufügen</button>
+                          <button className="btn btn-primary" style={{ padding: '4px 12px', fontSize: 12 }} onClick={() => { setAddedIps(prev => [...prev, r.ip]); onAddDevice(r.ip, r.open_ports) }}>{t('scanner.add')}</button>
                         )}
                       </div>
                     )
                   })}
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
-                  <button className="btn btn-ghost" onClick={onClose} style={{ fontSize: 13 }}>Scan abschließen</button>
+                  <button className="btn btn-ghost" onClick={onClose} style={{ fontSize: 13 }}>{t('scanner.finish')}</button>
                 </div>
               </>
             )}

@@ -2,12 +2,14 @@ import { useState } from 'react'
 import { useStore } from '../store/useStore'
 import { useDashboardStore } from '../store/useDashboardStore'
 import { X, LogIn } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 interface Props {
   onClose: () => void
 }
 
 export function LoginModal({ onClose }: Props) {
+  const { t } = useTranslation('common')
   const { login, loadAll } = useStore()
   const { loadDashboard } = useDashboardStore()
   const [username, setUsername] = useState('')
@@ -19,7 +21,7 @@ export function LoginModal({ onClose }: Props) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    if (!username.trim() || !password) return setError('Username and password required')
+    if (!username.trim() || !password) return setError(t('login.username_password_required'))
     setLoading(true)
     try {
       await login(username.trim(), password, rememberMe)
@@ -64,15 +66,15 @@ export function LoginModal({ onClose }: Props) {
         </div>
 
         <h2 style={{ fontSize: 22, fontWeight: 600, marginBottom: 6, color: 'var(--text-primary)' }}>
-          Welcome back
+          {t('login.welcome_back')}
         </h2>
         <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 32 }}>
-          Sign in to manage your dashboard
+          {t('login.sign_in_subtitle')}
         </p>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
           <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label">Username</label>
+            <label className="form-label">{t('login.username')}</label>
             <input
               className="form-input"
               value={username}
@@ -84,7 +86,7 @@ export function LoginModal({ onClose }: Props) {
           </div>
 
           <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label">Password</label>
+            <label className="form-label">{t('login.password')}</label>
             <input
               className="form-input"
               type="password"
@@ -102,7 +104,7 @@ export function LoginModal({ onClose }: Props) {
               onChange={e => setRememberMe(e.target.checked)}
               style={{ accentColor: 'var(--accent)', width: 14, height: 14, cursor: 'pointer' }}
             />
-            Anmeldung merken (30 Tage)
+            {t('login.remember_me')}
           </label>
 
           {error && (
@@ -116,8 +118,8 @@ export function LoginModal({ onClose }: Props) {
             style={{ marginTop: 8, padding: '11px 20px', fontSize: 14, gap: 8, justifyContent: 'center' }}
           >
             {loading
-              ? <><div className="spinner" style={{ width: 15, height: 15, borderWidth: 2 }} /> Signing in…</>
-              : <><LogIn size={15} /> Sign in</>
+              ? <><div className="spinner" style={{ width: 15, height: 15, borderWidth: 2 }} /> {t('login.signing_in')}</>
+              : <><LogIn size={15} /> {t('login.sign_in')}</>
             }
           </button>
         </form>

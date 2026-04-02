@@ -1,0 +1,57 @@
+{
+  "title": "Netzwerk",
+  "device": {
+    "add": "Gerät hinzufügen",
+    "edit": "Gerät bearbeiten",
+    "name": "Name *",
+    "name_placeholder": "Mein Server",
+    "ip": "IP-Adresse *",
+    "ip_placeholder": "192.168.1.100",
+    "icon_library": "Icon (Bibliothek)",
+    "icon_emoji": "Emoji (Fallback)",
+    "group": "Gruppe",
+    "group_placeholder": "z.B. Server, IoT, Netzwerk",
+    "subnet": "Subnetz (für Scanner-Vorausfüllung)",
+    "subnet_placeholder": "z.B. 192.168.1.0/24",
+    "check_method": "Prüfmethode",
+    "check_standard": "Standard (80/443/22/8080)",
+    "check_tcp": "TCP Port",
+    "port_placeholder": "Port (z.B. 8080)",
+    "wol": "Wake-on-LAN aktivieren",
+    "mac": "MAC-Adresse *",
+    "mac_placeholder": "AA:BB:CC:DD:EE:FF",
+    "mac_format": "Format: AA:BB:CC:DD:EE:FF",
+    "broadcast": "Broadcast-Adresse",
+    "broadcast_placeholder": "z.B. 192.168.1.255",
+    "save": "Speichern",
+    "saving": "Speichern...",
+    "cancel": "Abbrechen",
+    "name_ip_required": "Name und IP-Adresse sind erforderlich",
+    "save_error": "Fehler beim Speichern"
+  },
+  "scanner": {
+    "title": "Netzwerk scannen",
+    "subnet_placeholder": "z.B. 192.168.1.0/24 oder 10.10.0.0/20",
+    "scan": "Scannen",
+    "scanning": "Scanne...",
+    "hint": "Unterstützt /20–/32 (max. 4096 Hosts)",
+    "duration": "Scan dauert ca. 20–30 Sekunden",
+    "found_single": "{{count}} Gerät gefunden",
+    "found_plural": "{{count}} Geräte gefunden",
+    "existing": "Vorhanden",
+    "added": "Hinzugefügt",
+    "add": "Hinzufügen",
+    "finish": "Scan abschließen",
+    "enter_subnet": "Subnetz eingeben",
+    "invalid_format": "Format: 192.168.1.0/24 oder 10.10.0.0/20 (max. /20)",
+    "scan_failed": "Scan fehlgeschlagen"
+  },
+  "history": {
+    "title": "Verlauf"
+  },
+  "status": {
+    "online": "Online",
+    "offline": "Offline",
+    "checking": "Prüfen…"
+  }
+}

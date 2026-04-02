@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Plus, Pencil, Trash2, ExternalLink, Upload, X, Download, LayoutDashboard } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useBookmarkStore } from '../store/useBookmarkStore'
 import { useStore } from '../store/useStore'
 import { useConfirm } from '../components/ConfirmDialog'
@@ -18,6 +19,7 @@ function BookmarkModal({
   onClose: () => void
   onSave: (name: string, url: string, description: string, iconId?: string | null, iconChanged?: boolean) => Promise<void>
 }) {
+  const { t } = useTranslation('bookmarks')
   const [name, setName] = useState(bookmark?.name ?? '')
   const [url, setUrl] = useState(bookmark?.url ?? '')
   const [description, setDescription] = useState(bookmark?.description ?? '')
@@ -27,8 +29,8 @@ function BookmarkModal({
   const [iconChanged, setIconChanged] = useState(false)
 
   const handleSave = async () => {
-    if (!name.trim()) return setError('Name is required')
-    if (!url.trim()) return setError('URL is required')
+    if (!name.trim()) return setError(t('modal.name_required'))
+    if (!url.trim()) return setError(t('modal.url_required'))
     setSaving(true)
     setError(null)
     try {
@@ -45,7 +47,7 @@ function BookmarkModal({
     <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div className="glass modal" style={{ width: '100%', maxWidth: 440, padding: 24, borderRadius: 'var(--radius-xl)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <h3 style={{ margin: 0, fontFamily: 'var(--font-display)' }}>{bookmark ? 'Bookmark bearbeiten' : 'Bookmark hinzufügen'}</h3>
+          <h3 style={{ margin: 0, fontFamily: 'var(--font-display)' }}>{bookmark ? t('modal.title_edit') : t('modal.title_add')}</h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={20} /></button>
         </div>
 

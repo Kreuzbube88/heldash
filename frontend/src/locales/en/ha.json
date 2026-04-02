@@ -1,0 +1,97 @@
+{
+  "title": "Home Assistant",
+  "tabs": {
+    "overview": "Floor Plan",
+    "scenes": "Scenes",
+    "automations": "Automations"
+  },
+  "instance": {
+    "add": "Add Instance",
+    "edit": "Edit Instance",
+    "no_instances": "No Home Assistant instances configured.",
+    "add_first": "Add first instance",
+    "name": "Name",
+    "url": "URL",
+    "token": "Long-Lived Access Token",
+    "save": "Save",
+    "cancel": "Cancel",
+    "saving": "Saving…",
+    "delete_confirm": "Delete instance?",
+    "delete_confirm_msg": "All panels for this instance will also be deleted."
+  },
+  "panel": {
+    "add": "Add Panel",
+    "edit": "Edit Panel",
+    "label": "Label",
+    "label_placeholder": "Empty = use HA name",
+    "room": "Room",
+    "no_room": "No room",
+    "area": "Area",
+    "no_area": "— No area —",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete_confirm": "Remove panel?"
+  },
+  "browser": {
+    "title": "Select Entity",
+    "search": "Search entities…",
+    "add": "Add",
+    "added": "Added",
+    "loading": "Loading entities…",
+    "error": "Error loading"
+  },
+  "floorplan": {
+    "title": "Floor Plan",
+    "upload": "Upload image",
+    "no_image": "No floor plan image available.",
+    "place_entity": "Place entity"
+  },
+  "alerts": {
+    "title": "Alerts",
+    "add": "Add Alert",
+    "no_alerts": "No alerts configured.",
+    "entity": "Entity",
+    "condition": "Condition",
+    "message": "Message",
+    "min_interval": "Min. interval (sec)",
+    "delete_confirm": "Delete alert?"
+  },
+  "history": {
+    "title": "History",
+    "no_data": "No history data",
+    "loading": "Loading history…"
+  },
+  "view": {
+    "panels": "Panels",
+    "floorplan": "Floor Plan",
+    "gps": "GPS",
+    "alerts": "Alerts",
+    "flat": "Flat",
+    "by_room": "By Room",
+    "no_rooms": "Rooms not configured in Home Assistant",
+    "unassigned": "Unassigned"
+  },
+  "scenes": {
+    "search": "Search scenes…",
+    "scene_label": "Scene",
+    "run": "Run",
+    "running": "Executed!",
+    "empty": "No scenes or scripts found."
+  },
+  "automations": {
+    "search": "Search automations…",
+    "trigger": "Trigger",
+    "enable": "Enable",
+    "disable": "Disable",
+    "on": "On",
+    "off": "Off",
+    "empty": "No automations found."
+  },
+  "instances": "Instances",
+  "add_instance": "Add Instance",
+  "status": {
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "connecting": "Connecting…"
+  }
+}

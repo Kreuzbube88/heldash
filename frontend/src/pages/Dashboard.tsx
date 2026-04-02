@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useStore } from '../store/useStore'
 import { useArrStore } from '../store/useArrStore'
 import { useDashboardStore } from '../store/useDashboardStore'
@@ -160,6 +161,7 @@ function DashboardServiceCard({ item, onEdit, editMode, groups, hiddenServiceIds
   groups?: DashboardGroup[]
   hiddenServiceIds?: string[]
 }) {
+  const { t } = useTranslation('dashboard')
   const { removeItem, moveItemToGroup, showVisibilityOverlay } = useDashboardStore()
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.id, disabled: !editMode,
@@ -184,7 +186,7 @@ function DashboardServiceCard({ item, onEdit, editMode, groups, hiddenServiceIds
           padding: 6, pointerEvents: 'none', zIndex: 5,
         }}>
           <span className={isHidden ? 'badge-neutral' : 'badge-success'} style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4 }}>
-            {isHidden ? 'Versteckt' : 'Sichtbar'}
+            {isHidden ? t('hidden') : t('visible')}
           </span>
         </div>
       )}
@@ -210,6 +212,7 @@ function DashboardArrCard({ item, editMode, groups, hiddenArrIds }: {
   groups?: DashboardGroup[]
   hiddenArrIds?: string[]
 }) {
+  const { t } = useTranslation('dashboard')
   const { removeItem, moveItemToGroup } = useDashboardStore()
   const { showVisibilityOverlay } = useDashboardStore()
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -248,7 +251,7 @@ function DashboardArrCard({ item, editMode, groups, hiddenArrIds }: {
           padding: 6, pointerEvents: 'none', zIndex: 5,
         }}>
           <span className={isArrHidden ? 'badge-neutral' : 'badge-success'} style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4 }}>
-            {isArrHidden ? 'Versteckt' : 'Sichtbar'}
+            {isArrHidden ? t('hidden') : t('visible')}
           </span>
         </div>
       )}
@@ -275,6 +278,7 @@ function DashboardWidgetCard({ item, editMode, groups, colSpan = 2, hiddenWidget
   colSpan?: 1 | 2
   hiddenWidgetIds?: string[]
 }) {
+  const { t } = useTranslation('dashboard')
   const { isAdmin } = useStore()
   const { removeItem, moveItemToGroup, showVisibilityOverlay } = useDashboardStore()
   const { stats, setAdGuardProtection, setPiholeProtection } = useWidgetStore()
@@ -382,7 +386,7 @@ function DashboardWidgetCard({ item, editMode, groups, colSpan = 2, hiddenWidget
           padding: 6, pointerEvents: 'none', zIndex: 5,
         }}>
           <span className={isWidgetHidden ? 'badge-neutral' : 'badge-success'} style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4 }}>
-            {isWidgetHidden ? 'Versteckt' : 'Sichtbar'}
+            {isWidgetHidden ? t('hidden') : t('visible')}
           </span>
         </div>
       )}
@@ -734,6 +738,7 @@ interface Props {
 }
 
 export function Dashboard({ onEdit }: Props) {
+  const { t } = useTranslation('dashboard')
   const { isAdmin, isAuthenticated } = useStore()
   const { instances, loadInstances, loadAllStats } = useArrStore()
   const { items, groups, editMode, guestMode, loading, reorder, reorderGroups, createGroup, showVisibilityOverlay, setShowVisibilityOverlay } = useDashboardStore()
@@ -868,7 +873,7 @@ export function Dashboard({ onEdit }: Props) {
             style={{ gap: 6, fontSize: 12 }}
           >
             {showVisibilityOverlay ? <EyeOff size={14} /> : <Eye size={14} />}
-            Sichtbarkeit anzeigen
+            {t('show_visibility')}
           </button>
         </div>
       )}

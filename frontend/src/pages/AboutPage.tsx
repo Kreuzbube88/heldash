@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Copy, Check, ChevronDown, ChevronUp } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { LS_ABOUT_TAB } from '../constants'
 import { api } from '../api'
 
@@ -8,6 +9,7 @@ type AboutTab = 'overview' | 'setup' | 'docker' | 'logbuch' | 'media' | 'recycla
 
 // ── CodeBlock ─────────────────────────────────────────────────────────────────
 function CodeBlock({ children }: { children: string }) {
+  const { t } = useTranslation('about')
   const [copied, setCopied] = useState(false)
 
   const handleCopy = useCallback(async () => {
@@ -39,7 +41,7 @@ function CodeBlock({ children }: { children: string }) {
       </pre>
       <button
         onClick={handleCopy}
-        title="Kopieren"
+        title={t('code.copy')}
         style={{
           position: 'absolute',
           top: 8,
@@ -60,7 +62,7 @@ function CodeBlock({ children }: { children: string }) {
         }}
       >
         {copied ? <Check size={11} /> : <Copy size={11} />}
-        {copied ? 'Kopiert!' : 'Kopieren'}
+        {copied ? t('code.copied') : t('code.copy')}
       </button>
     </div>
   )

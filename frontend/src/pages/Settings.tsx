@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
+import { useLanguageStore } from '../store/useLanguageStore'
 import { useStore } from '../store/useStore'
 import { useArrStore } from '../store/useArrStore'
 import { useWidgetStore } from '../store/useWidgetStore'
@@ -321,6 +323,8 @@ function ToggleGroup<T extends string>({
 
 // ── Main Settings page ────────────────────────────────────────────────────────
 export function SettingsPage({ onStartOnboarding }: { onStartOnboarding?: () => void }) {
+  const { t } = useTranslation('settings')
+  const { language, setLanguage } = useLanguageStore()
   const {
     settings, updateSettings, groups, createGroup, deleteGroup,
     services,
@@ -511,6 +515,19 @@ export function SettingsPage({ onStartOnboarding }: { onStartOnboarding?: () => 
                   {saving ? '...' : 'Save'}
                 </button>
               </div>
+            </div>
+
+            <div className="form-group" style={{ marginTop: 16 }}>
+              <label className="form-label">{t('language.label')}</label>
+              <select
+                className="form-input"
+                value={language}
+                onChange={e => setLanguage(e.target.value as 'de' | 'en')}
+                style={{ maxWidth: 200 }}
+              >
+                <option value="de">{t('language.de')}</option>
+                <option value="en">{t('language.en')}</option>
+              </select>
             </div>
           </section>
 

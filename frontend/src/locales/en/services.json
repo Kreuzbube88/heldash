@@ -1,0 +1,46 @@
+{
+  "title": "Apps",
+  "add": "Add App",
+  "modal": {
+    "title_add": "Add App",
+    "title_edit": "Edit App",
+    "name": "Name *",
+    "url": "URL *",
+    "icon_emoji": "Icon (Emoji)",
+    "icon_image": "Icon Image",
+    "icon_image_hint": "Image takes precedence over emoji icon.",
+    "group": "Group",
+    "no_group": "— No group —",
+    "description": "Description",
+    "description_placeholder": "Movie management",
+    "enable_check": "Enable Status Check",
+    "show_dashboard": "Show on Dashboard",
+    "check_url": "Check URL (optional override)",
+    "check_url_placeholder": "Same as URL",
+    "interval": "Interval (sec)",
+    "name_url_required": "Name and URL are required",
+    "save": "Save",
+    "add_btn": "Add App",
+    "cancel": "Cancel"
+  },
+  "table": {
+    "name": "Name",
+    "url": "URL",
+    "group": "Group",
+    "status": "Status",
+    "uptime": "Uptime",
+    "actions": "Actions"
+  },
+  "history": {
+    "no_data": "No history data"
+  },
+  "import_export": {
+    "import": "Import",
+    "export": "Export"
+  },
+  "delete_confirm": "Delete app?",
+  "empty": {
+    "title": "No Apps",
+    "subtitle": "Add your first service."
+  }
+}

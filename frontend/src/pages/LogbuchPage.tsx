@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { Activity, TrendingUp, RefreshCw, Container, Home, Box, AlertTriangle, CheckCircle, XCircle, Search, ChevronRight, Cpu, Network, HardDrive } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { ResourceSnapshot } from '../types'
 import { useStore } from '../store/useStore'
 import { useActivityStore } from '../store/useActivityStore'
@@ -34,16 +35,17 @@ interface Anomaly {
 
 // ── Tab config ─────────────────────────────────────────────────────────────────
 
-const TABS = [
-  { key: 'aktivitaeten', label: 'Aktivitäten', icon: Activity },
-  { key: 'uptime', label: 'Uptime', icon: TrendingUp },
-  { key: 'sync', label: 'Sync-Verlauf', icon: RefreshCw },
-  { key: 'ressourcen', label: 'Ressourcen', icon: Cpu },
+const TABS_CONFIG = [
+  { key: 'aktivitaeten', labelKey: 'tabs.aktivitaeten', icon: Activity },
+  { key: 'uptime', labelKey: 'tabs.uptime', icon: TrendingUp },
+  { key: 'sync', labelKey: 'tabs.sync', icon: RefreshCw },
+  { key: 'ressourcen', labelKey: 'tabs.ressourcen', icon: Cpu },
 ]
 
 // ── Health Score Badge ────────────────────────────────────────────────────────
 
 function HealthScoreBadge({ hs }: { hs: HealthScore | null }) {
+  const { t } = useTranslation('logbuch')
   const [expanded, setExpanded] = useState(false)
 
   const scoreColor = (s: number) => {
@@ -64,7 +66,7 @@ function HealthScoreBadge({ hs }: { hs: HealthScore | null }) {
         }}
       >
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-          <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-sans)' }}>Homelab Status</span>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-sans)' }}>{t('health.homelab_status')}</span>
           <span style={{
             fontSize: 28, fontFamily: 'var(--font-display)', fontWeight: 700,
             color: hs ? scoreColor(hs.score) : 'var(--text-muted)',
@@ -95,27 +97,27 @@ function HealthScoreBadge({ hs }: { hs: HealthScore | null }) {
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <span style={{ color: 'var(--text-secondary)' }}>
               {hs.breakdown.docker.available
-                ? `Docker: ${hs.breakdown.docker.running}/${hs.breakdown.docker.total} running`
-                : 'Docker: nicht verfügbar'}
+                ? `Docker: ${hs.breakdown.docker.running}/${hs.breakdown.docker.total} ${t('health.running')}`
+                : `Docker: ${t('health.docker_unavailable')}`}
             </span>
             <span style={{ color: 'var(--accent)', fontFamily: 'var(--font-mono)' }}>+{hs.breakdown.docker.points}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <span style={{ color: 'var(--text-secondary)' }}>
               Recyclarr: {hs.breakdown.recyclarr.lastSyncSuccess === null
-                ? 'Kein Sync'
-                : hs.breakdown.recyclarr.lastSyncSuccess ? 'Letzter Sync erfolgreich' : 'Letzter Sync fehlgeschlagen'}
+                ? t('health.recyclarr_none')
+                : hs.breakdown.recyclarr.lastSyncSuccess ? t('health.recyclarr_ok') : t('health.recyclarr_fail')}
             </span>
             <span style={{ color: 'var(--accent)', fontFamily: 'var(--font-mono)' }}>+{hs.breakdown.recyclarr.points}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <span style={{ color: 'var(--text-secondary)' }}>
-              Home Assistant: {hs.breakdown.ha.reachable}/{hs.breakdown.ha.total} erreichbar
+              Home Assistant: {hs.breakdown.ha.reachable}/{hs.breakdown.ha.total} {t('health.reachable')}
             </span>
             <span style={{ color: 'var(--accent)', fontFamily: 'var(--font-mono)' }}>+{hs.breakdown.ha.points}</span>
           </div>
           <div style={{ borderTop: '1px solid var(--glass-border)', marginTop: 4, paddingTop: 6, display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ fontWeight: 600 }}>Gesamt</span>
+            <span style={{ fontWeight: 600 }}>{t('health.total')}</span>
             <span style={{ fontWeight: 700, color: scoreColor(hs.score), fontFamily: 'var(--font-mono)' }}>{hs.score}/100</span>
           </div>
         </div>
@@ -127,6 +129,7 @@ function HealthScoreBadge({ hs }: { hs: HealthScore | null }) {
 // ── Ereignis-Kalender ─────────────────────────────────────────────────────────
 
 function EreignisKalender({ days }: { days: CalendarDay[] }) {
+  const { t } = useTranslation('logbuch')
   const [open, setOpen] = useState(false)
 
   const dayMap = new Map(days.map(d => [d.date, d]))
@@ -173,10 +176,10 @@ function EreignisKalender({ days }: { days: CalendarDay[] }) {
   const fmtDate = (iso: string) => {
     if (!iso) return ''
     const d = new Date(iso + 'T00:00:00')
-    return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    return d.toLocaleDateString(undefined, { day: '2-digit', month: '2-digit', year: 'numeric' })
   }
 
-  const DAY_LABELS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
+  const DAY_LABELS = [t('calendar.mon'), t('calendar.tue'), t('calendar.wed'), t('calendar.thu'), t('calendar.fri'), t('calendar.sat'), t('calendar.sun')]
 
   return (
     <div style={{ marginBottom: 4 }}>
@@ -189,7 +192,7 @@ function EreignisKalender({ days }: { days: CalendarDay[] }) {
         }}
       >
         <ChevronRight size={12} style={{ transition: 'transform var(--transition-fast)', transform: open ? 'rotate(90deg)' : 'none' }} />
-        Ereignis-Kalender — letzte 12 Wochen
+        {t('calendar.title')}
       </button>
 
       {open && (
@@ -211,7 +214,7 @@ function EreignisKalender({ days }: { days: CalendarDay[] }) {
                       ? ''
                       : cell.day
                         ? `${fmtDate(cell.date)} — ${cell.day.count} Event${cell.day.count !== 1 ? 's' : ''}`
-                        : `${fmtDate(cell.date)} — Keine Events`
+                        : `${fmtDate(cell.date)} — ${t('calendar.no_events')}`
                     return (
                       <div
                         key={colIdx}
@@ -233,11 +236,11 @@ function EreignisKalender({ days }: { days: CalendarDay[] }) {
               ))}
               {/* Legend */}
               <div style={{ display: 'flex', gap: 8, marginTop: 4, fontSize: 10, color: 'var(--text-muted)', alignItems: 'center' }}>
-                <span>Wenig</span>
+                <span>{t('calendar.legend_few')}</span>
                 {(['var(--glass-border)', 'var(--status-online)', '#f59e0b', 'var(--status-offline)'] as const).map((bg, i) => (
                   <div key={i} style={{ width: 12, height: 12, borderRadius: 2, background: bg, flexShrink: 0 }} />
                 ))}
-                <span>Viel / Fehler</span>
+                <span>{t('calendar.legend_many')}</span>
               </div>
             </div>
           </div>
@@ -250,7 +253,6 @@ function EreignisKalender({ days }: { days: CalendarDay[] }) {
 // ── Aktivitäten Tab ───────────────────────────────────────────────────────────
 
 const ACTIVITY_CATEGORIES = ['all', 'system', 'docker', 'ha', 'recyclarr', 'network', 'backup']
-const categoryLabel: Record<string, string> = { all: 'Alle', system: 'System', docker: 'Docker', ha: 'HA', recyclarr: 'Recyclarr', network: 'Netzwerk', backup: 'Backup' }
 const categoryIconNode: Record<string, React.ReactNode> = {
   docker: <Container size={12} />,
   ha: <Home size={12} />,
@@ -261,15 +263,16 @@ const categoryIconNode: Record<string, React.ReactNode> = {
   all: <Box size={12} />,
 }
 
-const TIME_FILTERS = ['Heute', '7 Tage', '30 Tage'] as const
-type TimeFilter = typeof TIME_FILTERS[number]
+const TIME_FILTER_KEYS = ['today', '7d', '30d'] as const
+type TimeFilterKey = typeof TIME_FILTER_KEYS[number]
 
 const PAGE_SIZE = 20
 
 function AktivitaetenTab({ anomalies }: { anomalies: Anomaly[] }) {
+  const { t } = useTranslation('logbuch')
   const { entries, loading, loadEntries } = useActivityStore()
   const [category, setCategory] = useState('all')
-  const [timeFilter, setTimeFilter] = useState<TimeFilter>('7 Tage')
+  const [timeFilter, setTimeFilter] = useState<TimeFilterKey>('7d')
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(0)
 
@@ -277,13 +280,23 @@ function AktivitaetenTab({ anomalies }: { anomalies: Anomaly[] }) {
     loadEntries(category !== 'all' ? category : undefined).catch(() => {})
   }, [category])
 
+  const categoryLabel: Record<string, string> = {
+    all: t('activity.cat_all'),
+    system: t('activity.cat_system'),
+    docker: 'Docker',
+    ha: 'HA',
+    recyclarr: 'Recyclarr',
+    network: t('activity.cat_network'),
+    backup: 'Backup',
+  }
+
   const now = new Date()
   const filtered = entries.filter(e => {
     const d = new Date(e.created_at)
-    if (timeFilter === 'Heute') {
+    if (timeFilter === 'today') {
       const today = new Date(now); today.setHours(0, 0, 0, 0)
       if (d < today) return false
-    } else if (timeFilter === '7 Tage') {
+    } else if (timeFilter === '7d') {
       if (now.getTime() - d.getTime() > 7 * 86400000) return false
     } else {
       if (now.getTime() - d.getTime() > 30 * 86400000) return false
@@ -311,8 +324,8 @@ function AktivitaetenTab({ anomalies }: { anomalies: Anomaly[] }) {
         <div className="glass" style={{ borderRadius: 'var(--radius-md)', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(234,179,8,0.1)', borderColor: '#f59e0b' }}>
           <AlertTriangle size={14} style={{ color: '#f59e0b', flexShrink: 0 }} />
           <span style={{ fontSize: 12 }}>
-            <strong style={{ color: '#f59e0b' }}>Instabile Services:</strong>{' '}
-            {anomalies.map(a => `${a.serviceName ?? a.serviceId} (${a.offlineCount}× offline heute)`).join(', ')}
+            <strong style={{ color: '#f59e0b' }}>{t('activity.unstable_services')}:</strong>{' '}
+            {anomalies.map(a => `${a.serviceName ?? a.serviceId} (${a.offlineCount}× ${t('activity.offline_today')})`).join(', ')}
           </span>
         </div>
       )}
@@ -336,14 +349,14 @@ function AktivitaetenTab({ anomalies }: { anomalies: Anomaly[] }) {
 
         {/* Time filter */}
         <div style={{ display: 'flex', gap: 4 }}>
-          {TIME_FILTERS.map(tf => (
+          {TIME_FILTER_KEYS.map(tf => (
             <button
               key={tf}
               onClick={() => setFilter(() => setTimeFilter(tf))}
               className={timeFilter === tf ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'}
               style={{ fontSize: 11, padding: '3px 10px' }}
             >
-              {tf}
+              {t(`activity.time_${tf}`)}
             </button>
           ))}
         </div>
@@ -353,7 +366,7 @@ function AktivitaetenTab({ anomalies }: { anomalies: Anomaly[] }) {
           <Search size={12} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
           <input
             type="text"
-            placeholder="Suchen…"
+            placeholder={t('activity.search_placeholder')}
             value={search}
             onChange={e => setFilter(() => setSearch(e.target.value))}
             style={{
@@ -368,7 +381,7 @@ function AktivitaetenTab({ anomalies }: { anomalies: Anomaly[] }) {
           onClick={() => loadEntries(category !== 'all' ? category : undefined).catch(() => {})}
           className="btn btn-ghost btn-sm"
           style={{ fontSize: 11, padding: '3px 8px', marginLeft: 'auto' }}
-          title="Aktualisieren"
+          title={t('activity.refresh')}
         >
           <RefreshCw size={11} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
         </button>
@@ -378,8 +391,8 @@ function AktivitaetenTab({ anomalies }: { anomalies: Anomaly[] }) {
       {filtered.length === 0 && !loading ? (
         <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '24px 0' }}>
           {entries.length === 0
-            ? 'Noch keine Aktivitäten aufgezeichnet'
-            : 'Keine Einträge für die gewählten Filter'}
+            ? t('activity.empty')
+            : t('activity.empty_filtered')}
         </div>
       ) : (
         <div className="glass" style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
@@ -398,15 +411,15 @@ function AktivitaetenTab({ anomalies }: { anomalies: Anomaly[] }) {
             className="btn btn-ghost btn-sm"
             disabled={page === 0}
             onClick={() => setPage(p => p - 1)}
-          >← Zurück</button>
+          >← {t('activity.back')}</button>
           <span style={{ color: 'var(--text-muted)' }}>
-            Seite {page + 1} / {totalPages} ({filtered.length} Einträge)
+            {t('activity.page', { page: page + 1, total: totalPages, count: filtered.length })}
           </span>
           <button
             className="btn btn-ghost btn-sm"
             disabled={page >= totalPages - 1}
             onClick={() => setPage(p => p + 1)}
-          >Weiter →</button>
+          >{t('activity.next')} →</button>
         </div>
       )}
     </div>
@@ -469,6 +482,7 @@ function uptimeColor(pct: number | null): string {
 }
 
 function UptimeOverview({ services }: { services: Service[] }) {
+  const { t } = useTranslation('logbuch')
   const [data, setData] = useState<UptimeServiceData[]>([])
   const [loading, setLoading] = useState(true)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
@@ -530,7 +544,7 @@ function UptimeOverview({ services }: { services: Service[] }) {
       const isoHour = d.toISOString().slice(0, 13)
       const entry = history.find(h => h.hour.slice(0, 13) === isoHour)
       blocks.push({
-        label: d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }),
+        label: d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }),
         uptime: entry ? entry.uptime : null,
       })
     }
@@ -540,17 +554,17 @@ function UptimeOverview({ services }: { services: Service[] }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 16, fontFamily: 'var(--font-display)', fontWeight: 600 }}>Uptime Übersicht</span>
+        <span style={{ fontSize: 16, fontFamily: 'var(--font-display)', fontWeight: 600 }}>{t('uptime.title')}</span>
         {lastUpdated && (
           <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-            Aktualisiert: {lastUpdated.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            {t('uptime.updated')}: {lastUpdated.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
           </span>
         )}
-        <button onClick={load} className="btn btn-ghost btn-sm" disabled={loading} style={{ marginLeft: 4, padding: '3px 8px' }} title="Aktualisieren">
+        <button onClick={load} className="btn btn-ghost btn-sm" disabled={loading} style={{ marginLeft: 4, padding: '3px 8px' }} title={t('activity.refresh')}>
           <RefreshCw size={12} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
         </button>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <label style={{ fontSize: 11, color: 'var(--text-muted)' }}>Sortierung:</label>
+          <label style={{ fontSize: 11, color: 'var(--text-muted)' }}>{t('uptime.sort_label')}:</label>
           <select
             value={sort}
             onChange={e => setSort(e.target.value as typeof sort)}
@@ -560,18 +574,18 @@ function UptimeOverview({ services }: { services: Service[] }) {
               color: 'var(--text-primary)', cursor: 'pointer', colorScheme: 'dark',
             } as React.CSSProperties}
           >
-            <option value="name">Name A→Z</option>
-            <option value="uptime-desc">Uptime ↓</option>
-            <option value="uptime-asc">Uptime ↑</option>
+            <option value="name">{t('uptime.sort_name')}</option>
+            <option value="uptime-desc">{t('uptime.sort_desc')}</option>
+            <option value="uptime-asc">{t('uptime.sort_asc')}</option>
           </select>
         </div>
       </div>
 
       <div className="glass" style={{ borderRadius: 'var(--radius-md)', padding: '10px 16px', display: 'flex', gap: 20, flexWrap: 'wrap', fontSize: 12 }}>
-        <span><span style={{ color: 'var(--text-muted)', marginRight: 4 }}>Gesamt:</span><strong>{data.length}</strong></span>
-        <span><span style={{ color: 'var(--text-muted)', marginRight: 4 }}>Online:</span><strong style={{ color: 'var(--status-online)' }}>{online}</strong></span>
-        <span><span style={{ color: 'var(--text-muted)', marginRight: 4 }}>Offline:</span><strong style={{ color: offline > 0 ? 'var(--status-offline)' : 'var(--text-secondary)' }}>{offline}</strong></span>
-        <span><span style={{ color: 'var(--text-muted)', marginRight: 4 }}>Ø Uptime 7 Tage:</span><strong style={{ color: uptimeColor(avgUptime) }}>{avgUptime !== null ? `${avgUptime}%` : '—'}</strong></span>
+        <span><span style={{ color: 'var(--text-muted)', marginRight: 4 }}>{t('uptime.total')}:</span><strong>{data.length}</strong></span>
+        <span><span style={{ color: 'var(--text-muted)', marginRight: 4 }}>{t('uptime.online')}:</span><strong style={{ color: 'var(--status-online)' }}>{online}</strong></span>
+        <span><span style={{ color: 'var(--text-muted)', marginRight: 4 }}>{t('uptime.offline')}:</span><strong style={{ color: offline > 0 ? 'var(--status-offline)' : 'var(--text-secondary)' }}>{offline}</strong></span>
+        <span><span style={{ color: 'var(--text-muted)', marginRight: 4 }}>{t('uptime.avg_7d')}:</span><strong style={{ color: uptimeColor(avgUptime) }}>{avgUptime !== null ? `${avgUptime}%` : '—'}</strong></span>
       </div>
 
       {loading ? (
@@ -602,7 +616,7 @@ function UptimeOverview({ services }: { services: Service[] }) {
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   {!hasData ? (
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Keine Daten</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{t('uptime.no_data')}</div>
                   ) : (
                     <div style={{ display: 'flex', gap: 2 }}>
                       {blocks.map((b, i) => {
@@ -614,7 +628,7 @@ function UptimeOverview({ services }: { services: Service[] }) {
                         return (
                           <div
                             key={i}
-                            title={`${b.label} — ${b.uptime !== null ? b.uptime + '% uptime' : 'keine Daten'}`}
+                            title={`${b.label} — ${b.uptime !== null ? b.uptime + '% uptime' : t('uptime.no_data')}`}
                             style={{ flex: 1, height: 20, borderRadius: 2, background: bg, cursor: 'default', opacity: 0.85, transition: 'opacity 150ms' }}
                             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '1' }}
                             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '0.85' }}
@@ -643,6 +657,7 @@ function UptimeOverview({ services }: { services: Service[] }) {
 // ── Sync-Verlauf Tab ──────────────────────────────────────────────────────────
 
 function SyncTab() {
+  const { t } = useTranslation('logbuch')
   const { syncHistory, loadSyncHistory } = useRecyclarrStore()
   const [loading, setLoading] = useState(false)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
@@ -656,7 +671,7 @@ function SyncTab() {
 
   const fmtTime = (iso: string) => {
     const d = new Date(iso)
-    return d.toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    return d.toLocaleString(undefined, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
   }
 
   const toggleExpand = (id: string) => {
@@ -671,7 +686,7 @@ function SyncTab() {
   if (loading) return <div style={{ display: 'flex', justifyContent: 'center', padding: 32 }}><div className="spinner" style={{ width: 20, height: 20, borderWidth: 2 }} /></div>
 
   if (syncHistory.length === 0) {
-    return <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '32px 0' }}>Kein Sync-Verlauf vorhanden</div>
+    return <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '32px 0' }}>{t('sync.empty')}</div>
   }
 
   return (
@@ -682,7 +697,7 @@ function SyncTab() {
           style={{ fontSize: 11, padding: '3px 8px' }}
           onClick={() => { setLoading(true); loadSyncHistory().catch(() => {}).finally(() => setLoading(false)) }}
         >
-          <RefreshCw size={11} /> Aktualisieren
+          <RefreshCw size={11} /> {t('sync.refresh')}
         </button>
       </div>
       {syncHistory.map(h => (
@@ -701,11 +716,11 @@ function SyncTab() {
             <span style={{ fontSize: 12, color: 'var(--text-secondary)', flex: 1 }}>
               {h.changes_summary
                 ? [
-                    h.changes_summary.created ? `+${h.changes_summary.created} erstellt` : '',
-                    h.changes_summary.updated ? `${h.changes_summary.updated} aktualisiert` : '',
-                    h.changes_summary.deleted ? `${h.changes_summary.deleted} gelöscht` : '',
-                  ].filter(Boolean).join(', ') || 'Keine Änderungen'
-                : 'Kein Änderungsprotokoll'}
+                    h.changes_summary.created ? `+${h.changes_summary.created} ${t('sync.created')}` : '',
+                    h.changes_summary.updated ? `${h.changes_summary.updated} ${t('sync.updated')}` : '',
+                    h.changes_summary.deleted ? `${h.changes_summary.deleted} ${t('sync.deleted')}` : '',
+                  ].filter(Boolean).join(', ') || t('sync.no_changes')
+                : t('sync.no_log')}
             </span>
             <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>{fmtTime(h.synced_at)}</span>
           </div>
@@ -735,7 +750,8 @@ interface MiniChartProps {
 }
 
 function MiniChart({ data, color, maxVal, height = 60 }: MiniChartProps) {
-  if (data.length < 2) return <div style={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: 'var(--text-muted)' }}>Keine Daten</div>
+  const { t } = useTranslation('logbuch')
+  if (data.length < 2) return <div style={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: 'var(--text-muted)' }}>{t('resources.no_data')}</div>
 
   const max = maxVal ?? Math.max(...data, 1)
   const width = 400
@@ -786,6 +802,7 @@ function MetricCard({ label, value, subValue, color, data, maxVal }: MetricCardP
 }
 
 function RessourcenTab() {
+  const { t } = useTranslation('logbuch')
   const [range, setRange] = useState<ResourceRange>('24h')
   const [snapshots, setSnapshots] = useState<ResourceSnapshot[]>([])
   const [loading, setLoading] = useState(true)
@@ -798,7 +815,7 @@ function RessourcenTab() {
       const data = await api.resources.history(r)
       setSnapshots(data)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Fehler beim Laden')
+      setError(e instanceof Error ? e.message : t('resources.load_error'))
     } finally {
       setLoading(false)
     }
@@ -825,7 +842,7 @@ function RessourcenTab() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' }}>
         <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-          {snapshots.length > 0 ? `${snapshots.length} Messpunkte` : ''}
+          {snapshots.length > 0 ? t('resources.datapoints', { count: snapshots.length }) : ''}
         </span>
         <div style={{ display: 'flex', gap: 4 }}>
           {(['1h', '24h', '7d'] as ResourceRange[]).map(r => (
@@ -835,7 +852,7 @@ function RessourcenTab() {
               className={range === r ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'}
               style={{ fontSize: 11, padding: '3px 10px' }}
             >
-              {r === '1h' ? '1 Std.' : r === '24h' ? '24 Std.' : '7 Tage'}
+              {r === '1h' ? t('resources.range_1h') : r === '24h' ? t('resources.range_24h') : t('resources.range_7d')}
             </button>
           ))}
           <button
@@ -843,7 +860,7 @@ function RessourcenTab() {
             style={{ fontSize: 11, padding: '3px 8px' }}
             onClick={() => load(range)}
             disabled={loading}
-            title="Aktualisieren"
+            title={t('activity.refresh')}
           >
             <RefreshCw size={11} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
           </button>
@@ -857,15 +874,15 @@ function RessourcenTab() {
       ) : snapshots.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)' }}>
           <div style={{ fontSize: 32, marginBottom: 12 }}>📊</div>
-          <p style={{ margin: 0, fontSize: 13 }}>Noch keine Ressourcen-Daten vorhanden.</p>
-          <p style={{ margin: '4px 0 0', fontSize: 12 }}>Daten werden minütlich aufgezeichnet — bitte warte einen Moment.</p>
+          <p style={{ margin: 0, fontSize: 13 }}>{t('resources.empty')}</p>
+          <p style={{ margin: '4px 0 0', fontSize: 12 }}>{t('resources.empty_hint')}</p>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <MetricCard label="CPU" value={cpuVal} color="var(--accent)" data={cpuData} maxVal={100} />
           <MetricCard label="RAM" value={ramVal} subValue={ramGbVal} color="#a855f7" data={ramData} maxVal={100} />
-          <MetricCard label="Netz RX" value={netRxVal} color="var(--status-online)" data={netRxData} maxVal={maxNet} />
-          <MetricCard label="Netz TX" value={netTxVal} color="#f59e0b" data={netTxData} maxVal={maxNet} />
+          <MetricCard label={t('resources.net_rx')} value={netRxVal} color="var(--status-online)" data={netRxData} maxVal={maxNet} />
+          <MetricCard label={t('resources.net_tx')} value={netTxVal} color="#f59e0b" data={netTxData} maxVal={maxNet} />
         </div>
       )}
     </div>
@@ -875,6 +892,7 @@ function RessourcenTab() {
 // ── LogbuchPage ───────────────────────────────────────────────────────────────
 
 export function LogbuchPage() {
+  const { t } = useTranslation('logbuch')
   const { services } = useStore()
   const [activeTab, setActiveTab] = useState('aktivitaeten')
   const [healthScore, setHealthScore] = useState<HealthScore | null>(null)
@@ -912,7 +930,7 @@ export function LogbuchPage() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
-        <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, margin: 0 }}>Logbuch</h2>
+        <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, margin: 0 }}>{t('title')}</h2>
         <HealthScoreBadge hs={healthScore} />
       </div>
 
@@ -921,7 +939,7 @@ export function LogbuchPage() {
 
       {/* Tab bar */}
       <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid var(--glass-border)' }}>
-        {TABS.map(tab => {
+        {TABS_CONFIG.map(tab => {
           const Icon = tab.icon
           return (
             <button
@@ -938,7 +956,7 @@ export function LogbuchPage() {
               }}
             >
               <Icon size={13} />
-              {tab.label}
+              {t(tab.labelKey)}
             </button>
           )
         })}

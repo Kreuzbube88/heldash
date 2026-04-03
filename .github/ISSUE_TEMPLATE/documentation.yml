@@ -14,10 +14,11 @@ body:
       label: Documentation Location
       description: Where did you find the issue?
       options:
-        - README.md
+        - README.md (German)
+        - README.en.md (English)
+        - docs/ (German documentation)
+        - docs/ (English documentation)
         - CONTRIBUTING.md
-        - GitHub /docs folder
-        - GitHub Wiki
         - Code comments
         - Other
     validations:

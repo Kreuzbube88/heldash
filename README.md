@@ -271,13 +271,16 @@ docker run -d \
 
 ## Dokumentation
 
-Die vollständige Dokumentation findest du im [`/docs`](https://github.com/kreuzbube88/heldash/tree/main/docs) Verzeichnis.
+Die vollständige Dokumentation findest du im [`/docs`](https://github.com/kreuzbube88/heldash/tree/main/docs) Verzeichnis:
+
+- 🇩🇪 [Deutsche Dokumentation](docs/README.md)
+- 🇬🇧 [English Documentation](docs/README.en.md)
 
 **Verfügbare Guides:**
-- [Installation](docs/installation.md)
-- [Integrationen](docs/integrationen/) (Docker, Home Assistant, Unraid, Media-Arr, Recyclarr)
-- [Features](docs/features/) (Netzwerk-Monitor, Backup Center, Widgets)
-- [Konfiguration](docs/konfiguration/) (Benutzer & Gruppen, Design-Einstellungen)
+- [Installation](docs/installation.md) · [EN](docs/installation.en.md)
+- [Integrationen](docs/integrationen/) · [Integrations EN](docs/integrationen/)
+- [Features](docs/features/) · [Features EN](docs/features/)
+- [Konfiguration](docs/konfiguration/) · [Configuration EN](docs/konfiguration/)
 
 ---
 

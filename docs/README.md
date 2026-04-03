@@ -1,5 +1,7 @@
 # HELDASH Dokumentation
 
+> [🇬🇧 English version](README.en.md)
+
 Persönliches Homelab-Dashboard. Selbst-gehostet auf Unraid als einzelner Docker-Container.
 
 ## Inhaltsverzeichnis

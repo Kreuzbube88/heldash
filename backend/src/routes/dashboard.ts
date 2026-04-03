@@ -30,6 +30,7 @@ interface WidgetRow {
   position: number
   show_in_topbar: number
   icon_url: string | null
+  icon_id: string | null
   created_at: string
   updated_at: string
 }
@@ -159,6 +160,7 @@ function buildItem(
         config: safeJson(widget.config, {} as Record<string, unknown>),
         show_in_topbar: widget.show_in_topbar === 1,
         icon_url: widget.icon_url ?? null,
+        icon_id: widget.icon_id ?? null,
       },
     }
   }

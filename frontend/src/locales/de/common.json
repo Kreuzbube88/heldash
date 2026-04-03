@@ -35,7 +35,8 @@
     "copy": "Kopieren",
     "copied": "Kopiert!",
     "login": "Login",
-    "logout": "Logout"
+    "logout": "Logout",
+    "check_status": "Status prüfen"
   },
   "status": {
     "online": "Online",

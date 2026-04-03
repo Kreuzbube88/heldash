@@ -788,7 +788,7 @@ export function SettingsPage({ onStartOnboarding }: { onStartOnboarding?: () => 
                   <div key={bg.id} className="glass" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 'var(--radius-md)' }}>
                     <img src={bg.file_path} alt={bg.name} style={{ width: 48, height: 32, objectFit: 'cover', borderRadius: 'var(--radius-sm)', flexShrink: 0, border: '1px solid var(--glass-border)' }} />
                     <span style={{ flex: 1, fontSize: 13 }}>{bg.name}</span>
-                    <button className="btn btn-danger btn-icon btn-sm" onClick={async () => { if (await confirmDlg({ title: `Delete "${bg.name}"?`, danger: true, confirmLabel: 'Delete' })) deleteBackground(bg.id) }} style={{ padding: '4px', width: 28, height: 28, flexShrink: 0 }}>
+                    <button className="btn btn-danger btn-icon btn-sm" onClick={async () => { if (await confirmDlg({ title: t('confirm_delete_bg', { name: bg.name }), danger: true, confirmLabel: t('common:buttons.delete') })) deleteBackground(bg.id) }} style={{ padding: '4px', width: 28, height: 28, flexShrink: 0 }}>
                       <Trash2 size={12} />
                     </button>
                   </div>
@@ -875,11 +875,11 @@ export function SettingsPage({ onStartOnboarding }: { onStartOnboarding?: () => 
                       {u.last_login && <span>{t('users.last_login')} {new Date(u.last_login).toLocaleDateString(language === 'de' ? 'de-DE' : 'en-US')}</span>}
                     </div>
                   </div>
-                  <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setEditingUserId(editingUserId === u.id ? null : u.id)} data-tooltip="Edit" style={{ padding: '4px', width: 28, height: 28, flexShrink: 0 }}>
+                  <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setEditingUserId(editingUserId === u.id ? null : u.id)} data-tooltip={t('common:buttons.edit')} style={{ padding: '4px', width: 28, height: 28, flexShrink: 0 }}>
                     <Pencil size={12} />
                   </button>
                   {u.id !== authUser?.sub && (
-                    <button className="btn btn-danger btn-icon btn-sm" onClick={async () => { if (await confirmDlg({ title: `Delete "${u.username}"?`, danger: true, confirmLabel: 'Delete' })) deleteUser(u.id) }} data-tooltip="Delete" style={{ padding: '4px', width: 28, height: 28, flexShrink: 0 }}>
+                    <button className="btn btn-danger btn-icon btn-sm" onClick={async () => { if (await confirmDlg({ title: t('confirm_delete_user', { name: u.username }), danger: true, confirmLabel: t('common:buttons.delete') })) deleteUser(u.id) }} data-tooltip={t('common:buttons.delete')} style={{ padding: '4px', width: 28, height: 28, flexShrink: 0 }}>
                       <Trash2 size={12} />
                     </button>
                   )}
@@ -951,7 +951,7 @@ export function SettingsPage({ onStartOnboarding }: { onStartOnboarding?: () => 
                     </button>
                   )}
                   {!g.is_system && (
-                    <button className="btn btn-danger btn-icon btn-sm" onClick={async () => { if (await confirmDlg({ title: `Delete "${g.name}"?`, danger: true, confirmLabel: 'Delete' })) deleteUserGroup(g.id) }} style={{ padding: '4px', width: 28, height: 28, flexShrink: 0 }}>
+                    <button className="btn btn-danger btn-icon btn-sm" onClick={async () => { if (await confirmDlg({ title: t('confirm_delete_group', { name: g.name }), danger: true, confirmLabel: t('common:buttons.delete') })) deleteUserGroup(g.id) }} style={{ padding: '4px', width: 28, height: 28, flexShrink: 0 }}>
                       <Trash2 size={12} />
                     </button>
                   )}

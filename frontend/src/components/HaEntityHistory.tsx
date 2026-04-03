@@ -10,12 +10,7 @@ interface Props {
   onClose: () => void
 }
 
-const HOUR_OPTIONS = [
-  { label: '6h', value: 6 },
-  { label: '24h', value: 24 },
-  { label: '7T', value: 168 },
-  { label: '30T', value: 720 },
-]
+const HOUR_OPTIONS = [6, 24, 168, 720]
 
 function isNumeric(value: string): boolean {
   return value !== '' && !isNaN(parseFloat(value)) && isFinite(Number(value))
@@ -205,14 +200,14 @@ export function HaEntityHistory({ entity, instanceId, onClose }: Props) {
 
         {/* Time range selector */}
         <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
-          {HOUR_OPTIONS.map(opt => (
+          {HOUR_OPTIONS.map(h => (
             <button
-              key={opt.value}
-              className={`btn ${hours === opt.value ? 'btn-primary' : 'btn-ghost'}`}
+              key={h}
+              className={`btn ${hours === h ? 'btn-primary' : 'btn-ghost'}`}
               style={{ fontSize: 12, padding: '4px 12px' }}
-              onClick={() => handleHoursChange(opt.value)}
+              onClick={() => handleHoursChange(h)}
             >
-              {opt.label}
+              {t(`entity_history.period.${h}`)}
             </button>
           ))}
           {loading && <div className="spinner" style={{ width: 14, height: 14, borderWidth: 2, alignSelf: 'center', marginLeft: 8 }} />}

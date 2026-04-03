@@ -23,6 +23,7 @@ interface AddFloorplanModalProps {
 }
 
 function AddFloorplanModal({ onClose, onSaved }: AddFloorplanModalProps) {
+  const { t } = useTranslation('ha')
   const [name, setName] = useState('')
   const [type, setType] = useState<'indoor' | 'outdoor'>('indoor')
   const [icon, setIcon] = useState('🏠')
@@ -33,14 +34,14 @@ function AddFloorplanModal({ onClose, onSaved }: AddFloorplanModalProps) {
   const icons = type === 'indoor' ? INDOOR_ICONS : OUTDOOR_ICONS
 
   const handleSave = async () => {
-    if (!name.trim()) { setError('Name erforderlich'); return }
+    if (!name.trim()) { setError(t('floorplan.error_name_required')); return }
     setSaving(true)
     setError('')
     try {
       await api.ha.floorplans.create({ name: name.trim(), type, level, icon, orientation: 'landscape' })
       await onSaved()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Fehler beim Speichern')
+      setError(e instanceof Error ? e.message : t('floorplan.error_save'))
     } finally {
       setSaving(false)
     }
@@ -58,19 +59,19 @@ function AddFloorplanModal({ onClose, onSaved }: AddFloorplanModalProps) {
         border: '1px solid var(--glass-border)',
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <h3 style={{ margin: 0, fontSize: 16, fontFamily: 'var(--font-display)' }}>Neue Etage</h3>
+          <h3 style={{ margin: 0, fontSize: 16, fontFamily: 'var(--font-display)' }}>{t('floorplan.modal_title')}</h3>
           <button className="btn btn-ghost" onClick={onClose} style={{ padding: 6 }}><X size={16} /></button>
         </div>
 
         {/* Name */}
         <div style={{ marginBottom: 14 }}>
-          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>Name</label>
+          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>{t('floorplan.name_label')}</label>
           <input
             className="input"
             value={name}
             onChange={e => setName(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') handleSave() }}
-            placeholder="z.B. Erdgeschoss"
+            placeholder={t('floorplan.name_placeholder')}
             autoFocus
             style={{ width: '100%' }}
           />
@@ -78,23 +79,23 @@ function AddFloorplanModal({ onClose, onSaved }: AddFloorplanModalProps) {
 
         {/* Type */}
         <div style={{ marginBottom: 14 }}>
-          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>Typ</label>
+          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>{t('floorplan.type_label')}</label>
           <div style={{ display: 'flex', borderRadius: 'var(--radius-sm)', border: '1px solid var(--glass-border)', overflow: 'hidden', width: 'fit-content' }}>
-            {(['indoor', 'outdoor'] as const).map(t => (
+            {(['indoor', 'outdoor'] as const).map(typeVal => (
               <button
-                key={t}
+                key={typeVal}
                 onClick={() => {
-                  setType(t)
-                  setIcon(t === 'indoor' ? INDOOR_ICONS[0]! : OUTDOOR_ICONS[0]!)
+                  setType(typeVal)
+                  setIcon(typeVal === 'indoor' ? INDOOR_ICONS[0]! : OUTDOOR_ICONS[0]!)
                 }}
                 style={{
                   padding: '5px 14px', border: 'none', cursor: 'pointer', fontSize: 12,
-                  background: type === t ? 'var(--accent-subtle)' : 'transparent',
-                  color: type === t ? 'var(--accent)' : 'var(--text-secondary)',
-                  fontWeight: type === t ? 600 : 400,
+                  background: type === typeVal ? 'var(--accent-subtle)' : 'transparent',
+                  color: type === typeVal ? 'var(--accent)' : 'var(--text-secondary)',
+                  fontWeight: type === typeVal ? 600 : 400,
                 }}
               >
-                {t === 'indoor' ? '🏠 Indoor' : '🌳 Outdoor'}
+                {typeVal === 'indoor' ? `🏠 ${t('floorplan.type_indoor')}` : `🌳 ${t('floorplan.type_outdoor')}`}
               </button>
             ))}
           </div>
@@ -123,7 +124,7 @@ function AddFloorplanModal({ onClose, onSaved }: AddFloorplanModalProps) {
 
         {/* Level */}
         <div style={{ marginBottom: 14 }}>
-          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>Ebene (−2 bis 10)</label>
+          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>{t('floorplan.level_label')}</label>
           <input
             className="input"
             type="number"
@@ -142,9 +143,9 @@ function AddFloorplanModal({ onClose, onSaved }: AddFloorplanModalProps) {
         )}
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button className="btn btn-ghost" onClick={onClose}>Abbrechen</button>
+          <button className="btn btn-ghost" onClick={onClose}>{t('common:buttons.cancel')}</button>
           <button className="btn btn-primary" onClick={handleSave} disabled={saving} style={{ gap: 6 }}>
-            {saving ? 'Speichern…' : 'Anlegen'}
+            {saving ? t('common:buttons.saving') : t('floorplan.create')}
           </button>
         </div>
       </div>

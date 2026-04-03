@@ -164,5 +164,8 @@
     "auto_provision": "Benutzer automatisch anlegen",
     "save": "Speichern",
     "coming_soon": "Erscheint in einer zukünftigen Version. Benutzerdatensätze sind bereits mit"
-  }
+  },
+  "confirm_delete_bg": "Hintergrundbild \"{{name}}\" löschen?",
+  "confirm_delete_user": "Benutzer \"{{name}}\" löschen?",
+  "confirm_delete_group": "Gruppe \"{{name}}\" löschen?"
 }

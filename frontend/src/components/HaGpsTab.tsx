@@ -25,9 +25,9 @@ function formatLastUpdated(iso: string): string {
   }
 }
 
-function stateLabel(state: string): { text: string; color: string } {
-  if (state === 'home') return { text: 'Zuhause', color: '#22c55e' }
-  if (state === 'not_home') return { text: 'Unterwegs', color: '#94a3b8' }
+function stateLabel(state: string, t: (key: string) => string): { text: string; color: string } {
+  if (state === 'home') return { text: t('gps.state_home'), color: '#22c55e' }
+  if (state === 'not_home') return { text: t('gps.state_not_home'), color: '#94a3b8' }
   return { text: state, color: 'var(--accent)' }
 }
 
@@ -100,7 +100,7 @@ function GpsFullMap({ persons }: GpsFullMapProps) {
           bounds.push([lat, lng])
           const color = nameToColor(p.name)
           const initials = getInitials(p.name)
-          const { text: statusText, color: statusColor } = stateLabel(p.state)
+          const { text: statusText, color: statusColor } = stateLabel(p.state, t)
 
           const icon = L.divIcon({
             html: `<div style="width:36px;height:36px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:700;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.35)">${initials}</div>`,
@@ -271,7 +271,7 @@ export function HaGpsTab({ instanceId }: HaGpsTabProps) {
             {persons.map(p => {
               const color = nameToColor(p.name)
               const isSelected = selectedIds.has(p.entity_id)
-              const { text: statusText } = stateLabel(p.state)
+              const { text: statusText } = stateLabel(p.state, t)
               return (
                 <button
                   key={p.entity_id}

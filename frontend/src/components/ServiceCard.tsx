@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { Service } from '../types'
 import { useStore } from '../store/useStore'
 import { useConfirm } from './ConfirmDialog'
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export function ServiceCard({ service, onEdit, hideAdminActions }: Props) {
+  const { t } = useTranslation('common')
   const { checkService, deleteService, isAdmin } = useStore()
   const { confirm: confirmDlg } = useConfirm()
   const liveStatus = useStore(state => state.services.find(s => s.id === service.id)?.last_status)
@@ -79,7 +81,7 @@ export function ServiceCard({ service, onEdit, hideAdminActions }: Props) {
           <button
             className="btn btn-danger btn-icon btn-sm"
             onClick={handleDelete}
-            title="Löschen"
+            title={t('buttons.delete')}
             style={{ padding: '4px', width: 26, height: 26 }}
           >
             <Trash2 size={12} />
@@ -87,7 +89,7 @@ export function ServiceCard({ service, onEdit, hideAdminActions }: Props) {
           <button
             className="btn btn-ghost btn-icon btn-sm"
             onClick={handleEdit}
-            title="Bearbeiten"
+            title={t('buttons.edit')}
             style={{ padding: '4px', width: 26, height: 26 }}
           >
             <Pencil size={12} />
@@ -95,7 +97,7 @@ export function ServiceCard({ service, onEdit, hideAdminActions }: Props) {
           <button
             className="btn btn-ghost btn-icon btn-sm"
             onClick={handleCheck}
-            title="Status prüfen"
+            title={t('buttons.check_status')}
             style={{ padding: '4px', width: 26, height: 26 }}
           >
             {checking

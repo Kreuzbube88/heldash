@@ -164,5 +164,8 @@
     "auto_provision": "Auto-provision users",
     "save": "Save",
     "coming_soon": "Coming in a future release. User records are already prepared with"
-  }
+  },
+  "confirm_delete_bg": "Delete background \"{{name}}\"?",
+  "confirm_delete_user": "Delete user \"{{name}}\"?",
+  "confirm_delete_group": "Delete group \"{{name}}\"?"
 }

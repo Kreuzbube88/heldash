@@ -51,7 +51,17 @@
     "no_floorplan": "No floor plan created yet.",
     "add_first": "Create first floor plan",
     "add_floor": "Floor",
-    "undo": "Undo"
+    "undo": "Undo",
+    "modal_title": "New Floor",
+    "name_label": "Name",
+    "name_placeholder": "e.g. Ground Floor",
+    "type_label": "Type",
+    "type_indoor": "Indoor",
+    "type_outdoor": "Outdoor",
+    "level_label": "Level (−2 to 10)",
+    "create": "Create",
+    "error_name_required": "Name required",
+    "error_save": "Error saving"
   },
   "alerts": {
     "title": "Alerts",
@@ -98,14 +108,22 @@
     "no_data": "No history data available.",
     "col_time": "Time",
     "col_status": "Status",
-    "error_loading": "Error loading"
+    "error_loading": "Error loading",
+    "period": {
+      "6": "6h",
+      "24": "24h",
+      "168": "7d",
+      "720": "30d"
+    }
   },
   "gps": {
     "no_gps_selected": "No GPS data available for selected persons",
     "privacy_notice": "GPS data is only displayed locally — not transmitted to third parties",
     "no_instance": "No HA instance selected.",
     "no_persons": "No person.* entities found in Home Assistant.",
-    "persons_selected": "Persons ({{selected}}/{{total}} selected)"
+    "persons_selected": "Persons ({{selected}}/{{total}} selected)",
+    "state_home": "Home",
+    "state_not_home": "Away"
   },
   "presence": {
     "no_gps_data": "No GPS data available",

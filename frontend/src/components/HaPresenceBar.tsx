@@ -21,10 +21,10 @@ function nameToColor(name: string): string {
   return colors[Math.abs(hash) % colors.length] ?? '#06b6d4'
 }
 
-function getPersonState(entity: HaEntityFull): { label: string; color: string } {
+function getPersonState(entity: HaEntityFull, t: (key: string) => string): { label: string; color: string } {
   const state = entity.state
-  if (state === 'home') return { label: 'Zuhause', color: '#22c55e' }
-  if (state === 'not_home') return { label: 'Unterwegs', color: 'var(--text-muted)' }
+  if (state === 'home') return { label: t('gps.state_home'), color: '#22c55e' }
+  if (state === 'not_home') return { label: t('gps.state_not_home'), color: 'var(--text-muted)' }
   // state might be a zone name
   return { label: state, color: 'var(--accent)' }
 }
@@ -211,7 +211,7 @@ export function HaPresenceBar({ persons }: HaPresenceBarProps) {
         {/* Person pills */}
         {persons.map(person => {
           const name = (person.attributes.friendly_name as string | undefined) ?? person.entity_id.split('.')[1] ?? person.entity_id
-          const { label, color } = getPersonState(person)
+          const { label, color } = getPersonState(person, t)
           const initials = getInitials(name)
           const avatarColor = nameToColor(name)
           const isHighlighted = highlightedPerson === person.entity_id

@@ -250,7 +250,7 @@ function ScannerModal({ defaultSubnet, existingIps, onClose, onAddDevice }: Scan
         </div>
 
         <div style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
-          <input className="input" style={{ flex: 1 }} value={subnet} onChange={e => setSubnet(e.target.value)} placeholder="z.B. 192.168.1.0/24 oder 10.10.0.0/20" />
+          <input className="input" style={{ flex: 1 }} value={subnet} onChange={e => setSubnet(e.target.value)} placeholder={t('scanner.subnet_placeholder')} />
           <button className="btn btn-primary" onClick={handleScan} disabled={scanning}>
             {scanning ? t('scanner.scanning') : t('scanner.scan')}
           </button>

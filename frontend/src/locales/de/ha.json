@@ -51,7 +51,17 @@
     "no_floorplan": "Noch kein Grundriss angelegt.",
     "add_first": "Ersten Grundriss anlegen",
     "add_floor": "Etage",
-    "undo": "Rückgängig"
+    "undo": "Rückgängig",
+    "modal_title": "Neue Etage",
+    "name_label": "Name",
+    "name_placeholder": "z.B. Erdgeschoss",
+    "type_label": "Typ",
+    "type_indoor": "Indoor",
+    "type_outdoor": "Outdoor",
+    "level_label": "Ebene (−2 bis 10)",
+    "create": "Anlegen",
+    "error_name_required": "Name erforderlich",
+    "error_save": "Fehler beim Speichern"
   },
   "alerts": {
     "title": "Alarme",
@@ -98,14 +108,22 @@
     "no_data": "Keine Verlaufsdaten verfügbar.",
     "col_time": "Zeit",
     "col_status": "Status",
-    "error_loading": "Fehler beim Laden"
+    "error_loading": "Fehler beim Laden",
+    "period": {
+      "6": "6h",
+      "24": "24h",
+      "168": "7T",
+      "720": "30T"
+    }
   },
   "gps": {
     "no_gps_selected": "Keine GPS-Daten für die ausgewählten Personen verfügbar",
     "privacy_notice": "GPS-Daten werden nur lokal angezeigt — keine Übertragung an Dritte",
     "no_instance": "Keine HA-Instanz ausgewählt.",
     "no_persons": "Keine person.*-Entitäten in Home Assistant gefunden.",
-    "persons_selected": "Personen ({{selected}}/{{total}} ausgewählt)"
+    "persons_selected": "Personen ({{selected}}/{{total}} ausgewählt)",
+    "state_home": "Zuhause",
+    "state_not_home": "Unterwegs"
   },
   "presence": {
     "no_gps_data": "Keine GPS-Daten verfügbar",

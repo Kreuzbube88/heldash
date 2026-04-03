@@ -291,6 +291,7 @@ function SetupScreen({ onNavigate }: { onNavigate?: (page: string) => void }) {
 // ── Overview Tab ──────────────────────────────────────────────────────────────
 
 function OverviewTab({ instanceId }: { instanceId: string }) {
+  const { t } = useTranslation('unraid')
   const { info, array, notifications, loadInfo, loadArray, loadNotifications, errors } = useUnraidStore()
   const data = info[instanceId]
   const arrData = array[instanceId]
@@ -333,14 +334,14 @@ function OverviewTab({ instanceId }: { instanceId: string }) {
       {err && <div className="error-banner" style={{ marginBottom: 'var(--spacing-md)' }}>{err}</div>}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 'var(--spacing-md)' }}>
         <div className="glass" style={{ padding: 'var(--spacing-lg)', borderRadius: 'var(--radius-md)' }}>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>Server</div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>{t('overview.server')}</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
             <h3 style={{ margin: 0, fontSize: 16 }}>{os?.hostname ?? '–'}</h3>
             {sysInfo?.virtual && <span style={{ background: '#8b5cf6', color: '#fff', borderRadius: 4, padding: '1px 6px', fontSize: 10, fontWeight: 600 }}>VM</span>}
             {versions?.core?.unraid && <span style={{ background: 'var(--glass-bg)', color: 'var(--text-secondary)', borderRadius: 4, padding: '1px 6px', fontSize: 11 }}>Unraid {versions.core.unraid}</span>}
           </div>
           <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{sysInfo?.manufacturer} {sysInfo?.model}</div>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>Uptime: {formatUptime(os?.uptime)}</div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>{t('overview.uptime_label')} {formatUptime(os?.uptime)}</div>
         </div>
 
         <div className="glass" style={{ padding: 'var(--spacing-lg)', borderRadius: 'var(--radius-md)' }}>
@@ -350,7 +351,7 @@ function OverviewTab({ instanceId }: { instanceId: string }) {
             <div style={{ background: cpuBarColor, height: '100%', borderRadius: 4, width: `${cpuPct.toFixed(0)}%`, transition: 'width 0.5s' }} />
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between' }}>
-            <span>{cpu?.cores} Kerne / {cpu?.threads} Threads</span>
+            <span>{cpu?.cores} {t('overview.cores')} / {cpu?.threads} {t('overview.threads')}</span>
             <span>{cpuPct.toFixed(1)}%</span>
           </div>
         </div>
@@ -372,7 +373,7 @@ function OverviewTab({ instanceId }: { instanceId: string }) {
                     <div style={{ background: '#8b5cf6', height: '100%', borderRadius: 4, width: `${(memory.percentSwapTotal ?? 0).toFixed(0)}%` }} />
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between' }}>
-                    <span>Swap: {formatBytes(memory.swapUsed)} / {formatBytes(memory.swapTotal)}</span>
+                    <span>{t('overview.swap')} {formatBytes(memory.swapUsed)} / {formatBytes(memory.swapTotal)}</span>
                     <span>{(memory.percentSwapTotal ?? 0).toFixed(1)}%</span>
                   </div>
                 </>
@@ -382,22 +383,22 @@ function OverviewTab({ instanceId }: { instanceId: string }) {
         </div>
 
         <div className="glass" style={{ padding: 'var(--spacing-lg)', borderRadius: 'var(--radius-md)' }}>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>Mainboard</div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>{t('overview.mainboard')}</div>
           <div style={{ fontWeight: 600 }}>{baseboard?.manufacturer ?? '–'}</div>
           <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>{baseboard?.model ?? ''}</div>
         </div>
 
         <div className="glass" style={{ padding: 'var(--spacing-lg)', borderRadius: 'var(--radius-md)' }}>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>Array</div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>{t('overview.array_label')}</div>
           <span style={{ ...arrayStateBadgeStyle(arrState), borderRadius: 4, padding: '2px 8px', fontSize: 12, fontWeight: 600 }}>{arrState ?? '–'}</span>
           {cap && <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 6 }}>{formatKilobytes(parseInt(cap.used ?? '0', 10))} / {formatKilobytes(parseInt(cap.total ?? '1', 10))}</div>}
         </div>
 
         <div className="glass" style={{ padding: 'var(--spacing-lg)', borderRadius: 'var(--radius-md)' }}>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>Benachrichtigungen</div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>{t('overview.notifications_label')}</div>
           {unread === 0
-            ? <span style={{ color: 'var(--status-online)', background: 'rgba(34,197,94,0.12)', borderRadius: 'var(--radius-sm)', padding: '2px 8px', fontSize: 12, fontWeight: 600 }}>Alles OK</span>
-            : <span style={{ color: 'var(--warning)', background: 'rgba(234,179,8,0.12)', borderRadius: 'var(--radius-sm)', padding: '2px 8px', fontSize: 12, fontWeight: 600 }}>{unread} ungelesen</span>
+            ? <span style={{ color: 'var(--status-online)', background: 'rgba(34,197,94,0.12)', borderRadius: 'var(--radius-sm)', padding: '2px 8px', fontSize: 12, fontWeight: 600 }}>{t('overview.all_ok')}</span>
+            : <span style={{ color: 'var(--warning)', background: 'rgba(234,179,8,0.12)', borderRadius: 'var(--radius-sm)', padding: '2px 8px', fontSize: 12, fontWeight: 600 }}>{t('overview.unread', { count: unread })}</span>
           }
           {warnings.length > 0 && (
             <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -495,23 +496,23 @@ function ArrayTab({ instanceId }: { instanceId: string }) {
       {isAdmin && (
         <div className="glass" style={{ padding: 'var(--spacing-md)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--spacing-md)', display: 'flex', flexWrap: 'wrap', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
           <span style={{ ...arrayStateBadgeStyle(arrState), borderRadius: 6, padding: '3px 10px', fontSize: 12, fontWeight: 700, marginRight: 'var(--spacing-sm)', letterSpacing: '0.03em' }}>{arrState || '–'}</span>
-          {arrState === 'stopped' && <button className="btn btn-primary" onClick={() => setConfirm({ action: 'arrayStart', msg: 'Array starten?' })}><Play size={14} /> Array starten</button>}
-          {arrState === 'started' && <button className="btn btn-danger" onClick={() => setConfirm({ action: 'arrayStop', msg: 'Alle laufenden Zugriffe werden unterbrochen.' })}><Square size={14} /> Array stoppen</button>}
+          {arrState === 'stopped' && <button className="btn btn-primary" onClick={() => setConfirm({ action: 'arrayStart', msg: t('array_tab.array_start_confirm') })}><Play size={14} /> {t('array_tab.array_start')}</button>}
+          {arrState === 'started' && <button className="btn btn-danger" onClick={() => setConfirm({ action: 'arrayStop', msg: t('array_tab.array_stop_confirm') })}><Square size={14} /> {t('array_tab.array_stop')}</button>}
           {arrState === 'started' && !isParityRunning && !isParityPaused && (
-            <button className="btn btn-primary" onClick={() => setConfirm({ action: 'parityStart', msg: 'Parity Check starten?', extra: (
+            <button className="btn btn-primary" onClick={() => setConfirm({ action: 'parityStart', msg: t('array_tab.parity_start_confirm'), extra: (
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, cursor: 'pointer' }}>
                 <input type="checkbox" checked={parityCorrect} onChange={e => setParityCorrect(e.target.checked)} />
-                Fehler automatisch korrigieren
+                {t('array_tab.parity_auto_correct')}
               </label>
-            ) })}>Parity Check starten</button>
+            ) })}>{t('array_tab.parity_start')}</button>
           )}
           {isParityRunning && <>
-            <button className="btn" onClick={() => parityPause(instanceId).then(() => toast({ message: 'Parity pausiert', type: 'success' })).catch(e => toast({ message: (e as Error).message, type: 'error' }))}><Pause size={14} /> Pausieren</button>
-            <button className="btn btn-danger" onClick={() => setConfirm({ action: 'parityCancel', msg: 'Parity Check abbrechen?' })}>Abbrechen</button>
+            <button className="btn" onClick={() => parityPause(instanceId).then(() => toast({ message: t('array_tab.parity_paused_toast'), type: 'success' })).catch(e => toast({ message: (e as Error).message, type: 'error' }))}><Pause size={14} /> {t('array_tab.parity_pause')}</button>
+            <button className="btn btn-danger" onClick={() => setConfirm({ action: 'parityCancel', msg: t('array_tab.parity_cancel_confirm') })}>{t('array_tab.parity_cancel_btn')}</button>
           </>}
           {isParityPaused && <>
-            <button className="btn btn-primary" onClick={() => parityResume(instanceId).then(() => toast({ message: 'Parity fortgesetzt', type: 'success' })).catch(e => toast({ message: (e as Error).message, type: 'error' }))}><Play size={14} /> Fortsetzen</button>
-            <button className="btn btn-danger" onClick={() => setConfirm({ action: 'parityCancel', msg: 'Parity Check abbrechen?' })}>Abbrechen</button>
+            <button className="btn btn-primary" onClick={() => parityResume(instanceId).then(() => toast({ message: t('array_tab.parity_resumed_toast'), type: 'success' })).catch(e => toast({ message: (e as Error).message, type: 'error' }))}><Play size={14} /> {t('array_tab.parity_resume')}</button>
+            <button className="btn btn-danger" onClick={() => setConfirm({ action: 'parityCancel', msg: t('array_tab.parity_cancel_confirm') })}>{t('array_tab.parity_cancel_btn')}</button>
           </>}
         </div>
       )}
@@ -531,16 +532,16 @@ function ArrayTab({ instanceId }: { instanceId: string }) {
       {(isParityRunning || isParityPaused) && pcs && (
         <div className="glass" style={{ padding: 'var(--spacing-md)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--spacing-md)', borderLeft: `4px solid ${isParityPaused ? 'var(--warning)' : 'var(--accent)'}` }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <span style={{ fontWeight: 600, fontSize: 13 }}>Parity Check {isParityPaused ? `(${t('array.paused')})` : t('array.running')}</span>
+            <span style={{ fontWeight: 600, fontSize: 13 }}>{t('array_tab.parity_check_label')} {isParityPaused ? `(${t('array.paused')})` : t('array.running')}</span>
             <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{(pcs.progress ?? 0).toFixed(1)}%</span>
           </div>
           <div style={{ background: 'var(--glass-bg)', borderRadius: 4, height: 6, marginBottom: 8 }}>
             <div style={{ background: isParityPaused ? 'var(--warning)' : 'var(--accent)', height: '100%', borderRadius: 4, width: `${pcs.progress ?? 0}%`, transition: 'width 0.5s' }} />
           </div>
           <div style={{ display: 'flex', gap: 16, fontSize: 12, color: 'var(--text-muted)', flexWrap: 'wrap' }}>
-            {pcs.speed && <span>Speed: {pcs.speed}</span>}
-            {pcs.errors != null && <span style={{ color: pcs.errors > 0 ? 'var(--status-offline)' : 'var(--text-muted)' }}>Fehler: {pcs.errors}</span>}
-            {pcs.correcting && <span style={{ color: 'var(--warning)' }}>Korrigierend</span>}
+            {pcs.speed && <span>{t('array_tab.parity_speed')} {pcs.speed}</span>}
+            {pcs.errors != null && <span style={{ color: pcs.errors > 0 ? 'var(--status-offline)' : 'var(--text-muted)' }}>{t('array_tab.parity_errors')} {pcs.errors}</span>}
+            {pcs.correcting && <span style={{ color: 'var(--warning)' }}>{t('array_tab.parity_correcting')}</span>}
           </div>
         </div>
       )}
@@ -573,7 +574,7 @@ function ArrayTab({ instanceId }: { instanceId: string }) {
                       </div>
                     </td>
                     <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
-                      <span style={{ background: disk._section === 'parity' ? '#8b5cf6' : 'var(--accent)', color: '#000', borderRadius: 4, padding: '1px 5px', fontSize: 10, fontWeight: 600 }}>{disk._section === 'parity' ? 'Parity' : 'Daten'}</span>
+                      <span style={{ background: disk._section === 'parity' ? '#8b5cf6' : 'var(--accent)', color: '#000', borderRadius: 4, padding: '1px 5px', fontSize: 10, fontWeight: 600 }}>{disk._section === 'parity' ? t('array_tab.disk_parity_badge') : t('array_tab.disk_data_badge')}</span>
                     </td>
                     <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>{formatKilobytes(disk.size)}</td>
                     <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>{formatKilobytes(disk.fsUsed)}</td>
@@ -591,12 +592,12 @@ function ArrayTab({ instanceId }: { instanceId: string }) {
 
       <div className="glass" style={{ borderRadius: 'var(--radius-md)', overflow: 'hidden', marginBottom: 'var(--spacing-md)' }}>
         <button className="btn" onClick={() => setShowCaches(v => !v)} style={{ width: '100%', textAlign: 'left', padding: 'var(--spacing-sm) var(--spacing-md)', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontWeight: 600, fontSize: 13 }}>Cache Pools {caches.length > 0 ? `(${caches.length})` : ''}</span>
+          <span style={{ fontWeight: 600, fontSize: 13 }}>{t('array_tab.cache_pools')} {caches.length > 0 ? `(${caches.length})` : ''}</span>
           {showCaches ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         </button>
         {showCaches && (
           caches.length === 0 ? (
-            <div style={{ padding: 'var(--spacing-md)', color: 'var(--text-muted)', fontSize: 13 }}>Keine Cache-Pools konfiguriert.</div>
+            <div style={{ padding: 'var(--spacing-md)', color: 'var(--text-muted)', fontSize: 13 }}>{t('array_tab.cache_pools_empty')}</div>
           ) : (
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, borderTop: '1px solid var(--border)', tableLayout: 'fixed' }}>
               <colgroup>
@@ -640,13 +641,13 @@ function ArrayTab({ instanceId }: { instanceId: string }) {
 
       <div className="glass" style={{ padding: 'var(--spacing-md)', borderRadius: 'var(--radius-md)' }}>
         <button className="btn" onClick={() => setShowHistory(v => !v)} style={{ marginBottom: showHistory ? 'var(--spacing-sm)' : 0 }}>
-          {showHistory ? 'Parity-Historie ausblenden' : 'Parity-Historie anzeigen'}
+          {showHistory ? t('array_tab.parity_history_hide') : t('array_tab.parity_history_show')}
         </button>
         {showHistory && parityHistory.length > 0 && (
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, marginTop: 8 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                {['Datum', 'Dauer', 'Speed', 'Status', 'Fehler'].map(h => (
+                {[t('array_tab.parity_h_date'), t('array_tab.parity_h_duration'), 'Speed', t('array_tab.parity_h_status'), t('array_tab.parity_h_errors')].map(h => (
                   <th key={h} style={{ padding: '6px 8px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 500 }}>{h}</th>
                 ))}
               </tr>
@@ -664,17 +665,17 @@ function ArrayTab({ instanceId }: { instanceId: string }) {
             </tbody>
           </table>
         )}
-        {showHistory && parityHistory.length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 8 }}>Keine Parity-Historie vorhanden</div>}
+        {showHistory && parityHistory.length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 8 }}>{t('array_tab.parity_history_empty')}</div>}
       </div>
 
       <div className="glass" style={{ borderRadius: 'var(--radius-md)', overflow: 'hidden', marginTop: 'var(--spacing-md)' }}>
         <button className="btn" onClick={() => setShowPhysical(v => !v)} style={{ width: '100%', textAlign: 'left', padding: 'var(--spacing-sm) var(--spacing-md)', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontWeight: 600, fontSize: 13 }}>Physische Laufwerke {pdisks.length > 0 ? `(${pdisks.length})` : ''}</span>
+          <span style={{ fontWeight: 600, fontSize: 13 }}>{t('array_tab.physical_drives')} {pdisks.length > 0 ? `(${pdisks.length})` : ''}</span>
           {showPhysical ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         </button>
         {showPhysical && (
           pdisks.length === 0 ? (
-            <div style={{ padding: 'var(--spacing-md)', color: 'var(--text-muted)', fontSize: 13 }}>Keine physischen Laufwerke gefunden.</div>
+            <div style={{ padding: 'var(--spacing-md)', color: 'var(--text-muted)', fontSize: 13 }}>{t('array_tab.physical_drives_empty')}</div>
           ) : (
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, borderTop: '1px solid var(--border)' }}>
               <thead>
@@ -698,7 +699,7 @@ function ArrayTab({ instanceId }: { instanceId: string }) {
                       {(() => { const s = smartStatusStyle(d.smartStatus); return <span style={{ color: s.color, fontWeight: 600, fontSize: 12 }}>{s.label}</span> })()}
                     </td>
                     <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)', color: tempColor(d.temperature) }}>{d.temperature != null ? `${d.temperature}°C` : '–'}</td>
-                    <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)', color: 'var(--text-muted)', fontSize: 11 }}>{d.isSpinning ? 'Aktiv' : 'Standby'}</td>
+                    <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)', color: 'var(--text-muted)', fontSize: 11 }}>{d.isSpinning ? t('array_tab.disk_spinning') : t('array_tab.disk_standby')}</td>
                   </tr>
                 ))}
               </tbody>
@@ -772,7 +773,7 @@ function DockerTab({ instanceId }: { instanceId: string }) {
     setUpdatingAll(true)
     try {
       await dockerUpdateAll(instanceId)
-      toast({ message: 'Alle Container werden aktualisiert', type: 'success' })
+      toast({ message: t('docker_tab.update_all_toast'), type: 'success' })
     } catch (e) {
       toast({ message: (e as Error).message, type: 'error' })
     } finally {
@@ -789,13 +790,13 @@ function DockerTab({ instanceId }: { instanceId: string }) {
         <input className="input" placeholder="Suchen…" value={search} onChange={e => setSearch(e.target.value)} style={{ maxWidth: 220 }} />
         {(['all', 'running', 'stopped'] as const).map(f => (
           <button key={f} className={`btn${filter === f ? ' btn-primary' : ''}`} onClick={() => setFilter(f)}>
-            {f === 'all' ? 'Alle' : f === 'running' ? 'Running' : 'Stopped'}
+            {f === 'all' ? t('docker_tab.filter_all') : f === 'running' ? 'Running' : 'Stopped'}
           </button>
         ))}
         {isAdmin && (
           <button className="btn" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 }} disabled={updatingAll} onClick={handleUpdateAll}>
             {updatingAll ? <span className="spinner" style={{ width: 12, height: 12 }} /> : <Download size={14} />}
-            Alle aktualisieren
+            {t('docker_tab.update_all')}
           </button>
         )}
       </div>
@@ -911,7 +912,7 @@ function VmsTab({ instanceId }: { instanceId: string }) {
   const err = errors[`vms_${instanceId}`]
 
   if (!err && domains.length === 0) {
-    return <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: 'var(--spacing-2xl)' }}>Keine VMs konfiguriert auf diesem Server.</div>
+    return <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: 'var(--spacing-2xl)' }}>{t('vms_tab.empty')}</div>
   }
 
   return (
@@ -975,6 +976,7 @@ function VmsTab({ instanceId }: { instanceId: string }) {
 // ── Shares Tab ────────────────────────────────────────────────────────────────
 
 function SharesTab({ instanceId }: { instanceId: string }) {
+  const { t } = useTranslation('unraid')
   const { shares, loadShares, errors } = useUnraidStore()
   const shareList = shares[instanceId] ?? []
   const err = errors[`shares_${instanceId}`]
@@ -1032,7 +1034,7 @@ function SharesTab({ instanceId }: { instanceId: string }) {
             ))}
           </tbody>
         </table>
-        {shareList.length === 0 && <div style={{ padding: 'var(--spacing-xl)', color: 'var(--text-muted)', textAlign: 'center' }}>Keine Freigaben gefunden</div>}
+        {shareList.length === 0 && <div style={{ padding: 'var(--spacing-xl)', color: 'var(--text-muted)', textAlign: 'center' }}>{t('shares_tab.empty')}</div>}
       </div>
     </div>
   )
@@ -1286,7 +1288,7 @@ function SystemTab({ instanceId }: { instanceId: string }) {
           <div className="glass" style={{ padding: 'var(--spacing-lg)', borderRadius: 'var(--radius-md)' }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 'var(--spacing-sm)' }}>
               <span style={{ fontWeight: 700, fontSize: 16 }}>Unraid {versions.core.unraid}</span>
-              {sysInfo?.virtual && <span style={{ background: '#8b5cf6', color: '#fff', borderRadius: 4, padding: '2px 8px', fontSize: 12, fontWeight: 600 }}>Virtualisiert</span>}
+              {sysInfo?.virtual && <span style={{ background: '#8b5cf6', color: '#fff', borderRadius: 4, padding: '2px 8px', fontSize: 12, fontWeight: 600 }}>{t('system_tab.virtualized')}</span>}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               {versions.core.api    && <InfoRow icon={<Network size={14} />}  label="API"    value={versions.core.api} />}
@@ -1297,7 +1299,7 @@ function SystemTab({ instanceId }: { instanceId: string }) {
         )}
 
         <div className="glass" style={{ padding: 'var(--spacing-lg)', borderRadius: 'var(--radius-md)' }}>
-          <div style={{ fontWeight: 600, marginBottom: 'var(--spacing-sm)' }}>Hardware</div>
+          <div style={{ fontWeight: 600, marginBottom: 'var(--spacing-sm)' }}>{t('system_tab.hardware')}</div>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             <InfoRow icon={<Server size={14} />}    label="Hersteller"       value={`${sysInfo?.manufacturer ?? ''} ${sysInfo?.model ?? ''}`.trim() || '–'} />
             <InfoRow icon={<Globe size={14} />}     label="Plattform"        value={os?.platform} />
@@ -1355,7 +1357,7 @@ function SystemTab({ instanceId }: { instanceId: string }) {
 
         {userList.length > 0 && (
           <div className="glass" style={{ borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
-            <div style={{ padding: 'var(--spacing-md)', fontWeight: 600, borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 6 }}><Users size={14} /> Benutzer</div>
+            <div style={{ padding: 'var(--spacing-md)', fontWeight: 600, borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 6 }}><Users size={14} /> {t('system_tab.users')}</div>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border)' }}>
@@ -1415,8 +1417,8 @@ function UpsTab({ instanceId }: { instanceId: string }) {
       {devices.length === 0 && !err ? (
         <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-muted)' }}>
           <AlertTriangle size={32} style={{ marginBottom: 'var(--spacing-sm)', opacity: 0.4 }} />
-          <div style={{ fontWeight: 600, marginBottom: 4 }}>Keine USV konfiguriert</div>
-          <div style={{ fontSize: 12 }}>Es wurde keine unterbrechungsfreie Stromversorgung (USV) erkannt.</div>
+          <div style={{ fontWeight: 600, marginBottom: 4 }}>{t('ups_tab.no_ups')}</div>
+          <div style={{ fontSize: 12 }}>{t('ups_tab.no_ups_detail')}</div>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
@@ -1446,15 +1448,15 @@ function UpsTab({ instanceId }: { instanceId: string }) {
                       <div style={{ background: chargeColor, height: '100%', borderRadius: 4, width: `${charge}%`, transition: 'width 0.5s' }} />
                     </div>
                     <div style={{ display: 'flex', gap: 'var(--spacing-lg)', marginTop: 6, fontSize: 12, color: 'var(--text-muted)' }}>
-                      {d.battery.estimatedRuntime != null && <span>Laufzeit: <strong style={{ color: 'var(--text-primary)' }}>{d.battery.estimatedRuntime} Min</strong></span>}
-                      {d.battery.health && <span>Zustand: <strong style={{ color: 'var(--text-primary)' }}>{d.battery.health}</strong></span>}
+                      {d.battery.estimatedRuntime != null && <span>{t('ups_tab.runtime')} <strong style={{ color: 'var(--text-primary)' }}>{d.battery.estimatedRuntime} Min</strong></span>}
+                      {d.battery.health && <span>{t('ups_tab.health')} <strong style={{ color: 'var(--text-primary)' }}>{d.battery.health}</strong></span>}
                     </div>
                   </div>
                 )}
                 {d.power && (
                   <div style={{ display: 'flex', gap: 'var(--spacing-lg)', fontSize: 12, color: 'var(--text-muted)' }}>
-                    {d.power.inputVoltage != null && <span>Eingang: <strong style={{ color: 'var(--text-primary)' }}>{d.power.inputVoltage} V</strong></span>}
-                    {d.power.outputVoltage != null && <span>Ausgang: <strong style={{ color: 'var(--text-primary)' }}>{d.power.outputVoltage} V</strong></span>}
+                    {d.power.inputVoltage != null && <span>{t('ups_tab.input_voltage')} <strong style={{ color: 'var(--text-primary)' }}>{d.power.inputVoltage} V</strong></span>}
+                    {d.power.outputVoltage != null && <span>{t('ups_tab.output_voltage')} <strong style={{ color: 'var(--text-primary)' }}>{d.power.outputVoltage} V</strong></span>}
                     {d.power.loadPercentage != null && <span>Last: <strong style={{ color: 'var(--text-primary)' }}>{d.power.loadPercentage}%</strong></span>}
                   </div>
                 )}
@@ -1463,7 +1465,7 @@ function UpsTab({ instanceId }: { instanceId: string }) {
           })}
           {cfg && (
             <div className="glass" style={{ padding: 'var(--spacing-lg)', borderRadius: 'var(--radius-md)' }}>
-              <div style={{ fontWeight: 600, marginBottom: 'var(--spacing-sm)' }}>Konfiguration</div>
+              <div style={{ fontWeight: 600, marginBottom: 'var(--spacing-sm)' }}>{t('ups_tab.config')}</div>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
                 {cfg.upsName     && <InfoRow icon={<Zap size={14} />}     label="UPS Name"   value={cfg.upsName} />}
                 {cfg.modelName   && <InfoRow icon={<Package size={14} />} label="Modell"      value={cfg.modelName} />}
@@ -1571,6 +1573,7 @@ function LogsTab({ instanceId }: { instanceId: string }) {
 // ── Plugins Tab ───────────────────────────────────────────────────────────────
 
 function PluginsTab({ instanceId }: { instanceId: string }) {
+  const { t } = useTranslation('unraid')
   const { plugins, loadPlugins, removePlugin, errors } = useUnraidStore()
   const { isAdmin } = useStore()
   const { toast } = useToast()
@@ -1618,7 +1621,7 @@ function PluginsTab({ instanceId }: { instanceId: string }) {
                 {isAdmin && (
                   <td style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
                     <button className="btn btn-danger" style={{ fontSize: 12, padding: '2px 8px' }} onClick={() => setConfirmRemove([p.name!])}>
-                      <Trash2 size={11} /> Entfernen
+                      <Trash2 size={11} /> {t('apikey_tab.remove')}
                     </button>
                   </td>
                 )}
@@ -1629,7 +1632,7 @@ function PluginsTab({ instanceId }: { instanceId: string }) {
         {pluginList.length === 0 && !err && (
           <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-muted)' }}>
             <Package size={48} style={{ marginBottom: 'var(--spacing-md)', opacity: 0.5 }} />
-            <div style={{ fontWeight: 600, marginBottom: 'var(--spacing-sm)' }}>Keine API-Plugins installiert</div>
+            <div style={{ fontWeight: 600, marginBottom: 'var(--spacing-sm)' }}>{t('system_tab.no_plugins')}</div>
             <div style={{ fontSize: 13, maxWidth: 400, margin: '0 auto' }}>
               Diese Liste zeigt nur Plugins die API-Module bereitstellen. Standard Community Apps Plugins erscheinen hier nicht.
             </div>
@@ -1753,7 +1756,7 @@ function ApiKeysTab({ instanceId }: { instanceId: string }) {
               <input className="input" placeholder="Beschreibung" value={newDesc} onChange={e => setNewDesc(e.target.value)} />
               {possibleRoles.length > 0 && (
                 <div>
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>Rollen</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>{t('apikey_tab.roles')}</div>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                     {possibleRoles.map(r => (
                       <button key={r} className={`btn${newRoles.includes(r) ? ' btn-primary' : ''}`} style={{ fontSize: 12, padding: '2px 10px' }} onClick={() => setNewRoles(prev => prev.includes(r) ? prev.filter(x => x !== r) : [...prev, r])}>
@@ -1765,7 +1768,7 @@ function ApiKeysTab({ instanceId }: { instanceId: string }) {
               )}
             </div>
             <div className="modal-footer" style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button className="btn" onClick={() => setShowCreate(false)}>Abbrechen</button>
+              <button className="btn" onClick={() => setShowCreate(false)}>{t('apikey_tab.cancel')}</button>
               <button className="btn btn-primary" onClick={handleCreate} disabled={!newName || creating}>
                 {creating ? <span className="spinner" style={{ width: 14, height: 14 }} /> : t('apikey.create')}
               </button>

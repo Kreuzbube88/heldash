@@ -121,18 +121,18 @@ function InstanceModal({
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {!instance && (
             <div>
-              <label className="field-label">Typ *</label>
+              <label className="field-label">{t('modal.type')} *</label>
               <select className="input" value={type} onChange={e => setType(e.target.value as InstanceType)}>
                 {ALL_TYPES.map(tp => <option key={tp} value={tp}>{TYPE_LABELS[tp]}</option>)}
               </select>
             </div>
           )}
           <div>
-            <label className="field-label">Name *</label>
-            <input className="input" value={name} onChange={e => setName(e.target.value)} placeholder="Meine Instanz" />
+            <label className="field-label">{t('modal.name')} *</label>
+            <input className="input" value={name} onChange={e => setName(e.target.value)} placeholder={t('modal.name')} />
           </div>
           <div>
-            <label className="field-label">URL *</label>
+            <label className="field-label">{t('modal.url')} *</label>
             <input className="input" value={url} onChange={e => setUrl(e.target.value)} placeholder="http://192.168.1.10:7878" />
           </div>
           <div>
@@ -151,10 +151,10 @@ function InstanceModal({
           </div>
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
             <input type="checkbox" checked={enabled} onChange={e => setEnabled(e.target.checked)} />
-            <span style={{ fontSize: 13 }}>Aktiviert</span>
+            <span style={{ fontSize: 13 }}>{t('modal.enabled')}</span>
           </label>
           <div>
-            <label className="field-label">Icon (optional)</label>
+            <label className="field-label">{t('modal.icon')} (optional)</label>
             <IconPicker value={iconId} onChange={setIconId} size="medium" />
             {iconId && (
               <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -205,7 +205,7 @@ function InstanceCard({
     try {
       const res = await onTest()
       setTestState(res.ok ? 'ok' : 'fail')
-      if (!res.ok) setTestError(res.error ?? 'Verbindung fehlgeschlagen')
+      if (!res.ok) setTestError(res.error ?? t('test.failed'))
     } catch {
       setTestState('fail')
     }
@@ -233,7 +233,7 @@ function InstanceCard({
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <span style={{ fontWeight: 600, fontSize: 14 }}>{instance.name}</span>
           {!instance.enabled && (
-            <span style={{ fontSize: 10, color: 'var(--text-muted)', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: 4, padding: '1px 5px' }}>disabled</span>
+            <span style={{ fontSize: 10, color: 'var(--text-muted)', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: 4, padding: '1px 5px' }}>{t('card.disabled')}</span>
           )}
         </div>
         <div style={{ fontSize: 11, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-mono)' }}>{instance.url}</div>

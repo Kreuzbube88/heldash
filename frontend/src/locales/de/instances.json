@@ -36,7 +36,8 @@
   "card": {
     "test": "Verbindung testen",
     "edit": "Bearbeiten",
-    "delete": "Löschen"
+    "delete": "Löschen",
+    "disabled": "deaktiviert"
   },
   "test": {
     "test": "Testen",

@@ -24,23 +24,49 @@
     "cancel": "Cancel"
   },
   "table": {
+    "app": "App",
     "name": "Name",
     "url": "URL",
     "group": "Group",
     "status": "Status",
+    "check": "Check",
+    "dashboard": "Dashboard",
     "uptime": "Uptime",
     "actions": "Actions"
   },
   "history": {
-    "no_data": "No history data"
+    "no_data": "No history data",
+    "no_data_tooltip": "no data",
+    "uptime_7d": "7-day uptime:"
+  },
+  "check": {
+    "on": "On",
+    "off": "Off"
+  },
+  "dashboard_col": {
+    "yes": "Yes",
+    "no": "No"
+  },
+  "uptime_toggle": "Show uptime history",
+  "ungrouped": "Ungrouped",
+  "edit_groups": "Edit Groups",
+  "done": "Done",
+  "delete": {
+    "title": "Delete \"{{name}}\"?",
+    "confirm": "Delete"
   },
   "import_export": {
     "import": "Import",
-    "export": "Export"
+    "export": "Export",
+    "export_title": "Export all services as JSON",
+    "import_title": "Import services from JSON file",
+    "import_success": "Imported: {{imported}}, Skipped: {{skipped}}",
+    "import_success_errors": "Imported: {{imported}}, Skipped: {{skipped}}, Errors: {{errors}}"
   },
   "delete_confirm": "Delete app?",
   "empty": {
     "title": "No Apps",
-    "subtitle": "Add your first service."
+    "subtitle": "Add your first service.",
+    "text": "No apps yet.\nAdd your first app with the button above."
   }
 }

@@ -71,7 +71,7 @@ function UptimeBar({ serviceId }: { serviceId: string }) {
           return (
             <div
               key={i}
-              title={`${b.hour} — ${b.uptime !== null ? b.uptime + '% uptime' : 'keine Daten'}`}
+              title={`${b.hour} — ${b.uptime !== null ? b.uptime + '% uptime' : t('history.no_data_tooltip')}`}
               style={{ flex: 1, height: 8, borderRadius: 2, background: bg, cursor: 'default', transition: 'opacity 150ms', opacity: 0.85 }}
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '1' }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '0.85' }}
@@ -81,7 +81,7 @@ function UptimeBar({ serviceId }: { serviceId: string }) {
       </div>
       {data.uptimePercent7d !== null && (
         <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-          7-Tage Uptime: <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>{data.uptimePercent7d}%</span>
+          {t('history.uptime_7d')} <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>{data.uptimePercent7d}%</span>
         </div>
       )}
     </div>
@@ -104,6 +104,7 @@ function SortableGroupSection({
   isAdmin: boolean
   isAuthenticated: boolean
 }) {
+  const { t } = useTranslation('services')
   const { addService, removeItem, isOnDashboard } = useDashboardStore()
   const { updateService, deleteService } = useStore()
   const { items: dashboardItems } = useDashboardStore()
@@ -115,7 +116,7 @@ function SortableGroupSection({
   })
 
   const handleDelete = async (service: Service) => {
-    const ok = await confirmDlg({ title: `Delete "${service.name}"?`, danger: true, confirmLabel: 'Delete' })
+    const ok = await confirmDlg({ title: t('delete.title', { name: service.name }), danger: true, confirmLabel: t('delete.confirm') })
     if (ok) deleteService(service.id)
   }
 
@@ -173,13 +174,13 @@ function SortableGroupSection({
           </colgroup>
           <thead>
             <tr style={{ borderBottom: '1px solid var(--glass-border)' }}>
-              <th style={thStyle}>App</th>
-              <th style={thStyle}>URL</th>
-              <th style={thStyle}>Status</th>
-              <th className="col-interval" style={thStyle}>Check</th>
-              <th style={thStyle}>Dashboard</th>
+              <th style={thStyle}>{t('table.app')}</th>
+              <th style={thStyle}>{t('table.url')}</th>
+              <th style={thStyle}>{t('table.status')}</th>
+              <th className="col-interval" style={thStyle}>{t('table.check')}</th>
+              <th style={thStyle}>{t('table.dashboard')}</th>
               {isAuthenticated && <th style={thStyle}></th>}
-              {isAdmin && <th style={{ ...thStyle, textAlign: 'right' }}>Actions</th>}
+              {isAdmin && <th style={{ ...thStyle, textAlign: 'right' }}>{t('table.actions')}</th>}
             </tr>
           </thead>
           <tbody>
@@ -271,7 +272,7 @@ function SortableGroupSection({
                     }}
                   >
                     {s.check_enabled ? <Shield size={10} /> : <ShieldOff size={10} />}
-                    {s.check_enabled ? 'On' : 'Off'}
+                    {s.check_enabled ? t('check.on') : t('check.off')}
                   </button>
                 </td>
                 <td style={tdStyle}>
@@ -308,14 +309,14 @@ function SortableGroupSection({
                     }}
                   >
                     <LayoutDashboard size={10} />
-                    {isOnDashboard('service', s.id) ? 'Yes' : 'No'}
+                    {isOnDashboard('service', s.id) ? t('dashboard_col.yes') : t('dashboard_col.no')}
                   </button>
                 </td>
                 {isAuthenticated && (
                   <td style={{ ...tdStyle, textAlign: 'center' }}>
                     <button
                       className="btn btn-ghost btn-icon btn-sm"
-                      title="Uptime-Verlauf anzeigen"
+                      title={t('uptime_toggle')}
                       onClick={() => setUptimeOpen(prev => {
                         const next = new Set(prev)
                         if (next.has(s.id)) next.delete(s.id)
@@ -371,6 +372,7 @@ function SortableGroupSection({
 
 
 export function ServicesPage({ onEdit }: Props) {
+  const { t } = useTranslation('services')
   const { services, groups, isAdmin, isAuthenticated } = useStore()
   const [editMode, setEditMode] = useState(false)
   const [groupOrder, setGroupOrder] = useState<string[]>([])
@@ -411,9 +413,9 @@ export function ServicesPage({ onEdit }: Props) {
       <div className="empty-state">
         <div className="empty-state-icon">⬡</div>
         <div className="empty-state-text">
-          No apps yet.
+          {t('empty.title')}
           <br />
-          Add your first app with the button above.
+          {t('empty.subtitle')}
         </div>
       </div>
     )
@@ -432,7 +434,7 @@ export function ServicesPage({ onEdit }: Props) {
 
   const ungrouped = services.filter(s => !s.group_id)
   if (ungrouped.length > 0) {
-    sections.push({ label: 'Ohne Gruppe', icon: null, services: ungrouped, id: 'ungrouped' })
+    sections.push({ label: t('ungrouped'), icon: null, services: ungrouped, id: 'ungrouped' })
   }
 
   // Export/Import handlers
@@ -480,10 +482,11 @@ export function ServicesPage({ onEdit }: Props) {
 
       const result = await api.services.import(data.services)
       showNotification(
-        `Imported: ${result.imported}, Skipped: ${result.skipped}${result.errors?.length ? `, Errors: ${result.errors.length}` : ''}`,
+        result.errors?.length
+          ? t('import_export.import_success_errors', { imported: result.imported, skipped: result.skipped, errors: result.errors.length })
+          : t('import_export.import_success', { imported: result.imported, skipped: result.skipped }),
         'success'
       )
-      await loadServices()
     } catch (err) {
       showNotification(`Import error: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error')
     } finally {
@@ -511,7 +514,7 @@ export function ServicesPage({ onEdit }: Props) {
       <div style={{ display: 'flex', gap: 4, alignItems: 'center', borderBottom: '1px solid var(--glass-border)', paddingBottom: 8 }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 14px', fontSize: 13, fontWeight: 600, color: 'var(--accent)' }}>
           <List size={13} />
-          Apps
+          {t('title')}
         </span>
         {(
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginLeft: 'auto' }}>
@@ -519,7 +522,7 @@ export function ServicesPage({ onEdit }: Props) {
               onClick={() => setEditMode(!editMode)}
               className="btn btn-primary btn-sm"
             >
-              {editMode ? 'Done' : 'Edit Groups'}
+              {editMode ? t('done') : t('edit_groups')}
             </button>
             {isAdmin && (
               <>
@@ -527,19 +530,19 @@ export function ServicesPage({ onEdit }: Props) {
                   onClick={handleExport}
                   disabled={exporting}
                   className="btn btn-ghost btn-sm"
-                  title="Export all services as JSON"
+                  title={t('import_export.export_title')}
                 >
                   <Download size={14} />
-                  Export
+                  {t('import_export.export')}
                 </button>
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   disabled={importing}
                   className="btn btn-ghost btn-sm"
-                  title="Import services from JSON file"
+                  title={t('import_export.import_title')}
                 >
                   <Upload size={14} />
-                  Import
+                  {t('import_export.import')}
                 </button>
                 <input
                   ref={fileInputRef}

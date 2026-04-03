@@ -1,6 +1,6 @@
 {
   "title": "Lesezeichen",
-  "add": "Lesezeichen hinzufügen",
+  "add": "Bookmark hinzufügen",
   "modal": {
     "title_add": "Bookmark hinzufügen",
     "title_edit": "Bookmark bearbeiten",
@@ -8,8 +8,10 @@
     "name_placeholder": "Mein Link",
     "url": "URL *",
     "description": "Beschreibung",
+    "description_placeholder": "Optional",
+    "icon": "Icon",
     "save": "Speichern",
-    "saving": "Speichern…",
+    "saving": "Speichern...",
     "cancel": "Abbrechen",
     "name_required": "Name ist erforderlich",
     "url_required": "URL ist erforderlich",
@@ -19,15 +21,26 @@
     "edit": "Bearbeiten",
     "delete": "Löschen",
     "open": "Öffnen",
-    "dashboard": "Dashboard"
+    "add_to_dashboard": "Zum Dashboard hinzufügen",
+    "remove_from_dashboard": "Vom Dashboard entfernen"
   },
   "empty": {
-    "title": "Keine Lesezeichen",
-    "subtitle": "Füge Links zu häufig besuchten Seiten hinzu."
+    "title": "Noch keine Bookmarks",
+    "add_first": "Ersten Bookmark hinzufügen"
   },
-  "delete_confirm": "Lesezeichen löschen?",
+  "delete": {
+    "title": "Bookmark löschen",
+    "message": "\"{{name}}\" wirklich löschen?",
+    "confirm": "Löschen"
+  },
+  "load_error": "Fehler beim Laden",
+  "delete_error": "Fehler beim Löschen",
+  "import_result": "{{imported}} importiert, {{skipped}} übersprungen",
+  "import_error_suffix": "Fehler: {{errors}}",
+  "export_error": "Export fehlgeschlagen",
+  "import_error": "Import fehlgeschlagen",
   "import_export": {
-    "import": "Importieren",
-    "export": "Exportieren"
+    "import": "Import",
+    "export": "Export"
   }
 }

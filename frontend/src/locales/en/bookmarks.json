@@ -8,8 +8,10 @@
     "name_placeholder": "My Link",
     "url": "URL *",
     "description": "Description",
+    "description_placeholder": "Optional",
+    "icon": "Icon",
     "save": "Save",
-    "saving": "Saving…",
+    "saving": "Saving...",
     "cancel": "Cancel",
     "name_required": "Name is required",
     "url_required": "URL is required",
@@ -19,13 +21,24 @@
     "edit": "Edit",
     "delete": "Delete",
     "open": "Open",
-    "dashboard": "Dashboard"
+    "add_to_dashboard": "Add to Dashboard",
+    "remove_from_dashboard": "Remove from Dashboard"
   },
   "empty": {
-    "title": "No Bookmarks",
-    "subtitle": "Add links to frequently visited pages."
+    "title": "No Bookmarks yet",
+    "add_first": "Add first Bookmark"
   },
-  "delete_confirm": "Delete bookmark?",
+  "delete": {
+    "title": "Delete Bookmark",
+    "message": "Really delete \"{{name}}\"?",
+    "confirm": "Delete"
+  },
+  "load_error": "Error loading",
+  "delete_error": "Error deleting",
+  "import_result": "{{imported}} imported, {{skipped}} skipped",
+  "import_error_suffix": "Errors: {{errors}}",
+  "export_error": "Export failed",
+  "import_error": "Import failed",
   "import_export": {
     "import": "Import",
     "export": "Export"

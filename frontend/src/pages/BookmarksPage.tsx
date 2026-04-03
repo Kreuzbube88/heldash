@@ -55,19 +55,19 @@ function BookmarkModal({
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div>
-            <label className="field-label">Name *</label>
-            <input className="input" value={name} onChange={e => setName(e.target.value)} placeholder="Mein Link" />
+            <label className="field-label">{t('modal.name')}</label>
+            <input className="input" value={name} onChange={e => setName(e.target.value)} placeholder={t('modal.name_placeholder')} />
           </div>
           <div>
-            <label className="field-label">URL *</label>
+            <label className="field-label">{t('modal.url')}</label>
             <input className="input" value={url} onChange={e => setUrl(e.target.value)} placeholder="https://example.com" />
           </div>
           <div>
-            <label className="field-label">Beschreibung</label>
-            <input className="input" value={description} onChange={e => setDescription(e.target.value)} placeholder="Optional" />
+            <label className="field-label">{t('modal.description')}</label>
+            <input className="input" value={description} onChange={e => setDescription(e.target.value)} placeholder={t('modal.description_placeholder')} />
           </div>
           <div>
-            <label className="field-label">Icon</label>
+            <label className="field-label">{t('modal.icon')}</label>
             <IconPicker
               iconId={iconId}
               iconUrl={(!iconChanged && bookmark?.icon_url) ? bookmark.icon_url : null}
@@ -77,9 +77,9 @@ function BookmarkModal({
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
-          <button className="btn btn-ghost" onClick={onClose}>Abbrechen</button>
+          <button className="btn btn-ghost" onClick={onClose}>{t('modal.cancel')}</button>
           <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
-            {saving ? 'Speichern...' : 'Speichern'}
+            {saving ? t('modal.saving') : t('modal.save')}
           </button>
         </div>
       </div>
@@ -104,6 +104,7 @@ function BookmarkCard({
   onDelete: () => void
   onToggleDashboard: () => void
 }) {
+  const { t } = useTranslation('bookmarks')
   const onDashboard = bookmark.show_on_dashboard !== 0
   return (
     <div
@@ -134,15 +135,15 @@ function BookmarkCard({
           <button
             className="btn-icon"
             onClick={e => { e.stopPropagation(); onToggleDashboard() }}
-            title={onDashboard ? 'Vom Dashboard entfernen' : 'Zum Dashboard hinzufügen'}
+            title={onDashboard ? t('actions.remove_from_dashboard') : t('actions.add_to_dashboard')}
             style={{ color: onDashboard ? 'var(--accent)' : undefined }}
           >
             <LayoutDashboard size={13} />
           </button>
           {isAdmin && (
             <>
-              <button className="btn-icon" onClick={e => { e.stopPropagation(); onEdit() }} title="Bearbeiten"><Pencil size={13} /></button>
-              <button className="btn-icon" onClick={e => { e.stopPropagation(); onDelete() }} title="Löschen" style={{ color: 'var(--status-offline)' }}><Trash2 size={13} /></button>
+              <button className="btn-icon" onClick={e => { e.stopPropagation(); onEdit() }} title={t('actions.edit')}><Pencil size={13} /></button>
+              <button className="btn-icon" onClick={e => { e.stopPropagation(); onDelete() }} title={t('actions.delete')} style={{ color: 'var(--status-offline)' }}><Trash2 size={13} /></button>
             </>
           )}
         </div>
@@ -154,6 +155,7 @@ function BookmarkCard({
 // ── BookmarksPage ─────────────────────────────────────────────────────────────
 
 export function BookmarksPage() {
+  const { t } = useTranslation('bookmarks')
   const { bookmarks, loading, loadBookmarks, createBookmark, updateBookmark, deleteBookmark, toggleDashboard, exportBookmarks, importBookmarks } = useBookmarkStore()
   const { isAdmin, isAuthenticated } = useStore()
   const { confirm } = useConfirm()
@@ -164,7 +166,7 @@ export function BookmarksPage() {
   const [importing, setImporting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => { loadBookmarks().catch(e => setError(e instanceof Error ? e.message : 'Fehler beim Laden')) }, [])
+  useEffect(() => { loadBookmarks().catch(e => setError(e instanceof Error ? e.message : t('load_error'))) }, [])
 
   const handleSave = async (name: string, url: string, description: string, iconId?: string | null, iconChanged?: boolean) => {
     if (editBookmark) {
@@ -183,12 +185,12 @@ export function BookmarksPage() {
   }
 
   const handleDelete = async (bookmark: Bookmark) => {
-    const ok = await confirm({ title: 'Bookmark löschen', message: `"${bookmark.name}" wirklich löschen?`, confirmLabel: 'Löschen', danger: true })
+    const ok = await confirm({ title: t('delete.title'), message: t('delete.message', { name: bookmark.name }), confirmLabel: t('delete.confirm'), danger: true })
     if (!ok) return
     try {
       await deleteBookmark(bookmark.id)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Fehler beim Löschen')
+      setError(e instanceof Error ? e.message : t('delete_error'))
     }
   }
 
@@ -197,7 +199,7 @@ export function BookmarksPage() {
     try {
       await exportBookmarks()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Export fehlgeschlagen')
+      setError(e instanceof Error ? e.message : t('export_error'))
     } finally {
       setExporting(false)
     }
@@ -211,15 +213,11 @@ export function BookmarksPage() {
     setError(null)
     try {
       const result = await importBookmarks(file)
-      const msg = `${result.imported} importiert, ${result.skipped} übersprungen`
-      if (result.errors.length > 0) setError(`${msg}. Fehler: ${result.errors.join(', ')}`)
+      const msg = t('import_result', { imported: result.imported, skipped: result.skipped })
+      if (result.errors.length > 0) setError(`${msg}. ${t('import_error_suffix', { errors: result.errors.join(', ') })}`)
       else setError(null)
-      // Show brief success feedback via error state (reuse for simplicity)
-      if (result.errors.length === 0) {
-        // no-op — bookmarks already reloaded in store
-      }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Import fehlgeschlagen')
+      setError(e instanceof Error ? e.message : t('import_error'))
     } finally {
       setImporting(false)
     }
@@ -233,17 +231,17 @@ export function BookmarksPage() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h2 style={{ margin: 0, fontFamily: 'var(--font-display)' }}>Bookmarks</h2>
+          <h2 style={{ margin: 0, fontFamily: 'var(--font-display)' }}>{t('title')}</h2>
           {error && <div className="error-banner" style={{ marginTop: 8 }}>{error}</div>}
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           {isAdmin && (
             <>
               <button onClick={handleExport} disabled={exporting} className="btn btn-ghost btn-sm" style={{ gap: 6 }}>
-                <Download size={14} /> Export
+                <Download size={14} /> {t('import_export.export')}
               </button>
               <button onClick={() => fileInputRef.current?.click()} disabled={importing} className="btn btn-ghost btn-sm" style={{ gap: 6 }}>
-                <Upload size={14} /> Import
+                <Upload size={14} /> {t('import_export.import')}
               </button>
               <input ref={fileInputRef} type="file" accept=".json" onChange={handleImport} style={{ display: 'none' }} />
             </>
@@ -254,7 +252,7 @@ export function BookmarksPage() {
               onClick={() => { setEditBookmark(null); setShowModal(true) }}
               style={{ display: 'flex', alignItems: 'center', gap: 6 }}
             >
-              <Plus size={14} /> Bookmark hinzufügen
+              <Plus size={14} /> {t('add')}
             </button>
           )}
         </div>
@@ -263,9 +261,9 @@ export function BookmarksPage() {
       {sortedBookmarks.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)' }}>
           <div style={{ fontSize: 48, marginBottom: 16 }}>🔗</div>
-          <h3 style={{ fontFamily: 'var(--font-display)', marginBottom: 8 }}>Noch keine Bookmarks</h3>
+          <h3 style={{ fontFamily: 'var(--font-display)', marginBottom: 8 }}>{t('empty.title')}</h3>
           {isAdmin && (
-            <button className="btn btn-primary" onClick={() => setShowModal(true)}>Ersten Bookmark hinzufügen</button>
+            <button className="btn btn-primary" onClick={() => setShowModal(true)}>{t('empty.add_first')}</button>
           )}
         </div>
       ) : (

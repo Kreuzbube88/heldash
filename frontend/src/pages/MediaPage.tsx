@@ -57,6 +57,7 @@ function TabBar({ active, onChange }: { active: MediaTab; onChange: (t: MediaTab
 type CalendarView = 'day' | 'week' | 'month' | 'list' | 'grid'
 
 function CalendarTab() {
+  const { t } = useTranslation('media')
   const { instances, calendars, loadCalendar } = useArrStore()
   const [loading, setLoading] = useState(false)
   const [view, setView] = useState<CalendarView>('week')
@@ -215,7 +216,7 @@ function CalendarTab() {
   if (radarrSonarrInstances.length === 0) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
-        <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No Radarr/Sonarr instances configured.</p>
+        <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>{t('library.no_instances')}</p>
       </div>
     )
   }
@@ -486,6 +487,7 @@ function CalendarTab() {
 // ── Indexers tab ──────────────────────────────────────────────────────────────
 
 function IndexersTab() {
+  const { t } = useTranslation('media')
   const { instances, indexers, stats, loadIndexers } = useArrStore()
   const [loading, setLoading] = useState(false)
 
@@ -504,7 +506,7 @@ function IndexersTab() {
   if (prowlarrInstances.length === 0) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
-        <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No Prowlarr instances configured.</p>
+        <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>{t('indexers.no_instances')}</p>
       </div>
     )
   }
@@ -571,7 +573,7 @@ function IndexersTab() {
                             background: indexer.enable ? 'rgba(34, 197, 94, 0.15)' : 'rgba(var(--text-rgb), 0.08)',
                             color: indexer.enable ? '#22c55e' : 'var(--text-secondary)',
                           }}>
-                            {indexer.enable ? 'Enabled' : 'Disabled'}
+                            {indexer.enable ? t('indexers.enabled') : t('indexers.disabled')}
                           </div>
                         </td>
                       </tr>
@@ -597,6 +599,7 @@ function getTypeLabel(type?: string): string {
 }
 
 function LibraryTab() {
+  const { t } = useTranslation('media')
   const { instances, movies, series, loadMovies, loadSeries } = useArrStore()
   const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState('')
@@ -624,7 +627,7 @@ function LibraryTab() {
   if (radarrSonarrInstances.length === 0) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
-        <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No Radarr/Sonarr instances configured.</p>
+        <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>{t('library.no_instances')}</p>
       </div>
     )
   }
@@ -711,7 +714,7 @@ function LibraryTab() {
                 textTransform: 'capitalize',
               }}
             >
-              {f === 'missing' && missingCount > 0 ? `Missing (${missingCount})` : f === 'all' ? 'All' : f === 'unmonitored' ? 'Unmonitored' : f}
+              {f === 'missing' && missingCount > 0 ? `${t('library.filter_missing')} (${missingCount})` : f === 'all' ? t('library.filter_all') : f === 'unmonitored' ? t('library.filter_unmonitored') : f}
             </button>
           ))}
         </div>
@@ -723,10 +726,10 @@ function LibraryTab() {
           onChange={e => setSortKey(e.target.value as LibrarySortKey)}
           style={{ fontSize: 12, padding: '6px 10px', flexShrink: 0 }}
         >
-          <option value="az">A → Z</option>
-          <option value="za">Z → A</option>
-          <option value="year">Newest first</option>
-          <option value="missing">Missing first</option>
+          <option value="az">{t('library.sort_az')}</option>
+          <option value="za">{t('library.sort_za')}</option>
+          <option value="year">{t('library.sort_year')}</option>
+          <option value="missing">{t('library.sort_missing')}</option>
         </select>
 
         {loading && <div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />}
@@ -735,16 +738,16 @@ function LibraryTab() {
       {/* Results count */}
       {!loading && items.length > 0 && (
         <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-          {filtered.length} of {items.length} {isRadarr ? 'movies' : 'series'}
+          {t('library.count', { filtered: filtered.length, total: items.length, type: isRadarr ? t('library.type_movies') : t('library.type_series') })}
           {missingCount > 0 && filter !== 'missing' && (
-            <span style={{ marginLeft: 10, color: '#f59e0b' }}>• {missingCount} missing</span>
+            <span style={{ marginLeft: 10, color: '#f59e0b' }}>• {t('library.missing_badge', { count: missingCount })}</span>
           )}
         </div>
       )}
 
       {filtered.length === 0 && !loading && (
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
-          <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No results found.</p>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>{t('library.no_results')}</p>
         </div>
       )}
 
@@ -758,7 +761,7 @@ function LibraryTab() {
           const radarrItem = item as RadarrMovie
           const sonarrItem = item as SonarrSeries
           const fileLabel = isRadarr
-            ? (radarrItem.hasFile ? 'Downloaded' : 'Missing')
+            ? (radarrItem.hasFile ? t('library.status_downloaded') : t('library.status_missing'))
             : (() => {
                 const got = sonarrItem.statistics?.episodeFileCount ?? 0
                 const total = sonarrItem.statistics?.episodeCount ?? 0
@@ -875,6 +878,7 @@ const DEFAULT_FILTERS: TmdbFilters = {
 }
 
 function DiscoverTab({ hasTmdbKey, onNavigate }: { hasTmdbKey: boolean; onNavigate: (page: string) => void }) {
+  const { t } = useTranslation('media')
   const { instances, seerrRequests, seerrTvStatus, seerrMovieStatus, discoverRequest, loadSeerrRequests, loadSeerrTvStatus, loadSeerrMovieStatus } = useArrStore()
   const {
     trending, discoverMovies, discoverTv, searchResults, genres, watchProviders, tvDetail,
@@ -975,7 +979,7 @@ function DiscoverTab({ hasTmdbKey, onNavigate }: { hasTmdbKey: boolean; onNaviga
         await searchTmdb(searchQuery, 1, filters.language || undefined)
         setSearchError(null)
       } catch (e) {
-        setSearchError(e instanceof Error ? e.message : 'Search failed')
+        setSearchError(e instanceof Error ? e.message : t('discover.search_failed'))
       }
       setLoading(false)
     }, 500)
@@ -1299,7 +1303,7 @@ function DiscoverTab({ hasTmdbKey, onNavigate }: { hasTmdbKey: boolean; onNaviga
                       textTransform: 'capitalize',
                     }}
                   >
-                    {mt === 'all' ? 'All' : mt === 'movie' ? 'Movies' : 'TV'}
+                    {mt === 'all' ? t('discover.filter_all') : mt === 'movie' ? t('discover.filter_movies') : t('discover.filter_tv')}
                   </button>
                 ))}
               </div>
@@ -1496,7 +1500,7 @@ function DiscoverTab({ hasTmdbKey, onNavigate }: { hasTmdbKey: boolean; onNaviga
                   padding: '3px 7px', borderRadius: 'var(--radius-sm)',
                   fontSize: 10, fontWeight: 600, textTransform: 'uppercase', backdropFilter: 'blur(8px)',
                 }}>
-                  {mt === 'movie' ? 'Movie' : 'TV'}
+                  {mt === 'movie' ? t('discover.request_type_movie') : t('discover.filter_tv')}
                 </div>
 
                 {/* Rating badge */}
@@ -1579,7 +1583,7 @@ function DiscoverTab({ hasTmdbKey, onNavigate }: { hasTmdbKey: boolean; onNaviga
             className="btn btn-ghost btn-sm"
             style={{ fontSize: 12, minWidth: 120 }}
           >
-            {loading ? 'Loading…' : 'Load more'}
+            {loading ? t('discover.loading') : t('discover.load_more')}
           </button>
         </div>
       )}
@@ -1597,7 +1601,7 @@ function DiscoverTab({ hasTmdbKey, onNavigate }: { hasTmdbKey: boolean; onNaviga
             maxHeight: '80vh', overflowY: 'auto',
             boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
           }} onClick={e => e.stopPropagation()}>
-            <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>Confirm Request</h3>
+            <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>{t('discover.request_confirm_title')}</h3>
 
             {/* Preview */}
             <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
@@ -1613,7 +1617,7 @@ function DiscoverTab({ hasTmdbKey, onNavigate }: { hasTmdbKey: boolean; onNaviga
                   {confirmRequest.item.title ?? confirmRequest.item.name}
                 </p>
                 <p style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                  {confirmRequest.mediaType === 'movie' ? 'Movie' : 'TV Series'}
+                  {confirmRequest.mediaType === 'movie' ? t('discover.request_type_movie') : t('discover.request_type_tv')}
                   {(confirmRequest.item.release_date ?? confirmRequest.item.first_air_date) &&
                     ` · ${(confirmRequest.item.release_date ?? confirmRequest.item.first_air_date ?? '').slice(0, 4)}`}
                 </p>
@@ -1737,10 +1741,10 @@ function DiscoverTab({ hasTmdbKey, onNavigate }: { hasTmdbKey: boolean; onNaviga
                       confirmRequest.mediaId,
                       seasons,
                     )
-                    setNotification({ type: 'success', message: `✓ ${confirmRequest.mediaType === 'movie' ? 'Movie' : 'Series'} requested!` })
+                    setNotification({ type: 'success', message: `✓ ${confirmRequest.mediaType === 'movie' ? t('discover.request_type_movie') : t('seerr.type_tv')} ${t('discover.requested_success')}` })
                     setConfirmRequest(null)
                   } catch (e: unknown) {
-                    setNotification({ type: 'error', message: `Error: ${(e as Error).message ?? 'Request failed'}` })
+                    setNotification({ type: 'error', message: `${t('discover.request_error')} ${(e as Error).message ?? ''}` })
                   } finally {
                     setRequesting(null)
                   }
@@ -2522,7 +2526,7 @@ function RecyclarrTab() {
             <button className="btn btn-primary btn-sm" onClick={() => sync(undefined)} disabled={syncing}
               style={{ fontSize: 12, gap: 4 }}>
               {syncing ? <div className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} /> : <Check size={12} />}
-              {syncing ? 'Syncing…' : 'Global Sync'}
+              {syncing ? t('common_loading') : 'Global Sync'}
             </button>
             {!loading && (
               <button className="btn btn-ghost btn-sm" onClick={async () => {
@@ -2567,7 +2571,7 @@ function RecyclarrTab() {
                       : syncHistory.map(h => (
                           <div key={h.id} style={{ display: 'flex', alignItems: 'baseline', gap: 10, padding: '6px 8px', borderRadius: 'var(--radius-sm)', background: 'rgba(0,0,0,0.15)' }}>
                             <span className={h.success ? 'badge-success' : 'badge-error'} style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, flexShrink: 0 }}>
-                              {h.success ? 'OK' : 'Fehler'}
+                              {h.success ? 'OK' : t('recyclarr.sync_failed')}
                             </span>
                             <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>
                               {new Date(h.synced_at).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' })}

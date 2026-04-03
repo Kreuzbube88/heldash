@@ -123,5 +123,83 @@
   },
   "notifications": {
     "no_notifications": "Keine Benachrichtigungen"
+  },
+  "overview": {
+    "server": "Server",
+    "mainboard": "Mainboard",
+    "array_label": "Array",
+    "notifications_label": "Benachrichtigungen",
+    "all_ok": "Alles OK",
+    "unread": "{{count}} ungelesen",
+    "uptime_label": "Uptime:",
+    "cores": "Kerne",
+    "threads": "Threads",
+    "swap": "Swap:"
+  },
+  "array_tab": {
+    "array_start": "Array starten",
+    "array_start_confirm": "Array starten?",
+    "array_stop": "Array stoppen",
+    "array_stop_confirm": "Alle laufenden Zugriffe werden unterbrochen.",
+    "parity_start": "Parity Check starten",
+    "parity_start_confirm": "Parity Check starten?",
+    "parity_auto_correct": "Fehler automatisch korrigieren",
+    "parity_pause": "Pausieren",
+    "parity_resume": "Fortsetzen",
+    "parity_cancel_btn": "Abbrechen",
+    "parity_cancel_confirm": "Parity Check abbrechen?",
+    "parity_paused_toast": "Parity pausiert",
+    "parity_resumed_toast": "Parity fortgesetzt",
+    "parity_check_label": "Parity Check",
+    "parity_speed": "Speed:",
+    "parity_errors": "Fehler:",
+    "parity_correcting": "Korrigierend",
+    "cache_pools": "Cache Pools",
+    "cache_pools_empty": "Keine Cache-Pools konfiguriert.",
+    "parity_history_show": "Parity-Historie anzeigen",
+    "parity_history_hide": "Parity-Historie ausblenden",
+    "parity_history_cols": ["Datum", "Dauer", "Speed", "Status", "Fehler"],
+    "parity_h_date": "Datum",
+    "parity_h_duration": "Dauer",
+    "parity_h_status": "Status",
+    "parity_h_errors": "Fehler",
+    "parity_history_empty": "Keine Parity-Historie vorhanden",
+    "physical_drives": "Physische Laufwerke",
+    "physical_drives_empty": "Keine physischen Laufwerke gefunden.",
+    "disk_parity_badge": "Parity",
+    "disk_data_badge": "Daten",
+    "disk_spinning": "Aktiv",
+    "disk_standby": "Standby"
+  },
+  "docker_tab": {
+    "filter_all": "Alle",
+    "update_all": "Alle aktualisieren",
+    "update_all_toast": "Alle Container werden aktualisiert"
+  },
+  "vms_tab": {
+    "empty": "Keine VMs konfiguriert auf diesem Server."
+  },
+  "shares_tab": {
+    "empty": "Keine Freigaben gefunden"
+  },
+  "system_tab": {
+    "hardware": "Hardware",
+    "users": "Benutzer",
+    "virtualized": "Virtualisiert",
+    "no_plugins": "Keine API-Plugins installiert"
+  },
+  "ups_tab": {
+    "no_ups": "Keine USV konfiguriert",
+    "no_ups_detail": "Es wurde keine unterbrechungsfreie Stromversorgung (USV) erkannt.",
+    "runtime": "Laufzeit:",
+    "health": "Zustand:",
+    "input_voltage": "Eingang:",
+    "output_voltage": "Ausgang:",
+    "config": "Konfiguration"
+  },
+  "apikey_tab": {
+    "remove": "Entfernen",
+    "cancel": "Abbrechen",
+    "roles": "Rollen"
   }
 }

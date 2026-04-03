@@ -123,5 +123,83 @@
   },
   "notifications": {
     "no_notifications": "No notifications"
+  },
+  "overview": {
+    "server": "Server",
+    "mainboard": "Mainboard",
+    "array_label": "Array",
+    "notifications_label": "Notifications",
+    "all_ok": "All OK",
+    "unread": "{{count}} unread",
+    "uptime_label": "Uptime:",
+    "cores": "Cores",
+    "threads": "Threads",
+    "swap": "Swap:"
+  },
+  "array_tab": {
+    "array_start": "Start Array",
+    "array_start_confirm": "Start array?",
+    "array_stop": "Stop Array",
+    "array_stop_confirm": "All active accesses will be interrupted.",
+    "parity_start": "Start Parity Check",
+    "parity_start_confirm": "Start parity check?",
+    "parity_auto_correct": "Automatically correct errors",
+    "parity_pause": "Pause",
+    "parity_resume": "Resume",
+    "parity_cancel_btn": "Cancel",
+    "parity_cancel_confirm": "Cancel parity check?",
+    "parity_paused_toast": "Parity paused",
+    "parity_resumed_toast": "Parity resumed",
+    "parity_check_label": "Parity Check",
+    "parity_speed": "Speed:",
+    "parity_errors": "Errors:",
+    "parity_correcting": "Correcting",
+    "cache_pools": "Cache Pools",
+    "cache_pools_empty": "No cache pools configured.",
+    "parity_history_show": "Show parity history",
+    "parity_history_hide": "Hide parity history",
+    "parity_history_cols": ["Date", "Duration", "Speed", "Status", "Errors"],
+    "parity_h_date": "Date",
+    "parity_h_duration": "Duration",
+    "parity_h_status": "Status",
+    "parity_h_errors": "Errors",
+    "parity_history_empty": "No parity history available",
+    "physical_drives": "Physical Drives",
+    "physical_drives_empty": "No physical drives found.",
+    "disk_parity_badge": "Parity",
+    "disk_data_badge": "Data",
+    "disk_spinning": "Active",
+    "disk_standby": "Standby"
+  },
+  "docker_tab": {
+    "filter_all": "All",
+    "update_all": "Update all",
+    "update_all_toast": "All containers are being updated"
+  },
+  "vms_tab": {
+    "empty": "No VMs configured on this server."
+  },
+  "shares_tab": {
+    "empty": "No shares found"
+  },
+  "system_tab": {
+    "hardware": "Hardware",
+    "users": "Users",
+    "virtualized": "Virtualized",
+    "no_plugins": "No API plugins installed"
+  },
+  "ups_tab": {
+    "no_ups": "No UPS configured",
+    "no_ups_detail": "No uninterruptible power supply (UPS) detected.",
+    "runtime": "Runtime:",
+    "health": "Health:",
+    "input_voltage": "Input:",
+    "output_voltage": "Output:",
+    "config": "Configuration"
+  },
+  "apikey_tab": {
+    "remove": "Remove",
+    "cancel": "Cancel",
+    "roles": "Roles"
   }
 }

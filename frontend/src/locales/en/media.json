@@ -37,7 +37,8 @@
   "indexers": {
     "no_instances": "No Prowlarr instances configured.",
     "enabled": "Enabled",
-    "disabled": "Disabled"
+    "disabled": "Disabled",
+    "loading": "Loading indexers…"
   },
   "discover": {
     "no_tmdb_key": "No TMDB API key configured.",
@@ -63,7 +64,8 @@
     "request_type_movie": "Movie",
     "request_type_tv": "TV Series",
     "requested_success": "Requested!",
-    "request_error": "Error:"
+    "request_error": "Error:",
+    "loading_seasons": "Loading seasons…"
   },
   "seerr": {
     "no_instances": "No Seerr instance configured.",

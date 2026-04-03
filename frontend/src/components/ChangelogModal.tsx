@@ -156,7 +156,7 @@ export function ChangelogModal({ onClose }: Props) {
                     {release.body ? (
                       <div>{parseMarkdown(release.body)}</div>
                     ) : (
-                      <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic' }}>Keine Release Notes verfügbar.</p>
+                      <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic' }}>{t('changelog.no_notes')}</p>
                     )}
                   </div>
                 )}

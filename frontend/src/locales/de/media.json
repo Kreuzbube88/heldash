@@ -37,7 +37,8 @@
   "indexers": {
     "no_instances": "Keine Prowlarr-Instanzen konfiguriert.",
     "enabled": "Aktiv",
-    "disabled": "Inaktiv"
+    "disabled": "Inaktiv",
+    "loading": "Lade Indexer…"
   },
   "discover": {
     "no_tmdb_key": "Kein TMDB API Key konfiguriert.",
@@ -63,7 +64,8 @@
     "request_type_movie": "Film",
     "request_type_tv": "Serie",
     "requested_success": "Angefordert!",
-    "request_error": "Fehler:"
+    "request_error": "Fehler:",
+    "loading_seasons": "Lade Staffeln…"
   },
   "seerr": {
     "no_instances": "Keine Seerr-Instanz konfiguriert.",

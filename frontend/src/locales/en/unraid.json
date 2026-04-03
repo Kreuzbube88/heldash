@@ -122,7 +122,9 @@
     "minutes": "m"
   },
   "notifications": {
-    "no_notifications": "No notifications"
+    "no_notifications": "No notifications",
+    "no_unread": "No unread notifications",
+    "no_archive": "Archive is empty"
   },
   "overview": {
     "server": "Server",

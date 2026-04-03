@@ -288,7 +288,7 @@ function CalendarTab() {
                 fontFamily: 'var(--font-sans)',
               }}
             >
-              Today
+              {t('calendar.today')}
             </button>
             <button
               onClick={goNext}
@@ -516,7 +516,7 @@ function IndexersTab() {
       {loading && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />
-          <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Loading indexers…</span>
+          <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{t('indexers.loading')}</span>
         </div>
       )}
 
@@ -1631,7 +1631,7 @@ function DiscoverTab({ hasTmdbKey, onNavigate }: { hasTmdbKey: boolean; onNaviga
                 return (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
                     <div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />
-                    <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Loading seasons…</span>
+                    <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{t('discover.loading_seasons')}</span>
                   </div>
                 )
               }

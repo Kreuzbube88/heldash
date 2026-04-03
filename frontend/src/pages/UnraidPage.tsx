@@ -1109,7 +1109,7 @@ function NotificationsTab({ instanceId }: { instanceId: string }) {
     items.length === 0 ? (
       <div style={{ textAlign: 'center', padding: 'var(--spacing-2xl)', color: 'var(--text-muted)' }}>
         <Check size={20} color="var(--status-online)" style={{ marginBottom: 8 }} />
-        <div>{view === 'archive' ? 'Kein Archiv vorhanden' : 'Keine ungelesenen Benachrichtigungen'}</div>
+        <div>{view === 'archive' ? t('notifications.no_archive') : t('notifications.no_unread')}</div>
       </div>
     ) : (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>

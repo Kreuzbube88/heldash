@@ -24,6 +24,7 @@
     "loading": "Lade…",
     "load_error": "Releases konnten nicht geladen werden.",
     "no_releases": "Keine Releases gefunden",
+    "no_notes": "Keine Release Notes verfügbar.",
     "latest": "Neueste"
   }
 }

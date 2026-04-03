@@ -53,5 +53,40 @@
     "online": "Online",
     "offline": "Offline",
     "checking": "Prüfen…"
+  },
+  "card": {
+    "never_checked": "Nie geprüft",
+    "just_now": "Gerade eben",
+    "minutes_ago": "vor {{count}} Min.",
+    "hours_ago": "vor {{count}} Std.",
+    "days_ago": "vor {{count}} Tagen",
+    "wol_title": "Wake-on-LAN senden",
+    "edit_title": "Bearbeiten",
+    "delete_title": "Löschen",
+    "last_checks": "Letzte Prüfungen",
+    "no_history": "Keine Historie verfügbar"
+  },
+  "buttons": {
+    "scan_network": "Netzwerk scannen"
+  },
+  "stats": {
+    "online": "{{count}} Online",
+    "offline": "{{count}} Offline",
+    "total": "{{count}} Gesamt"
+  },
+  "empty": {
+    "title": "Noch keine Geräte",
+    "description": "Füge Netzwerkgeräte hinzu oder scanne dein Subnetz",
+    "add_first": "Erstes Gerät hinzufügen"
+  },
+  "messages": {
+    "load_error": "Fehler beim Laden",
+    "device_removed": "{{name}} entfernt",
+    "error": "Fehler",
+    "wol_sent": "Magic Packet an {{name}} gesendet",
+    "wol_failed": "WoL fehlgeschlagen"
+  },
+  "labels": {
+    "ungrouped": "Ohne Gruppe"
   }
 }

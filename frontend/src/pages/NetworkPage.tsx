@@ -75,17 +75,17 @@ function DeviceModal({ device, existingGroups, onClose, onSave }: DeviceModalPro
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'flex', gap: 8 }}>
             <div style={{ flex: 1 }}>
-              <label className="field-label">Name *</label>
-              <input className="input" value={name} onChange={e => setName(e.target.value)} placeholder="Mein Server" />
+              <label className="field-label">{t('device.name')}</label>
+              <input className="input" value={name} onChange={e => setName(e.target.value)} placeholder={t('device.name_placeholder')} />
             </div>
             <div style={{ flex: 1 }}>
-              <label className="field-label">IP-Adresse *</label>
-              <input className="input" value={ip} onChange={e => setIp(e.target.value)} placeholder="192.168.1.100" />
+              <label className="field-label">{t('device.ip')}</label>
+              <input className="input" value={ip} onChange={e => setIp(e.target.value)} placeholder={t('device.ip_placeholder')} />
             </div>
           </div>
 
           <div>
-            <label className="field-label">Icon (Bibliothek)</label>
+            <label className="field-label">{t('device.icon_library')}</label>
             <IconPicker
               iconId={iconId}
               iconUrl={null}
@@ -94,7 +94,7 @@ function DeviceModal({ device, existingGroups, onClose, onSave }: DeviceModalPro
           </div>
 
           <div>
-            <label className="field-label">Emoji (Fallback)</label>
+            <label className="field-label">{t('device.icon_emoji')}</label>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {ICONS.map(i => (
                 <button
@@ -114,12 +114,12 @@ function DeviceModal({ device, existingGroups, onClose, onSave }: DeviceModalPro
           </div>
 
           <div style={{ position: 'relative' }}>
-            <label className="field-label">Gruppe</label>
+            <label className="field-label">{t('device.group')}</label>
             <input
               className="input"
               value={groupName}
               onChange={e => { setGroupName(e.target.value); setShowGroupSuggestions(true) }}
-              placeholder="z.B. Server, IoT, Netzwerk"
+              placeholder={t('device.group_placeholder')}
               onFocus={() => setShowGroupSuggestions(true)}
               onBlur={() => setTimeout(() => setShowGroupSuggestions(false), 150)}
             />
@@ -139,34 +139,34 @@ function DeviceModal({ device, existingGroups, onClose, onSave }: DeviceModalPro
           </div>
 
           <div>
-            <label className="field-label">Subnetz (für Scanner-Vorausfüllung)</label>
-            <input className="input" value={subnet} onChange={e => setSubnet(e.target.value)} placeholder="z.B. 192.168.1.0/24" />
+            <label className="field-label">{t('device.subnet')}</label>
+            <input className="input" value={subnet} onChange={e => setSubnet(e.target.value)} placeholder={t('device.subnet_placeholder')} />
           </div>
 
           <div>
-            <label className="field-label">Prüfmethode</label>
+            <label className="field-label">{t('device.check_method')}</label>
             <div style={{ display: 'flex', gap: 8 }}>
               <button
                 onClick={() => setUseCustomPort(false)}
                 style={{ flex: 1, padding: '8px 12px', borderRadius: 'var(--radius-sm)', border: !useCustomPort ? '2px solid var(--accent)' : '2px solid var(--glass-border)', background: !useCustomPort ? 'var(--accent-subtle)' : 'var(--glass-bg)', cursor: 'pointer', fontSize: 13 }}
               >
-                Standard (80/443/22/8080)
+                {t('device.check_standard')}
               </button>
               <button
                 onClick={() => setUseCustomPort(true)}
                 style={{ flex: 1, padding: '8px 12px', borderRadius: 'var(--radius-sm)', border: useCustomPort ? '2px solid var(--accent)' : '2px solid var(--glass-border)', background: useCustomPort ? 'var(--accent-subtle)' : 'var(--glass-bg)', cursor: 'pointer', fontSize: 13 }}
               >
-                TCP Port
+                {t('device.check_tcp')}
               </button>
             </div>
             {useCustomPort && (
-              <input className="input" style={{ marginTop: 8 }} value={checkPort} onChange={e => setCheckPort(e.target.value)} placeholder="Port (z.B. 8080)" type="number" min="1" max="65535" />
+              <input className="input" style={{ marginTop: 8 }} value={checkPort} onChange={e => setCheckPort(e.target.value)} placeholder={t('device.port_placeholder')} type="number" min="1" max="65535" />
             )}
           </div>
 
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <label className="field-label" style={{ margin: 0 }}>Wake-on-LAN aktivieren</label>
+              <label className="field-label" style={{ margin: 0 }}>{t('device.wol')}</label>
               <button
                 onClick={() => setWolEnabled(v => !v)}
                 style={{ width: 40, height: 22, borderRadius: 11, background: wolEnabled ? 'var(--accent)' : 'var(--glass-border)', border: 'none', cursor: 'pointer', position: 'relative', transition: 'background 200ms' }}
@@ -177,13 +177,13 @@ function DeviceModal({ device, existingGroups, onClose, onSave }: DeviceModalPro
             {wolEnabled && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
                 <div>
-                  <label className="field-label">MAC-Adresse *</label>
-                  <input className="input" value={mac} onChange={e => setMac(e.target.value)} placeholder="AA:BB:CC:DD:EE:FF" />
-                  <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, display: 'block' }}>Format: AA:BB:CC:DD:EE:FF</span>
+                  <label className="field-label">{t('device.mac')}</label>
+                  <input className="input" value={mac} onChange={e => setMac(e.target.value)} placeholder={t('device.mac_placeholder')} />
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, display: 'block' }}>{t('device.mac_format')}</span>
                 </div>
                 <div>
-                  <label className="field-label">Broadcast-Adresse</label>
-                  <input className="input" value={wolBroadcast} onChange={e => setWolBroadcast(e.target.value)} placeholder="z.B. 192.168.1.255" />
+                  <label className="field-label">{t('device.broadcast')}</label>
+                  <input className="input" value={wolBroadcast} onChange={e => setWolBroadcast(e.target.value)} placeholder={t('device.broadcast_placeholder')} />
                 </div>
               </div>
             )}
@@ -306,6 +306,7 @@ interface DeviceCardProps {
 }
 
 function DeviceCard({ device, isAdmin, onEdit, onDelete, onWol }: DeviceCardProps) {
+  const { t } = useTranslation('network')
   const [expanded, setExpanded] = useState(false)
   const [history, setHistory] = useState<NetworkDeviceHistory[]>([])
   const [wolLoading, setWolLoading] = useState(false)
@@ -333,13 +334,13 @@ function DeviceCard({ device, isAdmin, onEdit, onDelete, onWol }: DeviceCardProp
   const statusColor = device.last_status === 'online' ? 'var(--status-online)' : device.last_status === 'offline' ? 'var(--status-offline)' : 'var(--text-muted)'
 
   const lastCheckedStr = (() => {
-    if (!device.last_checked) return 'Nie geprüft'
+    if (!device.last_checked) return t('card.never_checked')
     const d = new Date(device.last_checked.endsWith('Z') ? device.last_checked : device.last_checked + 'Z')
     const diff = Math.floor((Date.now() - d.getTime()) / 1000)
-    if (diff < 60) return 'Gerade eben'
-    if (diff < 3600) return `vor ${Math.floor(diff / 60)} Min.`
-    if (diff < 86400) return `vor ${Math.floor(diff / 3600)} Std.`
-    return `vor ${Math.floor(diff / 86400)} Tagen`
+    if (diff < 60) return t('card.just_now')
+    if (diff < 3600) return t('card.minutes_ago', { count: Math.floor(diff / 60) })
+    if (diff < 86400) return t('card.hours_ago', { count: Math.floor(diff / 3600) })
+    return t('card.days_ago', { count: Math.floor(diff / 86400) })
   })()
 
   return (
@@ -361,7 +362,7 @@ function DeviceCard({ device, isAdmin, onEdit, onDelete, onWol }: DeviceCardProp
           {device.last_status && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: statusColor }}>
               <span style={{ width: 8, height: 8, borderRadius: '50%', background: statusColor, flexShrink: 0, display: 'block' }} />
-              {device.last_status === 'online' ? 'Online' : 'Offline'}
+              {device.last_status === 'online' ? t('status.online') : t('status.offline')}
             </div>
           )}
           <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{lastCheckedStr}</span>
@@ -372,7 +373,7 @@ function DeviceCard({ device, isAdmin, onEdit, onDelete, onWol }: DeviceCardProp
               className="btn-icon"
               onClick={handleWol}
               disabled={wolLoading}
-              title="Wake-on-LAN senden"
+              title={t('card.wol_title')}
               style={{ color: 'var(--accent)' }}
             >
               <Zap size={14} />
@@ -380,17 +381,17 @@ function DeviceCard({ device, isAdmin, onEdit, onDelete, onWol }: DeviceCardProp
           )}
           {isAdmin && (
             <>
-              <button className="btn-icon" onClick={e => { e.stopPropagation(); onEdit() }} title="Bearbeiten"><Edit2 size={14} /></button>
-              <button className="btn-icon" onClick={e => { e.stopPropagation(); onDelete() }} title="Löschen" style={{ color: 'var(--status-offline)' }}><Trash2 size={14} /></button>
+              <button className="btn-icon" onClick={e => { e.stopPropagation(); onEdit() }} title={t('card.edit_title')}><Edit2 size={14} /></button>
+              <button className="btn-icon" onClick={e => { e.stopPropagation(); onDelete() }} title={t('card.delete_title')} style={{ color: 'var(--status-offline)' }}><Trash2 size={14} /></button>
             </>
           )}
         </div>
       </div>
       {expanded && (
         <div style={{ borderTop: '1px solid var(--glass-border)', padding: '12px 16px' }}>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>Letzte Prüfungen</div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>{t('card.last_checks')}</div>
           {history.length === 0 ? (
-            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Keine Historie verfügbar</span>
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{t('card.no_history')}</span>
           ) : (
             <>
               <div style={{ display: 'flex', gap: 2, marginBottom: 10, flexWrap: 'wrap' }}>
@@ -406,7 +407,7 @@ function DeviceCard({ device, isAdmin, onEdit, onDelete, onWol }: DeviceCardProp
                 {history.slice(0, 5).map((h, i) => (
                   <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
                     <span style={{ color: h.status === 'online' ? 'var(--status-online)' : 'var(--status-offline)' }}>
-                      {h.status === 'online' ? '● Online' : '● Offline'}
+                      {h.status === 'online' ? `● ${t('status.online')}` : `● ${t('status.offline')}`}
                     </span>
                     <span style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: 11 }}>
                       {new Date(h.checked_at.endsWith('Z') ? h.checked_at : h.checked_at + 'Z').toLocaleString('de-DE', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
@@ -425,6 +426,7 @@ function DeviceCard({ device, isAdmin, onEdit, onDelete, onWol }: DeviceCardProp
 // ── Main NetworkPage ───────────────────────────────────────────────────────────
 
 export function NetworkPage() {
+  const { t } = useTranslation('network')
   const { isAdmin } = useStore()
   const [devices, setDevices] = useState<NetworkDevice[]>([])
   const [loading, setLoading] = useState(true)
@@ -441,7 +443,7 @@ export function NetworkPage() {
       const data = await api.network.devices.list()
       setDevices(data)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Fehler beim Laden')
+      setError(e instanceof Error ? e.message : t('messages.load_error'))
     } finally {
       setLoading(false)
     }
@@ -467,18 +469,18 @@ export function NetworkPage() {
     try {
       await api.network.devices.delete(device.id)
       await loadDevices()
-      toast({ message: `${device.name} entfernt`, type: 'info' })
+      toast({ message: t('messages.device_removed', { name: device.name }), type: 'info' })
     } catch (e) {
-      toast({ message: e instanceof Error ? e.message : 'Fehler', type: 'error' })
+      toast({ message: e instanceof Error ? e.message : t('messages.error'), type: 'error' })
     }
   }
 
   const handleWol = async (device: NetworkDevice) => {
     try {
       await api.network.wol(device.id)
-      toast({ message: `Magic Packet an ${device.name} gesendet`, type: 'success' })
+      toast({ message: t('messages.wol_sent', { name: device.name }), type: 'success' })
     } catch (e) {
-      toast({ message: e instanceof Error ? e.message : 'WoL fehlgeschlagen', type: 'error' })
+      toast({ message: e instanceof Error ? e.message : t('messages.wol_failed'), type: 'error' })
     }
   }
 
@@ -520,12 +522,12 @@ export function NetworkPage() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h2 style={{ margin: 0, fontFamily: 'var(--font-display)' }}>Netzwerk</h2>
+          <h2 style={{ margin: 0, fontFamily: 'var(--font-display)' }}>{t('title')}</h2>
           {error && <div className="error-banner" style={{ marginTop: 8 }}>{error}</div>}
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn btn-ghost" onClick={() => setShowScanner(true)} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Search size={14} /> Netzwerk scannen
+            <Search size={14} /> {t('buttons.scan_network')}
           </button>
           {isAdmin && (
             <button
@@ -533,7 +535,7 @@ export function NetworkPage() {
               onClick={() => { setEditDevice(null); setPrefilledIp(null); setShowAddModal(true) }}
               style={{ display: 'flex', alignItems: 'center', gap: 6 }}
             >
-              <Plus size={14} /> Gerät hinzufügen
+              <Plus size={14} /> {t('device.add')}
             </button>
           )}
         </div>
@@ -541,9 +543,9 @@ export function NetworkPage() {
 
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
         {[
-          { label: `${onlineCount} Online`, color: 'var(--status-online)', icon: <Wifi size={14} /> },
-          { label: `${offlineCount} Offline`, color: 'var(--status-offline)', icon: <WifiOff size={14} /> },
-          { label: `${devices.length} Gesamt`, color: 'var(--text-secondary)', icon: null },
+          { label: t('stats.online', { count: onlineCount }), color: 'var(--status-online)', icon: <Wifi size={14} /> },
+          { label: t('stats.offline', { count: offlineCount }), color: 'var(--status-offline)', icon: <WifiOff size={14} /> },
+          { label: t('stats.total', { count: devices.length }), color: 'var(--text-secondary)', icon: null },
         ].map(stat => (
           <div key={stat.label} className="glass" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 'var(--radius-md)', color: stat.color, fontSize: 13, fontWeight: 500 }}>
             {stat.icon}
@@ -555,16 +557,16 @@ export function NetworkPage() {
       {devices.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)' }}>
           <div style={{ fontSize: 48, marginBottom: 16 }}>🌐</div>
-          <h3 style={{ fontFamily: 'var(--font-display)', marginBottom: 8 }}>Noch keine Geräte</h3>
-          <p style={{ marginBottom: 20 }}>Füge Netzwerkgeräte hinzu oder scanne dein Subnetz</p>
+          <h3 style={{ fontFamily: 'var(--font-display)', marginBottom: 8 }}>{t('empty.title')}</h3>
+          <p style={{ marginBottom: 20 }}>{t('empty.description')}</p>
           {isAdmin && (
-            <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>Erstes Gerät hinzufügen</button>
+            <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>{t('empty.add_first')}</button>
           )}
         </div>
       ) : (
         sortedGroups.map(groupKey => {
           const groupDevices = groupMap.get(groupKey) ?? []
-          const label = groupKey === '__ungrouped__' ? 'Ohne Gruppe' : groupKey
+          const label = groupKey === '__ungrouped__' ? t('labels.ungrouped') : groupKey
           const collapsed = collapsedGroups.has(groupKey)
           return (
             <div key={groupKey}>

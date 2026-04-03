@@ -268,7 +268,15 @@ docker run -d \
 
 ## Documentation
 
-Full documentation available directly in the dashboard under **About**.
+Full documentation is available in the [`/docs`](https://github.com/kreuzbube88/heldash/tree/main/docs) directory.
+
+**Available guides:**
+- [Installation](docs/installation.md)
+- [Integrations](docs/integrationen/) (Docker, Home Assistant, Unraid, Media-Arr, Recyclarr)
+- [Features](docs/features/) (Network Monitor, Backup Center, Widgets)
+- [Configuration](docs/konfiguration/) (Users & Groups, Design Settings)
+
+*Note: Documentation is currently in German. English translation coming soon.*
 
 ---
 

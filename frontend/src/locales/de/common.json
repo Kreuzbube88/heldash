@@ -129,7 +129,7 @@
     "tab_upload": "Upload",
     "search_placeholder": "z.B. radarr, jellyfin, ...",
     "search_hint": "Suchbegriff eingeben um Icons zu finden",
-    "no_results": "Keine Icons gefunden für „{{query}}"",
+    "no_results": "Keine Icons gefunden für '{{query}}'",
     "dropzone_label": "Klicken oder Datei ablegen",
     "dropzone_hint": "PNG, JPG, SVG, WEBP · max. 512 KB",
     "error_too_large": "Bild zu groß (max 512 KB)",

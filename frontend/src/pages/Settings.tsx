@@ -15,12 +15,13 @@ type SettingsTab = 'general' | 'design' | 'users' | 'groups' | 'oidc'
 
 // ── Tab bar ───────────────────────────────────────────────────────────────────
 function TabBar({ active, onChange }: { active: SettingsTab; onChange: (t: SettingsTab) => void }) {
+  const { t } = useTranslation('settings')
   const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
-    { id: 'general', label: 'General', icon: <Settings size={13} /> },
-    { id: 'design',  label: 'Design',  icon: <Palette size={13} /> },
-    { id: 'users',   label: 'Users',   icon: <Users size={13} /> },
-    { id: 'groups',  label: 'Groups',  icon: <Shield size={13} /> },
-    { id: 'oidc',    label: 'OIDC / SSO', icon: <KeyRound size={13} /> },
+    { id: 'general', label: t('tabs.general'), icon: <Settings size={13} /> },
+    { id: 'design',  label: t('tabs.design'),  icon: <Palette size={13} /> },
+    { id: 'users',   label: t('tabs.users'),   icon: <Users size={13} /> },
+    { id: 'groups',  label: t('tabs.groups'),  icon: <Shield size={13} /> },
+    { id: 'oidc',    label: t('tabs.oidc'), icon: <KeyRound size={13} /> },
   ]
   return (
     <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: '6px 8px', display: 'flex', gap: 2, alignSelf: 'center' }}>
@@ -63,6 +64,7 @@ function UserEditRow({
   onSave: (data: { user_group_id: string | null; is_active: boolean; password?: string }) => Promise<void>
   onCancel: () => void
 }) {
+  const { t } = useTranslation('settings')
   const [groupId, setGroupId] = useState(user.user_group_id ?? '')
   const [isActive, setIsActive] = useState(user.is_active)
   const [password, setPassword] = useState('')
@@ -71,7 +73,7 @@ function UserEditRow({
 
   const handleSave = async () => {
     setError('')
-    if (password && password.length < 8) return setError('Password min. 8 Zeichen')
+    if (password && password.length < 8) return setError(t('user_edit.password_min'))
     setSaving(true)
     try {
       await onSave({
@@ -90,14 +92,14 @@ function UserEditRow({
     <div className="glass" style={{ padding: '12px 14px', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, minWidth: 120 }}>
-          <label className="form-label" style={{ fontSize: 11 }}>Group</label>
+          <label className="form-label" style={{ fontSize: 11 }}>{t('user_edit.group')}</label>
           <select className="form-input" value={groupId} onChange={e => setGroupId(e.target.value)} style={{ fontSize: 13, padding: '5px 8px' }} disabled={isSelf}>
-            <option value="">— no group —</option>
+            <option value="">{t('user_edit.no_group')}</option>
             {[...userGroups].sort((a, b) => a.name.localeCompare(b.name)).map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
           </select>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <label className="form-label" style={{ fontSize: 11 }}>Active</label>
+          <label className="form-label" style={{ fontSize: 11 }}>{t('user_edit.active')}</label>
           <button
             type="button"
             onClick={() => setIsActive(a => !a)}
@@ -110,21 +112,21 @@ function UserEditRow({
               border: `1px solid ${isActive ? 'rgba(34,197,94,0.25)' : 'var(--glass-border)'}`,
             }}
           >
-            {isActive ? 'Active' : 'Disabled'}
+            {isActive ? t('user_edit.status_active') : t('user_edit.status_disabled')}
           </button>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, minWidth: 160 }}>
-          <label className="form-label" style={{ fontSize: 11 }}>New Password (optional)</label>
-          <input className="form-input" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Leave empty to keep" style={{ fontSize: 13, padding: '5px 8px' }} />
+          <label className="form-label" style={{ fontSize: 11 }}>{t('user_edit.new_password')}</label>
+          <input className="form-input" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder={t('user_edit.leave_empty')} style={{ fontSize: 13, padding: '5px 8px' }} />
         </div>
       </div>
       {error && <div style={{ fontSize: 12, color: 'var(--status-offline)' }}>{error}</div>}
       <div style={{ display: 'flex', gap: 6 }}>
         <button className="btn btn-primary btn-sm" onClick={handleSave} disabled={saving} style={{ gap: 4, fontSize: 12 }}>
-          <Check size={12} /> {saving ? 'Saving…' : 'Save'}
+          <Check size={12} /> {saving ? t('user_edit.saving') : t('user_edit.save')}
         </button>
         <button className="btn btn-ghost btn-sm" onClick={onCancel} style={{ gap: 4, fontSize: 12 }}>
-          <X size={12} /> Cancel
+          <X size={12} /> {t('user_edit.cancel')}
         </button>
       </div>
     </div>
@@ -143,6 +145,7 @@ function VisibilityChecklist({
   hiddenIds: string[]
   onSave: (hiddenIds: string[]) => Promise<void>
 }) {
+  const { t } = useTranslation('settings')
   const [hidden, setHidden] = useState<Set<string>>(new Set(hiddenIds))
   const [saving, setSaving] = useState(false)
 
@@ -160,10 +163,10 @@ function VisibilityChecklist({
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 }}>{label}</div>
-        {saving && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Saving…</span>}
+        {saving && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{t('visibility.saving')}</span>}
       </div>
       {items.length === 0
-        ? <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>None configured yet.</span>
+        ? <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{t('visibility.none_configured')}</span>
         : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             {items.map(item => {
@@ -209,29 +212,37 @@ function GroupVisibilityEditor({
   onToggleDockerWidgetAccess: (enabled: boolean) => void
   onSetBackground: (backgroundId: string | null) => void
 }) {
+  const { t } = useTranslation('settings')
   const [tab, setTab] = useState<'apps' | 'media' | 'widgets' | 'docker' | 'background'>('apps')
   // Non-docker widgets only in the widgets tab (docker_overview is managed via the Docker tab)
   const nonDockerWidgets = widgets.filter(w => w.type !== 'docker_overview')
+  const visTabLabel: Record<string, string> = {
+    apps: t('visibility.apps'),
+    media: t('visibility.media'),
+    widgets: t('visibility.widgets'),
+    docker: t('visibility.docker'),
+    background: t('visibility.background'),
+  }
   return (
     <div style={{ padding: '10px 14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-        {(['apps', 'media', 'widgets', 'docker', 'background'] as const).map(t => (
+        {(['apps', 'media', 'widgets', 'docker', 'background'] as const).map(tabId => (
           <button
-            key={t}
+            key={tabId}
             className="btn btn-ghost btn-sm"
-            onClick={() => setTab(t)}
-            style={{ fontSize: 11, padding: '3px 10px', textTransform: 'capitalize', color: tab === t ? 'var(--accent)' : 'var(--text-muted)', borderBottom: tab === t ? '2px solid var(--accent)' : '2px solid transparent', borderRadius: 0 }}
+            onClick={() => setTab(tabId)}
+            style={{ fontSize: 11, padding: '3px 10px', textTransform: 'capitalize', color: tab === tabId ? 'var(--accent)' : 'var(--text-muted)', borderBottom: tab === tabId ? '2px solid var(--accent)' : '2px solid transparent', borderRadius: 0 }}
           >
-            {t === 'apps' ? 'Apps' : t === 'media' ? 'Media' : t === 'widgets' ? 'Widgets' : t === 'docker' ? 'Docker' : 'Background'}
+            {visTabLabel[tabId]}
           </button>
         ))}
       </div>
-      {tab === 'apps' && <VisibilityChecklist label="Visibility" items={services} hiddenIds={group.hidden_service_ids} onSave={onSaveApps} />}
-      {tab === 'media' && <VisibilityChecklist label="Visibility" items={arrInstances.map(i => ({ id: i.id, name: i.name }))} hiddenIds={group.hidden_arr_ids} onSave={onSaveArr} />}
-      {tab === 'widgets' && <VisibilityChecklist label="Visibility" items={nonDockerWidgets} hiddenIds={group.hidden_widget_ids ?? []} onSave={onSaveWidgets} />}
+      {tab === 'apps' && <VisibilityChecklist label={t('visibility.label')} items={services} hiddenIds={group.hidden_service_ids} onSave={onSaveApps} />}
+      {tab === 'media' && <VisibilityChecklist label={t('visibility.label')} items={arrInstances.map(i => ({ id: i.id, name: i.name }))} hiddenIds={group.hidden_arr_ids} onSave={onSaveArr} />}
+      {tab === 'widgets' && <VisibilityChecklist label={t('visibility.label')} items={nonDockerWidgets} hiddenIds={group.hidden_widget_ids ?? []} onSave={onSaveWidgets} />}
       {tab === 'docker' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 }}>Docker Permissions</div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 }}>{t('docker_permissions.title')}</div>
           <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', userSelect: 'none' }}>
             <input
               type="checkbox"
@@ -240,8 +251,8 @@ function GroupVisibilityEditor({
               style={{ accentColor: 'var(--accent)', width: 14, height: 14, marginTop: 2, flexShrink: 0 }}
             />
             <div>
-              <div style={{ fontSize: 13, fontWeight: 500 }}>Docker page in sidebar</div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>Allow access to the Docker containers page</div>
+              <div style={{ fontSize: 13, fontWeight: 500 }}>{t('docker_permissions.page_label')}</div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{t('docker_permissions.page_desc')}</div>
             </div>
           </label>
           <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', userSelect: 'none' }}>
@@ -252,28 +263,28 @@ function GroupVisibilityEditor({
               style={{ accentColor: 'var(--accent)', width: 14, height: 14, marginTop: 2, flexShrink: 0 }}
             />
             <div>
-              <div style={{ fontSize: 13, fontWeight: 500 }}>Docker Overview widget</div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>Show Docker Overview widgets on the dashboard</div>
+              <div style={{ fontSize: 13, fontWeight: 500 }}>{t('docker_permissions.widget_label')}</div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{t('docker_permissions.widget_desc')}</div>
             </div>
           </label>
         </div>
       )}
       {tab === 'background' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 }}>Dashboard Background</div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 }}>{t('background.title')}</div>
           <select
             className="form-input"
             value={group.background_id ?? ''}
             onChange={e => onSetBackground(e.target.value || null)}
             style={{ fontSize: 13 }}
           >
-            <option value="">— No background —</option>
+            <option value="">{t('background.no_background')}</option>
             {[...backgrounds].sort((a, b) => a.name.localeCompare(b.name)).map(b => (
               <option key={b.id} value={b.id}>{b.name}</option>
             ))}
           </select>
           {backgrounds.length === 0 && (
-            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>No backgrounds uploaded yet. Add them in Settings → General.</span>
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{t('background.none_uploaded')}</span>
           )}
         </div>
       )}
@@ -366,7 +377,7 @@ export function SettingsPage({ onStartOnboarding }: { onStartOnboarding?: () => 
     setTmdbKeySaving(true)
     try {
       await updateSettings({ tmdb_api_key: tmdbKey.trim() })
-      toast({ message: 'TMDB API key saved', type: 'success', duration: 1500 })
+      toast({ message: t('general.tmdb_saved'), type: 'success', duration: 1500 })
     } catch { /* ignore */ }
     finally { setTmdbKeySaving(false) }
   }
@@ -396,7 +407,7 @@ export function SettingsPage({ onStartOnboarding }: { onStartOnboarding?: () => 
   const saveDesign = useCallback(async (patch: Partial<SettingsType>) => {
     try {
       await updateSettings(patch)
-      toast({ message: 'Settings saved', type: 'success', duration: 1500 })
+      toast({ message: t('design.settings_saved'), type: 'success', duration: 1500 })
     } catch { /* ignore */ }
   }, [updateSettings, toast])
 
@@ -430,15 +441,15 @@ export function SettingsPage({ onStartOnboarding }: { onStartOnboarding?: () => 
     if (!newGroup.trim()) return
     setGroupError('')
     try { await createGroup({ name: newGroup.trim() }); setNewGroup('') }
-    catch (e: unknown) { setGroupError((e as Error).message ?? 'Failed to create group') }
+    catch (e: unknown) { setGroupError((e as Error).message ?? t('general.error_create_group')) }
   }
 
   const handleAddUser = async () => {
     setUserError('')
-    if (!newUser.username.trim()) return setUserError('Username required')
-    if (!newUser.first_name.trim()) return setUserError('First name required')
-    if (!newUser.last_name.trim()) return setUserError('Last name required')
-    if (newUser.password.length < 8) return setUserError('Password min. 8 characters')
+    if (!newUser.username.trim()) return setUserError(t('users.validation_username'))
+    if (!newUser.first_name.trim()) return setUserError(t('users.validation_first_name'))
+    if (!newUser.last_name.trim()) return setUserError(t('users.validation_last_name'))
+    if (newUser.password.length < 8) return setUserError(t('users.validation_password'))
     setAddingUser(true)
     try {
       await createUser({
@@ -461,7 +472,7 @@ export function SettingsPage({ onStartOnboarding }: { onStartOnboarding?: () => 
     setUgError('')
     if (!newUG.name.trim()) return
     try { await createUserGroup({ name: newUG.name.trim(), description: newUG.description.trim() || undefined }); setNewUG({ name: '', description: '' }) }
-    catch (e: unknown) { setUgError((e as Error).message ?? 'Failed to create group') }
+    catch (e: unknown) { setUgError((e as Error).message ?? t('general.error_create_group')) }
   }
 
   const handleSaveUser = async (userId: string, data: Parameters<typeof updateUser>[1]) => {
@@ -478,8 +489,8 @@ export function SettingsPage({ onStartOnboarding }: { onStartOnboarding?: () => 
   const isAdminGroup = (id: string | null) => id === 'grp_admin'
 
   const handleBgUpload = async () => {
-    if (!bgName.trim()) return setBgError('Name required')
-    if (!bgFile) return setBgError('Please select an image')
+    if (!bgName.trim()) return setBgError(t('design.bg_error_name'))
+    if (!bgFile) return setBgError(t('design.bg_error_file'))
     setBgError('')
     setBgUploading(true)
     try {
@@ -488,7 +499,7 @@ export function SettingsPage({ onStartOnboarding }: { onStartOnboarding?: () => 
       setBgFile(null)
       if (bgFileRef.current) bgFileRef.current.value = ''
     } catch (e: unknown) {
-      setBgError((e as Error).message ?? 'Upload failed')
+      setBgError((e as Error).message ?? t('design.bg_error_upload'))
     } finally {
       setBgUploading(false)
     }
@@ -506,13 +517,13 @@ export function SettingsPage({ onStartOnboarding }: { onStartOnboarding?: () => 
 
           {/* Dashboard title */}
           <section className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 24 }}>
-            <h3 style={{ marginBottom: 20, fontSize: 15, fontWeight: 600 }}>General</h3>
+            <h3 style={{ marginBottom: 20, fontSize: 15, fontWeight: 600 }}>{t('general.title')}</h3>
             <div className="form-group">
-              <label className="form-label">Dashboard Title</label>
+              <label className="form-label">{t('general.dashboard_title')}</label>
               <div style={{ display: 'flex', gap: 8 }}>
                 <input className="form-input" value={title} onChange={e => setTitle(e.target.value)} />
                 <button className="btn btn-primary" onClick={saveTitle} disabled={saving} style={{ flexShrink: 0 }}>
-                  {saving ? '...' : 'Save'}
+                  {saving ? t('general.saving') : t('general.save')}
                 </button>
               </div>
             </div>
@@ -533,19 +544,19 @@ export function SettingsPage({ onStartOnboarding }: { onStartOnboarding?: () => 
 
           {/* Appearance */}
           <section className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 24 }}>
-            <h3 style={{ marginBottom: 16, fontSize: 15, fontWeight: 600 }}>Appearance</h3>
+            <h3 style={{ marginBottom: 16, fontSize: 15, fontWeight: 600 }}>{t('general.appearance_title')}</h3>
             <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-              Use the theme toggle (☀/🌙) and accent color dots in the top bar to change the look.
+              {t('general.appearance_hint')}
             </p>
             <div style={{ marginTop: 16, display: 'flex', gap: 12, alignItems: 'center' }}>
-              <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Current:</span>
+              <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{t('general.appearance_current')}</span>
               <span className="glass" style={{ padding: '4px 10px', borderRadius: 'var(--radius-sm)', fontSize: 12, fontFamily: 'var(--font-mono)' }}>
                 {settings.theme_mode} / {settings.theme_accent}
               </span>
             </div>
 
             <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--glass-border)' }}>
-              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Auto Theme Schedule</div>
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>{t('general.auto_theme_title')}</div>
               <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', userSelect: 'none', marginBottom: 14 }}>
                 <input
                   type="checkbox"
@@ -556,13 +567,13 @@ export function SettingsPage({ onStartOnboarding }: { onStartOnboarding?: () => 
                   }}
                   style={{ accentColor: 'var(--accent)', width: 14, height: 14 }}
                 />
-                <span style={{ fontSize: 13 }}>Automatically switch dark/light mode by time of day</span>
+                <span style={{ fontSize: 13 }}>{t('general.auto_theme_label')}</span>
               </label>
               {autoTheme && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 12, color: 'var(--text-muted)', width: 80 }}>☀ Light from</span>
+                      <span style={{ fontSize: 12, color: 'var(--text-muted)', width: 80 }}>{t('general.auto_theme_light_from')}</span>
                       <input
                         type="time"
                         className="form-input"
@@ -572,7 +583,7 @@ export function SettingsPage({ onStartOnboarding }: { onStartOnboarding?: () => 
                       />
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 12, color: 'var(--text-muted)', width: 80 }}>🌙 Dark from</span>
+                      <span style={{ fontSize: 12, color: 'var(--text-muted)', width: 80 }}>{t('general.auto_theme_dark_from')}</span>
                       <input
                         type="time"
                         className="form-input"
@@ -587,11 +598,11 @@ export function SettingsPage({ onStartOnboarding }: { onStartOnboarding?: () => 
                       disabled={autoThemeSaving}
                       style={{ fontSize: 12 }}
                     >
-                      {autoThemeSaving ? 'Saving…' : 'Save'}
+                      {autoThemeSaving ? t('general.auto_theme_saving') : t('general.auto_theme_save')}
                     </button>
                   </div>
                   <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>
-                    Theme switches automatically every minute. The manual toggle in the topbar still works but will be overridden on the next tick.
+                    {t('general.auto_theme_hint')}
                   </p>
                 </div>
               )}
@@ -601,19 +612,19 @@ export function SettingsPage({ onStartOnboarding }: { onStartOnboarding?: () => 
           {/* TMDB API Key */}
           {isAdmin && (
             <section className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 24 }}>
-              <h3 style={{ marginBottom: 4, fontSize: 15, fontWeight: 600 }}>Integrations</h3>
+              <h3 style={{ marginBottom: 4, fontSize: 15, fontWeight: 600 }}>{t('general.integrations_title')}</h3>
               <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 20 }}>
-                API keys for external services used by Heldash features.
+                {t('general.integrations_desc')}
               </p>
               <div className="form-group">
                 <label className="form-label">
-                  TMDB API Key
+                  {t('general.tmdb_label')}
                   <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--text-muted)', fontWeight: 400 }}>
-                    — enables the Discover tab in Media. <a
+                    {t('general.tmdb_hint')} <a
                       href="https://www.themoviedb.org/settings/api"
                       target="_blank" rel="noopener noreferrer"
                       style={{ color: 'var(--accent)', textDecoration: 'none' }}
-                    >Get a free key at themoviedb.org</a>
+                    >{t('general.tmdb_link_text')}</a>
                   </span>
                 </label>
                 <div style={{ display: 'flex', gap: 8 }}>
@@ -622,11 +633,11 @@ export function SettingsPage({ onStartOnboarding }: { onStartOnboarding?: () => 
                     className="form-input"
                     value={tmdbKey}
                     onChange={e => setTmdbKey(e.target.value)}
-                    placeholder="Paste your TMDB API key (v3 auth)"
+                    placeholder={t('general.tmdb_placeholder')}
                     style={{ fontFamily: 'var(--font-mono)', fontSize: 13 }}
                   />
                   <button className="btn btn-primary" onClick={saveTmdbKey} disabled={tmdbKeySaving} style={{ flexShrink: 0 }}>
-                    {tmdbKeySaving ? '...' : 'Save'}
+                    {tmdbKeySaving ? t('general.saving') : t('general.save')}
                   </button>
                 </div>
               </div>
@@ -635,9 +646,9 @@ export function SettingsPage({ onStartOnboarding }: { onStartOnboarding?: () => 
 
           {/* App Groups */}
           <section className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 24 }}>
-            <h3 style={{ marginBottom: 20, fontSize: 15, fontWeight: 600 }}>App Groups</h3>
+            <h3 style={{ marginBottom: 20, fontSize: 15, fontWeight: 600 }}>{t('general.app_groups_title')}</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
-              {groups.length === 0 && <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No groups yet.</p>}
+              {groups.length === 0 && <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>{t('general.no_groups')}</p>}
               {groups.map(g => (
                 <div key={g.id} className="glass" style={{ display: 'flex', alignItems: 'center', padding: '10px 14px', borderRadius: 'var(--radius-md)', justifyContent: 'space-between' }}>
                   <span style={{ fontSize: 14 }}>{g.icon ? `${g.icon} ` : ''}{g.name}</span>
@@ -652,9 +663,9 @@ export function SettingsPage({ onStartOnboarding }: { onStartOnboarding?: () => 
             {isAdmin && (
               <>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <input className="form-input" value={newGroup} onChange={e => setNewGroup(e.target.value)} placeholder="New group name" onKeyDown={e => e.key === 'Enter' && handleAddGroup()} />
+                  <input className="form-input" value={newGroup} onChange={e => setNewGroup(e.target.value)} placeholder={t('general.new_group_placeholder')} onKeyDown={e => e.key === 'Enter' && handleAddGroup()} />
                   <button className="btn btn-primary" onClick={handleAddGroup} style={{ flexShrink: 0 }}>
-                    <Plus size={14} /> Add
+                    <Plus size={14} /> {t('general.add')}
                   </button>
                 </div>
                 {groupError && <div style={{ fontSize: 12, color: 'var(--status-offline)', marginTop: 6 }}>{groupError}</div>}
@@ -665,12 +676,12 @@ export function SettingsPage({ onStartOnboarding }: { onStartOnboarding?: () => 
           {/* Onboarding */}
           {isAdmin && onStartOnboarding && (
             <section className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 24 }}>
-              <h3 style={{ marginBottom: 8, fontSize: 15, fontWeight: 600 }}>Setup Wizard</h3>
+              <h3 style={{ marginBottom: 8, fontSize: 15, fontWeight: 600 }}>{t('general.wizard_title')}</h3>
               <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>
-                Re-launch the setup wizard to review initial configuration steps.
+                {t('general.wizard_desc')}
               </p>
               <button className="btn btn-ghost" onClick={onStartOnboarding} style={{ gap: 6, fontSize: 13 }}>
-                Einrichtungsassistent starten
+                {t('general.onboarding_restart')}
               </button>
             </section>
           )}
@@ -683,27 +694,27 @@ export function SettingsPage({ onStartOnboarding }: { onStartOnboarding?: () => 
 
           {/* Appearance */}
           <section className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 24 }}>
-            <h3 style={{ marginBottom: 20, fontSize: 15, fontWeight: 600 }}>Appearance</h3>
+            <h3 style={{ marginBottom: 20, fontSize: 15, fontWeight: 600 }}>{t('design.appearance_title')}</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8 }}>Corner Style</div>
+                <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8 }}>{t('design.corner_style')}</div>
                 <ToggleGroup
                   options={[
-                    { value: 'sharp' as const, label: 'Sharp' },
-                    { value: 'default' as const, label: 'Default' },
-                    { value: 'rounded' as const, label: 'Rounded' },
+                    { value: 'sharp' as const, label: t('design.corner_sharp') },
+                    { value: 'default' as const, label: t('design.corner_default') },
+                    { value: 'rounded' as const, label: t('design.corner_rounded') },
                   ]}
                   value={settings?.design_border_radius ?? 'default'}
                   onChange={v => handleDesignChange('design_border_radius', v)}
                 />
               </div>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8 }}>Background Blur</div>
+                <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8 }}>{t('design.bg_blur')}</div>
                 <ToggleGroup
                   options={[
-                    { value: 'subtle' as const, label: 'Subtle', sub: 'Crisp' },
-                    { value: 'medium' as const, label: 'Medium', sub: 'Balanced' },
-                    { value: 'strong' as const, label: 'Strong', sub: 'Dreamy' },
+                    { value: 'subtle' as const, label: t('design.blur_subtle'), sub: t('design.blur_subtle_sub') },
+                    { value: 'medium' as const, label: t('design.blur_medium'), sub: t('design.blur_medium_sub') },
+                    { value: 'strong' as const, label: t('design.blur_strong'), sub: t('design.blur_strong_sub') },
                   ]}
                   value={settings?.design_glass_blur ?? 'medium'}
                   onChange={v => handleDesignChange('design_glass_blur', v)}
@@ -714,27 +725,27 @@ export function SettingsPage({ onStartOnboarding }: { onStartOnboarding?: () => 
 
           {/* Layout & Density */}
           <section className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 24 }}>
-            <h3 style={{ marginBottom: 20, fontSize: 15, fontWeight: 600 }}>Layout &amp; Density</h3>
+            <h3 style={{ marginBottom: 20, fontSize: 15, fontWeight: 600 }}>{t('design.layout_title')}</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8 }}>Spacing</div>
+                <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8 }}>{t('design.spacing')}</div>
                 <ToggleGroup
                   options={[
-                    { value: 'compact' as const, label: 'Compact' },
-                    { value: 'comfortable' as const, label: 'Comfortable' },
-                    { value: 'spacious' as const, label: 'Spacious' },
+                    { value: 'compact' as const, label: t('design.spacing_compact') },
+                    { value: 'comfortable' as const, label: t('design.spacing_comfortable') },
+                    { value: 'spacious' as const, label: t('design.spacing_spacious') },
                   ]}
                   value={settings?.design_density ?? 'comfortable'}
                   onChange={v => handleDesignChange('design_density', v)}
                 />
               </div>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8 }}>Sidebar Style</div>
+                <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8 }}>{t('design.sidebar_style')}</div>
                 <ToggleGroup
                   options={[
-                    { value: 'default' as const, label: 'Default' },
-                    { value: 'minimal' as const, label: 'Minimal' },
-                    { value: 'floating' as const, label: 'Floating' },
+                    { value: 'default' as const, label: t('design.sidebar_default') },
+                    { value: 'minimal' as const, label: t('design.sidebar_minimal') },
+                    { value: 'floating' as const, label: t('design.sidebar_floating') },
                   ]}
                   value={settings?.design_sidebar_style ?? 'default'}
                   onChange={v => handleDesignChange('design_sidebar_style', v)}
@@ -745,20 +756,20 @@ export function SettingsPage({ onStartOnboarding }: { onStartOnboarding?: () => 
 
           {/* Motion */}
           <section className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 24 }}>
-            <h3 style={{ marginBottom: 20, fontSize: 15, fontWeight: 600 }}>Motion</h3>
+            <h3 style={{ marginBottom: 20, fontSize: 15, fontWeight: 600 }}>{t('design.motion_title')}</h3>
             <div>
-              <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8 }}>Animation Level</div>
+              <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8 }}>{t('design.animation_level')}</div>
               <ToggleGroup
                 options={[
-                  { value: 'full' as const, label: 'Full' },
-                  { value: 'reduced' as const, label: 'Reduced' },
-                  { value: 'none' as const, label: 'None' },
+                  { value: 'full' as const, label: t('design.animation_full') },
+                  { value: 'reduced' as const, label: t('design.animation_reduced') },
+                  { value: 'none' as const, label: t('design.animation_none') },
                 ]}
                 value={settings?.design_animations ?? 'full'}
                 onChange={v => handleDesignChange('design_animations', v)}
               />
               <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 10 }}>
-                Reduced and None also respect system <code style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>prefers-reduced-motion</code>.
+                {t('design.animation_hint')} <code style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>prefers-reduced-motion</code>.
               </p>
             </div>
           </section>
@@ -766,10 +777,10 @@ export function SettingsPage({ onStartOnboarding }: { onStartOnboarding?: () => 
           {/* Backgrounds */}
           <section className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 24 }}>
             <h3 style={{ marginBottom: 4, fontSize: 15, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <ImageIcon size={15} /> Background Images
+              <ImageIcon size={15} /> {t('design.bg_images_title')}
             </h3>
             <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20 }}>
-              Upload background images and assign them to user groups via Settings → Groups.
+              {t('design.bg_images_desc')}
             </p>
             {backgrounds.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
@@ -786,10 +797,10 @@ export function SettingsPage({ onStartOnboarding }: { onStartOnboarding?: () => 
             )}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={{ display: 'flex', gap: 8 }}>
-                <input className="form-input" placeholder="Background name" value={bgName} onChange={e => setBgName(e.target.value)} style={{ flex: 1 }} />
+                <input className="form-input" placeholder={t('design.bg_name_placeholder')} value={bgName} onChange={e => setBgName(e.target.value)} style={{ flex: 1 }} />
                 <label className="btn btn-ghost btn-sm" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0, whiteSpace: 'nowrap' }}>
                   <Upload size={13} />
-                  {bgFile ? bgFile.name : 'Choose image'}
+                  {bgFile ? bgFile.name : t('design.bg_choose')}
                   <input
                     ref={bgFileRef}
                     type="file"
@@ -797,14 +808,14 @@ export function SettingsPage({ onStartOnboarding }: { onStartOnboarding?: () => 
                     style={{ display: 'none' }}
                     onChange={e => {
                       const f = e.target.files?.[0]
-                      if (f && f.size > 10 * 1024 * 1024) { setBgError('Max 10 MB'); return }
+                      if (f && f.size > 10 * 1024 * 1024) { setBgError(t('design.bg_max_size')); return }
                       setBgError('')
                       setBgFile(f ?? null)
                     }}
                   />
                 </label>
                 <button className="btn btn-primary" onClick={handleBgUpload} disabled={bgUploading} style={{ flexShrink: 0 }}>
-                  <Plus size={14} /> {bgUploading ? '…' : 'Upload'}
+                  <Plus size={14} /> {bgUploading ? t('design.bg_uploading') : t('design.bg_upload')}
                 </button>
               </div>
               {bgError && <div style={{ fontSize: 12, color: 'var(--status-offline)' }}>{bgError}</div>}
@@ -813,10 +824,10 @@ export function SettingsPage({ onStartOnboarding }: { onStartOnboarding?: () => 
 
           {/* Custom CSS */}
           <section className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 24 }}>
-            <h3 style={{ marginBottom: 12, fontSize: 15, fontWeight: 600 }}>Custom CSS</h3>
+            <h3 style={{ marginBottom: 12, fontSize: 15, fontWeight: 600 }}>{t('design.css_title')}</h3>
             <div style={{ marginBottom: 12 }}>
               <span className="badge-warning">
-                <AlertTriangle size={12} /> Incorrect CSS may break the interface
+                <AlertTriangle size={12} /> {t('design.css_warning')}
               </span>
             </div>
             <textarea
@@ -824,10 +835,10 @@ export function SettingsPage({ onStartOnboarding }: { onStartOnboarding?: () => 
               rows={12}
               value={customCss}
               onChange={e => handleCustomCssChange(e.target.value)}
-              placeholder="/* Add custom CSS overrides here */"
+              placeholder={t('design.css_placeholder')}
               style={{ fontFamily: 'var(--font-mono)', fontSize: 12, width: '100%', resize: 'vertical' }}
             />
-            <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>Applied globally for all users.</p>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>{t('design.css_hint')}</p>
           </section>
 
         </div>
@@ -837,11 +848,11 @@ export function SettingsPage({ onStartOnboarding }: { onStartOnboarding?: () => 
       {activeTab === 'users' && isAdmin && (
         <section className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 24 }}>
           <h3 style={{ marginBottom: 16, fontSize: 15, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Users size={15} /> Users
+            <Users size={15} /> {t('users.title')}
           </h3>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
-            {users.length === 0 && <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No users loaded.</p>}
+            {users.length === 0 && <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>{t('users.none_loaded')}</p>}
             {users.map(u => (
               <div key={u.id} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <div className="glass" style={{ display: 'flex', alignItems: 'center', padding: '10px 14px', borderRadius: 'var(--radius-md)', gap: 8 }}>
@@ -849,10 +860,10 @@ export function SettingsPage({ onStartOnboarding }: { onStartOnboarding?: () => 
                     <div style={{ fontWeight: 500, fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
                       {u.username}
                       {u.id === authUser?.sub && (
-                        <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 'var(--radius-sm)', background: 'var(--glass-bg)', color: 'var(--accent)', border: '1px solid var(--glass-border)' }}>you</span>
+                        <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 'var(--radius-sm)', background: 'var(--glass-bg)', color: 'var(--accent)', border: '1px solid var(--glass-border)' }}>{t('users.badge_you')}</span>
                       )}
                       {!u.is_active && (
-                        <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 'var(--radius-sm)', background: 'var(--glass-bg)', color: 'var(--text-muted)', border: '1px solid var(--glass-border)' }}>disabled</span>
+                        <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 'var(--radius-sm)', background: 'var(--glass-bg)', color: 'var(--text-muted)', border: '1px solid var(--glass-border)' }}>{t('users.badge_disabled')}</span>
                       )}
                     </div>
                     <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -861,7 +872,7 @@ export function SettingsPage({ onStartOnboarding }: { onStartOnboarding?: () => 
                       <span style={{ color: isAdminGroup(u.user_group_id) ? 'var(--accent)' : 'inherit' }}>
                         {groupName(u.user_group_id)}
                       </span>
-                      {u.last_login && <span>Last login: {new Date(u.last_login).toLocaleDateString('de-DE')}</span>}
+                      {u.last_login && <span>{t('users.last_login')} {new Date(u.last_login).toLocaleDateString(language === 'de' ? 'de-DE' : 'en-US')}</span>}
                     </div>
                   </div>
                   <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setEditingUserId(editingUserId === u.id ? null : u.id)} data-tooltip="Edit" style={{ padding: '4px', width: 28, height: 28, flexShrink: 0 }}>
@@ -887,23 +898,23 @@ export function SettingsPage({ onStartOnboarding }: { onStartOnboarding?: () => 
           </div>
 
           <div style={{ borderTop: '1px solid var(--glass-border)', paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Add User</div>
-            <input className="form-input" placeholder="Username *" value={newUser.username} onChange={e => setNewUser(u => ({ ...u, username: e.target.value }))} />
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('users.add_section')}</div>
+            <input className="form-input" placeholder={t('users.placeholder_username')} value={newUser.username} onChange={e => setNewUser(u => ({ ...u, username: e.target.value }))} />
             <div style={{ display: 'flex', gap: 8 }}>
-              <input className="form-input" placeholder="First Name *" value={newUser.first_name} onChange={e => setNewUser(u => ({ ...u, first_name: e.target.value }))} style={{ flex: 1, minWidth: 0 }} />
-              <input className="form-input" placeholder="Last Name *" value={newUser.last_name} onChange={e => setNewUser(u => ({ ...u, last_name: e.target.value }))} style={{ flex: 1, minWidth: 0 }} />
+              <input className="form-input" placeholder={t('users.placeholder_first_name')} value={newUser.first_name} onChange={e => setNewUser(u => ({ ...u, first_name: e.target.value }))} style={{ flex: 1, minWidth: 0 }} />
+              <input className="form-input" placeholder={t('users.placeholder_last_name')} value={newUser.last_name} onChange={e => setNewUser(u => ({ ...u, last_name: e.target.value }))} style={{ flex: 1, minWidth: 0 }} />
             </div>
-            <input className="form-input" placeholder="Email (optional)" type="email" value={newUser.email} onChange={e => setNewUser(u => ({ ...u, email: e.target.value }))} />
+            <input className="form-input" placeholder={t('users.placeholder_email')} type="email" value={newUser.email} onChange={e => setNewUser(u => ({ ...u, email: e.target.value }))} />
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <label className="form-label" style={{ fontSize: 11, whiteSpace: 'nowrap', margin: 0 }}>Group</label>
+              <label className="form-label" style={{ fontSize: 11, whiteSpace: 'nowrap', margin: 0 }}>{t('user_edit.group')}</label>
               <select className="form-input" value={newUser.user_group_id} onChange={e => setNewUser(u => ({ ...u, user_group_id: e.target.value }))} style={{ flex: 1, minWidth: 0 }}>
                 {[...userGroups].sort((a, b) => a.name.localeCompare(b.name)).map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
               </select>
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <input className="form-input" placeholder="Password (min. 8 chars) *" type="password" value={newUser.password} onChange={e => setNewUser(u => ({ ...u, password: e.target.value }))} style={{ flex: 1, minWidth: 0 }} />
+              <input className="form-input" placeholder={t('users.placeholder_password')} type="password" value={newUser.password} onChange={e => setNewUser(u => ({ ...u, password: e.target.value }))} style={{ flex: 1, minWidth: 0 }} />
               <button className="btn btn-primary" onClick={handleAddUser} disabled={addingUser} style={{ flexShrink: 0 }}>
-                <Plus size={14} /> Add
+                <Plus size={14} /> {t('users.add_button')}
               </button>
             </div>
             {userError && <div style={{ fontSize: 12, color: 'var(--status-offline)' }}>{userError}</div>}
@@ -915,7 +926,7 @@ export function SettingsPage({ onStartOnboarding }: { onStartOnboarding?: () => 
       {activeTab === 'groups' && isAdmin && (
         <section className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 24 }}>
           <h3 style={{ marginBottom: 16, fontSize: 15, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Shield size={15} /> User Groups
+            <Shield size={15} /> {t('groups.title')}
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
             {userGroups.map(g => (
@@ -925,10 +936,10 @@ export function SettingsPage({ onStartOnboarding }: { onStartOnboarding?: () => 
                     <div style={{ fontSize: 14, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}>
                       {g.name}
                       {g.is_system && (
-                        <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 'var(--radius-sm)', background: 'var(--glass-bg)', color: 'var(--text-muted)', border: '1px solid var(--glass-border)' }}>system</span>
+                        <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 'var(--radius-sm)', background: 'var(--glass-bg)', color: 'var(--text-muted)', border: '1px solid var(--glass-border)' }}>{t('groups.badge_system')}</span>
                       )}
                       {g.id === 'grp_admin' && (
-                        <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 'var(--radius-sm)', background: 'rgba(var(--accent-rgb),0.12)', color: 'var(--accent)', border: '1px solid rgba(var(--accent-rgb),0.25)' }}>full access</span>
+                        <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 'var(--radius-sm)', background: 'rgba(var(--accent-rgb),0.12)', color: 'var(--accent)', border: '1px solid rgba(var(--accent-rgb),0.25)' }}>{t('groups.badge_full_access')}</span>
                       )}
                     </div>
                     {g.description && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{g.description}</div>}
@@ -936,7 +947,7 @@ export function SettingsPage({ onStartOnboarding }: { onStartOnboarding?: () => 
                   {g.id !== 'grp_admin' && (
                     <button className="btn btn-ghost btn-sm" onClick={() => setExpandedGroupId(expandedGroupId === g.id ? null : g.id)} style={{ fontSize: 11, gap: 4, padding: '4px 8px' }}>
                       <Eye size={11} />
-                      {expandedGroupId === g.id ? 'Close' : 'Permissions'}
+                      {expandedGroupId === g.id ? t('visibility.close') : t('visibility.permissions')}
                     </button>
                   )}
                   {!g.is_system && (
@@ -966,10 +977,10 @@ export function SettingsPage({ onStartOnboarding }: { onStartOnboarding?: () => 
             ))}
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <input className="form-input" placeholder="Group name" value={newUG.name} onChange={e => setNewUG(g => ({ ...g, name: e.target.value }))} style={{ flex: 1 }} />
-            <input className="form-input" placeholder="Description (optional)" value={newUG.description} onChange={e => setNewUG(g => ({ ...g, description: e.target.value }))} style={{ flex: 1 }} />
+            <input className="form-input" placeholder={t('groups.placeholder_name')} value={newUG.name} onChange={e => setNewUG(g => ({ ...g, name: e.target.value }))} style={{ flex: 1 }} />
+            <input className="form-input" placeholder={t('groups.placeholder_desc')} value={newUG.description} onChange={e => setNewUG(g => ({ ...g, description: e.target.value }))} style={{ flex: 1 }} />
             <button className="btn btn-primary" onClick={handleAddUserGroup} style={{ flexShrink: 0 }}>
-              <Plus size={14} /> Add
+              <Plus size={14} /> {t('groups.add_button')}
             </button>
           </div>
           {ugError && <div style={{ fontSize: 12, color: 'var(--status-offline)', marginTop: 6 }}>{ugError}</div>}
@@ -980,67 +991,66 @@ export function SettingsPage({ onStartOnboarding }: { onStartOnboarding?: () => 
       {activeTab === 'oidc' && (
         <section className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 24 }}>
           <h3 style={{ marginBottom: 6, fontSize: 15, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <KeyRound size={15} /> OIDC / SSO
+            <KeyRound size={15} /> {t('oidc.title')}
           </h3>
           <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 24 }}>
-            OIDC/SSO integration will be configured here — not via environment variables.
-            The fields below show the planned configuration options.
+            {t('oidc.desc')}
           </p>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14, opacity: 0.45, pointerEvents: 'none' }}>
             <div style={{ display: 'flex', gap: 12 }}>
               <div style={{ flex: 1 }}>
-                <label className="form-label">Provider Name</label>
-                <input className="form-input" placeholder="e.g. Authentik, voidauth, Keycloak" readOnly />
+                <label className="form-label">{t('oidc.provider_name')}</label>
+                <input className="form-input" placeholder={t('oidc.provider_placeholder')} readOnly />
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4, justifyContent: 'flex-end' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, userSelect: 'none', marginBottom: 6 }}>
                   <input type="checkbox" readOnly style={{ accentColor: 'var(--accent)', width: 14, height: 14 }} />
-                  Enabled
+                  {t('oidc.enabled')}
                 </label>
               </div>
             </div>
             <div>
-              <label className="form-label">Issuer / Discovery URL</label>
+              <label className="form-label">{t('oidc.issuer_label')}</label>
               <input className="form-input" placeholder="https://auth.example.com/application/o/heldash/" readOnly />
             </div>
             <div style={{ display: 'flex', gap: 12 }}>
               <div style={{ flex: 1 }}>
-                <label className="form-label">Client ID</label>
+                <label className="form-label">{t('oidc.client_id')}</label>
                 <input className="form-input" placeholder="heldash" readOnly />
               </div>
               <div style={{ flex: 1 }}>
-                <label className="form-label">Client Secret</label>
+                <label className="form-label">{t('oidc.client_secret')}</label>
                 <input className="form-input" type="password" placeholder="••••••••••••••••" readOnly />
               </div>
             </div>
             <div>
-              <label className="form-label">Scopes</label>
+              <label className="form-label">{t('oidc.scopes')}</label>
               <input className="form-input" placeholder="openid profile email" readOnly />
             </div>
             <div>
-              <label className="form-label">Redirect URI (auto-generated)</label>
+              <label className="form-label">{t('oidc.redirect_uri')}</label>
               <input className="form-input" placeholder="https://heldash.example.com/api/auth/oidc/callback" readOnly />
             </div>
             <div style={{ display: 'flex', gap: 12 }}>
               <div style={{ flex: 1 }}>
-                <label className="form-label">Default Group for new OIDC users</label>
+                <label className="form-label">{t('oidc.default_group')}</label>
                 <select className="form-input" disabled><option>Guest</option></select>
               </div>
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4, justifyContent: 'flex-end' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, userSelect: 'none', marginBottom: 6 }}>
                   <input type="checkbox" readOnly style={{ accentColor: 'var(--accent)', width: 14, height: 14 }} />
-                  Auto-provision users
+                  {t('oidc.auto_provision')}
                 </label>
               </div>
             </div>
             <button className="btn btn-primary" style={{ alignSelf: 'flex-start' }} disabled>
-              <Check size={14} /> Save
+              <Check size={14} /> {t('oidc.save')}
             </button>
           </div>
 
           <div style={{ marginTop: 20, padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'rgba(var(--accent-rgb), 0.06)', border: '1px solid rgba(var(--accent-rgb), 0.2)', fontSize: 12, color: 'var(--text-secondary)' }}>
-            Coming in a future release. User records are already prepared with <code style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>oidc_subject</code> and <code style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>oidc_provider</code> fields.
+            {t('oidc.coming_soon')} <code style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>oidc_subject</code> and <code style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>oidc_provider</code> fields.
           </div>
         </section>
       )}

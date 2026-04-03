@@ -3,15 +3,42 @@
     "title": "Dashboard ist leer",
     "subtitle": "Füge Apps und Widgets hinzu um loszulegen.",
     "no_services": "Keine Services konfiguriert",
-    "add_service": "Service hinzufügen"
+    "add_service": "Service hinzufügen",
+    "guest_empty": "Gast-Dashboard ist leer.\nNutze den Bearbeiten-Modus um die Gast-Ansicht einzurichten.",
+    "regular_empty": "Dashboard ist leer.\nAktiviere \"Auf Dashboard anzeigen\" in App- oder Instanz-Einstellungen, oder nutze den Bearbeiten-Modus."
   },
   "edit": {
     "done": "Fertig",
     "edit_dashboard": "Dashboard bearbeiten",
     "add_app": "App",
     "add_widget": "Widget",
-    "add_row": "Zeile"
+    "add_row": "Zeile",
+    "add_group": "+ Gruppe hinzufügen",
+    "rename_hint": "Doppelklick zum Umbenennen",
+    "delete_group": "Gruppe löschen",
+    "expand_group": "Gruppe aufklappen",
+    "collapse_group": "Gruppe einklappen",
+    "empty_group": "Leere Gruppe",
+    "move_to_group": "In Gruppe verschieben",
+    "ungrouped": "— Ohne Gruppe —",
+    "remove_from_dashboard": "Vom Dashboard entfernen"
   },
+  "placeholder": {
+    "row": "Zeile",
+    "widget": "Widget",
+    "app": "App"
+  },
+  "loading": {
+    "stats": "Lade Stats…",
+    "states": "Lade Zustände…",
+    "calendar": "Lade Kalender…",
+    "weather": "Lade Wetter…"
+  },
+  "disk": {
+    "not_mounted": "Nicht eingebunden",
+    "duplicate": "Duplikat"
+  },
+  "bookmarks": "Lesezeichen",
   "guest_mode": "Gast-Modus",
   "hidden": "Versteckt",
   "visible": "Sichtbar",

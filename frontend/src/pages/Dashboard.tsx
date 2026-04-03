@@ -79,6 +79,7 @@ function EditOverlay({
   itemGroupId?: string | null
   onMoveToGroup?: (groupId: string | null) => void
 }) {
+  const { t } = useTranslation('dashboard')
   return (
     <>
       <div
@@ -106,7 +107,7 @@ function EditOverlay({
           value={itemGroupId ?? ''}
           onChange={(e) => onMoveToGroup(e.target.value || null)}
           onClick={(e) => e.stopPropagation()}
-          title="Move to group"
+          title={t('edit.move_to_group')}
           style={{
             position: 'absolute', right: 28, bottom: 6,
             opacity: showHandle ? 1 : 0,
@@ -123,14 +124,14 @@ function EditOverlay({
             colorScheme: 'dark',
           } as React.CSSProperties}
         >
-          <option value="">— Ungrouped —</option>
+          <option value="">{t('edit.ungrouped')}</option>
           {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
         </select>
       )}
 
       <button
         onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRemove() }}
-        title="Remove from dashboard"
+        title={t('edit.remove_from_dashboard')}
         style={{
           position: 'absolute', right: 6, top: 6,
           opacity: showHandle ? 0.8 : 0,
@@ -342,39 +343,39 @@ function DashboardWidgetCard({ item, editMode, groups, colSpan = 2, hiddenWidget
                   d.error === 'not_mounted'
                     ? <div key={d.path} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                         <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{d.name}</span>
-                        <span className="badge-error" style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4 }}>Not mounted</span>
+                        <span className="badge-error" style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4 }}>{t('disk.not_mounted')}</span>
                       </div>
                     : d.duplicate
                       ? <div key={d.path} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                           <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{d.name}</span>
-                          <span className="badge-warning" style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4 }}>Duplicate</span>
+                          <span className="badge-warning" style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4 }}>{t('disk.duplicate')}</span>
                         </div>
                       : <StatBar key={d.path} label={d.name} value={d.total > 0 ? Math.round((d.used / d.total) * 100) : null} unit="%" extra={d.total > 0 ? `${(d.used / 1024).toFixed(0)} / ${(d.total / 1024).toFixed(0)} GB` : undefined} />
                 ))}
               </div>
             )
-          })() : <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '8px 0' }}>Loading stats…</div>
+          })() : <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '8px 0' }}>{t('loading.stats')}</div>
         ) : item.widget.type === 'adguard_home' ? (
           s ? <AdGuardStatsView stats={s as AdGuardStats} isAdmin={isAdmin} toggling={toggling} onToggle={handleAdGuardToggle} />
-            : <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '8px 0' }}>Loading stats…</div>
+            : <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '8px 0' }}>{t('loading.stats')}</div>
         ) : item.widget.type === 'pihole' ? (
           s ? <AdGuardStatsView stats={s as AdGuardStats} isAdmin={isAdmin} toggling={toggling} onToggle={handlePiholeToggle} />
-            : <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '8px 0' }}>Loading stats…</div>
+            : <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '8px 0' }}>{t('loading.stats')}</div>
         ) : item.widget.type === 'home_assistant' ? (
           s ? <HaStatsView entities={s as HaEntityState[]} widgetId={item.widget.id} isAdmin={isAdmin} />
-            : <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '8px 0' }}>Loading states…</div>
+            : <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '8px 0' }}>{t('loading.states')}</div>
         ) : item.widget.type === 'nginx_pm' ? (
           s ? <NginxPMStatsView stats={s as NpmStats & { error?: string }} />
-            : <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '8px 0' }}>Loading stats…</div>
+            : <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '8px 0' }}>{t('loading.stats')}</div>
         ) : item.widget.type === 'home_assistant_energy' ? (
           s ? <HaEnergyWidgetView stats={s as EnergyData} />
-            : <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '8px 0' }}>Loading stats…</div>
+            : <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '8px 0' }}>{t('loading.stats')}</div>
         ) : item.widget.type === 'calendar' ? (
           s ? <CalendarWidgetContent entries={s as CalendarEntry[]} />
-            : <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '8px 0' }}>Loading calendar…</div>
+            : <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '8px 0' }}>{t('loading.calendar')}</div>
         ) : item.widget.type === 'weather' ? (
           s ? <WeatherWidgetView stats={s as WeatherStats} config={item.widget.config as WeatherWidgetConfig} />
-            : <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '8px 0' }}>Loading weather…</div>
+            : <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '8px 0' }}>{t('loading.weather')}</div>
         ) : null}
       </div>
       {showVisibilityOverlay && (
@@ -409,6 +410,7 @@ function DashboardWidgetCard({ item, editMode, groups, colSpan = 2, hiddenWidget
 // ── Placeholder card ──────────────────────────────────────────────────────────
 function DashboardPlaceholderCard({ item, editMode }: { item: DashboardPlaceholderItem; editMode: boolean }) {
   const { removeItem } = useDashboardStore()
+  const { t } = useTranslation('dashboard')
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.id, disabled: !editMode,
   })
@@ -429,7 +431,7 @@ function DashboardPlaceholderCard({ item, editMode }: { item: DashboardPlacehold
     )
   }
 
-  const label = isRow ? 'Row' : isWidget ? 'Widget' : 'App'
+  const label = isRow ? t('placeholder.row') : isWidget ? t('placeholder.widget') : t('placeholder.app')
 
   return (
     <div
@@ -546,6 +548,7 @@ function SortableGroup({ group, editMode, onEdit, hiddenServiceIds, hiddenWidget
   hiddenArrIds?: string[]
 }) {
   const { updateGroup, deleteGroup, reorderGroupItems, groups: allGroups } = useDashboardStore()
+  const { t } = useTranslation('dashboard')
   const innerCols = Math.max(1, Math.round(8 * group.col_span / 12))
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: group.id, disabled: !editMode,
@@ -626,7 +629,7 @@ function SortableGroup({ group, editMode, onEdit, hiddenServiceIds, hiddenWidget
           ) : (
             <span
               onDoubleClick={() => editMode && setEditingName(true)}
-              title={editMode ? 'Double-click to rename' : undefined}
+              title={editMode ? t('edit.rename_hint') : undefined}
               style={{ cursor: editMode ? 'text' : 'default', flex: 1 }}
             >
               {group.name}
@@ -650,7 +653,7 @@ function SortableGroup({ group, editMode, onEdit, hiddenServiceIds, hiddenWidget
                 onClick={() => deleteGroup(group.id)}
                 className="btn btn-ghost"
                 style={{ width: 22, height: 22, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                title="Delete group"
+                title={t('edit.delete_group')}
               >
                 <X size={11} />
               </button>
@@ -659,7 +662,7 @@ function SortableGroup({ group, editMode, onEdit, hiddenServiceIds, hiddenWidget
           <button
             className={`group-chevron${collapsed ? ' collapsed' : ''}`}
             onClick={handleToggleCollapse}
-            title={collapsed ? 'Expand group' : 'Collapse group'}
+            title={collapsed ? t('edit.expand_group') : t('edit.collapse_group')}
             style={{ marginLeft: editMode ? 0 : 'auto' }}
           >
             <ChevronDown size={14} />
@@ -723,7 +726,7 @@ function SortableGroup({ group, editMode, onEdit, hiddenServiceIds, hiddenWidget
 
         {group.items.length === 0 && !editMode && (
           <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '16px 0' }}>
-            Empty group
+            {t('edit.empty_group')}
           </div>
         )}
         </div>{/* end group-content */}
@@ -840,9 +843,7 @@ export function Dashboard({ onEdit }: Props) {
       <div className="empty-state">
         <div className="empty-state-icon">⬡</div>
         <div className="empty-state-text">
-          {guestMode
-            ? 'Guest dashboard is empty.\nUse edit mode to set up the guest view.'
-            : 'Dashboard is empty.\nEnable "Show on Dashboard" in app or instance settings, or use edit mode to add items.'}
+          {guestMode ? t('empty.guest_empty') : t('empty.regular_empty')}
         </div>
       </div>
     )
@@ -885,7 +886,7 @@ export function Dashboard({ onEdit }: Props) {
             className="btn btn-primary btn-sm"
             onClick={() => createGroup('Group')}
           >
-            + Add Group
+            {t('edit.add_group')}
           </button>
         </div>
       )}
@@ -916,7 +917,7 @@ export function Dashboard({ onEdit }: Props) {
       {/* Bookmarks section */}
       {dashboardBookmarks.length > 0 && (
         <div>
-          <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: 1, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 8 }}>Bookmarks</div>
+          <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: 1, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 8 }}>{t('bookmarks')}</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 8 }}>
             {dashboardBookmarks.map(bm => (
               <a

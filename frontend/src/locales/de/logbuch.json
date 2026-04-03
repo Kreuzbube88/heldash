@@ -66,7 +66,9 @@
     "updated": "aktualisiert",
     "deleted": "gelöscht",
     "no_changes": "Keine Änderungen",
-    "no_log": "Kein Änderungsprotokoll"
+    "no_log": "Kein Änderungsprotokoll",
+    "ok": "OK",
+    "error": "Fehler"
   },
   "resources": {
     "no_data": "Keine Daten",

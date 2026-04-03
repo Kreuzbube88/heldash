@@ -89,6 +89,54 @@
   },
   "instances": "Instances",
   "add_instance": "Add Instance",
+  "energy": {
+    "btn": "Energy",
+    "add_panel_title": "Add Energy Dashboard",
+    "ha_instance": "HA Instance",
+    "already_added": "(already added)",
+    "select_instance": "Select an instance",
+    "already_added_error": "Energy panel already added for this instance",
+    "add_failed": "Failed to add panel",
+    "adding": "Adding…",
+    "add_btn": "Add Panel",
+    "cancel": "Cancel",
+    "title_fallback": "Energy Dashboard",
+    "grid_consumption": "Grid Consumption",
+    "solar_production": "Solar Production",
+    "self_sufficiency": "Self-Sufficiency",
+    "grid_return": "Grid Return",
+    "gas": "Gas",
+    "battery": "Battery",
+    "period_day": "Today",
+    "period_week": "Week",
+    "period_month": "Month",
+    "chart_consumption": "Consumption",
+    "chart_solar": "Solar",
+    "chart_return": "Return",
+    "not_configured": "Energy not configured in Home Assistant"
+  },
+  "edit_panel": {
+    "title": "Edit Panel",
+    "custom_label": "Custom Label",
+    "label_placeholder": "Leave blank to use friendly_name",
+    "cancel": "Cancel",
+    "save": "Save"
+  },
+  "browser_modal": {
+    "title": "Add Entity Panel",
+    "subtitle": "Select entities to pin as panels on your dashboard.",
+    "instance_label": "Instance",
+    "search_placeholder": "Search entities…",
+    "already_added_tooltip": "Already added",
+    "add_panel_tooltip": "Add panel"
+  },
+  "header": {
+    "add_panel": "Add Panel",
+    "alerts": "Alerts"
+  },
+  "tabs_label": {
+    "panels": "Panels"
+  },
   "status": {
     "connected": "Connected",
     "disconnected": "Disconnected",

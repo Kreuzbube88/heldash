@@ -29,6 +29,10 @@
     "no_lines_match": "No lines match the filter.",
     "start": "Start",
     "stop": "Stop",
-    "restart": "Restart"
+    "restart": "Restart",
+    "live": "Live",
+    "ended": "Ended",
+    "reconnect": "Reconnect",
+    "refresh": "Refresh"
   }
 }

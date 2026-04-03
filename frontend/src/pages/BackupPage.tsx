@@ -8,13 +8,15 @@ import type { BackupSource, BackupStatusResult } from '../types'
 
 // ── Backup type definitions ───────────────────────────────────────────────────
 
-const BACKUP_TYPES: { value: string; label: string; description: string }[] = [
-  { value: 'ca_backup', label: 'CA Backup (Unraid)', description: 'Liest das CA Backup Plugin Log von Unraid' },
-  { value: 'duplicati', label: 'Duplicati', description: 'Verbindet sich mit der Duplicati Web-UI' },
-  { value: 'kopia', label: 'Kopia', description: 'Verbindet sich mit dem Kopia-Server' },
-  { value: 'docker', label: 'Docker (Export)', description: 'Exportiert Container-Konfigurationen als JSON' },
-  { value: 'vm', label: 'VM Backups', description: 'Prüft Backup-Dateien in einem lokalen Pfad' },
-]
+const BACKUP_TYPE_VALUES = ['ca_backup', 'duplicati', 'kopia', 'docker', 'vm'] as const
+
+function useBackupTypes(t: (key: string) => string) {
+  return BACKUP_TYPE_VALUES.map(v => ({
+    value: v,
+    label: t(`types.${v}_label`),
+    description: t(`types.${v}_desc`),
+  }))
+}
 
 // ── Add/Edit Source Modal ─────────────────────────────────────────────────────
 
@@ -26,6 +28,7 @@ interface SourceModalProps {
 
 function SourceModal({ source, onClose, onSave }: SourceModalProps) {
   const { t } = useTranslation('backup')
+  const BACKUP_TYPES = useBackupTypes(t)
   const [name, setName] = useState(source?.name ?? '')
   const [type, setType] = useState(source?.type ?? 'ca_backup')
   const [enabled, setEnabled] = useState(source?.enabled ?? true)
@@ -60,12 +63,12 @@ function SourceModal({ source, onClose, onSave }: SourceModalProps) {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div>
-            <label className="field-label">Name *</label>
-            <input className="input" value={name} onChange={e => setName(e.target.value)} placeholder="Mein Backup" />
+            <label className="field-label">{t('form.name_label')}</label>
+            <input className="input" value={name} onChange={e => setName(e.target.value)} placeholder={t('form.name_placeholder')} />
           </div>
 
           <div>
-            <label className="field-label">Typ *</label>
+            <label className="field-label">{t('form.type_label')}</label>
             <select className="input" value={type} onChange={e => { setType(e.target.value); setConfig({}) }}>
               {BACKUP_TYPES.map(t => (
                 <option key={t.value} value={t.value}>{t.label}</option>
@@ -78,7 +81,7 @@ function SourceModal({ source, onClose, onSave }: SourceModalProps) {
 
           {type === 'ca_backup' && (
             <div>
-              <label className="field-label">Log-Pfad</label>
+              <label className="field-label">{t('form.log_path_label')}</label>
               <input className="input" value={(config.logPath as string) ?? ''} onChange={e => updateConfig('logPath', e.target.value)} placeholder="/boot/logs/CA_backup.log" />
             </div>
           )}
@@ -104,12 +107,12 @@ function SourceModal({ source, onClose, onSave }: SourceModalProps) {
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <div style={{ flex: 1 }}>
-                  <label className="field-label">Benutzer</label>
+                  <label className="field-label">{t('form.user_label')}</label>
                   <input className="input" value={(config.user as string) ?? 'kopia'} onChange={e => updateConfig('user', e.target.value)} placeholder="kopia" />
                 </div>
                 <div style={{ flex: 1 }}>
-                  <label className="field-label">Passwort</label>
-                  <input className="input" type="password" value={(config.pass as string) ?? ''} onChange={e => updateConfig('pass', e.target.value)} placeholder="Passwort" />
+                  <label className="field-label">{t('form.password_label')}</label>
+                  <input className="input" type="password" value={(config.pass as string) ?? ''} onChange={e => updateConfig('pass', e.target.value)} placeholder={t('form.password_placeholder')} />
                 </div>
               </div>
             </>
@@ -117,7 +120,7 @@ function SourceModal({ source, onClose, onSave }: SourceModalProps) {
 
           {type === 'vm' && (
             <div>
-              <label className="field-label">Backup-Pfad</label>
+              <label className="field-label">{t('form.backup_path_label')}</label>
               <input className="input" value={(config.backupPath as string) ?? ''} onChange={e => updateConfig('backupPath', e.target.value)} placeholder="/mnt/user/backups/vms" />
             </div>
           )}
@@ -148,6 +151,7 @@ function SourceModal({ source, onClose, onSave }: SourceModalProps) {
 
 function StatusCard({ result }: { result: BackupStatusResult }) {
   const { t } = useTranslation('backup')
+  const BACKUP_TYPES = useBackupTypes(t)
   const [expanded, setExpanded] = useState(false)
 
   const StatusIcon = result.error
@@ -225,63 +229,65 @@ function GuideSection({ title, children }: GuideSectionProps) {
 }
 
 function GuideTab() {
+  const { t } = useTranslation('backup')
+  const gc = (key: string) => t(`guide_content.${key}`)
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 8px' }}>
-        Best Practices und Empfehlungen für eine robuste Backup-Strategie.
+        {gc('intro')}
       </p>
 
-      <GuideSection title="3-2-1 Backup-Regel">
-        <p style={{ margin: '0 0 8px' }}>Die 3-2-1-Regel ist der Industriestandard:</p>
+      <GuideSection title={gc('rule_321_title')}>
+        <p style={{ margin: '0 0 8px' }}>{gc('rule_321_intro')}</p>
         <ul style={{ margin: 0, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <li><strong>3</strong> Kopien der Daten (1 Original + 2 Backups)</li>
-          <li><strong>2</strong> verschiedene Speichermedien (z.B. HDD + NAS)</li>
-          <li><strong>1</strong> Backup an einem externen Standort (z.B. Cloud oder Offsite)</li>
+          <li><strong>3</strong> {gc('rule_321_copies')}</li>
+          <li><strong>2</strong> {gc('rule_321_media')}</li>
+          <li><strong>1</strong> {gc('rule_321_offsite')}</li>
         </ul>
       </GuideSection>
 
-      <GuideSection title="Unraid CA Backup">
-        <p style={{ margin: '0 0 8px' }}>Das CA Backup Plugin sichert deine Unraid-Konfiguration:</p>
+      <GuideSection title={gc('ca_backup_title')}>
+        <p style={{ margin: '0 0 8px' }}>{gc('ca_backup_intro')}</p>
         <ul style={{ margin: 0, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <li>Installiere "Community Applications" und dann "CA Backup/Restore Appdata"</li>
-          <li>Richte einen Cron-Job für nächtliche Backups ein</li>
-          <li>Schreibe Backups auf ein Share, der auf einer anderen physischen Disk liegt</li>
-          <li>Empfehlung: täglich um 3:00 Uhr, 7 Tage Aufbewahrung</li>
+          <li>{gc('ca_backup_1')}</li>
+          <li>{gc('ca_backup_2')}</li>
+          <li>{gc('ca_backup_3')}</li>
+          <li>{gc('ca_backup_4')}</li>
         </ul>
       </GuideSection>
 
-      <GuideSection title="Docker-Daten sichern">
-        <p style={{ margin: '0 0 8px' }}>Container-Konfigurationen sind leicht zu sichern:</p>
+      <GuideSection title={gc('docker_title')}>
+        <p style={{ margin: '0 0 8px' }}>{gc('docker_intro')}</p>
         <ul style={{ margin: 0, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <li>Nutze den "Docker Export" Button hier, um alle Container-Configs als JSON zu exportieren</li>
-          <li>Sichere deinen <code style={{ background: 'var(--glass-bg)', padding: '1px 4px', borderRadius: 4 }}>/mnt/user/appdata</code> Ordner regelmäßig</li>
-          <li>Für Datenbanken: Nutze datenbankspezifische Backup-Methoden (pg_dump, mysqldump)</li>
-          <li>Tools wie Duplicati oder Kopia können Appdata-Verzeichnisse inkrementell sichern</li>
+          <li>{gc('docker_1')}</li>
+          <li>{gc('docker_2')} <code style={{ background: 'var(--glass-bg)', padding: '1px 4px', borderRadius: 4 }}>/mnt/user/appdata</code></li>
+          <li>{gc('docker_3')}</li>
+          <li>{gc('docker_4')}</li>
         </ul>
       </GuideSection>
 
-      <GuideSection title="Kopia einrichten">
-        <p style={{ margin: '0 0 8px' }}>Kopia ist ein modernes, verschlüsseltes Backup-Tool:</p>
+      <GuideSection title={gc('kopia_title')}>
+        <p style={{ margin: '0 0 8px' }}>{gc('kopia_intro')}</p>
         <ul style={{ margin: 0, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <li>Auf Unraid: Kopia als Docker Container (Linuxserver.io Image) installieren</li>
-          <li>Repository: lokal, NAS (SMB/NFS) oder Cloud (S3, Backblaze B2, Azure)</li>
-          <li>Snapshot-Zeitplan: täglich, wöchentliche Bereinigung</li>
-          <li>Kopia verschlüsselt alles lokal bevor es hochgeladen wird</li>
+          <li>{gc('kopia_1')}</li>
+          <li>{gc('kopia_2')}</li>
+          <li>{gc('kopia_3')}</li>
+          <li>{gc('kopia_4')}</li>
         </ul>
       </GuideSection>
 
-      <GuideSection title="VM Backups">
-        <p style={{ margin: '0 0 8px' }}>Virtuelle Maschinen auf Unraid sichern:</p>
+      <GuideSection title={gc('vm_title')}>
+        <p style={{ margin: '0 0 8px' }}>{gc('vm_intro')}</p>
         <ul style={{ margin: 0, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <li>Stelle die VM vor dem Backup ab (konsistenter Zustand)</li>
-          <li>Sichere <code style={{ background: 'var(--glass-bg)', padding: '1px 4px', borderRadius: 4 }}>/mnt/user/domains/</code> mit den .img und .xml Dateien</li>
-          <li>Nutze Unraid's eingebaute VM Manager Snapshot-Funktion wenn verfügbar</li>
-          <li>Alternativ: Libvirt Snapshot + Backup-Script</li>
+          <li>{gc('vm_1')}</li>
+          <li>{gc('vm_2')} <code style={{ background: 'var(--glass-bg)', padding: '1px 4px', borderRadius: 4 }}>/mnt/user/domains/</code></li>
+          <li>{gc('vm_3')}</li>
+          <li>{gc('vm_4')}</li>
         </ul>
       </GuideSection>
 
-      <GuideSection title="Duplicati einrichten">
-        <p style={{ margin: '0 0 8px' }}>Duplicati ist ein benutzerfreundliches, verschlüsseltes Backup-Tool mit Web-UI:</p>
+      <GuideSection title={gc('duplicati_title')}>
+        <p style={{ margin: '0 0 8px' }}>{gc('duplicati_intro')}</p>
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, background: 'var(--bg-surface)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-sm)', padding: '10px 14px', margin: '0 0 10px', overflowX: 'auto', whiteSpace: 'pre' }}>{`docker run -d \\
   --name duplicati \\
   -p 8200:8200 \\
@@ -290,75 +296,75 @@ function GuideTab() {
   -v /mnt/user/backup:/backup \\
   lscr.io/linuxserver/duplicati:latest`}</div>
         <ol style={{ margin: 0, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <li>Container starten (Befehl oben)</li>
-          <li><code style={{ background: 'var(--glass-bg)', padding: '1px 4px', borderRadius: 4 }}>http://server-ip:8200</code> öffnen</li>
-          <li>"Neue Sicherung" → Name vergeben</li>
-          <li>Verschlüsselung: Passwort setzen (<strong>IMMER!</strong>)</li>
-          <li>Ziel: "Lokaler Ordner oder Laufwerk" → <code style={{ background: 'var(--glass-bg)', padding: '1px 4px', borderRadius: 4 }}>/backup</code></li>
-          <li>Quelle: <code style={{ background: 'var(--glass-bg)', padding: '1px 4px', borderRadius: 4 }}>/source/appdata</code> (oder einzelne Ordner)</li>
-          <li>Zeitplan: täglich 02:00 Uhr</li>
-          <li>Speichern + ersten Backup starten</li>
-          <li>HELDASH: URL <code style={{ background: 'var(--glass-bg)', padding: '1px 4px', borderRadius: 4 }}>http://server-ip:8200</code> + API-Key eintragen</li>
+          <li>{gc('duplicati_1')}</li>
+          <li><code style={{ background: 'var(--glass-bg)', padding: '1px 4px', borderRadius: 4 }}>http://server-ip:8200</code> {gc('duplicati_2')}</li>
+          <li>{gc('duplicati_3')}</li>
+          <li>{gc('duplicati_4')}</li>
+          <li>{gc('duplicati_5')}</li>
+          <li>{gc('duplicati_6')}</li>
+          <li>{gc('duplicati_7')}</li>
+          <li>{gc('duplicati_8')}</li>
+          <li>{gc('duplicati_9')}</li>
         </ol>
         <p style={{ margin: '10px 0 0', fontSize: 12, color: 'var(--text-muted)' }}>
-          API-Key finden: Duplicati → Einstellungen → API-Schlüssel
+          {gc('duplicati_api_key_hint')}
         </p>
       </GuideSection>
 
-      <GuideSection title="Backup testen">
-        <p style={{ margin: '0 0 8px' }}>Ein Backup das nie getestet wurde ist keines:</p>
+      <GuideSection title={gc('test_title')}>
+        <p style={{ margin: '0 0 8px' }}>{gc('test_intro')}</p>
         <ul style={{ margin: 0, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <li>Teste Wiederherstellung monatlich</li>
-          <li>Dokumentiere den Wiederherstellungsprozess</li>
-          <li>Prüfe Backup-Integrität (Checksummen) automatisch</li>
-          <li>Stelle sicher dass Backups vollständig und lesbar sind</li>
+          <li>{gc('test_1')}</li>
+          <li>{gc('test_2')}</li>
+          <li>{gc('test_3')}</li>
+          <li>{gc('test_4')}</li>
         </ul>
       </GuideSection>
 
-      <GuideSection title="Vollständige Wiederherstellung (Disaster Recovery)">
-        <p style={{ margin: '0 0 10px' }}>Schritt-für-Schritt-Anleitung um das gesamte System neu aufzusetzen:</p>
+      <GuideSection title={gc('dr_title')}>
+        <p style={{ margin: '0 0 10px' }}>{gc('dr_intro')}</p>
         <ol style={{ margin: 0, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
           <li>
-            <strong>Unraid USB neu erstellen</strong><br />
-            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>usb.unraid.net → USB Creator herunterladen → Neuen USB erstellen</span>
+            <strong>{gc('dr_1_title')}</strong><br />
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{gc('dr_1_desc')}</span>
           </li>
           <li>
-            <strong>USB Backup einspielen</strong> (falls CA USB Backup vorhanden)<br />
+            <strong>{gc('dr_2_title')}</strong><br />
             <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-              <code style={{ background: 'var(--glass-bg)', padding: '1px 4px', borderRadius: 4 }}>config/</code> Ordner vom Backup auf neuen USB kopieren — Netzwerk, Shares, Benutzer wiederhergestellt
+              <code style={{ background: 'var(--glass-bg)', padding: '1px 4px', borderRadius: 4 }}>config/</code> {gc('dr_2_desc')}
             </span>
           </li>
           <li>
-            <strong>Unraid starten + Array/Pool konfigurieren</strong><br />
-            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>RAID1 SSDs/NVMes werden automatisch erkannt → Pool zuweisen + starten</span>
+            <strong>{gc('dr_3_title')}</strong><br />
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{gc('dr_3_desc')}</span>
           </li>
           <li>
-            <strong>HELDASH zuerst starten</strong><br />
-            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>docker run ... (aus Docker Config Export) oder manuell neu einrichten</span>
+            <strong>{gc('dr_4_title')}</strong><br />
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{gc('dr_4_desc')}</span>
           </li>
           <li>
-            <strong>Docker Configs importieren</strong><br />
-            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>HELDASH → Backup → Docker → JSON importieren → Alle Container werden neu erstellt</span>
+            <strong>{gc('dr_5_title')}</strong><br />
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{gc('dr_5_desc')}</span>
           </li>
           <li>
-            <strong>CA Backup restore (Appdata)</strong><br />
-            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>CA Backup Plugin installieren → Restore aus Backup-Ziel starten</span>
+            <strong>{gc('dr_6_title')}</strong><br />
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{gc('dr_6_desc')}</span>
           </li>
           <li>
-            <strong>Datenbanken wiederherstellen</strong><br />
+            <strong>{gc('dr_7_title')}</strong><br />
             <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-              SQL-Dateien in Container kopieren: <code style={{ background: 'var(--glass-bg)', padding: '1px 4px', borderRadius: 4 }}>docker exec mariadb mysql {'<'} db.sql</code>
+              {gc('dr_7_desc')} <code style={{ background: 'var(--glass-bg)', padding: '1px 4px', borderRadius: 4 }}>docker exec mariadb mysql {'<'} db.sql</code>
             </span>
           </li>
           <li>
-            <strong>VMs wiederherstellen</strong><br />
+            <strong>{gc('dr_8_title')}</strong><br />
             <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-              XML + IMG Dateien zurückkopieren nach <code style={{ background: 'var(--glass-bg)', padding: '1px 4px', borderRadius: 4 }}>/etc/libvirt/</code>
+              {gc('dr_8_desc')} <code style={{ background: 'var(--glass-bg)', padding: '1px 4px', borderRadius: 4 }}>/etc/libvirt/</code>
             </span>
           </li>
           <li>
-            <strong>Fertig ✓</strong><br />
-            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Alle Services prüfen → Backup-Quellen in HELDASH neu verbinden</span>
+            <strong>{gc('dr_9_title')} ✓</strong><br />
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{gc('dr_9_desc')}</span>
           </li>
         </ol>
       </GuideSection>
@@ -370,6 +376,7 @@ function GuideTab() {
 
 export function BackupPage() {
   const { t } = useTranslation('backup')
+  const BACKUP_TYPES = useBackupTypes(t)
   const { isAdmin } = useStore()
   const [tab, setTab] = useState<'overview' | 'guide'>('overview')
   const [sources, setSources] = useState<BackupSource[]>([])
@@ -418,7 +425,7 @@ export function BackupPage() {
       await loadSources()
       toast({ message: t('toast.removed', { name: source.name }), type: 'info' })
     } catch (e) {
-      toast({ message: e instanceof Error ? e.message : 'Fehler', type: 'error' })
+      toast({ message: e instanceof Error ? e.message : t('toast.error'), type: 'error' })
     }
   }
 

@@ -711,7 +711,7 @@ function SyncTab() {
               : <XCircle size={14} style={{ color: 'var(--status-offline)', flexShrink: 0 }} />
             }
             <span className={h.success ? 'badge-success' : 'badge-error'} style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, flexShrink: 0 }}>
-              {h.success ? 'OK' : 'Fehler'}
+              {h.success ? t('sync.ok') : t('sync.error')}
             </span>
             <span style={{ fontSize: 12, color: 'var(--text-secondary)', flex: 1 }}>
               {h.changes_summary

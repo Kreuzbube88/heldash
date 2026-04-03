@@ -29,6 +29,10 @@
     "no_lines_match": "Keine Zeilen entsprechen dem Filter.",
     "start": "Start",
     "stop": "Stop",
-    "restart": "Restart"
+    "restart": "Restart",
+    "live": "Live",
+    "ended": "Beendet",
+    "reconnect": "Reconnect",
+    "refresh": "Aktualisieren"
   }
 }

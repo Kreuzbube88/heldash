@@ -89,6 +89,54 @@
   },
   "instances": "Instanzen",
   "add_instance": "Instanz hinzufügen",
+  "energy": {
+    "btn": "Energie",
+    "add_panel_title": "Energie-Dashboard hinzufügen",
+    "ha_instance": "HA Instanz",
+    "already_added": "(bereits hinzugefügt)",
+    "select_instance": "Instanz auswählen",
+    "already_added_error": "Energie-Panel für diese Instanz bereits hinzugefügt",
+    "add_failed": "Panel konnte nicht hinzugefügt werden",
+    "adding": "Hinzufügen…",
+    "add_btn": "Panel hinzufügen",
+    "cancel": "Abbrechen",
+    "title_fallback": "Energie-Dashboard",
+    "grid_consumption": "Netzbezug",
+    "solar_production": "Solar-Produktion",
+    "self_sufficiency": "Autarkie",
+    "grid_return": "Netzeinspeisung",
+    "gas": "Gas",
+    "battery": "Batterie",
+    "period_day": "Heute",
+    "period_week": "Woche",
+    "period_month": "Monat",
+    "chart_consumption": "Verbrauch",
+    "chart_solar": "Solar",
+    "chart_return": "Einspeisung",
+    "not_configured": "Energie nicht in Home Assistant konfiguriert"
+  },
+  "edit_panel": {
+    "title": "Panel bearbeiten",
+    "custom_label": "Benutzerdefiniertes Label",
+    "label_placeholder": "Leer lassen um friendly_name zu verwenden",
+    "cancel": "Abbrechen",
+    "save": "Speichern"
+  },
+  "browser_modal": {
+    "title": "Entität-Panel hinzufügen",
+    "subtitle": "Entitäten als Panels auf dem Dashboard anpinnen.",
+    "instance_label": "Instanz",
+    "search_placeholder": "Entitäten suchen…",
+    "already_added_tooltip": "Bereits hinzugefügt",
+    "add_panel_tooltip": "Panel hinzufügen"
+  },
+  "header": {
+    "add_panel": "Panel hinzufügen",
+    "alerts": "Alarme"
+  },
+  "tabs_label": {
+    "panels": "Panels"
+  },
   "status": {
     "connected": "Verbunden",
     "disconnected": "Getrennt",

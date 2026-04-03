@@ -3,15 +3,42 @@
     "title": "Dashboard is empty",
     "subtitle": "Add apps and widgets to get started.",
     "no_services": "No services configured",
-    "add_service": "Add service"
+    "add_service": "Add service",
+    "guest_empty": "Guest dashboard is empty.\nUse edit mode to set up the guest view.",
+    "regular_empty": "Dashboard is empty.\nEnable \"Show on Dashboard\" in app or instance settings, or use edit mode to add items."
   },
   "edit": {
     "done": "Done",
     "edit_dashboard": "Edit Dashboard",
     "add_app": "App",
     "add_widget": "Widget",
-    "add_row": "Row"
+    "add_row": "Row",
+    "add_group": "+ Add Group",
+    "rename_hint": "Double-click to rename",
+    "delete_group": "Delete group",
+    "expand_group": "Expand group",
+    "collapse_group": "Collapse group",
+    "empty_group": "Empty group",
+    "move_to_group": "Move to group",
+    "ungrouped": "— Ungrouped —",
+    "remove_from_dashboard": "Remove from dashboard"
   },
+  "placeholder": {
+    "row": "Row",
+    "widget": "Widget",
+    "app": "App"
+  },
+  "loading": {
+    "stats": "Loading stats…",
+    "states": "Loading states…",
+    "calendar": "Loading calendar…",
+    "weather": "Loading weather…"
+  },
+  "disk": {
+    "not_mounted": "Not mounted",
+    "duplicate": "Duplicate"
+  },
+  "bookmarks": "Bookmarks",
   "guest_mode": "Guest Mode",
   "hidden": "Hidden",
   "visible": "Visible",

@@ -118,7 +118,7 @@ function EditPanelModal({ panel, onClose }: { panel: HaPanel; onClose: () => voi
         </button>
 
         <h2 style={{ fontSize: 22, fontWeight: 600, marginBottom: 6, color: 'var(--text-primary)' }}>
-          Edit Panel
+          {t('edit_panel.title')}
         </h2>
         <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 28, fontFamily: 'var(--font-mono)' }}>
           {panel.entity_id}
@@ -126,12 +126,12 @@ function EditPanelModal({ panel, onClose }: { panel: HaPanel; onClose: () => voi
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label">Custom Label</label>
+            <label className="form-label">{t('edit_panel.custom_label')}</label>
             <input
               className="form-input"
               value={label}
               onChange={e => setLabel(e.target.value)}
-              placeholder="Leave blank to use friendly_name"
+              placeholder={t('edit_panel.label_placeholder')}
               autoFocus
               style={{ fontSize: 14, padding: '10px 12px' }}
             />
@@ -156,10 +156,10 @@ function EditPanelModal({ panel, onClose }: { panel: HaPanel; onClose: () => voi
 
           <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
             <button className="btn btn-ghost" onClick={onClose} style={{ flex: 1, justifyContent: 'center', padding: '11px 20px', fontSize: 14 }}>
-              Cancel
+              {t('edit_panel.cancel')}
             </button>
             <button className="btn btn-primary" onClick={handleSave} disabled={saving} style={{ flex: 1, gap: 8, justifyContent: 'center', padding: '11px 20px', fontSize: 14 }}>
-              <Check size={15} /> Save
+              <Check size={15} /> {t('edit_panel.save')}
             </button>
           </div>
         </div>
@@ -178,6 +178,7 @@ interface EntityBrowserProps {
 }
 
 function EntityBrowserModal({ instances, panels, onClose, onAdd }: EntityBrowserProps) {
+  const { t } = useTranslation('ha')
   const [selectedInstance, setSelectedInstance] = useState<string>(instances[0]?.id ?? '')
   const [entities, setEntities] = useState<HaEntityFull[]>([])
   const [loading, setLoading] = useState(false)
@@ -274,16 +275,16 @@ function EntityBrowserModal({ instances, panels, onClose, onAdd }: EntityBrowser
 
         <div>
           <h2 style={{ fontSize: 22, fontWeight: 600, marginBottom: 4, color: 'var(--text-primary)' }}>
-            Add Entity Panel
+            {t('browser_modal.title')}
           </h2>
           <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-            Select entities to pin as panels on your dashboard.
+            {t('browser_modal.subtitle')}
           </p>
         </div>
 
         {instances.length > 1 && (
           <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label">Instance</label>
+            <label className="form-label">{t('browser_modal.instance_label')}</label>
             <select className="form-input" value={selectedInstance} onChange={e => setSelectedInstance(e.target.value)} style={{ fontSize: 14, padding: '10px 12px' }}>
               {instances.filter(i => i.enabled).map(i => (
                 <option key={i.id} value={i.id}>{i.name}</option>
@@ -297,7 +298,7 @@ function EntityBrowserModal({ instances, panels, onClose, onAdd }: EntityBrowser
           <input
             className="form-input"
             style={{ paddingLeft: 34, fontSize: 14, padding: '10px 12px 10px 34px' }}
-            placeholder="Search entities…"
+            placeholder={t('browser_modal.search_placeholder')}
             value={search}
             onChange={e => setSearch(e.target.value)}
             autoFocus
@@ -369,7 +370,7 @@ function EntityBrowserModal({ instances, panels, onClose, onAdd }: EntityBrowser
                       style={{ flexShrink: 0, width: 24, height: 24 }}
                       disabled={isAdded || isLoading}
                       onClick={() => handleAdd(entity)}
-                      data-tooltip={isAdded ? 'Already added' : 'Add panel'}
+                      data-tooltip={isAdded ? t('browser_modal.already_added_tooltip') : t('browser_modal.add_panel_tooltip')}
                     >
                       {isLoading ? <Loader size={12} /> : <Plus size={12} />}
                     </button>
@@ -449,6 +450,7 @@ function EnergyBarChart({ data }: { data: EnergyData }) {
 }
 
 function EnergyPanel({ panel, onRemove, onEdit }: { panel: HaPanel; onRemove: () => void; onEdit: () => void }) {
+  const { t } = useTranslation('ha')
   const { energyData, loadEnergy } = useHaStore()
   const [period, setPeriod] = useState<'day' | 'week' | 'month'>('day')
   const [loading, setLoading] = useState(false)
@@ -489,7 +491,7 @@ function EnergyPanel({ panel, onRemove, onEdit }: { panel: HaPanel; onRemove: ()
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Zap size={15} style={{ color: 'var(--accent)' }} />
           <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)' }}>
-            {panel.label || 'Energy Dashboard'}
+            {panel.label || t('energy.title_fallback')}
           </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -501,7 +503,7 @@ function EnergyPanel({ panel, onRemove, onEdit }: { panel: HaPanel; onRemove: ()
               onClick={() => handlePeriod(p)}
               style={{ fontSize: 11, padding: '3px 10px' }}
             >
-              {p === 'day' ? 'Today' : p === 'week' ? 'Week' : 'Month'}
+              {p === 'day' ? t('energy.period_day') : p === 'week' ? t('energy.period_week') : t('energy.period_month')}
             </button>
           ))}
           {loading && <div className="spinner" style={{ width: 13, height: 13, borderWidth: 2, marginLeft: 4 }} />}
@@ -527,7 +529,7 @@ function EnergyPanel({ panel, onRemove, onEdit }: { panel: HaPanel; onRemove: ()
         ) : null
       ) : !data.configured ? (
         <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 13, padding: '16px 0' }}>
-          {data.error ?? 'Energy not configured in Home Assistant'}
+          {data.error ?? t('energy.not_configured')}
         </div>
       ) : (
         <>
@@ -536,7 +538,7 @@ function EnergyPanel({ panel, onRemove, onEdit }: { panel: HaPanel; onRemove: ()
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <Zap size={15} style={{ color: 'var(--accent)' }} />
               <div>
-                <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Grid Consumption</div>
+                <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('energy.grid_consumption')}</div>
                 <div style={{ fontSize: 20, fontWeight: 700 }}>
                   {(data.grid_consumption ?? 0).toFixed(2)}
                   <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 4 }}>kWh</span>
@@ -548,7 +550,7 @@ function EnergyPanel({ panel, onRemove, onEdit }: { panel: HaPanel; onRemove: ()
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Sun size={15} style={{ color: '#f59e0b' }} />
                 <div>
-                  <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Solar Production</div>
+                  <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('energy.solar_production')}</div>
                   <div style={{ fontSize: 20, fontWeight: 700, color: '#f59e0b' }}>
                     {(data.solar_production ?? 0).toFixed(2)}
                     <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 4 }}>kWh</span>
@@ -559,14 +561,14 @@ function EnergyPanel({ panel, onRemove, onEdit }: { panel: HaPanel; onRemove: ()
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <CircularGauge value={data.self_sufficiency ?? 0} size={56} />
-              <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Self-Sufficiency</div>
+              <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('energy.self_sufficiency')}</div>
             </div>
 
             {hasReturn && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <ZapOff size={15} style={{ color: '#10b981' }} />
                 <div>
-                  <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Grid Return</div>
+                  <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('energy.grid_return')}</div>
                   <div style={{ fontSize: 20, fontWeight: 700, color: '#10b981' }}>
                     {(data.grid_return ?? 0).toFixed(2)}
                     <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 4 }}>kWh</span>
@@ -579,7 +581,7 @@ function EnergyPanel({ panel, onRemove, onEdit }: { panel: HaPanel; onRemove: ()
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Flame size={15} style={{ color: '#f87171' }} />
                 <div>
-                  <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Gas</div>
+                  <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('energy.gas')}</div>
                   <div style={{ fontSize: 20, fontWeight: 700, color: '#f87171' }}>
                     {(data.gas_consumption ?? 0).toFixed(3)}
                     <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 4 }}>m³</span>
@@ -592,7 +594,7 @@ function EnergyPanel({ panel, onRemove, onEdit }: { panel: HaPanel; onRemove: ()
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <BatteryCharging size={15} style={{ color: 'var(--accent)' }} />
                 <div>
-                  <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Battery</div>
+                  <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('energy.battery')}</div>
                   <div style={{ fontSize: 20, fontWeight: 700 }}>
                     {(data.battery_charge ?? 0).toFixed(2)}
                     <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 4 }}>kWh</span>
@@ -608,18 +610,18 @@ function EnergyPanel({ panel, onRemove, onEdit }: { panel: HaPanel; onRemove: ()
               <div style={{ display: 'flex', gap: 14, marginBottom: 6, fontSize: 11, color: 'var(--text-muted)' }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                   <span style={{ width: 8, height: 8, background: 'var(--accent)', opacity: 0.6, borderRadius: 2, display: 'inline-block' }} />
-                  Consumption
+                  {t('energy.chart_consumption')}
                 </span>
                 {hasSolar && (
                   <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                     <span style={{ width: 8, height: 8, background: '#f59e0b', borderRadius: 2, display: 'inline-block' }} />
-                    Solar
+                    {t('energy.chart_solar')}
                   </span>
                 )}
                 {hasReturn && (
                   <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                     <span style={{ width: 8, height: 8, background: '#10b981', borderRadius: 2, display: 'inline-block' }} />
-                    Return
+                    {t('energy.chart_return')}
                   </span>
                 )}
               </div>
@@ -640,6 +642,7 @@ function AddEnergyPanelModal({ instances, panels, onClose, onAdd }: {
   onClose: () => void
   onAdd: (instanceId: string) => Promise<void>
 }) {
+  const { t } = useTranslation('ha')
   const [selected, setSelected] = useState(instances[0]?.id ?? '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -648,15 +651,15 @@ function AddEnergyPanelModal({ instances, panels, onClose, onAdd }: {
     panels.some(p => p.instance_id === instanceId && p.panel_type === 'energy')
 
   const handleAdd = async () => {
-    if (!selected) return setError('Select an instance')
-    if (hasEnergyPanel(selected)) return setError('Energy panel already added for this instance')
+    if (!selected) return setError(t('energy.select_instance'))
+    if (hasEnergyPanel(selected)) return setError(t('energy.already_added_error'))
     setSaving(true)
     setError('')
     try {
       await onAdd(selected)
       onClose()
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to add panel')
+      setError(e instanceof Error ? e.message : t('energy.add_failed'))
     } finally {
       setSaving(false)
     }
@@ -679,26 +682,26 @@ function AddEnergyPanelModal({ instances, panels, onClose, onAdd }: {
           <X size={16} />
         </button>
         <h2 style={{ fontSize: 20, fontWeight: 600, marginBottom: 20, color: 'var(--text-primary)' }}>
-          Add Energy Dashboard
+          {t('energy.add_panel_title')}
         </h2>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div>
-            <label className="form-label">HA Instance</label>
+            <label className="form-label">{t('energy.ha_instance')}</label>
             <select className="form-input" value={selected} onChange={e => setSelected(e.target.value)}>
               {instances.map(i => (
                 <option key={i.id} value={i.id}>
-                  {i.name}{hasEnergyPanel(i.id) ? ' (already added)' : ''}
+                  {i.name}{hasEnergyPanel(i.id) ? ` ${t('energy.already_added')}` : ''}
                 </option>
               ))}
             </select>
           </div>
           {error && <div className="setup-error">{error}</div>}
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-ghost" onClick={onClose} style={{ flex: 1, justifyContent: 'center' }}>Cancel</button>
+            <button className="btn btn-ghost" onClick={onClose} style={{ flex: 1, justifyContent: 'center' }}>{t('energy.cancel')}</button>
             <button className="btn btn-primary" onClick={handleAdd} disabled={saving} style={{ flex: 1, gap: 6, justifyContent: 'center' }}>
               {saving
-                ? <><div className="spinner" style={{ width: 13, height: 13, borderWidth: 2 }} /> Adding…</>
-                : <><Check size={14} /> Add Panel</>}
+                ? <><div className="spinner" style={{ width: 13, height: 13, borderWidth: 2 }} /> {t('energy.adding')}</>
+                : <><Check size={14} /> {t('energy.add_btn')}</>}
             </button>
           </div>
         </div>
@@ -1065,15 +1068,15 @@ export function HaPage({ showAddPanel, onAddPanelClose, onNavigate }: HaPageProp
             <>
               <button className="btn btn-ghost" onClick={() => setShowEnergyPicker(true)} style={{ gap: 6 }}>
                 <Zap size={15} />
-                Energy
+                {t('energy.btn')}
               </button>
               <button className="btn btn-ghost" onClick={() => setShowBrowser(true)} style={{ gap: 6 }}>
                 <Plus size={15} />
-                Add Panel
+                {t('header.add_panel')}
               </button>
               <button className="btn btn-ghost" onClick={() => setShowAlerts(prev => !prev)} style={{ gap: 6, position: 'relative' }}>
                 <Bell size={15} />
-                Alerts
+                {t('header.alerts')}
               </button>
             </>
           )}
@@ -1101,7 +1104,7 @@ export function HaPage({ showAddPanel, onAddPanelClose, onNavigate }: HaPageProp
                 marginBottom: -1, transition: 'all var(--transition-fast)',
               }}
             >
-              {tabKey === 'panels' ? 'Panels'
+              {tabKey === 'panels' ? t('tabs_label.panels')
                 : tabKey === 'hausübersicht' ? `🗺 ${t('tabs.overview')}`
                 : tabKey === 'gps' ? '📍 GPS'
                 : tabKey === 'szenarien' ? `🎭 ${t('tabs.scenes')}`

@@ -378,12 +378,12 @@ function ContainerDetail({
               boxShadow: live ? '0 0 5px var(--status-online)' : undefined,
             }} />
             <span style={{ fontSize: 11, color: live ? 'var(--status-online)' : 'var(--text-muted)', fontWeight: 500 }}>
-              {live ? 'Live' : 'Ended'}
+              {live ? t('detail.live') : t('detail.ended')}
             </span>
           </div>
           <button className="btn btn-ghost btn-sm" onClick={startStream}
-            style={{ fontSize: 11, gap: 4, padding: '3px 8px' }} title="Reconnect stream">
-            <RotateCcw size={11} /> Reconnect
+            style={{ fontSize: 11, gap: 4, padding: '3px 8px' }} title={t('detail.reconnect')}>
+            <RotateCcw size={11} /> {t('detail.reconnect')}
           </button>
         </div>
 
@@ -473,7 +473,7 @@ export function DockerPage() {
             style={{ paddingLeft: 30, fontSize: 13, width: 220 }}
           />
         </div>
-        <button className="btn btn-ghost btn-icon" onClick={handleRefresh} disabled={refreshing} data-tooltip="Refresh">
+        <button className="btn btn-ghost btn-icon" onClick={handleRefresh} disabled={refreshing} data-tooltip={t('detail.refresh')}>
           {refreshing
             ? <div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
             : <RefreshCw size={16} />

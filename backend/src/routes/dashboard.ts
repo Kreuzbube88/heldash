@@ -42,6 +42,7 @@ interface ServiceRow {
   url: string
   icon: string | null
   icon_url: string | null
+  icon_id: string | null
   description: string | null
   last_status: string | null
   last_checked: string | null

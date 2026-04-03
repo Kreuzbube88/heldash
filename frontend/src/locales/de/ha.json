@@ -43,8 +43,15 @@
   "floorplan": {
     "title": "Grundriss",
     "upload": "Bild hochladen",
+    "change_image": "Bild ändern",
     "no_image": "Kein Grundriss-Bild vorhanden.",
-    "place_entity": "Entität platzieren"
+    "place_entity": "Entität platzieren",
+    "no_entities": "Keine Entities",
+    "no_instance": "Keine Home Assistant Instanz konfiguriert.",
+    "no_floorplan": "Noch kein Grundriss angelegt.",
+    "add_first": "Ersten Grundriss anlegen",
+    "add_floor": "Etage",
+    "undo": "Rückgängig"
   },
   "alerts": {
     "title": "Alarme",
@@ -54,12 +61,59 @@
     "condition": "Bedingung",
     "message": "Nachricht",
     "min_interval": "Min. Interval (Sek.)",
-    "delete_confirm": "Alarm löschen?"
+    "delete_confirm": "Alarm löschen?",
+    "header": "Benachrichtigungen",
+    "no_configured": "Noch keine Benachrichtigungen konfiguriert.",
+    "new_notification": "Neue Benachrichtigung",
+    "add_notification": "Benachrichtigung hinzufügen",
+    "deactivate": "Deaktivieren",
+    "activate": "Aktivieren",
+    "delete": "Löschen",
+    "condition_types": {
+      "state_equals": "Status gleich",
+      "state_above": "Wert über",
+      "state_below": "Wert unter",
+      "state_changes": "Status ändert sich"
+    },
+    "form": {
+      "entity_id": "Entity-ID",
+      "condition_type": "Bedingungstyp",
+      "condition_value": "Bedingungswert",
+      "message": "Nachricht",
+      "cancel": "Abbrechen",
+      "create": "Erstellen",
+      "error_entity_required": "Entity-ID erforderlich",
+      "error_message_required": "Nachricht erforderlich",
+      "error_value_required": "Bedingungswert erforderlich",
+      "error_create": "Fehler beim Erstellen"
+    }
   },
   "history": {
     "title": "Verlauf",
     "no_data": "Keine Verlaufsdaten",
     "loading": "Lade Verlauf…"
+  },
+  "entity_history": {
+    "title": "Verlauf: {{name}}",
+    "no_data": "Keine Verlaufsdaten verfügbar.",
+    "col_time": "Zeit",
+    "col_status": "Status",
+    "error_loading": "Fehler beim Laden"
+  },
+  "gps": {
+    "no_gps_selected": "Keine GPS-Daten für die ausgewählten Personen verfügbar",
+    "privacy_notice": "GPS-Daten werden nur lokal angezeigt — keine Übertragung an Dritte",
+    "no_instance": "Keine HA-Instanz ausgewählt.",
+    "no_persons": "Keine person.*-Entitäten in Home Assistant gefunden.",
+    "persons_selected": "Personen ({{selected}}/{{total}} ausgewählt)"
+  },
+  "presence": {
+    "no_gps_data": "Keine GPS-Daten verfügbar",
+    "map_unavailable": "GPS-Karte nicht verfügbar",
+    "show_gps": "GPS-Karte anzeigen",
+    "hide_gps": "GPS-Karte ausblenden",
+    "gps_btn_on": "GPS aus",
+    "gps_btn_off": "GPS-Karte"
   },
   "view": {
     "panels": "Panels",

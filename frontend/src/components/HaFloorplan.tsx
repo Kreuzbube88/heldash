@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useToast } from './Toast'
 import {
   Plus, Edit2, Check, Download, Upload, Grid, Image as ImageIcon,
@@ -176,6 +177,7 @@ function domainToTab(domain: string): DomainTab {
 }
 
 function EntityBrowserPanel({ entityStates, activeEntities, placingEntity, onSelect }: EntityBrowserPanelProps) {
+  const { t } = useTranslation('ha')
   const [search, setSearch] = useState('')
   const [tab, setTab] = useState<DomainTab>('Alle')
   const placedEntityIds = new Set(activeEntities.map(e => e.entity_id))
@@ -237,7 +239,7 @@ function EntityBrowserPanel({ entityStates, activeEntities, placingEntity, onSel
       {/* Entity list */}
       <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
         {entities.length === 0 && (
-          <p style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', padding: '12px 0' }}>Keine Entities</p>
+          <p style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', padding: '12px 0' }}>{t('floorplan.no_entities')}</p>
         )}
         {entities.map(entity => {
           const isPlaced = placedEntityIds.has(entity.entity_id)
@@ -433,6 +435,7 @@ interface HaFloorplanProps {
 }
 
 export function HaFloorplan({ instances, entityStates, onShowHistory }: HaFloorplanProps) {
+  const { t } = useTranslation('ha')
   const { toast } = useToast()
   const [floorplans, setFloorplans] = useState<HaFloorplan[]>([])
   const [entities, setEntities] = useState<Record<string, HaFloorplanEntity[]>>({})
@@ -699,7 +702,7 @@ export function HaFloorplan({ instances, entityStates, onShowHistory }: HaFloorp
   if (instances.length === 0) {
     return (
       <div style={{ textAlign: 'center', padding: '48px 24px', color: 'var(--text-muted)' }}>
-        <p style={{ fontSize: 14 }}>Keine Home Assistant Instanz konfiguriert.</p>
+        <p style={{ fontSize: 14 }}>{t('floorplan.no_instance')}</p>
       </div>
     )
   }
@@ -738,7 +741,7 @@ export function HaFloorplan({ instances, entityStates, onShowHistory }: HaFloorp
             display: 'flex', alignItems: 'center', gap: 4,
           }}
         >
-          <Plus size={12} /> Etage
+          <Plus size={12} /> {t('floorplan.add_floor')}
         </button>
 
         {/* Import button (always visible) */}
@@ -771,9 +774,9 @@ export function HaFloorplan({ instances, entityStates, onShowHistory }: HaFloorp
           borderRadius: 'var(--radius-lg)', color: 'var(--text-muted)',
           border: '1px solid var(--glass-border)',
         }}>
-          <p style={{ fontSize: 14, marginBottom: 16 }}>Noch kein Grundriss angelegt.</p>
+          <p style={{ fontSize: 14, marginBottom: 16 }}>{t('floorplan.no_floorplan')}</p>
           <button className="btn btn-primary" onClick={() => setShowAddModal(true)} style={{ gap: 6 }}>
-            <Plus size={14} /> Ersten Grundriss anlegen
+            <Plus size={14} /> {t('floorplan.add_first')}
           </button>
         </div>
       )}
@@ -818,7 +821,7 @@ export function HaFloorplan({ instances, entityStates, onShowHistory }: HaFloorp
                   disabled={undoStack.length === 0}
                   style={{ gap: 6, fontSize: 12 }}
                 >
-                  <Undo size={12} /> Rückgängig
+                  <Undo size={12} /> {t('floorplan.undo')}
                 </button>
                 <div style={{ flex: 1 }} />
                 {/* Image upload */}
@@ -828,7 +831,7 @@ export function HaFloorplan({ instances, entityStates, onShowHistory }: HaFloorp
                   borderRadius: 'var(--radius-sm)', border: '1px solid var(--glass-border)',
                 }}>
                   <ImageIcon size={12} />
-                  {activeFloorplan.image_url ? 'Bild ändern' : 'Bild hochladen'}
+                  {activeFloorplan.image_url ? t('floorplan.change_image') : t('floorplan.upload')}
                   <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => {
                     const file = e.target.files?.[0]
                     if (file) handleImageUpload(file).catch(() => {})

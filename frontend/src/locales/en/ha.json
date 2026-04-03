@@ -43,8 +43,15 @@
   "floorplan": {
     "title": "Floor Plan",
     "upload": "Upload image",
+    "change_image": "Change image",
     "no_image": "No floor plan image available.",
-    "place_entity": "Place entity"
+    "place_entity": "Place entity",
+    "no_entities": "No entities",
+    "no_instance": "No Home Assistant instance configured.",
+    "no_floorplan": "No floor plan created yet.",
+    "add_first": "Create first floor plan",
+    "add_floor": "Floor",
+    "undo": "Undo"
   },
   "alerts": {
     "title": "Alerts",
@@ -54,12 +61,59 @@
     "condition": "Condition",
     "message": "Message",
     "min_interval": "Min. interval (sec)",
-    "delete_confirm": "Delete alert?"
+    "delete_confirm": "Delete alert?",
+    "header": "Notifications",
+    "no_configured": "No notifications configured yet.",
+    "new_notification": "New Notification",
+    "add_notification": "Add notification",
+    "deactivate": "Deactivate",
+    "activate": "Activate",
+    "delete": "Delete",
+    "condition_types": {
+      "state_equals": "State equals",
+      "state_above": "Value above",
+      "state_below": "Value below",
+      "state_changes": "State changes"
+    },
+    "form": {
+      "entity_id": "Entity ID",
+      "condition_type": "Condition type",
+      "condition_value": "Condition value",
+      "message": "Message",
+      "cancel": "Cancel",
+      "create": "Create",
+      "error_entity_required": "Entity ID required",
+      "error_message_required": "Message required",
+      "error_value_required": "Condition value required",
+      "error_create": "Error creating notification"
+    }
   },
   "history": {
     "title": "History",
     "no_data": "No history data",
     "loading": "Loading history…"
+  },
+  "entity_history": {
+    "title": "History: {{name}}",
+    "no_data": "No history data available.",
+    "col_time": "Time",
+    "col_status": "Status",
+    "error_loading": "Error loading"
+  },
+  "gps": {
+    "no_gps_selected": "No GPS data available for selected persons",
+    "privacy_notice": "GPS data is only displayed locally — not transmitted to third parties",
+    "no_instance": "No HA instance selected.",
+    "no_persons": "No person.* entities found in Home Assistant.",
+    "persons_selected": "Persons ({{selected}}/{{total}} selected)"
+  },
+  "presence": {
+    "no_gps_data": "No GPS data available",
+    "map_unavailable": "GPS map unavailable",
+    "show_gps": "Show GPS map",
+    "hide_gps": "Hide GPS map",
+    "gps_btn_on": "GPS off",
+    "gps_btn_off": "GPS map"
   },
   "view": {
     "panels": "Panels",

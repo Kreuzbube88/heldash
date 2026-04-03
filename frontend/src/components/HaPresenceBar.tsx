@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Map, Info } from 'lucide-react'
 import type { HaEntityFull } from '../types'
 import { LS_FLOORPLAN_GPS } from '../constants'
@@ -42,6 +43,7 @@ interface GpsMapProps {
 }
 
 function GpsMap({ persons }: GpsMapProps) {
+  const { t } = useTranslation('ha')
   const mapRef = useRef<HTMLDivElement>(null)
   const [available, setAvailable] = useState<boolean | null>(null) // null=loading
   const mapInstanceRef = useRef<unknown>(null)
@@ -149,7 +151,7 @@ function GpsMap({ persons }: GpsMapProps) {
   if (personsWithGps.length === 0) {
     return (
       <div style={{ padding: '12px 16px', color: 'var(--text-muted)', fontSize: 12, textAlign: 'center' }}>
-        Keine GPS-Daten verfügbar
+        {t('presence.no_gps_data')}
       </div>
     )
   }
@@ -157,7 +159,7 @@ function GpsMap({ persons }: GpsMapProps) {
   if (available === false) {
     return (
       <div style={{ padding: '12px 16px', color: 'var(--text-muted)', fontSize: 12, textAlign: 'center', display: 'flex', alignItems: 'center', gap: 6 }}>
-        <Info size={12} /> GPS-Karte nicht verfügbar
+        <Info size={12} /> {t('presence.map_unavailable')}
       </div>
     )
   }
@@ -167,7 +169,7 @@ function GpsMap({ persons }: GpsMapProps) {
       <div ref={mapRef} style={{ height: 200, width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden' }} />
       {available === true && (
         <p style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 6, textAlign: 'center' }}>
-          GPS-Daten werden nur lokal angezeigt — keine Übertragung an Dritte
+          {t('gps.privacy_notice')}
         </p>
       )}
     </div>
@@ -181,6 +183,7 @@ interface HaPresenceBarProps {
 }
 
 export function HaPresenceBar({ persons }: HaPresenceBarProps) {
+  const { t } = useTranslation('ha')
   const [gpsEnabled, setGpsEnabled] = useState(
     () => localStorage.getItem(LS_FLOORPLAN_GPS) === 'true'
   )
@@ -253,10 +256,10 @@ export function HaPresenceBar({ persons }: HaPresenceBarProps) {
           className="btn btn-ghost"
           onClick={toggleGps}
           style={{ gap: 6, fontSize: 11, padding: '4px 10px' }}
-          title={gpsEnabled ? 'GPS-Karte ausblenden' : 'GPS-Karte anzeigen'}
+          title={gpsEnabled ? t('presence.hide_gps') : t('presence.show_gps')}
         >
           <Map size={12} />
-          {gpsEnabled ? 'GPS aus' : 'GPS-Karte'}
+          {gpsEnabled ? t('presence.gps_btn_on') : t('presence.gps_btn_off')}
         </button>
       </div>
 

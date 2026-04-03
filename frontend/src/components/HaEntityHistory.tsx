@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { X, Clock } from 'lucide-react'
 import { api } from '../api'
 import type { HaEntityFull, HaHistoryEntry } from '../types'
@@ -141,6 +142,7 @@ function StateChart({ entries }: { entries: HaHistoryEntry[] }) {
 }
 
 export function HaEntityHistory({ entity, instanceId, onClose }: Props) {
+  const { t } = useTranslation('ha')
   const [hours, setHours] = useState(24)
   const [entries, setEntries] = useState<HaHistoryEntry[]>([])
   const [loading, setLoading] = useState(false)
@@ -153,7 +155,7 @@ export function HaEntityHistory({ entity, instanceId, onClose }: Props) {
       const data = await api.ha.history(instanceId, entity.entity_id, h)
       setEntries(data)
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Fehler beim Laden')
+      setError(e instanceof Error ? e.message : t('entity_history.error_loading'))
     } finally {
       setLoading(false)
     }
@@ -194,7 +196,7 @@ export function HaEntityHistory({ entity, instanceId, onClose }: Props) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
           <Clock size={16} style={{ color: 'var(--accent)' }} />
           <h2 style={{ fontSize: 18, fontWeight: 600, margin: 0, color: 'var(--text-primary)' }}>
-            Verlauf: {name}
+            {t('entity_history.title', { name })}
           </h2>
         </div>
         <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginBottom: 20 }}>
@@ -229,14 +231,14 @@ export function HaEntityHistory({ entity, instanceId, onClose }: Props) {
             <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
               {entries.length === 0 ? (
                 <p style={{ color: 'var(--text-muted)', fontSize: 13, textAlign: 'center', padding: '24px 0' }}>
-                  Keine Verlaufsdaten verfügbar.
+                  {t('entity_history.no_data')}
                 </p>
               ) : (
                 <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ color: 'var(--text-muted)', textAlign: 'left', borderBottom: '1px solid var(--glass-border)' }}>
-                      <th style={{ padding: '4px 8px', fontWeight: 600 }}>Zeit</th>
-                      <th style={{ padding: '4px 8px', fontWeight: 600 }}>Status{unit ? ` (${unit})` : ''}</th>
+                      <th style={{ padding: '4px 8px', fontWeight: 600 }}>{t('entity_history.col_time')}</th>
+                      <th style={{ padding: '4px 8px', fontWeight: 600 }}>{t('entity_history.col_status')}{unit ? ` (${unit})` : ''}</th>
                     </tr>
                   </thead>
                   <tbody>

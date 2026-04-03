@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { X, Plus, Bell, Trash2, ToggleLeft, ToggleRight } from 'lucide-react'
 import { api } from '../api'
 import type { HaAlert, HaEntityFull } from '../types'
@@ -9,14 +10,8 @@ interface Props {
   instanceId: string | null
 }
 
-const CONDITION_TYPE_LABELS: Record<string, string> = {
-  state_equals: 'Status gleich',
-  state_above: 'Wert über',
-  state_below: 'Wert unter',
-  state_changes: 'Status ändert sich',
-}
-
 export function HaAlertsManager({ onClose, stateMap, instanceId }: Props) {
+  const { t } = useTranslation('ha')
   const [alerts, setAlerts] = useState<HaAlert[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -63,9 +58,9 @@ export function HaAlertsManager({ onClose, stateMap, instanceId }: Props) {
   const needsValue = formConditionType === 'state_equals' || formConditionType === 'state_above' || formConditionType === 'state_below'
 
   const handleCreate = async () => {
-    if (!formEntityId.trim()) return setFormError('Entity-ID erforderlich')
-    if (!formMessage.trim()) return setFormError('Nachricht erforderlich')
-    if (needsValue && !formConditionValue.trim()) return setFormError('Bedingungswert erforderlich')
+    if (!formEntityId.trim()) return setFormError(t('alerts.form.error_entity_required'))
+    if (!formMessage.trim()) return setFormError(t('alerts.form.error_message_required'))
+    if (needsValue && !formConditionValue.trim()) return setFormError(t('alerts.form.error_value_required'))
     setSaving(true)
     setFormError('')
     try {
@@ -84,7 +79,7 @@ export function HaAlertsManager({ onClose, stateMap, instanceId }: Props) {
       setFormMessage('')
       setEntitySearch('')
     } catch (e: unknown) {
-      setFormError(e instanceof Error ? e.message : 'Fehler beim Erstellen')
+      setFormError(e instanceof Error ? e.message : t('alerts.form.error_create'))
     } finally {
       setSaving(false)
     }
@@ -110,7 +105,7 @@ export function HaAlertsManager({ onClose, stateMap, instanceId }: Props) {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Bell size={16} style={{ color: 'var(--accent)' }} />
-          <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)' }}>Benachrichtigungen</span>
+          <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)' }}>{t('alerts.header')}</span>
           <span style={{ fontSize: 11, color: 'var(--text-muted)', background: 'var(--surface-2)', padding: '1px 8px', borderRadius: 'var(--radius-sm)' }}>
             {alerts.filter(a => a.enabled).length} / 20
           </span>
@@ -129,7 +124,7 @@ export function HaAlertsManager({ onClose, stateMap, instanceId }: Props) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
           {alerts.length === 0 && !showAdd && (
             <p style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', padding: '20px 0' }}>
-              Noch keine Benachrichtigungen konfiguriert.
+              {t('alerts.no_configured')}
             </p>
           )}
           {alerts.map(alert => (
@@ -151,7 +146,7 @@ export function HaAlertsManager({ onClose, stateMap, instanceId }: Props) {
                   {alert.entity_id}
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--accent)', marginTop: 2 }}>
-                  {CONDITION_TYPE_LABELS[alert.condition_type] ?? alert.condition_type}
+                  {t(`alerts.condition_types.${alert.condition_type}`, { defaultValue: alert.condition_type })}
                   {alert.condition_value ? `: ${alert.condition_value}` : ''}
                 </div>
               </div>
@@ -159,7 +154,7 @@ export function HaAlertsManager({ onClose, stateMap, instanceId }: Props) {
                 className="btn btn-ghost btn-icon"
                 style={{ flexShrink: 0, width: 28, height: 28, color: alert.enabled ? 'var(--status-online)' : 'var(--text-muted)' }}
                 onClick={() => handleToggle(alert)}
-                data-tooltip={alert.enabled ? 'Deaktivieren' : 'Aktivieren'}
+                data-tooltip={alert.enabled ? t('alerts.deactivate') : t('alerts.activate')}
               >
                 {alert.enabled ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
               </button>
@@ -167,7 +162,7 @@ export function HaAlertsManager({ onClose, stateMap, instanceId }: Props) {
                 className="btn btn-ghost btn-icon"
                 style={{ flexShrink: 0, width: 28, height: 28, color: 'var(--status-offline)' }}
                 onClick={() => handleDelete(alert.id)}
-                data-tooltip="Löschen"
+                data-tooltip={t('alerts.delete')}
               >
                 <Trash2 size={14} />
               </button>
@@ -179,11 +174,11 @@ export function HaAlertsManager({ onClose, stateMap, instanceId }: Props) {
       {/* Add form */}
       {showAdd ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 16, background: 'var(--surface-2)', borderRadius: 'var(--radius-md)' }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Neue Benachrichtigung</div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{t('alerts.new_notification')}</div>
 
           {/* Entity search */}
           <div className="form-group" style={{ marginBottom: 0, position: 'relative' }}>
-            <label className="form-label">Entity-ID</label>
+            <label className="form-label">{t('alerts.form.entity_id')}</label>
             <input
               className="form-input"
               placeholder="z.B. light.wohnzimmer"
@@ -224,22 +219,22 @@ export function HaAlertsManager({ onClose, stateMap, instanceId }: Props) {
           </div>
 
           <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label">Bedingungstyp</label>
+            <label className="form-label">{t('alerts.form.condition_type')}</label>
             <select
               className="form-input"
               value={formConditionType}
               onChange={e => setFormConditionType(e.target.value)}
               style={{ fontSize: 13 }}
             >
-              {Object.entries(CONDITION_TYPE_LABELS).map(([k, v]) => (
-                <option key={k} value={k}>{v}</option>
+              {(['state_equals', 'state_above', 'state_below', 'state_changes'] as const).map(k => (
+                <option key={k} value={k}>{t(`alerts.condition_types.${k}`)}</option>
               ))}
             </select>
           </div>
 
           {needsValue && (
             <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Bedingungswert</label>
+              <label className="form-label">{t('alerts.form.condition_value')}</label>
               <input
                 className="form-input"
                 placeholder={formConditionType === 'state_equals' ? 'z.B. on' : 'z.B. 25'}
@@ -251,7 +246,7 @@ export function HaAlertsManager({ onClose, stateMap, instanceId }: Props) {
           )}
 
           <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label">Nachricht</label>
+            <label className="form-label">{t('alerts.form.message')}</label>
             <input
               className="form-input"
               placeholder="z.B. Licht wurde eingeschaltet"
@@ -265,11 +260,11 @@ export function HaAlertsManager({ onClose, stateMap, instanceId }: Props) {
 
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="btn btn-ghost" onClick={() => { setShowAdd(false); setFormError('') }} style={{ flex: 1, justifyContent: 'center' }}>
-              Abbrechen
+              {t('alerts.form.cancel')}
             </button>
             <button className="btn btn-primary" onClick={handleCreate} disabled={saving} style={{ flex: 1, gap: 6, justifyContent: 'center' }}>
               {saving ? <div className="spinner" style={{ width: 13, height: 13, borderWidth: 2 }} /> : <Plus size={13} />}
-              Erstellen
+              {t('alerts.form.create')}
             </button>
           </div>
         </div>
@@ -280,7 +275,7 @@ export function HaAlertsManager({ onClose, stateMap, instanceId }: Props) {
           disabled={alerts.length >= 20}
           style={{ width: '100%', gap: 6, justifyContent: 'center' }}
         >
-          <Plus size={14} /> Benachrichtigung hinzufügen
+          <Plus size={14} /> {t('alerts.add_notification')}
         </button>
       )}
     </div>

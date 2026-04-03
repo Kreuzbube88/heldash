@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { Sun, Moon, RefreshCw, Plus, LogIn, LogOut, Pencil, LayoutGrid, LayoutList, Minus, Users } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useLanguageStore } from '../store/useLanguageStore'
 import { useStore } from '../store/useStore'
 import { useDashboardStore } from '../store/useDashboardStore'
@@ -26,6 +27,7 @@ const ACCENTS: { value: ThemeAccent; label: string; color: string }[] = [
 ]
 
 export function Topbar({ page, onAddService, onAddInstance, onAddWidget, onCheckAll, checking, onLogin }: Props) {
+  const { t } = useTranslation('common')
   const { language } = useLanguageStore()
   const dateLocale = language === 'de' ? 'de-DE' : 'en-US'
   const { settings, setThemeMode, setThemeAccent, isAuthenticated, isAdmin, authUser, logout, loadAll } = useStore()
@@ -135,14 +137,14 @@ export function Topbar({ page, onAddService, onAddInstance, onAddWidget, onCheck
               <div key={w.id} style={pillStyle}>
                 {label('AdGuard:')}
                 {isErr
-                  ? muted('unreachable')
+                  ? muted(t('status.unreachable'))
                   : <>
-                      {val(fmt(s.total_queries))} {muted('req')}
+                      {val(fmt(s.total_queries))} {muted(t('docker_widget.req'))}
                       {sep}
-                      {val(fmt(s.blocked_queries), 'var(--status-offline)')} {muted(`blocked (${s.blocked_percent}%)`)}
+                      {val(fmt(s.blocked_queries), 'var(--status-offline)')} {muted(`${t('docker_widget.blocked')} (${s.blocked_percent}%)`)}
                       {sep}
                       <span style={{ color: s.protection_enabled ? 'var(--status-online)' : '#f59e0b', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                        {s.protection_enabled ? '● Protected' : '● Paused'}
+                        {s.protection_enabled ? `● ${t('status.protected')}` : `● ${t('status.paused')}`}
                       </span>
                     </>
                 }
@@ -178,12 +180,12 @@ export function Topbar({ page, onAddService, onAddInstance, onAddWidget, onCheck
             return (
               <div key={w.id} style={pillStyle}>
                 {label('NPM:')}
-                {val(String(npm.proxy_hosts))} {muted('proxies')}
+                {val(String(npm.proxy_hosts))} {muted(t('docker_widget.proxies'))}
                 {sep}
-                {val(String(npm.streams))} {muted('streams')}
+                {val(String(npm.streams))} {muted(t('docker_widget.streams'))}
                 {sep}
-                {val(String(npm.certificates), npm.cert_expiring_soon > 0 ? '#f59e0b' : undefined)} {muted('certs')}
-                {npm.cert_expiring_soon > 0 && <>{sep}{val(String(npm.cert_expiring_soon), '#f59e0b')} {muted('expiring soon')}</>}
+                {val(String(npm.certificates), npm.cert_expiring_soon > 0 ? '#f59e0b' : undefined)} {muted(t('docker_widget.certs'))}
+                {npm.cert_expiring_soon > 0 && <>{sep}{val(String(npm.cert_expiring_soon), '#f59e0b')} {muted(t('docker_widget.expiring_soon'))}</>}
               </div>
             )
           }
@@ -197,11 +199,11 @@ export function Topbar({ page, onAddService, onAddInstance, onAddWidget, onCheck
               <div key={w.id} style={pillStyle}>
                 {label('Pi-hole:')}
                 {isErr
-                  ? muted('unreachable')
+                  ? muted(t('status.unreachable'))
                   : <>
-                      {val(fmt(p.total_queries))} {muted('req')}
+                      {val(fmt(p.total_queries))} {muted(t('docker_widget.req'))}
                       {sep}
-                      {val(fmt(p.blocked_queries), 'var(--status-offline)')} {muted(`blocked (${p.blocked_percent}%)`)}
+                      {val(fmt(p.blocked_queries), 'var(--status-offline)')} {muted(`${t('docker_widget.blocked')} (${p.blocked_percent}%)`)}
                     </>
                 }
               </div>
@@ -215,8 +217,8 @@ export function Topbar({ page, onAddService, onAddInstance, onAddWidget, onCheck
             const fmtDate = (d: string) => {
               const today = new Date(); today.setHours(0, 0, 0, 0)
               const dd = new Date(d + 'T00:00:00')
-              if (dd.getTime() === today.getTime()) return 'Today'
-              return dd.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
+              if (dd.getTime() === today.getTime()) return t('topbar.today')
+              return dd.toLocaleDateString(dateLocale, { weekday: 'short', month: 'short', day: 'numeric' })
             }
             return (
               <div key={w.id} style={pillStyle}>
@@ -228,7 +230,7 @@ export function Topbar({ page, onAddService, onAddInstance, onAddWidget, onCheck
                     {val(e.title + (e.type === 'episode' && e.season_number != null ? ` S${String(e.season_number).padStart(2,'0')}E${String(e.episode_number ?? 0).padStart(2,'0')}` : ''))}
                   </React.Fragment>
                 ))}
-                {entries.length > 3 && <>{sep}{muted(`+${entries.length - 3} more`)}</>}
+                {entries.length > 3 && <>{sep}{muted(t('time.more', { count: entries.length - 3 }))}</>}
               </div>
             )
           }
@@ -253,9 +255,9 @@ export function Topbar({ page, onAddService, onAddInstance, onAddWidget, onCheck
                 <span style={{ fontSize: 14 }}>{weatherIcon}</span>
                 {val(`${weather.temperature}${weather.unit}`, 'var(--accent)')}
                 {sep}
-                {muted('Feels')} {val(`${weather.apparent_temperature}${weather.unit}`)}
+                {muted(t('docker_widget.feels'))} {val(`${weather.apparent_temperature}${weather.unit}`)}
                 {sep}
-                {muted('Humid')} {val(`${weather.humidity}%`)}
+                {muted(t('docker_widget.humid'))} {val(`${weather.humidity}%`)}
               </div>
             )
           }
@@ -315,7 +317,7 @@ export function Topbar({ page, onAddService, onAddInstance, onAddWidget, onCheck
 
         <button
           className="btn btn-ghost btn-icon"
-          data-tooltip={mode === 'dark' ? 'Light mode' : 'Dark mode'}
+          data-tooltip={mode === 'dark' ? t('topbar.light_mode') : t('topbar.dark_mode')}
           onClick={() => setThemeMode(mode === 'dark' ? 'light' : 'dark')}
         >
           {mode === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
@@ -323,7 +325,7 @@ export function Topbar({ page, onAddService, onAddInstance, onAddWidget, onCheck
 
         <button
           className="btn btn-ghost btn-icon topbar-mobile-hide"
-          data-tooltip="Check all apps"
+          data-tooltip={t('topbar.check_all_apps')}
           onClick={onCheckAll}
           disabled={checking}
         >
@@ -340,12 +342,12 @@ export function Topbar({ page, onAddService, onAddInstance, onAddWidget, onCheck
             {isAdmin && (
               <button
                 className={`${guestMode ? 'btn btn-primary' : 'btn btn-ghost'} topbar-mobile-hide`}
-                data-tooltip={guestMode ? 'Exit guest mode' : 'Edit guest dashboard'}
+                data-tooltip={guestMode ? t('topbar.exit_guest_mode') : t('topbar.edit_guest_dashboard')}
                 onClick={() => setGuestMode(!guestMode)}
                 style={{ gap: 6 }}
               >
                 <Users size={15} />
-                Guest Mode
+                {t('topbar.guest_mode')}
               </button>
             )}
 
@@ -356,7 +358,7 @@ export function Topbar({ page, onAddService, onAddInstance, onAddWidget, onCheck
                   <>
                     <button className="btn btn-ghost topbar-mobile-hide" onClick={() => addPlaceholder('app')} style={{ gap: 6 }}>
                       <LayoutGrid size={15} />
-                      App
+                      {t('topbar_edit.app')}
                     </button>
                     <button className="btn btn-ghost topbar-mobile-hide" onClick={() => addPlaceholder('widget')} style={{ gap: 6 }}>
                       <LayoutList size={15} />
@@ -364,7 +366,7 @@ export function Topbar({ page, onAddService, onAddInstance, onAddWidget, onCheck
                     </button>
                     <button className="btn btn-ghost topbar-mobile-hide" onClick={() => addPlaceholder('row')} style={{ gap: 6 }}>
                       <Minus size={15} />
-                      Row
+                      {t('topbar_edit.row')}
                     </button>
                   </>
                 )}
@@ -374,7 +376,7 @@ export function Topbar({ page, onAddService, onAddInstance, onAddWidget, onCheck
                   style={{ gap: 6 }}
                 >
                   <Pencil size={15} />
-                  {editMode ? 'Done' : 'Edit Dashboard'}
+                  {editMode ? t('buttons.done') : t('topbar.edit_dashboard')}
                 </button>
               </>
             )}
@@ -384,19 +386,19 @@ export function Topbar({ page, onAddService, onAddInstance, onAddWidget, onCheck
         {isAdmin && page === 'media' && (
           <button className="btn btn-primary topbar-mobile-hide" onClick={onAddInstance} style={{ gap: 6 }}>
             <Plus size={16} />
-            Add Instance
+            {t('topbar.add_instance')}
           </button>
         )}
         {isAdmin && page === 'widgets' && (
           <button className="btn btn-primary topbar-mobile-hide" onClick={onAddWidget} style={{ gap: 6 }}>
             <Plus size={16} />
-            Add Widget
+            {t('topbar.add_widget')}
           </button>
         )}
         {isAdmin && page === 'services' && (
           <button className="btn btn-primary topbar-mobile-hide" onClick={onAddService} style={{ gap: 6 }}>
             <Plus size={16} />
-            Add App
+            {t('topbar.add_app')}
           </button>
         )}
 
@@ -407,7 +409,7 @@ export function Topbar({ page, onAddService, onAddInstance, onAddWidget, onCheck
             </span>
             <button
               className="btn btn-ghost btn-icon"
-              data-tooltip="Logout"
+              data-tooltip={t('topbar.logout')}
               onClick={async () => {
                 if (guestMode) await setGuestMode(false)
                 await logout()
@@ -420,7 +422,7 @@ export function Topbar({ page, onAddService, onAddInstance, onAddWidget, onCheck
         ) : (
           <button className="btn btn-ghost" onClick={onLogin} style={{ gap: 6 }}>
             <LogIn size={16} />
-            Login
+            {t('buttons.login')}
           </button>
         )}
       </div>

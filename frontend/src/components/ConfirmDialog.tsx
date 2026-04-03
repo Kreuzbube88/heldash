@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 
 export interface ConfirmOptions {
   title: string
@@ -21,6 +22,7 @@ export function useConfirm(): ConfirmContextValue {
 }
 
 export function ConfirmDialogProvider({ children }: { children: ReactNode }) {
+  const { t } = useTranslation('common')
   const [dialog, setDialog] = useState<ConfirmOptions | null>(null)
   const resolveRef = useRef<((v: boolean) => void) | null>(null)
 
@@ -67,14 +69,14 @@ export function ConfirmDialogProvider({ children }: { children: ReactNode }) {
             )}
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
               <button className="btn btn-ghost" onClick={() => handleClose(false)}>
-                Cancel
+                {t('buttons.cancel')}
               </button>
               <button
                 className={`btn ${dialog.danger !== false ? 'btn-danger' : 'btn-primary'}`}
                 onClick={() => handleClose(true)}
                 autoFocus
               >
-                {dialog.confirmLabel ?? 'Confirm'}
+                {dialog.confirmLabel ?? t('buttons.confirm')}
               </button>
             </div>
           </div>

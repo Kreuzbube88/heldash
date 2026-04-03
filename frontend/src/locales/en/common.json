@@ -113,7 +113,29 @@
     "certs": "certs",
     "expiring_soon": "expiring soon",
     "feels": "Feels",
-    "humid": "Humid"
+    "humid": "Humid",
+    "wind": "Wind"
+  },
+  "topbar_edit": {
+    "row": "Row",
+    "app": "App"
+  },
+  "icon_picker": {
+    "change": "Change",
+    "choose": "Choose Icon",
+    "modal_title": "Choose Icon",
+    "tab_search": "Search",
+    "tab_upload": "Upload",
+    "search_placeholder": "e.g. radarr, jellyfin, ...",
+    "search_hint": "Enter a search term to find icons",
+    "no_results": "No icons found for \"{{query}}\"",
+    "dropzone_label": "Click or drop file here",
+    "dropzone_hint": "PNG, JPG, SVG, WEBP · max 512 KB",
+    "error_too_large": "Image too large (max 512 KB)",
+    "error_unsupported": "Unsupported type. Use PNG, JPG, SVG or WEBP.",
+    "error_search": "Search failed",
+    "error_download": "Download failed",
+    "error_upload": "Upload failed"
   },
   "empty": {
     "no_data": "No data"

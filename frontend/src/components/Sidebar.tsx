@@ -226,6 +226,7 @@ function BottomNavBar({ page, onNavigate }: { page: string; onNavigate: (p: stri
 // ── SidebarWidget ─────────────────────────────────────────────────────────────
 
 function SidebarWidget({ widget }: { widget: Widget }) {
+  const { t, i18n } = useTranslation('common')
   const { stats } = useWidgetStore()
   const { containers } = useDockerStore()
   const s = stats[widget.id]
@@ -266,12 +267,12 @@ function SidebarWidget({ widget }: { widget: Widget }) {
     const ag = s as AdGuardStats
     const fmt = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n)
     if (ag.total_queries === -1) {
-      body = <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>Unreachable</span>
+      body = <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>{t('status.unreachable')}</span>
     } else {
       body = <>
         {row('Queries', fmt(ag.total_queries))}
         {row('Blocked', `${ag.blocked_percent}%`, 'var(--status-offline)')}
-        {row('Status', ag.protection_enabled ? 'Protected' : 'Paused', ag.protection_enabled ? 'var(--status-online)' : '#f59e0b')}
+        {row('Status', ag.protection_enabled ? t('status.protected') : t('status.paused'), ag.protection_enabled ? 'var(--status-online)' : '#f59e0b')}
       </>
     }
   } else if (widget.type === 'home_assistant' && Array.isArray(s)) {
@@ -301,12 +302,13 @@ function SidebarWidget({ widget }: { widget: Widget }) {
     const entries = s as CalendarEntry[]
     const upcoming = entries.slice(0, 3)
     if (upcoming.length === 0) return null
+    const dateLocale = i18n.language === 'de' ? 'de-DE' : 'en-US'
     const fmtDate = (d: string) => {
       const today = new Date(); today.setHours(0, 0, 0, 0)
       const dd = new Date(d + 'T00:00:00')
-      if (dd.getTime() === today.getTime()) return 'Today'
-      if (dd.getTime() === today.getTime() + 86400000) return 'Tomorrow'
-      return dd.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })
+      if (dd.getTime() === today.getTime()) return t('time.today')
+      if (dd.getTime() === today.getTime() + 86400000) return t('time.tomorrow')
+      return dd.toLocaleDateString(dateLocale, { weekday: 'short', day: 'numeric', month: 'short' })
     }
     body = <>
       {upcoming.map(e => (
@@ -317,7 +319,7 @@ function SidebarWidget({ widget }: { widget: Widget }) {
           </span>
         </div>
       ))}
-      {entries.length > 3 && <span style={{ color: 'var(--text-muted)', fontSize: 10 }}>+{entries.length - 3} more</span>}
+      {entries.length > 3 && <span style={{ color: 'var(--text-muted)', fontSize: 10 }}>{t('time.more', { count: entries.length - 3 })}</span>}
     </>
   } else if (widget.type === 'weather' && s) {
     const w = s as WeatherStats
@@ -337,9 +339,9 @@ function SidebarWidget({ widget }: { widget: Widget }) {
       const wIcon = SIDEBAR_WEATHER_ICONS[w.weather_code] ?? '🌡️'
       body = <>
         {row('Temp', `${wIcon} ${w.temperature}${w.unit}`, 'var(--accent)')}
-        {row('Feels', `${w.apparent_temperature}${w.unit}`)}
-        {row('Humid', `${w.humidity}%`)}
-        {row('Wind', `${w.wind_speed} km/h`)}
+        {row(t('docker_widget.feels'), `${w.apparent_temperature}${w.unit}`)}
+        {row(t('docker_widget.humid'), `${w.humidity}%`)}
+        {row(t('docker_widget.wind'), `${w.wind_speed} km/h`)}
       </>
     }
   } else {

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { Search, Upload, X, Image } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { api } from '../api'
 
 interface IconSearchResult {
@@ -16,6 +17,7 @@ interface IconPickerProps {
 }
 
 export function IconPicker({ iconId, iconUrl, onChange }: IconPickerProps) {
+  const { t } = useTranslation('common')
   const [open, setOpen] = useState(false)
   const [tab, setTab] = useState<'search' | 'upload'>('search')
   const [query, setQuery] = useState('')
@@ -49,7 +51,7 @@ export function IconPicker({ iconId, iconUrl, onChange }: IconPickerProps) {
         const res = await api.icons.search(q.trim())
         setResults(res.icons)
       } catch (e) {
-        setSearchError(e instanceof Error ? e.message : 'Search failed')
+        setSearchError(e instanceof Error ? e.message : t('icon_picker.error_search'))
       } finally {
         setSearching(false)
       }
@@ -63,16 +65,16 @@ export function IconPicker({ iconId, iconUrl, onChange }: IconPickerProps) {
       onChange(res.id)
       setOpen(false)
     } catch (e) {
-      setSearchError(e instanceof Error ? e.message : 'Download failed')
+      setSearchError(e instanceof Error ? e.message : t('icon_picker.error_download'))
     } finally {
       setDownloading(null)
     }
   }
 
   const handleFileUpload = async (file: File) => {
-    if (file.size > 512 * 1024) { setUploadError('Image too large (max 512 KB)'); return }
+    if (file.size > 512 * 1024) { setUploadError(t('icon_picker.error_too_large')); return }
     const validTypes = ['image/png', 'image/jpeg', 'image/svg+xml', 'image/webp']
-    if (!validTypes.includes(file.type)) { setUploadError('Unsupported type. Use PNG, JPG, SVG or WEBP.'); return }
+    if (!validTypes.includes(file.type)) { setUploadError(t('icon_picker.error_unsupported')); return }
     setUploadError(null)
     const reader = new FileReader()
     reader.onload = async () => {
@@ -83,7 +85,7 @@ export function IconPicker({ iconId, iconUrl, onChange }: IconPickerProps) {
         onChange(res.id)
         setOpen(false)
       } catch (e) {
-        setUploadError(e instanceof Error ? e.message : 'Upload failed')
+        setUploadError(e instanceof Error ? e.message : t('icon_picker.error_upload'))
       }
     }
     reader.readAsDataURL(file)
@@ -102,7 +104,7 @@ export function IconPicker({ iconId, iconUrl, onChange }: IconPickerProps) {
           </div>
         )}
         <button type="button" className="btn btn-ghost btn-sm" onClick={() => setOpen(true)} style={{ gap: 4 }}>
-          {previewUrl ? 'Ändern' : 'Icon wählen'}
+          {previewUrl ? t('icon_picker.change') : t('icon_picker.choose')}
         </button>
         {previewUrl && (
           <button type="button" className="btn btn-ghost btn-sm" onClick={() => onChange(null)} style={{ color: 'var(--text-muted)', padding: '4px 8px' }}>
@@ -115,20 +117,20 @@ export function IconPicker({ iconId, iconUrl, onChange }: IconPickerProps) {
         <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setOpen(false) }} style={{ zIndex: 1100 }}>
           <div className="glass modal" style={{ width: '100%', maxWidth: 560, maxHeight: '80vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 20px 0' }}>
-              <h3 style={{ margin: 0, fontFamily: 'var(--font-display)', fontSize: 16 }}>Icon wählen</h3>
+              <h3 style={{ margin: 0, fontFamily: 'var(--font-display)', fontSize: 16 }}>{t('icon_picker.modal_title')}</h3>
               <button className="btn btn-ghost btn-icon" onClick={() => setOpen(false)}><X size={16} /></button>
             </div>
 
             <div style={{ display: 'flex', gap: 4, padding: '12px 20px 0' }}>
-              {(['search', 'upload'] as const).map(t => (
+              {(['search', 'upload'] as const).map(tabKey => (
                 <button
-                  key={t}
+                  key={tabKey}
                   type="button"
-                  className={`btn btn-sm ${tab === t ? 'btn-primary' : 'btn-ghost'}`}
-                  onClick={() => setTab(t)}
+                  className={`btn btn-sm ${tab === tabKey ? 'btn-primary' : 'btn-ghost'}`}
+                  onClick={() => setTab(tabKey)}
                   style={{ fontSize: 12 }}
                 >
-                  {t === 'search' ? 'Suche' : 'Upload'}
+                  {tabKey === 'search' ? t('icon_picker.tab_search') : t('icon_picker.tab_upload')}
                 </button>
               ))}
             </div>
@@ -141,7 +143,7 @@ export function IconPicker({ iconId, iconUrl, onChange }: IconPickerProps) {
                     <input
                       className="form-input"
                       style={{ paddingLeft: 32 }}
-                      placeholder="z.B. radarr, jellyfin, ..."
+                      placeholder={t('icon_picker.search_placeholder')}
                       value={query}
                       onChange={e => handleQueryChange(e.target.value)}
                       autoFocus
@@ -156,12 +158,12 @@ export function IconPicker({ iconId, iconUrl, onChange }: IconPickerProps) {
                     )}
                     {!searching && !query.trim() && (
                       <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--text-muted)', fontSize: 13 }}>
-                        Suchbegriff eingeben um Icons zu finden
+                        {t('icon_picker.search_hint')}
                       </div>
                     )}
                     {!searching && query.trim() && results.length === 0 && !searchError && (
                       <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--text-muted)', fontSize: 13 }}>
-                        Keine Icons gefunden für „{query}"
+                        {t('icon_picker.no_results', { query })}
                       </div>
                     )}
                     {!searching && results.length > 0 && (
@@ -199,8 +201,8 @@ export function IconPicker({ iconId, iconUrl, onChange }: IconPickerProps) {
                     onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFileUpload(f) }}
                   >
                     <Upload size={24} style={{ color: 'var(--text-muted)', marginBottom: 8 }} />
-                    <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Klicken oder Datei ablegen</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>PNG, JPG, SVG, WEBP · max. 512 KB</div>
+                    <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{t('icon_picker.dropzone_label')}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>{t('icon_picker.dropzone_hint')}</div>
                   </div>
                   <input
                     ref={fileRef}

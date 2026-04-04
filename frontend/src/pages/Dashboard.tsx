@@ -711,15 +711,6 @@ export function Dashboard({ onEdit }: Props) {
   const { instances, loadInstances, loadAllStats } = useArrStore()
   const { items, groups, editMode, guestMode, loading, reorder, reorderGroups, createGroup, showVisibilityOverlay, setShowVisibilityOverlay } = useDashboardStore()
 
-  // TEMP DEBUG: log groups/items state
-  useEffect(() => {
-    console.log('🔍 Dashboard Store State:', {
-      groupsCount: groups.length,
-      groups: groups.map(g => ({ id: g.id, name: g.name, itemsCount: g.items?.length ?? 0, hasItemsArray: Array.isArray(g.items) })),
-      ungroupedItemsCount: items.length
-    })
-  }, [groups, items])
-
   const { loadStats, startPollingAll, stopPollingAll } = useWidgetStore()
   const { loadContainers } = useDockerStore()
   const { bookmarks, loadBookmarks } = useBookmarkStore()

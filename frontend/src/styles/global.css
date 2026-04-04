@@ -1251,6 +1251,13 @@ select.form-input option {
   font-weight: 500;
   color: var(--text-primary);
   font-family: var(--font-mono);
+  overflow-x: auto;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+
+.topbar-center::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
 }
 
 .topbar-actions {
@@ -1258,6 +1265,110 @@ select.form-input option {
   justify-content: flex-end;
   align-items: center;
   gap: var(--spacing-md);
+}
+
+/* ─── Topbar Dropdown ──────────────────────────────────────────────────── */
+.topbar-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 260px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 16px rgba(var(--accent-rgb), 0.3);
+  z-index: 1000;
+  animation: dropdownSlideIn 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+}
+
+@keyframes dropdownSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.topbar-dropdown-section {
+  padding: var(--spacing-sm) 0;
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.topbar-dropdown-section:last-child {
+  border-bottom: none;
+}
+
+.topbar-dropdown-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: var(--spacing-xs) var(--spacing-lg);
+  margin-bottom: var(--spacing-xs);
+}
+
+.topbar-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  width: 100%;
+  padding: var(--spacing-sm) var(--spacing-lg);
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 150ms ease;
+  text-align: left;
+}
+
+.topbar-dropdown-item:hover:not(:disabled) {
+  background: var(--accent-subtle);
+  color: var(--accent);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.topbar-dropdown-item:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.topbar-dropdown-item svg {
+  flex-shrink: 0;
+  color: currentColor;
+}
+
+@media (max-width: 767px) {
+  .topbar-dropdown {
+    position: fixed;
+    top: 64px;
+    right: 0;
+    left: 0;
+    min-width: unset;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    animation: dropdownSlideInMobile 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @keyframes dropdownSlideInMobile {
+    from {
+      opacity: 0;
+      transform: translateY(-16px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
 }
 
 /* ─── Empty State ─────────────────────────────────────────────────────────── */

@@ -76,7 +76,11 @@
     "add_app": "Add App",
     "logout": "Logout",
     "today": "Today",
-    "tomorrow": "Tomorrow"
+    "tomorrow": "Tomorrow",
+    "theme": "Theme",
+    "accent": "Accent",
+    "actions": "Actions",
+    "account": "Account"
   },
   "form": {
     "name": "Name",

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Sun, Moon, RefreshCw, Plus, LogIn, LogOut, Pencil, LayoutGrid, LayoutList, Minus, Users } from 'lucide-react'
+import { Sun, Moon, RefreshCw, Plus, LogIn, LogOut, Pencil, LayoutGrid, LayoutList, Minus, Users, MoreVertical } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useLanguageStore } from '../store/useLanguageStore'
 import { useStore } from '../store/useStore'
@@ -36,6 +36,8 @@ export function Topbar({ page, onAddService, onAddInstance, onAddWidget, onCheck
   const { containers, loadContainers } = useDockerStore()
   const mode = settings?.theme_mode ?? 'dark'
   const accent = settings?.theme_accent ?? 'cyan'
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const dropdownRef = React.useRef<HTMLDivElement>(null)
 
   // Users in grp_guest (or no group) cannot edit the dashboard
   const isGuestUser = !isAdmin && (!authUser?.groupId || authUser.groupId === 'grp_guest')
@@ -58,6 +60,19 @@ export function Topbar({ page, onAddService, onAddInstance, onAddWidget, onCheck
   }, [])
 
   const serverNow = new Date(now.getTime() + serverOffset)
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false)
+      }
+    }
+    if (dropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [dropdownOpen])
 
   // Re-load widgets whenever auth state changes so backend permission filtering is applied
   useEffect(() => {
@@ -100,6 +115,7 @@ export function Topbar({ page, onAddService, onAddInstance, onAddWidget, onCheck
             background: 'rgba(var(--accent-rgb), 0.06)',
             boxShadow: '0 0 8px rgba(var(--accent-rgb), 0.25)',
             fontSize: 12,
+            flexShrink: 0,
           }
           const label = (text: string) => (
             <span style={{ color: 'var(--accent)', fontWeight: 700, letterSpacing: '0.3px', marginRight: 2 }}>{text}</span>
@@ -293,138 +309,196 @@ export function Topbar({ page, onAddService, onAddInstance, onAddWidget, onCheck
       </div>
 
       <div className="topbar-actions">
-        {/* Accent picker */}
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginRight: 4 }}>
-          {ACCENTS.map(a => (
-            <button
-              key={a.value}
-              data-tooltip={a.label}
-              onClick={() => setThemeAccent(a.value)}
-              style={{
-                width: 16, height: 16,
-                borderRadius: '50%',
-                background: a.color,
-                border: accent === a.value ? `2px solid white` : '2px solid transparent',
-                cursor: 'pointer',
-                outline: accent === a.value ? `2px solid ${a.color}` : 'none',
-                outlineOffset: 1,
-                transition: 'all 150ms ease',
-                boxShadow: accent === a.value ? `0 0 8px ${a.color}` : 'none',
-              }}
-            />
-          ))}
-        </div>
+        <div ref={dropdownRef} style={{ position: 'relative' }}>
+          <button
+            className="btn btn-ghost btn-icon"
+            onClick={() => setDropdownOpen(!dropdownOpen)}
+            style={{
+              background: dropdownOpen ? 'var(--accent-subtle)' : undefined,
+              color: dropdownOpen ? 'var(--accent)' : undefined,
+            }}
+          >
+            <MoreVertical size={18} />
+          </button>
 
-        <button
-          className="btn btn-ghost btn-icon"
-          data-tooltip={mode === 'dark' ? t('topbar.light_mode') : t('topbar.dark_mode')}
-          onClick={() => setThemeMode(mode === 'dark' ? 'light' : 'dark')}
-        >
-          {mode === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-        </button>
+          {dropdownOpen && (
+            <div className="topbar-dropdown">
+              {/* Theme Section */}
+              <div className="topbar-dropdown-section">
+                <div className="topbar-dropdown-label">{t('topbar.theme')}</div>
 
-        <button
-          className="btn btn-ghost btn-icon topbar-mobile-hide"
-          data-tooltip={t('topbar.check_all_apps')}
-          onClick={onCheckAll}
-          disabled={checking}
-        >
-          {checking
-            ? <div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
-            : <RefreshCw size={16} />
-          }
-        </button>
+                <div className="topbar-dropdown-item" style={{ paddingTop: 8, paddingBottom: 8 }}>
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{t('topbar.accent')}</span>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {ACCENTS.map(a => (
+                      <button
+                        key={a.value}
+                        onClick={() => setThemeAccent(a.value)}
+                        style={{
+                          width: 20, height: 20,
+                          borderRadius: '50%',
+                          background: a.color,
+                          border: accent === a.value ? `2px solid white` : '2px solid transparent',
+                          cursor: 'pointer',
+                          outline: accent === a.value ? `2px solid ${a.color}` : 'none',
+                          outlineOffset: 1,
+                          transition: 'all 150ms ease',
+                          boxShadow: accent === a.value ? `0 0 12px ${a.color}` : 'none',
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
 
-        {/* Dashboard controls */}
-        {page === 'dashboard' && (
-          <>
-            {/* Guest Mode toggle — admin only, always visible even when in guest mode */}
-            {isAdmin && (
-              <button
-                className={`${guestMode ? 'btn btn-primary' : 'btn btn-ghost'} topbar-mobile-hide`}
-                data-tooltip={guestMode ? t('topbar.exit_guest_mode') : t('topbar.edit_guest_dashboard')}
-                onClick={() => setGuestMode(!guestMode)}
-                style={{ gap: 6 }}
-              >
-                <Users size={15} />
-                {t('topbar.guest_mode')}
-              </button>
-            )}
+                <button
+                  className="topbar-dropdown-item"
+                  onClick={() => setThemeMode(mode === 'dark' ? 'light' : 'dark')}
+                >
+                  {mode === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+                  <span>{mode === 'dark' ? t('topbar.light_mode') : t('topbar.dark_mode')}</span>
+                </button>
+              </div>
 
-            {/* Edit Dashboard — all authenticated non-guest users */}
-            {canEditDashboard && (
-              <>
-                {editMode && (
+              {/* Actions Section */}
+              <div className="topbar-dropdown-section">
+                <div className="topbar-dropdown-label">{t('topbar.actions')}</div>
+
+                <button
+                  className="topbar-dropdown-item"
+                  onClick={() => { onCheckAll(); setDropdownOpen(false) }}
+                  disabled={checking}
+                >
+                  {checking
+                    ? <div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
+                    : <RefreshCw size={16} />
+                  }
+                  <span>{t('topbar.check_all_apps')}</span>
+                </button>
+
+                {page === 'dashboard' && (
                   <>
-                    <button className="btn btn-ghost topbar-mobile-hide" onClick={() => addPlaceholder('app')} style={{ gap: 6 }}>
-                      <LayoutGrid size={15} />
-                      {t('topbar_edit.app')}
-                    </button>
-                    <button className="btn btn-ghost topbar-mobile-hide" onClick={() => addPlaceholder('widget')} style={{ gap: 6 }}>
-                      <LayoutList size={15} />
-                      Widget
-                    </button>
-                    <button className="btn btn-ghost topbar-mobile-hide" onClick={() => addPlaceholder('row')} style={{ gap: 6 }}>
-                      <Minus size={15} />
-                      {t('topbar_edit.row')}
-                    </button>
+                    {isAdmin && (
+                      <button
+                        className="topbar-dropdown-item"
+                        onClick={() => { setGuestMode(!guestMode); setDropdownOpen(false) }}
+                        style={{
+                          background: guestMode ? 'var(--accent-subtle)' : undefined,
+                          color: guestMode ? 'var(--accent)' : undefined,
+                        }}
+                      >
+                        <Users size={16} />
+                        <span>{guestMode ? t('topbar.exit_guest_mode') : t('topbar.edit_guest_dashboard')}</span>
+                      </button>
+                    )}
+
+                    {canEditDashboard && (
+                      <>
+                        <button
+                          className="topbar-dropdown-item"
+                          onClick={() => { setEditMode(!editMode); setDropdownOpen(false) }}
+                          style={{
+                            background: editMode ? 'var(--accent-subtle)' : undefined,
+                            color: editMode ? 'var(--accent)' : undefined,
+                          }}
+                        >
+                          <Pencil size={16} />
+                          <span>{editMode ? t('buttons.done') : t('topbar.edit_dashboard')}</span>
+                        </button>
+
+                        {editMode && (
+                          <>
+                            <button
+                              className="topbar-dropdown-item"
+                              onClick={() => { addPlaceholder('app'); setDropdownOpen(false) }}
+                            >
+                              <LayoutGrid size={16} />
+                              <span>{t('topbar_edit.app')}</span>
+                            </button>
+                            <button
+                              className="topbar-dropdown-item"
+                              onClick={() => { addPlaceholder('widget'); setDropdownOpen(false) }}
+                            >
+                              <LayoutList size={16} />
+                              <span>Widget</span>
+                            </button>
+                            <button
+                              className="topbar-dropdown-item"
+                              onClick={() => { addPlaceholder('row'); setDropdownOpen(false) }}
+                            >
+                              <Minus size={16} />
+                              <span>{t('topbar_edit.row')}</span>
+                            </button>
+                          </>
+                        )}
+                      </>
+                    )}
                   </>
                 )}
-                <button
-                  className={`${editMode ? 'btn btn-primary' : 'btn btn-ghost'} topbar-mobile-hide`}
-                  onClick={() => setEditMode(!editMode)}
-                  style={{ gap: 6 }}
-                >
-                  <Pencil size={15} />
-                  {editMode ? t('buttons.done') : t('topbar.edit_dashboard')}
-                </button>
-              </>
-            )}
-          </>
-        )}
 
-        {isAdmin && page === 'media' && (
-          <button className="btn btn-primary topbar-mobile-hide" onClick={onAddInstance} style={{ gap: 6 }}>
-            <Plus size={16} />
-            {t('topbar.add_instance')}
-          </button>
-        )}
-        {isAdmin && page === 'widgets' && (
-          <button className="btn btn-primary topbar-mobile-hide" onClick={onAddWidget} style={{ gap: 6 }}>
-            <Plus size={16} />
-            {t('topbar.add_widget')}
-          </button>
-        )}
-        {isAdmin && page === 'services' && (
-          <button className="btn btn-primary topbar-mobile-hide" onClick={onAddService} style={{ gap: 6 }}>
-            <Plus size={16} />
-            {t('topbar.add_app')}
-          </button>
-        )}
+                {isAdmin && page === 'media' && (
+                  <button
+                    className="topbar-dropdown-item"
+                    onClick={() => { onAddInstance(); setDropdownOpen(false) }}
+                  >
+                    <Plus size={16} />
+                    <span>{t('topbar.add_instance')}</span>
+                  </button>
+                )}
+                {isAdmin && page === 'widgets' && (
+                  <button
+                    className="topbar-dropdown-item"
+                    onClick={() => { onAddWidget(); setDropdownOpen(false) }}
+                  >
+                    <Plus size={16} />
+                    <span>{t('topbar.add_widget')}</span>
+                  </button>
+                )}
+                {isAdmin && page === 'services' && (
+                  <button
+                    className="topbar-dropdown-item"
+                    onClick={() => { onAddService(); setDropdownOpen(false) }}
+                  >
+                    <Plus size={16} />
+                    <span>{t('topbar.add_app')}</span>
+                  </button>
+                )}
+              </div>
 
-        {isAuthenticated ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500 }}>
-              {authUser?.username}
-            </span>
-            <button
-              className="btn btn-ghost btn-icon"
-              data-tooltip={t('topbar.logout')}
-              onClick={async () => {
-                if (guestMode) await setGuestMode(false)
-                await logout()
-                await Promise.all([loadAll(), loadDashboard()])
-              }}
-            >
-              <LogOut size={16} />
-            </button>
-          </div>
-        ) : (
-          <button className="btn btn-ghost" onClick={onLogin} style={{ gap: 6 }}>
-            <LogIn size={16} />
-            {t('buttons.login')}
-          </button>
-        )}
+              {/* Account Section */}
+              <div className="topbar-dropdown-section">
+                <div className="topbar-dropdown-label">{t('topbar.account')}</div>
+                {isAuthenticated ? (
+                  <>
+                    <div className="topbar-dropdown-item" style={{ cursor: 'default', opacity: 0.7 }}>
+                      <Users size={16} />
+                      <span>{authUser?.username}</span>
+                    </div>
+                    <button
+                      className="topbar-dropdown-item"
+                      onClick={async () => {
+                        if (guestMode) await setGuestMode(false)
+                        await logout()
+                        await Promise.all([loadAll(), loadDashboard()])
+                        setDropdownOpen(false)
+                      }}
+                    >
+                      <LogOut size={16} />
+                      <span>{t('topbar.logout')}</span>
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    className="topbar-dropdown-item"
+                    onClick={() => { onLogin(); setDropdownOpen(false) }}
+                  >
+                    <LogIn size={16} />
+                    <span>{t('buttons.login')}</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </header>
   )

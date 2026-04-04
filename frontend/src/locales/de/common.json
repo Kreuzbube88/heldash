@@ -76,7 +76,11 @@
     "add_app": "App hinzufügen",
     "logout": "Abmelden",
     "today": "Heute",
-    "tomorrow": "Morgen"
+    "tomorrow": "Morgen",
+    "theme": "Design",
+    "accent": "Akzent",
+    "actions": "Aktionen",
+    "account": "Konto"
   },
   "form": {
     "name": "Name",

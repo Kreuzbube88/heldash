@@ -16,7 +16,7 @@ Recyclarr/CF Manager, activity logging and more.
 Bug reports and feature requests welcome via GitHub Issues.</Overview>
   <Category>Productivity: Tools: MediaApp:Other</Category>
   <WebUI>http://[IP]:[PORT:8282]</WebUI>
-  <TemplateURL>https://raw.githubusercontent.com/Kreuzbube88/heldash/main/heldash.xml</TemplateURL>
+  <TemplateURL>https://raw.githubusercontent.com/Kreuzbube88/heltemplates/main/heldash.xml</TemplateURL>
   <Icon>https://github.com/Kreuzbube88/heldash/blob/main/frontend/public/favicon.png?raw=true</Icon>
   <ExtraParams/>
   <PostArgs/>

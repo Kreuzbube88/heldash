@@ -59,7 +59,7 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { GripVertical, X, Container, ChevronDown, Eye, EyeOff, RefreshCw, Home } from 'lucide-react'
+import { GripVertical, X, Container, Eye, EyeOff, RefreshCw, Home } from 'lucide-react'
 
 // ── Shared edit-mode overlay (drag handle + remove button + group selector) ────
 function EditOverlay({
@@ -523,20 +523,6 @@ function renderDashboardItem(
   return null
 }
 
-// ── Group collapse helpers (mobile sessionStorage) ─────────────────────────────
-function getGroupCollapsed(id: string): boolean {
-  try {
-    const val = sessionStorage.getItem(`group-collapsed-${id}`)
-    if (val !== null) return val === 'true'
-  } catch { /* ignore */ }
-  return false
-}
-
-function setGroupCollapsed(id: string, val: boolean): void {
-  try {
-    sessionStorage.setItem(`group-collapsed-${id}`, String(val))
-  } catch { /* ignore */ }
-}
 
 // ── Sortable Group ─────────────────────────────────────────────────────────────
 function SortableGroup({ group, editMode, onEdit, hiddenServiceIds, hiddenWidgetIds, hiddenArrIds }: {
@@ -556,17 +542,7 @@ function SortableGroup({ group, editMode, onEdit, hiddenServiceIds, hiddenWidget
   const [editingName, setEditingName] = useState(false)
   const [nameVal, setNameVal] = useState(group.name)
   const [showHandle, setShowHandle] = useState(false)
-  const [collapsed, setCollapsed] = useState<boolean>(() => {
-    const stored = getGroupCollapsed(group.id)
-    if (sessionStorage.getItem(`group-collapsed-${group.id}`) !== null) return stored
-    return group.items.filter(i => i.type !== 'placeholder' && i.type !== 'placeholder_app' && i.type !== 'placeholder_widget' && i.type !== 'placeholder_row').length > 6
-  })
-
-  const handleToggleCollapse = () => {
-    const next = !collapsed
-    setCollapsed(next)
-    setGroupCollapsed(group.id, next)
-  }
+  const collapsed = false
 
   const groupSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -659,21 +635,10 @@ function SortableGroup({ group, editMode, onEdit, hiddenServiceIds, hiddenWidget
               </button>
             </div>
           )}
-          <button
-            className={`group-chevron${collapsed ? ' collapsed' : ''}`}
-            onClick={handleToggleCollapse}
-            title={collapsed ? t('edit.expand_group') : t('edit.collapse_group')}
-            style={{ marginLeft: editMode ? 0 : 'auto' }}
-          >
-            <ChevronDown size={14} />
-          </button>
         </div>
 
         {/* Items inside group */}
-        <div
-          className={`group-content${collapsed ? ' collapsed' : ''}`}
-          style={{ maxHeight: collapsed ? 0 : undefined }}
-        >
+        <div className="group-content">
         {group.items.length > 0 || editMode ? (
           <DndContext sensors={groupSensors} collisionDetection={closestCenter} onDragEnd={handleInnerDragEnd}>
             <SortableContext items={group.items.map(i => i.id)} strategy={rectSortingStrategy}>

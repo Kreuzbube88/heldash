@@ -745,6 +745,16 @@ export function Dashboard({ onEdit }: Props) {
   const { isAdmin, isAuthenticated } = useStore()
   const { instances, loadInstances, loadAllStats } = useArrStore()
   const { items, groups, editMode, guestMode, loading, reorder, reorderGroups, createGroup, showVisibilityOverlay, setShowVisibilityOverlay } = useDashboardStore()
+
+  // TEMP DEBUG: log groups/items state
+  useEffect(() => {
+    console.log('🔍 Dashboard Store State:', {
+      groupsCount: groups.length,
+      groups: groups.map(g => ({ id: g.id, name: g.name, itemsCount: g.items?.length ?? 0, hasItemsArray: Array.isArray(g.items) })),
+      ungroupedItemsCount: items.length
+    })
+  }, [groups, items])
+
   const { loadStats, startPollingAll, stopPollingAll } = useWidgetStore()
   const { loadContainers } = useDockerStore()
   const { bookmarks, loadBookmarks } = useBookmarkStore()
@@ -760,12 +770,13 @@ export function Dashboard({ onEdit }: Props) {
   const arrItemCount = items.filter(i => i.type === 'arr_instance').length +
     groups.reduce((sum, g) => sum + g.items.filter(i => i.type === 'arr_instance').length, 0)
 
-  // Load arr stats when dashboard has arr instances
+  // Load arr instances always; only load stats if there are arr items on dashboard
   useEffect(() => {
-    if (arrItemCount === 0) return
     if (instances.length === 0) {
-      loadInstances().then(() => loadAllStats()).catch(() => {})
-    } else {
+      loadInstances().then(() => {
+        if (arrItemCount > 0) loadAllStats().catch(() => {})
+      }).catch(() => {})
+    } else if (arrItemCount > 0) {
       loadAllStats().catch(() => {})
     }
   }, [arrItemCount])

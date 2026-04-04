@@ -89,16 +89,18 @@ export const useArrStore = create<ArrState>((set, get) => ({
     const { instances } = get()
     await Promise.allSettled(
       instances.filter(i => i.enabled).map(async (i) => {
-        const [statusResult, statsResult] = await Promise.allSettled([
-          api.arr.status(i.id),
-          api.arr.stats(i.id),
-        ])
+        // Prowlarr has no reliable stats endpoint — skip to avoid 502 errors
+        const promises: Promise<unknown>[] = [api.arr.status(i.id)]
+        if (i.type !== 'prowlarr') promises.push(api.arr.stats(i.id))
+
+        const [statusResult, statsResult] = await Promise.allSettled(promises)
+
         set(state => ({
           statuses: statusResult.status === 'fulfilled'
             ? { ...state.statuses, [i.id]: statusResult.value }
             : state.statuses,
-          stats: statsResult.status === 'fulfilled'
-            ? { ...state.stats, [i.id]: statsResult.value }
+          stats: statsResult && statsResult.status === 'fulfilled'
+            ? { ...state.stats, [i.id]: statsResult.value as ArrStats }
             : state.stats,
         }))
       })

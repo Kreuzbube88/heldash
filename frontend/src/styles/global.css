@@ -704,6 +704,7 @@ h4 { font-size: 15px; line-height: 1.5; }
 }
 
 .dashboard-group {
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-xl);
   padding: var(--spacing-2xl) var(--spacing-lg);
   display: flex;

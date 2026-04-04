@@ -117,9 +117,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
 
   updateGroup: async (id, data) => {
     await api.dashboard.updateGroup(id, data, get().guestMode)
-    set(state => ({
-      groups: state.groups.map(g => g.id === id ? { ...g, ...data } : g)
-    }))
+    await get().loadDashboard()
   },
 
   deleteGroup: async (id) => {
@@ -132,12 +130,8 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   },
 
   reorderGroups: async (orderedIds) => {
-    set(state => ({
-      groups: orderedIds
-        .map(id => state.groups.find(g => g.id === id)!)
-        .map((g, i) => ({ ...g, position: i }))
-    }))
     await api.dashboard.reorderGroups(orderedIds, get().guestMode)
+    await get().loadDashboard()
   },
 
   moveItemToGroup: async (itemId, groupId) => {
@@ -146,15 +140,8 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   },
 
   reorderGroupItems: async (groupId, orderedIds) => {
-    set(state => ({
-      groups: state.groups.map(g => g.id !== groupId ? g : {
-        ...g,
-        items: orderedIds
-          .map(id => g.items.find(i => i.id === id)!)
-          .map((item, i) => ({ ...item, position: i }))
-      })
-    }))
     await api.dashboard.reorderGroupItems(groupId, orderedIds, get().guestMode)
+    await get().loadDashboard()
   },
 
   isOnDashboard: (type, refId) => {

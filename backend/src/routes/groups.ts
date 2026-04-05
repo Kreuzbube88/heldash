@@ -27,7 +27,7 @@ export async function groupsRoutes(app: FastifyInstance) {
   const db = getDb()
 
   app.get('/api/groups', async () => {
-    return db.prepare('SELECT * FROM groups ORDER BY position').all()
+    return db.prepare('SELECT * FROM groups ORDER BY position').all() as GroupRow[]
   })
 
   app.post<{ Body: CreateGroupBody }>('/api/groups', { preHandler: [app.authenticate] }, async (req, reply) => {
@@ -35,7 +35,7 @@ export async function groupsRoutes(app: FastifyInstance) {
     if (!name) return reply.status(400).send({ error: 'name is required' })
     const id = nanoid()
     db.prepare('INSERT INTO groups (id, name, icon, position) VALUES (?, ?, ?, ?)').run(id, name, icon ?? null, position ?? 0)
-    return reply.status(201).send(db.prepare('SELECT * FROM groups WHERE id = ?').get(id))
+    return reply.status(201).send(db.prepare('SELECT * FROM groups WHERE id = ?').get(id) as GroupRow)
   })
 
   app.patch<{ Params: { id: string }; Body: PatchGroupBody }>('/api/groups/:id', { preHandler: [app.authenticate] }, async (req, reply) => {
@@ -44,10 +44,12 @@ export async function groupsRoutes(app: FastifyInstance) {
     const { name, icon, position } = req.body
     db.prepare('UPDATE groups SET name = COALESCE(?, name), icon = COALESCE(?, icon), position = COALESCE(?, position), updated_at = datetime(\'now\') WHERE id = ?')
       .run(name ?? null, icon ?? null, position ?? null, req.params.id)
-    return db.prepare('SELECT * FROM groups WHERE id = ?').get(req.params.id)
+    return db.prepare('SELECT * FROM groups WHERE id = ?').get(req.params.id) as GroupRow
   })
 
   app.delete<{ Params: { id: string } }>('/api/groups/:id', { preHandler: [app.authenticate] }, async (req, reply) => {
+    const existing = db.prepare('SELECT id FROM groups WHERE id = ?').get(req.params.id)
+    if (!existing) return reply.status(404).send({ error: 'Not found' })
     db.prepare('DELETE FROM groups WHERE id = ?').run(req.params.id)
     return reply.status(204).send()
   })

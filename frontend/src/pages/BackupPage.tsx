@@ -382,7 +382,7 @@ function GuideTab() {
 function HelbackupTab({ onNavigate }: { onNavigate?: (page: string) => void }) {
   const { t } = useTranslation('backup')
   const { instances } = useInstanceStore()
-  const { status, jobs, backups, backupsError, loading, error, triggeringJobId, fetchAll, triggerJob } = useHelbackupStore()
+  const { status, jobs, backups, backupsError, history, historyError, loading, error, triggeringJobId, fetchAll, triggerJob } = useHelbackupStore()
   const { toast } = useToast()
 
   const helbackupInstance = instances.find(i => i.type === 'helbackup' && i.enabled)
@@ -398,9 +398,9 @@ function HelbackupTab({ onNavigate }: { onNavigate?: (page: string) => void }) {
     const result = await triggerJob(jobId)
     if (result.success) {
       toast({ message: t('helbackup.job_triggered', { name: jobName }), type: 'success' })
-      setTimeout(() => { fetchAll().catch(() => {}) }, 2000)
     } else {
-      toast({ message: result.error ?? t('helbackup.job_trigger_failed'), type: 'error' })
+      const isForbidden = result.error?.includes('403') || result.error?.includes('FORBIDDEN')
+      toast({ message: isForbidden ? t('helbackup.trigger_no_permission') : (result.error ?? t('helbackup.job_trigger_failed')), type: 'error' })
     }
   }
 
@@ -526,6 +526,34 @@ function HelbackupTab({ onNavigate }: { onNavigate?: (page: string) => void }) {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Run history */}
+      {(history.length > 0 || historyError) && (
+        <div className="glass" style={{ padding: 20, borderRadius: 'var(--radius-lg)' }}>
+          <h4 style={{ margin: '0 0 12px', fontFamily: 'var(--font-display)', fontSize: 14 }}>{t('helbackup.run_history')}</h4>
+          {historyError ? (
+            <div style={{ fontSize: 12, color: 'var(--status-offline)', padding: '4px 0' }}>{historyError}</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {history.map(run => {
+                const statusColor = run.status === 'success' ? 'var(--status-online)' : run.status === 'running' ? 'var(--accent)' : run.status === 'failed' ? 'var(--status-offline)' : 'var(--text-muted)'
+                return (
+                  <div key={run.id} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12 }}>
+                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: statusColor, flexShrink: 0 }} />
+                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-secondary)' }}>
+                      {run.job_name ?? run.job_id}
+                    </span>
+                    <span style={{ color: 'var(--text-muted)', flexShrink: 0 }}>{new Date(run.started_at).toLocaleString()}</span>
+                    {run.duration_s != null && (
+                      <span style={{ color: 'var(--text-muted)', flexShrink: 0 }}>{run.duration_s}s</span>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>

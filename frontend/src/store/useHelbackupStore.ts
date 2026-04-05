@@ -1,12 +1,14 @@
 import { create } from 'zustand'
 import { api } from '../api'
-import type { HelbackupWidgetStatus, HelbackupJob, HelbackupBackup } from '../types'
+import type { HelbackupWidgetStatus, HelbackupJob, HelbackupBackup, HelbackupHistoryEntry } from '../types'
 
 interface HelbackupState {
   status: HelbackupWidgetStatus | null
   jobs: HelbackupJob[]
   backups: HelbackupBackup[]
+  history: HelbackupHistoryEntry[]
   backupsError: string | null
+  historyError: string | null
   loading: boolean
   error: string | null
   lastUpdate: Date | null
@@ -15,11 +17,13 @@ interface HelbackupState {
   triggerJob: (jobId: string) => Promise<{ success: boolean; error?: string }>
 }
 
-export const useHelbackupStore = create<HelbackupState>((set) => ({
+export const useHelbackupStore = create<HelbackupState>((set, get) => ({
   status: null,
   jobs: [],
   backups: [],
+  history: [],
   backupsError: null,
+  historyError: null,
   loading: false,
   error: null,
   lastUpdate: null,
@@ -28,23 +32,26 @@ export const useHelbackupStore = create<HelbackupState>((set) => ({
   fetchAll: async () => {
     set({ loading: true, error: null })
     try {
-      // Fetch status and jobs together — these must succeed to show the tab
       const [status, jobs] = await Promise.all([
         api.helbackup.status(),
         api.helbackup.jobs(),
       ])
 
-      // Backups are optional — a known HELBACKUP SQLite bug can affect this endpoint
       let backups: HelbackupBackup[] = []
       let backupsError: string | null = null
-      try {
-        const backupsData = await api.helbackup.backups()
-        backups = backupsData.backups
-      } catch (err) {
-        backupsError = err instanceof Error ? err.message : 'Failed to load backup history'
-      }
+      let history: HelbackupHistoryEntry[] = []
+      let historyError: string | null = null
 
-      set({ status, jobs, backups, backupsError, lastUpdate: new Date(), loading: false })
+      await Promise.all([
+        api.helbackup.backups().then(d => { backups = d.backups }).catch((err: unknown) => {
+          backupsError = err instanceof Error ? err.message : 'Failed to load backups'
+        }),
+        api.helbackup.history({ limit: 20 }).then(d => { history = d.history }).catch((err: unknown) => {
+          historyError = err instanceof Error ? err.message : 'Failed to load history'
+        }),
+      ])
+
+      set({ status, jobs, backups, backupsError, history, historyError, lastUpdate: new Date(), loading: false })
     } catch (err) {
       set({ error: err instanceof Error ? err.message : 'Failed to fetch HELBACKUP data', loading: false })
     }
@@ -54,7 +61,22 @@ export const useHelbackupStore = create<HelbackupState>((set) => ({
     set({ triggeringJobId: jobId })
     try {
       await api.helbackup.triggerJob(jobId)
-      set({ triggeringJobId: null })
+
+      // Poll /history?jobId=…&limit=1 every 5s until the run is no longer 'running'
+      const poll = async () => {
+        try {
+          const data = await api.helbackup.history({ jobId, limit: 1 })
+          const run = data.history[0]
+          if (run && run.status !== 'running') {
+            set({ triggeringJobId: null })
+            await get().fetchAll()
+            return
+          }
+        } catch { /* ignore poll errors, keep trying */ }
+        setTimeout(poll, 5_000)
+      }
+      setTimeout(poll, 2_000) // brief delay before first poll to let the run appear
+
       return { success: true }
     } catch (err) {
       set({ triggeringJobId: null })

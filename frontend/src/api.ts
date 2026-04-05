@@ -1,4 +1,4 @@
-import type { Service, Group, Settings, AuthUser, UserRecord, UserGroup, DashboardGroup, DashboardResponse, Widget, WidgetStats, DockerContainer, ContainerStats, Background, HaInstance, HaPanel, HaEntityFull, HaArea, EnergyData, CalendarEntry, HaFloorplan, HaFloorplanEntity, HaAlert, HaHistoryEntry, NetworkDevice, NetworkDeviceHistory, ScanResult, BackupSource, BackupStatusResult, ResourceSnapshot, ChangelogRelease, Instance, InstanceType, HelbackupWidgetStatus, HelbackupJob, HelbackupBackup } from './types'
+import type { Service, Group, Settings, AuthUser, UserRecord, UserGroup, DashboardGroup, DashboardResponse, Widget, WidgetStats, DockerContainer, ContainerStats, Background, HaInstance, HaPanel, HaEntityFull, HaArea, EnergyData, CalendarEntry, HaFloorplan, HaFloorplanEntity, HaAlert, HaHistoryEntry, NetworkDevice, NetworkDeviceHistory, ScanResult, BackupSource, BackupStatusResult, ResourceSnapshot, ChangelogRelease, Instance, InstanceType, HelbackupWidgetStatus, HelbackupJob, HelbackupBackup, HelbackupHistoryEntry } from './types'
 import type { SyncHistoryEntry, BackupEntry } from './types/recyclarr'
 import type { UnraidInstance, UnraidInfo, UnraidArray, UnraidParityHistory, UnraidContainer, UnraidVm, UnraidShare, UnraidUser, UnraidNotifications, UnraidConfig, UnraidPhysicalDisk, UnraidService, UnraidFlash, UnraidServer, UnraidOwner, UnraidMe, UnraidNetworkAccess, UnraidConnect, UnraidUpsDevice, UnraidUpsConfig, UnraidLogFile, UnraidPlugin, UnraidApiKey, UnraidDockerNetwork, UnraidMetricsDetailed } from './types/unraid'
 import type { ArrInstance, ArrStatus, ArrStats, ArrQueueResponse, ArrCalendarItem, ProwlarrIndexer, SabnzbdQueueData, SabnzbdHistoryData, SeerrRequest, SeerrRequestsResponse, RadarrMovie, SonarrSeries, ArrCustomFormat, ArrCFSpecification, ArrQualityProfile } from './types/arr'
@@ -579,6 +579,14 @@ export const api = {
     status: () => req<HelbackupWidgetStatus>('/helbackup/status'),
     jobs: () => req<HelbackupJob[]>('/helbackup/jobs'),
     backups: () => req<{ backups: HelbackupBackup[]; pagination: { total: number; limit: number; offset: number } }>('/helbackup/backups'),
+    history: (params?: { jobId?: string; status?: string; limit?: number }) => {
+      const q = new URLSearchParams()
+      if (params?.jobId) q.set('jobId', params.jobId)
+      if (params?.status) q.set('status', params.status)
+      if (params?.limit) q.set('limit', String(params.limit))
+      const qs = q.toString()
+      return req<{ history: HelbackupHistoryEntry[]; pagination: { total: number; limit: number; offset: number } }>(`/helbackup/history${qs ? `?${qs}` : ''}`)
+    },
     triggerJob: (jobId: string) => req<{ triggered: boolean; jobId: string; runId: string; message: string }>(`/helbackup/jobs/${jobId}/trigger`, { method: 'POST', body: JSON.stringify({}) }),
   },
 }

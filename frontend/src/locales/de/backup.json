@@ -25,8 +25,10 @@
     "open_interface": "HELBACKUP öffnen",
     "manual": "Manuell",
     "run_now": "Jetzt ausführen",
+    "run_history": "Ausführungsverlauf",
     "job_triggered": "{{name}} wurde gestartet",
-    "job_trigger_failed": "Job konnte nicht gestartet werden"
+    "job_trigger_failed": "Job konnte nicht gestartet werden",
+    "trigger_no_permission": "Token hat keine Schreibberechtigung"
   },
   "source": {
     "add": "Quelle hinzufügen",

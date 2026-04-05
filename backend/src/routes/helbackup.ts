@@ -108,6 +108,21 @@ export async function helbackupRoutes(app: FastifyInstance) {
     }
   })
 
+  app.get('/api/helbackup/history', { preHandler: [app.authenticate] }, async (req, reply) => {
+    const inst = await getHelbackupInstance()
+    if (!inst) return reply.status(404).send({ error: 'HELBACKUP instance not configured' })
+    const { jobId, status, limit = '50' } = req.query as Record<string, string>
+    const params = new URLSearchParams({ limit })
+    if (jobId) params.set('jobId', jobId)
+    if (status) params.set('status', status)
+    try {
+      const json = await helbackupGet<{ success: boolean; data: unknown }>(inst.url, inst.token, `/api/v1/history?${params}`)
+      return json.data
+    } catch (err) {
+      return reply.status(503).send({ error: err instanceof Error ? err.message : 'Could not connect to HELBACKUP' })
+    }
+  })
+
   app.post<{ Params: { jobId: string } }>('/api/helbackup/jobs/:jobId/trigger', { preHandler: [app.authenticate] }, async (req, reply) => {
     const inst = await getHelbackupInstance()
     if (!inst) return reply.status(404).send({ error: 'HELBACKUP instance not configured' })

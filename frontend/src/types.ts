@@ -558,6 +558,16 @@ export interface HelbackupJob {
   schedule: string | null
 }
 
+export interface HelbackupHistoryEntry {
+  id: string
+  job_id: string
+  job_name: string | null
+  status: 'running' | 'success' | 'failed' | 'cancelled'
+  started_at: string
+  ended_at: string | null
+  duration_s: number | null
+}
+
 export interface HelbackupBackup {
   id: number
   backup_id: string

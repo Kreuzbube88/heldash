@@ -1505,7 +1505,12 @@ export default async function recyclarrRoutes(app: FastifyInstance): Promise<voi
       let arrProfiles: ArrQualityProfile[] = []
       try {
         const profilesRes = await undiciRequest(`${baseUrl}/api/v3/qualityprofile`, { method: 'GET', headers, dispatcher: agent })
-        arrProfiles = await profilesRes.body.json() as ArrQualityProfile[]
+        const parsed: unknown = await profilesRes.body.json()
+        if (!Array.isArray(parsed)) {
+          app.log.error({ instanceId, statusCode: profilesRes.statusCode }, 'Arr /qualityprofile did not return an array')
+          return reply.status(502).send({ error: `Arr instance returned unexpected response (status ${profilesRes.statusCode})` })
+        }
+        arrProfiles = parsed as ArrQualityProfile[]
       } catch (e) {
         app.log.error({ err: e }, 'Failed to reach Arr instance for profile-cfs')
         return reply.status(502).send({ error: `Arr instance unreachable: ${e instanceof Error ? e.message : 'unknown'}` })

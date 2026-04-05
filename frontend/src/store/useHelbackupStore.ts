@@ -6,6 +6,7 @@ interface HelbackupState {
   status: HelbackupWidgetStatus | null
   jobs: HelbackupJob[]
   backups: HelbackupBackup[]
+  backupsError: string | null
   loading: boolean
   error: string | null
   lastUpdate: Date | null
@@ -18,6 +19,7 @@ export const useHelbackupStore = create<HelbackupState>((set) => ({
   status: null,
   jobs: [],
   backups: [],
+  backupsError: null,
   loading: false,
   error: null,
   lastUpdate: null,
@@ -26,12 +28,23 @@ export const useHelbackupStore = create<HelbackupState>((set) => ({
   fetchAll: async () => {
     set({ loading: true, error: null })
     try {
-      const [status, jobs, backupsData] = await Promise.all([
+      // Fetch status and jobs together — these must succeed to show the tab
+      const [status, jobs] = await Promise.all([
         api.helbackup.status(),
         api.helbackup.jobs(),
-        api.helbackup.backups(),
       ])
-      set({ status, jobs, backups: backupsData.backups, lastUpdate: new Date(), loading: false })
+
+      // Backups are optional — a known HELBACKUP SQLite bug can affect this endpoint
+      let backups: HelbackupBackup[] = []
+      let backupsError: string | null = null
+      try {
+        const backupsData = await api.helbackup.backups()
+        backups = backupsData.backups
+      } catch (err) {
+        backupsError = err instanceof Error ? err.message : 'Failed to load backup history'
+      }
+
+      set({ status, jobs, backups, backupsError, lastUpdate: new Date(), loading: false })
     } catch (err) {
       set({ error: err instanceof Error ? err.message : 'Failed to fetch HELBACKUP data', loading: false })
     }

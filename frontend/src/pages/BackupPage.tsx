@@ -382,7 +382,7 @@ function GuideTab() {
 function HelbackupTab({ onNavigate }: { onNavigate?: (page: string) => void }) {
   const { t } = useTranslation('backup')
   const { instances } = useInstanceStore()
-  const { status, jobs, backups, loading, error, triggeringJobId, fetchAll, triggerJob } = useHelbackupStore()
+  const { status, jobs, backups, backupsError, loading, error, triggeringJobId, fetchAll, triggerJob } = useHelbackupStore()
   const { toast } = useToast()
 
   const helbackupInstance = instances.find(i => i.type === 'helbackup' && i.enabled)
@@ -504,26 +504,30 @@ function HelbackupTab({ onNavigate }: { onNavigate?: (page: string) => void }) {
       )}
 
       {/* Recent backups */}
-      {backups.length > 0 && (
+      {(backups.length > 0 || backupsError) && (
         <div className="glass" style={{ padding: 20, borderRadius: 'var(--radius-lg)' }}>
           <h4 style={{ margin: '0 0 12px', fontFamily: 'var(--font-display)', fontSize: 14 }}>{t('helbackup.recent_backups')}</h4>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {backups.slice(0, 10).map(backup => {
-              const ratio = backup.total_size > 0 ? ((1 - backup.compressed_size / backup.total_size) * 100).toFixed(0) : '0'
-              return (
-                <div key={backup.id} className="glass" style={{ padding: '10px 14px', borderRadius: 'var(--radius-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, marginBottom: 2, fontFamily: 'var(--font-mono)' }}>{backup.backup_id}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{new Date(backup.timestamp).toLocaleString()} • {backup.target_name}</div>
+          {backupsError ? (
+            <div style={{ fontSize: 12, color: 'var(--status-offline)', padding: '4px 0' }}>{backupsError}</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {backups.slice(0, 10).map(backup => {
+                const ratio = backup.total_size > 0 ? ((1 - backup.compressed_size / backup.total_size) * 100).toFixed(0) : '0'
+                return (
+                  <div key={backup.id} className="glass" style={{ padding: '10px 14px', borderRadius: 'var(--radius-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, marginBottom: 2, fontFamily: 'var(--font-mono)' }}>{backup.backup_id}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{new Date(backup.timestamp).toLocaleString()} • {backup.target_name}</div>
+                    </div>
+                    <div style={{ textAlign: 'right', fontSize: 11, flexShrink: 0 }}>
+                      <div>{(backup.total_size / 1024 / 1024).toFixed(1)} MB</div>
+                      <div style={{ color: 'var(--text-muted)' }}>{ratio}% {t('helbackup.compressed')}</div>
+                    </div>
                   </div>
-                  <div style={{ textAlign: 'right', fontSize: 11, flexShrink: 0 }}>
-                    <div>{(backup.total_size / 1024 / 1024).toFixed(1)} MB</div>
-                    <div style={{ color: 'var(--text-muted)' }}>{ratio}% {t('helbackup.compressed')}</div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+                )
+              })}
+            </div>
+          )}
         </div>
       )}
     </div>

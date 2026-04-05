@@ -7,7 +7,7 @@ import { getIconUrl } from '../api'
 export function HelbackupWidget() {
   const { t } = useTranslation('backup')
   const { instances } = useInstanceStore()
-  const { status, backups, loading, error, fetchAll } = useHelbackupStore()
+  const { status, backups, backupsError, loading, error, fetchAll } = useHelbackupStore()
 
   const helbackupInstance = instances.find(i => i.type === 'helbackup' && i.enabled)
 
@@ -81,23 +81,27 @@ export function HelbackupWidget() {
       </div>
 
       {/* Recent backups */}
-      {backups.length > 0 && (
+      {(backups.length > 0 || backupsError) && (
         <div>
           <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>
             {t('helbackup.recent_backups')}
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            {backups.slice(0, 2).map(backup => (
-              <div key={backup.id} style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-secondary)' }}>
-                  {backup.target_name}
-                </span>
-                <span style={{ color: 'var(--text-muted)', flexShrink: 0 }}>
-                  {formatTimeAgo(new Date(backup.timestamp))}
-                </span>
-              </div>
-            ))}
-          </div>
+          {backupsError ? (
+            <div style={{ fontSize: 11, color: 'var(--status-offline)' }}>{backupsError}</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              {backups.slice(0, 2).map(backup => (
+                <div key={backup.id} style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-secondary)' }}>
+                    {backup.target_name}
+                  </span>
+                  <span style={{ color: 'var(--text-muted)', flexShrink: 0 }}>
+                    {formatTimeAgo(new Date(backup.timestamp))}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

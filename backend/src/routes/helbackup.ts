@@ -41,7 +41,11 @@ async function helbackupGet<T>(baseUrl: string, token: string, path: string): Pr
   const body = chunks.length ? Buffer.concat(chunks).toString('utf-8') : 'null'
   if (res.statusCode >= 400) {
     let msg = `HTTP ${res.statusCode}`
-    try { const j = JSON.parse(body) as { error?: { message?: string } }; msg += ': ' + (j.error?.message ?? body.slice(0, 200)) } catch { if (body !== 'null') msg += ': ' + body.slice(0, 200) }
+    try {
+      const j = JSON.parse(body) as { error?: string | { message?: string }; message?: string }
+      const detail = j.message ?? (typeof j.error === 'string' ? j.error : j.error?.message) ?? body.slice(0, 200)
+      msg += ': ' + detail
+    } catch { if (body !== 'null') msg += ': ' + body.slice(0, 200) }
     throw new Error(msg)
   }
   return JSON.parse(body) as T
@@ -60,7 +64,11 @@ async function helbackupPost<T>(baseUrl: string, token: string, path: string): P
   const body = chunks.length ? Buffer.concat(chunks).toString('utf-8') : 'null'
   if (res.statusCode >= 400) {
     let msg = `HTTP ${res.statusCode}`
-    try { const j = JSON.parse(body) as { error?: { message?: string } }; msg += ': ' + (j.error?.message ?? body.slice(0, 200)) } catch { if (body !== 'null') msg += ': ' + body.slice(0, 200) }
+    try {
+      const j = JSON.parse(body) as { error?: string | { message?: string }; message?: string }
+      const detail = j.message ?? (typeof j.error === 'string' ? j.error : j.error?.message) ?? body.slice(0, 200)
+      msg += ': ' + detail
+    } catch { if (body !== 'null') msg += ': ' + body.slice(0, 200) }
     throw new Error(msg)
   }
   return JSON.parse(body) as T

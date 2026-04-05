@@ -93,7 +93,7 @@ export function HelbackupWidget() {
               {backups.slice(0, 2).map(backup => (
                 <div key={backup.id} style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-secondary)' }}>
-                    {backup.target_name}
+                    {backup.target_name ?? backup.job_name ?? '—'}
                   </span>
                   <span style={{ color: 'var(--text-muted)', flexShrink: 0 }}>
                     {formatTimeAgo(new Date(backup.timestamp))}

@@ -564,10 +564,12 @@ export interface HelbackupJob {
 export interface HelbackupBackup {
   id: number
   backup_id: string
+  job_id: string
+  job_name: string | null
   timestamp: string
-  total_size: number
-  compressed_size: number
-  verified: number
-  target_name: string
-  target_type: string
+  total_size: number | null
+  compressed_size: number | null
+  verified: boolean | null
+  target_name: string | null
+  target_type: string | null
 }

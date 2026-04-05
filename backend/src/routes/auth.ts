@@ -156,9 +156,9 @@ export async function authRoutes(app: FastifyInstance) {
   })
 
   // GET /api/auth/me — requires auth
-  app.get('/api/auth/me', { preHandler: [app.authenticate] }, async (req) => {
+  app.get('/api/auth/me', { preHandler: [app.authenticate] }, async (req, reply) => {
     const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.sub) as UserRow | undefined
-    if (!user) return { error: 'User not found' }
+    if (!user) return reply.status(404).send({ error: 'User not found' })
     return {
       sub: user.id,
       username: user.username,

@@ -1,10 +1,13 @@
 import { FastifyInstance, FastifyRequest } from 'fastify'
 import { nanoid } from 'nanoid'
+import { request as undiciRequest, Agent } from 'undici'
 import { getDb } from '../db/database'
 import { isValidHttpUrl } from './_helpers'
 import { getHaWsClient, invalidateHaWsClient, ensureHaWsPersistent } from '../clients/ha-ws-manager'
 import type { HaWsClient } from '../clients/ha-ws-client'
 import { logActivity } from './activity'
+
+const haHttpAgent = new Agent({ connect: { rejectUnauthorized: false } })
 
 // ── DB row types ──────────────────────────────────────────────────────────────
 
@@ -90,16 +93,26 @@ function callerOwnerId(req: FastifyRequest): string {
   return req.user?.sub ?? 'guest'
 }
 
-async function haFetch(url: string, token: string, path: string, options?: RequestInit): Promise<Response> {
+async function haFetch(
+  url: string, token: string, path: string,
+  options?: { method?: string; body?: string }
+): Promise<{ ok: boolean; status: number; json(): Promise<unknown> }> {
   const base = url.replace(/\/$/, '')
-  return fetch(`${base}${path}`, {
-    ...options,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-      ...options?.headers,
-    },
+  const { statusCode, body } = await undiciRequest(`${base}${path}`, {
+    method: (options?.method ?? 'GET') as 'GET' | 'POST',
+    body: options?.body,
+    headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+    dispatcher: haHttpAgent,
   })
+  return {
+    ok: statusCode >= 200 && statusCode < 300,
+    status: statusCode,
+    json: async (): Promise<unknown> => {
+      const chunks: Buffer[] = []
+      for await (const chunk of body) chunks.push(chunk as Buffer)
+      return JSON.parse(Buffer.concat(chunks).toString()) as unknown
+    },
+  }
 }
 
 // ── Routes ────────────────────────────────────────────────────────────────────

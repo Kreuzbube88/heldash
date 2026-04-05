@@ -3,6 +3,7 @@ import { Plus, RefreshCw, Download, Trash2, Edit2, CheckCircle, XCircle, AlertTr
 import { useTranslation } from 'react-i18next'
 import { api } from '../api'
 import { useStore } from '../store/useStore'
+import { useLanguageStore } from '../store/useLanguageStore'
 import { useToast } from '../components/Toast'
 import type { BackupSource, BackupStatusResult } from '../types'
 
@@ -153,6 +154,8 @@ function StatusCard({ result }: { result: BackupStatusResult }) {
   const { t } = useTranslation('backup')
   const BACKUP_TYPES = useBackupTypes(t)
   const [expanded, setExpanded] = useState(false)
+  const { language } = useLanguageStore()
+  const dateLocale = language === 'de' ? 'de-DE' : 'en-US'
 
   const StatusIcon = result.error
     ? () => <XCircle size={16} style={{ color: 'var(--status-offline)' }} />
@@ -170,7 +173,7 @@ function StatusCard({ result }: { result: BackupStatusResult }) {
   const fmtDate = (iso: string | null) => {
     if (!iso) return '—'
     try {
-      return new Date(iso).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+      return new Date(iso).toLocaleString(dateLocale, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
     } catch { return iso }
   }
 

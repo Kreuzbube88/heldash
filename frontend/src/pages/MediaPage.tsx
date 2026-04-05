@@ -5,6 +5,7 @@ import { useStore } from '../store/useStore'
 import { useArrStore } from '../store/useArrStore'
 import { useTmdbStore } from '../store/useTmdbStore'
 import { useRecyclarrStore } from '../store/useRecyclarrStore'
+import { useLanguageStore } from '../store/useLanguageStore'
 import { Pencil, Trash2, Check, X, LayoutGrid, CalendarDays, Search, Compass, Database, AlertTriangle, Sliders, Plus, ChevronDown, ChevronRight, Clock, Shield, Download, Copy, Upload, BookOpen } from 'lucide-react'
 import type { ArrInstance, ArrCalendarItem, RadarrCalendarItem, SonarrCalendarItem, ProwlarrStats, ArrCFSpecification, ArrCustomFormat, ArrCFSchema, ArrCFSchemaField, RadarrMovie, SonarrSeries } from '../types/arr'
 import type { UserCfFile, UserCfSpecification } from '../types/recyclarr'
@@ -59,6 +60,8 @@ type CalendarView = 'day' | 'week' | 'month' | 'list' | 'grid'
 function CalendarTab() {
   const { t } = useTranslation('media')
   const { instances, calendars, loadCalendar } = useArrStore()
+  const { language } = useLanguageStore()
+  const dateLocale = language === 'de' ? 'de-DE' : 'en-US'
   const [loading, setLoading] = useState(false)
   const [view, setView] = useState<CalendarView>('week')
   const [filterInstanceId, setFilterInstanceId] = useState<string | null>(null)
@@ -94,12 +97,12 @@ function CalendarTab() {
 
   // Helper: format date as "Mo, 07.03.2026"
   const formatDate = (date: Date): string => {
-    return date.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })
+    return date.toLocaleDateString(dateLocale, { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })
   }
 
   // Helper: short date for calendar items "Mo, 07.03"
   const formatShortDate = (date: Date): string => {
-    return date.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' })
+    return date.toLocaleDateString(dateLocale, { weekday: 'short', day: '2-digit', month: '2-digit' })
   }
 
   // Helper: get date range for a given view
@@ -133,7 +136,7 @@ function CalendarTab() {
       return {
         start,
         end,
-        label: d.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' }),
+        label: d.toLocaleDateString(dateLocale, { month: 'long', year: 'numeric' }),
       }
     }
   }
@@ -2061,6 +2064,8 @@ function RecyclarrTab() {
   const { t } = useTranslation('media')
   const { isAdmin } = useStore()
   const { instances } = useArrStore()
+  const { language } = useLanguageStore()
+  const dateLocale = language === 'de' ? 'de-DE' : 'en-US'
   const {
     configs, syncLines, syncDone, syncing, loading,
     syncSchedule: globalSyncSchedule,
@@ -2382,7 +2387,6 @@ function RecyclarrTab() {
         deleteOldCfs: localDeleteOldCfs,
         qualityDefType: localQualityDefType,
       }
-      console.log('[RecyclarrTab] handleSave payload:', JSON.stringify(savePayload))
       await saveConfig(instanceId, savePayload)
       setSaveSuccess(true)
       setTimeout(() => setSaveSuccess(false), 3000)
@@ -2574,7 +2578,7 @@ function RecyclarrTab() {
                               {h.success ? 'OK' : t('recyclarr.sync_failed')}
                             </span>
                             <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>
-                              {new Date(h.synced_at).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' })}
+                              {new Date(h.synced_at).toLocaleString(dateLocale, { dateStyle: 'short', timeStyle: 'short' })}
                             </span>
                             {h.changes_summary && (
                               <span style={{ fontSize: 11, color: 'var(--text-secondary)', flex: 1 }}>

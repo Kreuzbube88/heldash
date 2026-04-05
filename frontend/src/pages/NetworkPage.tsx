@@ -3,6 +3,7 @@ import { Plus, Wifi, WifiOff, Zap, Edit2, Trash2, Search, X, ChevronDown, Chevro
 import { useTranslation } from 'react-i18next'
 import { api, getIconUrl } from '../api'
 import { useStore } from '../store/useStore'
+import { useLanguageStore } from '../store/useLanguageStore'
 import { useToast } from '../components/Toast'
 import { IconPicker } from '../components/IconPicker'
 import type { NetworkDevice, NetworkDeviceHistory, ScanResult } from '../types'
@@ -309,6 +310,8 @@ function DeviceCard({ device, isAdmin, onEdit, onDelete, onWol }: DeviceCardProp
   const { t } = useTranslation('network')
   const [expanded, setExpanded] = useState(false)
   const [history, setHistory] = useState<NetworkDeviceHistory[]>([])
+  const { language } = useLanguageStore()
+  const dateLocale = language === 'de' ? 'de-DE' : 'en-US'
   const [wolLoading, setWolLoading] = useState(false)
   const { toast } = useToast()
 
@@ -410,7 +413,7 @@ function DeviceCard({ device, isAdmin, onEdit, onDelete, onWol }: DeviceCardProp
                       {h.status === 'online' ? `● ${t('status.online')}` : `● ${t('status.offline')}`}
                     </span>
                     <span style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: 11 }}>
-                      {new Date(h.checked_at.endsWith('Z') ? h.checked_at : h.checked_at + 'Z').toLocaleString('de-DE', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                      {new Date(h.checked_at.endsWith('Z') ? h.checked_at : h.checked_at + 'Z').toLocaleString(dateLocale, { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>
                 ))}

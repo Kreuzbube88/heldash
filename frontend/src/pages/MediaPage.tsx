@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { api } from '../api'
 import { useStore } from '../store/useStore'
@@ -3349,9 +3350,9 @@ function RecyclarrTab() {
       )}
 
       {/* Add Profile mini modal */}
-      {showAddProfile && isAdmin && (
+      {showAddProfile && isAdmin && createPortal(
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }}>
-          <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 24, width: '100%', maxWidth: 520, margin: '0 16px', display: 'flex', flexDirection: 'column', gap: 16, boxSizing: 'border-box', overflow: 'hidden' }}>
+          <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 24, width: 'calc(100% - 32px)', maxWidth: 520, display: 'flex', flexDirection: 'column', gap: 16, maxHeight: '85vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', alignItems: 'center' }}>
               <span style={{ fontWeight: 600, fontSize: 15, flex: 1 }}>{t('recyclarr.add_profile_step', { step: addProfileStep })}</span>
               <button className="btn btn-ghost btn-sm" onClick={() => setShowAddProfile(false)} style={{ fontSize: 12 }}><X size={14} /></button>
@@ -3416,7 +3417,8 @@ function RecyclarrTab() {
               </div>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Wizard modal */}

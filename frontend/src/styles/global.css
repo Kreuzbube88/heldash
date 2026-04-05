@@ -65,6 +65,10 @@
   --status-online: #10b981;
   --status-offline: #f87171;
   --status-unknown: rgba(255, 255, 255, 0.20);
+  --bg-secondary: #16202d;
+  --surface-2: rgba(255, 255, 255, 0.08);
+  --surface-3: rgba(255, 255, 255, 0.13);
+  --accent-rgb: 0, 229, 255;
 }
 
 /* Dark theme accent-subtle overrides per accent */
@@ -103,6 +107,10 @@
   --status-online: #059669;
   --status-offline: #dc2626;
   --status-unknown: rgba(0, 0, 0, 0.15);
+  --bg-secondary: #ffffff;
+  --surface-2: rgba(0, 0, 0, 0.06);
+  --surface-3: rgba(0, 0, 0, 0.10);
+  --accent-rgb: 0, 174, 199;
 }
 
 /* ─── Accent Mapping ──────────────────────────────────────────────────────── */

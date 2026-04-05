@@ -23,6 +23,7 @@
     "next_run": "Next Run",
     "compressed": "compressed",
     "open_interface": "Open HELBACKUP",
+    "manual": "Manual",
     "run_now": "Run now",
     "job_triggered": "{{name}} started",
     "job_trigger_failed": "Failed to trigger job"

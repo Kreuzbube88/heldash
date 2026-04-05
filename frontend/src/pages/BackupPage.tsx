@@ -477,13 +477,9 @@ function HelbackupTab({ onNavigate }: { onNavigate?: (page: string) => void }) {
               <div key={job.id} className="glass" style={{ padding: '10px 14px', borderRadius: 'var(--radius-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 2 }}>{job.name}</div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{job.schedule} • {t('helbackup.target')}: {job.target_name}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{job.schedule ?? t('helbackup.manual')}</div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div style={{ textAlign: 'right', fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>
-                    {job.last_run && <div>{t('helbackup.last_run')}: {new Date(job.last_run).toLocaleDateString()}</div>}
-                    {job.next_run && <div>{t('helbackup.next_run')}: {new Date(job.next_run).toLocaleDateString()}</div>}
-                  </div>
                   {job.enabled && (
                     <button
                       className="btn btn-ghost btn-sm"
@@ -511,21 +507,25 @@ function HelbackupTab({ onNavigate }: { onNavigate?: (page: string) => void }) {
             <div style={{ fontSize: 12, color: 'var(--status-offline)', padding: '4px 0' }}>{backupsError}</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {backups.slice(0, 10).map(backup => {
-                const ratio = backup.total_size > 0 ? ((1 - backup.compressed_size / backup.total_size) * 100).toFixed(0) : '0'
-                return (
-                  <div key={backup.id} className="glass" style={{ padding: '10px 14px', borderRadius: 'var(--radius-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, marginBottom: 2, fontFamily: 'var(--font-mono)' }}>{backup.backup_id}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{new Date(backup.timestamp).toLocaleString()} • {backup.target_name}</div>
-                    </div>
-                    <div style={{ textAlign: 'right', fontSize: 11, flexShrink: 0 }}>
-                      <div>{(backup.total_size / 1024 / 1024).toFixed(1)} MB</div>
-                      <div style={{ color: 'var(--text-muted)' }}>{ratio}% {t('helbackup.compressed')}</div>
-                    </div>
+              {backups.slice(0, 10).map(backup => (
+                <div key={backup.id} className="glass" style={{ padding: '10px 14px', borderRadius: 'var(--radius-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, marginBottom: 2, fontFamily: 'var(--font-mono)' }}>{backup.job_name ?? backup.backup_id}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{new Date(backup.timestamp).toLocaleString()}</div>
                   </div>
-                )
-              })}
+                  <div style={{ textAlign: 'right', fontSize: 11, flexShrink: 0 }}>
+                    {backup.total_size != null
+                      ? <div>{(backup.total_size / 1024 / 1024).toFixed(1)} MB</div>
+                      : <div style={{ color: 'var(--text-muted)' }}>—</div>
+                    }
+                    {backup.verified != null && (
+                      <div style={{ color: backup.verified ? 'var(--status-online)' : 'var(--text-muted)' }}>
+                        {backup.verified ? '✓ verified' : 'unverified'}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>

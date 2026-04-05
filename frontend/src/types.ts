@@ -555,10 +555,7 @@ export interface HelbackupJob {
   id: string
   name: string
   enabled: boolean
-  schedule: string
-  last_run: string | null
-  next_run: string | null
-  target_name: string
+  schedule: string | null
 }
 
 export interface HelbackupBackup {

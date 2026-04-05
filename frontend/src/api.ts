@@ -576,6 +576,7 @@ export const api = {
   },
 
   helbackup: {
+    health: () => req<{ ok: boolean }>('/helbackup/health'),
     status: () => req<HelbackupWidgetStatus>('/helbackup/status'),
     jobs: () => req<HelbackupJob[]>('/helbackup/jobs'),
     backups: () => req<{ backups: HelbackupBackup[]; pagination: { total: number; limit: number; offset: number } }>('/helbackup/backups'),

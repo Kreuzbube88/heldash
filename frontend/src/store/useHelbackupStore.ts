@@ -32,6 +32,9 @@ export const useHelbackupStore = create<HelbackupState>((set, get) => ({
   fetchAll: async () => {
     set({ loading: true, error: null })
     try {
+      const health = await api.helbackup.health()
+      if (!health.ok) throw new Error('HELBACKUP is degraded')
+
       const [status, jobs] = await Promise.all([
         api.helbackup.status(),
         api.helbackup.jobs(),

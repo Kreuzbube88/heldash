@@ -75,6 +75,18 @@ async function helbackupPost<T>(baseUrl: string, token: string, path: string): P
 }
 
 export async function helbackupRoutes(app: FastifyInstance) {
+  app.get('/api/helbackup/health', { preHandler: [app.authenticate] }, async (_req, reply) => {
+    const inst = await getHelbackupInstance()
+    if (!inst) return reply.status(404).send({ error: 'HELBACKUP instance not configured' })
+    try {
+      const res = await request(`${inst.url}/health`, { method: 'GET', dispatcher: agent })
+      for await (const _ of res.body) { /* drain */ }
+      return { ok: res.statusCode === 200 }
+    } catch (err) {
+      return reply.status(503).send({ error: err instanceof Error ? err.message : 'Could not connect to HELBACKUP' })
+    }
+  })
+
   app.get('/api/helbackup/status', { preHandler: [app.authenticate] }, async (_req, reply) => {
     const inst = await getHelbackupInstance()
     if (!inst) return reply.status(404).send({ error: 'HELBACKUP instance not configured' })

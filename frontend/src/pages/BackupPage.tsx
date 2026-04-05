@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Plus, RefreshCw, Download, Trash2, Edit2, CheckCircle, XCircle, AlertTriangle, Clock, ChevronDown, ChevronRight } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { api } from '../api'
@@ -7,7 +7,7 @@ import { useLanguageStore } from '../store/useLanguageStore'
 import { useToast } from '../components/Toast'
 import { useHelbackupStore } from '../store/useHelbackupStore'
 import { useInstanceStore } from '../store/useInstanceStore'
-import type { BackupSource, BackupStatusResult } from '../types'
+import type { BackupSource, BackupStatusResult, HelbackupLogEvent } from '../types'
 
 // ── Backup type definitions ───────────────────────────────────────────────────
 
@@ -382,8 +382,33 @@ function GuideTab() {
 function HelbackupTab({ onNavigate }: { onNavigate?: (page: string) => void }) {
   const { t } = useTranslation('backup')
   const { instances } = useInstanceStore()
-  const { status, jobs, backups, backupsError, history, historyError, loading, error, triggeringJobId, fetchAll, triggerJob } = useHelbackupStore()
+  const { status, jobs, backups, backupsError, history, historyError, loading, error, triggeringJobId, activeRunId, fetchAll, triggerJob } = useHelbackupStore()
   const { toast } = useToast()
+  const [logLines, setLogLines] = useState<HelbackupLogEvent[]>([])
+  const [logDone, setLogDone] = useState(false)
+  const esRef = useRef<EventSource | null>(null)
+
+  useEffect(() => {
+    if (!activeRunId) {
+      setLogLines([])
+      setLogDone(false)
+      if (esRef.current) { esRef.current.close(); esRef.current = null }
+      return
+    }
+    setLogLines([])
+    setLogDone(false)
+    api.helbackup.streamToken(activeRunId).then(({ sseToken }) => {
+      const es = new EventSource(`/api/helbackup/logs/${activeRunId}/stream?sseToken=${sseToken}`)
+      esRef.current = es
+      es.addEventListener('log', (e) => {
+        const data = JSON.parse((e as MessageEvent).data) as HelbackupLogEvent
+        setLogLines(prev => [...prev, data])
+      })
+      es.addEventListener('complete', () => { setLogDone(true); es.close(); esRef.current = null })
+      es.addEventListener('error', () => { es.close(); esRef.current = null })
+    }).catch(() => {})
+    return () => { if (esRef.current) { esRef.current.close(); esRef.current = null } }
+  }, [activeRunId])
 
   const helbackupInstance = instances.find(i => i.type === 'helbackup' && i.enabled)
 
@@ -493,6 +518,27 @@ function HelbackupTab({ onNavigate }: { onNavigate?: (page: string) => void }) {
                     </button>
                   )}
                 </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Live logs */}
+      {(logLines.length > 0 || (activeRunId && !logDone)) && (
+        <div className="glass" style={{ padding: 20, borderRadius: 'var(--radius-lg)', border: '1px solid var(--accent)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            {!logDone && <div className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} />}
+            <h4 style={{ margin: 0, fontFamily: 'var(--font-display)', fontSize: 14 }}>
+              {logDone ? t('helbackup.log_complete') : t('helbackup.log_live')}
+            </h4>
+          </div>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, display: 'flex', flexDirection: 'column', gap: 2, maxHeight: 240, overflowY: 'auto' }}>
+            {logLines.map(line => (
+              <div key={line.id} style={{ color: line.level === 'error' ? 'var(--status-offline)' : line.level === 'warn' ? '#f59e0b' : 'var(--text-secondary)', display: 'flex', gap: 8 }}>
+                <span style={{ color: 'var(--text-muted)', flexShrink: 0 }}>{new Date(line.ts).toLocaleTimeString()}</span>
+                <span style={{ color: 'var(--accent)', flexShrink: 0 }}>[{line.category}]</span>
+                <span>{line.message}</span>
               </div>
             ))}
           </div>

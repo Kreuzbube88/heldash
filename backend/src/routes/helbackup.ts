@@ -135,6 +135,40 @@ export async function helbackupRoutes(app: FastifyInstance) {
     }
   })
 
+  app.post<{ Params: { runId: string } }>('/api/helbackup/logs/:runId/stream-token', { preHandler: [app.authenticate] }, async (req, reply) => {
+    const inst = await getHelbackupInstance()
+    if (!inst) return reply.status(404).send({ error: 'HELBACKUP instance not configured' })
+    try {
+      const json = await helbackupPost<{ success: boolean; data: { sseToken: string } }>(inst.url, inst.token, `/api/logs/${req.params.runId}/stream-token`)
+      return json.data
+    } catch (err) {
+      return reply.status(503).send({ error: err instanceof Error ? err.message : 'Could not connect to HELBACKUP' })
+    }
+  })
+
+  app.get<{ Params: { runId: string }; Querystring: { sseToken?: string } }>('/api/helbackup/logs/:runId/stream', { preHandler: [app.authenticate] }, async (req, reply) => {
+    const inst = await getHelbackupInstance()
+    if (!inst) return reply.status(404).send({ error: 'HELBACKUP instance not configured' })
+    const { sseToken } = req.query
+    if (!sseToken) return reply.status(400).send({ error: 'sseToken required' })
+    reply.hijack()
+    const socket = reply.raw
+    socket.setHeader('Content-Type', 'text/event-stream')
+    socket.setHeader('Cache-Control', 'no-cache')
+    socket.setHeader('Connection', 'keep-alive')
+    socket.flushHeaders()
+    try {
+      const res = await request(`${inst.url}/api/logs/${req.params.runId}/stream?sseToken=${sseToken}`, { method: 'GET', dispatcher: agent })
+      for await (const chunk of res.body) {
+        socket.write(chunk)
+      }
+    } catch (err) {
+      socket.write(`event: error\ndata: ${JSON.stringify({ message: err instanceof Error ? err.message : 'Stream error' })}\n\n`)
+    } finally {
+      socket.end()
+    }
+  })
+
   app.post<{ Params: { jobId: string } }>('/api/helbackup/jobs/:jobId/trigger', { preHandler: [app.authenticate] }, async (req, reply) => {
     const inst = await getHelbackupInstance()
     if (!inst) return reply.status(404).send({ error: 'HELBACKUP instance not configured' })

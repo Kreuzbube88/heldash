@@ -13,6 +13,7 @@ interface HelbackupState {
   error: string | null
   lastUpdate: Date | null
   triggeringJobId: string | null
+  activeRunId: string | null
   fetchAll: () => Promise<void>
   triggerJob: (jobId: string) => Promise<{ success: boolean; error?: string }>
 }
@@ -28,6 +29,7 @@ export const useHelbackupStore = create<HelbackupState>((set, get) => ({
   error: null,
   lastUpdate: null,
   triggeringJobId: null,
+  activeRunId: null,
 
   fetchAll: async () => {
     set({ loading: true, error: null })
@@ -61,28 +63,28 @@ export const useHelbackupStore = create<HelbackupState>((set, get) => ({
   },
 
   triggerJob: async (jobId: string) => {
-    set({ triggeringJobId: jobId })
+    set({ triggeringJobId: jobId, activeRunId: null })
     try {
-      await api.helbackup.triggerJob(jobId)
+      const data = await api.helbackup.triggerJob(jobId)
+      set({ activeRunId: data.runId })
 
-      // Poll /history?jobId=…&limit=1 every 5s until the run is no longer 'running'
       const poll = async () => {
         try {
-          const data = await api.helbackup.history({ jobId, limit: 1 })
-          const run = data.history[0]
+          const d = await api.helbackup.history({ jobId, limit: 1 })
+          const run = d.history[0]
           if (run && run.status !== 'running') {
-            set({ triggeringJobId: null })
+            set({ triggeringJobId: null, activeRunId: null })
             await get().fetchAll()
             return
           }
         } catch { /* ignore poll errors, keep trying */ }
         setTimeout(poll, 5_000)
       }
-      setTimeout(poll, 2_000) // brief delay before first poll to let the run appear
+      setTimeout(poll, 2_000)
 
       return { success: true }
     } catch (err) {
-      set({ triggeringJobId: null })
+      set({ triggeringJobId: null, activeRunId: null })
       return { success: false, error: err instanceof Error ? err.message : 'Failed to trigger job' }
     }
   },

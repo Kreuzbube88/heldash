@@ -26,6 +26,8 @@
     "manual": "Manuell",
     "run_now": "Jetzt ausführen",
     "run_history": "Ausführungsverlauf",
+    "log_live": "Live-Logs",
+    "log_complete": "Abgeschlossen",
     "job_triggered": "{{name}} wurde gestartet",
     "job_trigger_failed": "Job konnte nicht gestartet werden",
     "trigger_no_permission": "Token hat keine Schreibberechtigung"

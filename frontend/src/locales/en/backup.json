@@ -26,6 +26,8 @@
     "manual": "Manual",
     "run_now": "Run now",
     "run_history": "Run History",
+    "log_live": "Live Logs",
+    "log_complete": "Completed",
     "job_triggered": "{{name}} started",
     "job_trigger_failed": "Failed to trigger job",
     "trigger_no_permission": "Token doesn't have write permission"

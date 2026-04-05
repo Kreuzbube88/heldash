@@ -547,6 +547,10 @@ function applySchema(db: Database.Database) {
     );
     CREATE INDEX IF NOT EXISTS idx_icons_source ON icons(source);
     CREATE INDEX IF NOT EXISTS idx_icons_name ON icons(name);
+    CREATE INDEX IF NOT EXISTS idx_dashboard_items_owner ON dashboard_items(owner_id);
+    CREATE INDEX IF NOT EXISTS idx_ha_panels_owner ON ha_panels(owner_id, instance_id);
+    CREATE INDEX IF NOT EXISTS idx_instances_type ON instances(type);
+    CREATE INDEX IF NOT EXISTS idx_activity_log_created ON activity_log(created_at);
 
     -- Insert default settings if not exist
     INSERT OR IGNORE INTO settings (key, value) VALUES

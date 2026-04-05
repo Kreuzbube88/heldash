@@ -3351,7 +3351,7 @@ function RecyclarrTab() {
       {/* Add Profile mini modal */}
       {showAddProfile && isAdmin && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }}>
-          <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 24, width: '100%', maxWidth: 520, display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 24, width: '100%', maxWidth: 520, margin: '0 16px', display: 'flex', flexDirection: 'column', gap: 16, boxSizing: 'border-box', overflow: 'hidden' }}>
             <div style={{ display: 'flex', alignItems: 'center' }}>
               <span style={{ fontWeight: 600, fontSize: 15, flex: 1 }}>{t('recyclarr.add_profile_step', { step: addProfileStep })}</span>
               <button className="btn btn-ghost btn-sm" onClick={() => setShowAddProfile(false)} style={{ fontSize: 12 }}><X size={14} /></button>
@@ -3369,7 +3369,7 @@ function RecyclarrTab() {
                         onChange={e => setAddProfileSelected(prev => e.target.checked ? [...prev, p.trash_id] : prev.filter(id => id !== p.trash_id))} />
                       <div style={{ flex: 1 }}>
                         <div style={{ fontSize: 13, fontWeight: 500 }}>{p.name}</div>
-                        <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{p.trash_id}</div>
+                        <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.trash_id}</div>
                       </div>
                     </label>
                   ))

@@ -1,7 +1,5 @@
 # CLAUDE.md — HELDASH
 
-**Claude Bridge:** At the start of each session, check `C:\Users\hendr\claude-bridge\` for `.pending` files addressed to `heldash`. Process them before other tasks. Reply by creating a new `.pending` file (`heldash_helbackup_{id}.pending`), then rename the original to `.done`. Full spec in `C:\Users\hendr\claude-bridge\BRIDGE.md`.
-
 Personal homelab dashboard. Self-hosted on Unraid, single Docker container.
 
 ## Stack

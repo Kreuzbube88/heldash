@@ -17,6 +17,7 @@ const TYPE_LABELS: Record<InstanceType, string> = {
   sabnzbd: 'SABnzbd',
   seerr: 'Seerr',
   unraid: 'Unraid',
+  helbackup: 'HELBACKUP',
 }
 
 const TYPE_COLORS: Record<InstanceType, string> = {
@@ -27,13 +28,13 @@ const TYPE_COLORS: Record<InstanceType, string> = {
   sabnzbd: '#22c55e',
   seerr: '#f97316',
   unraid: '#f43f5e',
+  helbackup: '#10b981',
 }
 
-const HA_TYPES: InstanceType[] = ['ha']
-const ALL_TYPES: InstanceType[] = ['ha', 'radarr', 'sonarr', 'prowlarr', 'sabnzbd', 'seerr', 'unraid']
+const TOKEN_TYPES: InstanceType[] = ['ha', 'helbackup']
+const ALL_TYPES: InstanceType[] = ['ha', 'radarr', 'sonarr', 'prowlarr', 'sabnzbd', 'seerr', 'unraid', 'helbackup']
 
-function needsToken(type: InstanceType) { return HA_TYPES.includes(type) }
-function needsApiKey(type: InstanceType) { return !HA_TYPES.includes(type) }
+function needsToken(type: InstanceType) { return TOKEN_TYPES.includes(type) }
 
 // ── Instance modal ─────────────────────────────────────────────────────────────
 
@@ -137,7 +138,7 @@ function InstanceModal({
           </div>
           <div>
             <label className="field-label">
-              {needsToken(type) ? 'Token' : 'API Key'}
+              {type === 'helbackup' ? 'API Token' : needsToken(type) ? 'Token' : 'API Key'}
               {!instance && ' *'}
               {instance && ` (${t('modal.credential_empty_hint')})`}
             </label>
@@ -146,7 +147,7 @@ function InstanceModal({
               type="password"
               value={credential}
               onChange={e => setCredential(e.target.value)}
-              placeholder={instance ? '••••••••' : needsToken(type) ? 'Long-Lived Access Token' : 'API Key'}
+              placeholder={instance ? '••••••••' : type === 'helbackup' ? 'helbackup_XXXXXXXXXXXXXXXXX' : needsToken(type) ? 'Long-Lived Access Token' : 'API Key'}
             />
           </div>
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>

@@ -7,7 +7,7 @@ import { logActivity } from './activity'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type InstanceType = 'ha' | 'radarr' | 'sonarr' | 'prowlarr' | 'sabnzbd' | 'seerr' | 'unraid'
+type InstanceType = 'ha' | 'radarr' | 'sonarr' | 'prowlarr' | 'sabnzbd' | 'seerr' | 'unraid' | 'helbackup'
 
 interface InstanceRow {
   id: string
@@ -60,7 +60,9 @@ function sanitize(r: InstanceRow) {
 const HA_TYPES: InstanceType[] = ['ha']
 const ARR_TYPES: InstanceType[] = ['radarr', 'sonarr', 'prowlarr', 'sabnzbd', 'seerr']
 const UNRAID_TYPES: InstanceType[] = ['unraid']
-const ALL_TYPES: InstanceType[] = [...HA_TYPES, ...ARR_TYPES, ...UNRAID_TYPES]
+const HELBACKUP_TYPES: InstanceType[] = ['helbackup']
+const TOKEN_TYPES: InstanceType[] = [...HA_TYPES, ...HELBACKUP_TYPES]
+const ALL_TYPES: InstanceType[] = [...HA_TYPES, ...ARR_TYPES, ...UNRAID_TYPES, ...HELBACKUP_TYPES]
 
 // ── Test connection ───────────────────────────────────────────────────────────
 
@@ -103,6 +105,10 @@ async function testConnection(type: InstanceType, url: string, config: Record<st
         signal: timeout,
       })
       return res.ok ? { ok: true } : { ok: false, error: `Unraid returned HTTP ${res.status}` }
+    }
+    if (HELBACKUP_TYPES.includes(type)) {
+      const res = await fetch(`${base}/health`, { signal: timeout })
+      return res.ok ? { ok: true } : { ok: false, error: `HELBACKUP returned HTTP ${res.status}` }
     }
     return { ok: false, error: 'Unknown instance type' }
   } catch (e) {
@@ -167,8 +173,8 @@ export async function instancesRoutes(app: FastifyInstance) {
     if (!isValidHttpUrl(url.trim())) {
       return reply.status(400).send({ error: 'url must be a valid http or https URL' })
     }
-    if (HA_TYPES.includes(type) && !req.body.token?.trim()) {
-      return reply.status(400).send({ error: 'token is required for Home Assistant' })
+    if (TOKEN_TYPES.includes(type) && !req.body.token?.trim()) {
+      return reply.status(400).send({ error: 'token is required for this instance type' })
     }
     if ([...ARR_TYPES, ...UNRAID_TYPES].includes(type) && !req.body.api_key?.trim()) {
       return reply.status(400).send({ error: 'api_key is required' })
@@ -181,7 +187,7 @@ export async function instancesRoutes(app: FastifyInstance) {
     const position = (maxRow.m ?? -1) + 1
 
     const config: Record<string, string> = {}
-    if (HA_TYPES.includes(type)) config.token = req.body.token!.trim()
+    if (TOKEN_TYPES.includes(type)) config.token = req.body.token!.trim()
     else config.api_key = req.body.api_key!.trim()
 
     const iconId = req.body.icon_id ?? null
@@ -205,6 +211,13 @@ export async function instancesRoutes(app: FastifyInstance) {
       const wMax = db.prepare('SELECT MAX(position) as m FROM widgets').get() as { m: number | null }
       db.prepare(`INSERT INTO widgets (id, type, name, config, position, show_in_topbar, display_location) VALUES (?, 'home_assistant', ?, ?, ?, 0, 'sidebar')`)
         .run(widgetId, name.trim(), JSON.stringify({ instance_id: id, entities: [] }), (wMax.m ?? -1) + 1)
+    }
+
+    if (HELBACKUP_TYPES.includes(type)) {
+      const widgetId = nanoid()
+      const wMax = db.prepare('SELECT MAX(position) as m FROM widgets').get() as { m: number | null }
+      db.prepare(`INSERT INTO widgets (id, type, name, config, position, show_in_topbar, display_location) VALUES (?, 'helbackup', ?, ?, ?, 0, 'none')`)
+        .run(widgetId, name.trim(), JSON.stringify({ instance_id: id }), (wMax.m ?? -1) + 1)
     }
 
     if (HA_TYPES.includes(type) && enabled) {
@@ -233,7 +246,7 @@ export async function instancesRoutes(app: FastifyInstance) {
     const newIconId = req.body.icon_id !== undefined ? req.body.icon_id : (row.icon_id ?? null)
     const urlChanged = req.body.url !== undefined && url !== row.url
 
-    if (HA_TYPES.includes(row.type)) {
+    if (TOKEN_TYPES.includes(row.type)) {
       config.token = req.body.token?.trim() || config.token
     } else {
       if (req.body.api_key?.trim()) config.api_key = req.body.api_key.trim()
@@ -246,6 +259,10 @@ export async function instancesRoutes(app: FastifyInstance) {
 
     if (HA_TYPES.includes(row.type) && req.body.name) {
       db.prepare(`UPDATE widgets SET name = ? WHERE type = 'home_assistant' AND json_extract(config, '$.instance_id') = ?`)
+        .run(name, row.id)
+    }
+    if (HELBACKUP_TYPES.includes(row.type) && req.body.name) {
+      db.prepare(`UPDATE widgets SET name = ? WHERE type = 'helbackup' AND json_extract(config, '$.instance_id') = ?`)
         .run(name, row.id)
     }
 
@@ -278,6 +295,10 @@ export async function instancesRoutes(app: FastifyInstance) {
 
     if (HA_TYPES.includes(row.type)) {
       db.prepare(`DELETE FROM widgets WHERE type = 'home_assistant' AND json_extract(config, '$.instance_id') = ?`)
+        .run(row.id)
+    }
+    if (HELBACKUP_TYPES.includes(row.type)) {
+      db.prepare(`DELETE FROM widgets WHERE type = 'helbackup' AND json_extract(config, '$.instance_id') = ?`)
         .run(row.id)
     }
 

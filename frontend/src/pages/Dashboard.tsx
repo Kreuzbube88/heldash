@@ -9,6 +9,7 @@ import { useBookmarkStore } from '../store/useBookmarkStore'
 import { ServiceCard } from '../components/ServiceCard'
 import { ArrCardContent, SabnzbdCardContent, SeerrCardContent } from '../components/MediaCard'
 import { AdGuardStatsView, DockerOverviewContent, HaStatsView, CustomButtonsView, StatBar, NginxPMStatsView, HaEnergyWidgetView, CalendarWidgetContent, WeatherWidgetView } from './WidgetsPage'
+import { HelbackupWidget } from '../components/HelbackupWidget'
 import type { Service, DashboardItem, DashboardServiceItem, DashboardArrItem, DashboardPlaceholderItem, DashboardWidgetItem, DashboardGroup, ServerStats, AdGuardStats, NpmStats, HaEntityState, AdGuardHomeConfig, Widget, EnergyData, CalendarEntry, WeatherStats, WeatherWidgetConfig } from '../types'
 import { normalizeUrl } from '../utils'
 import { api, getIconUrl } from '../api'
@@ -376,6 +377,8 @@ function DashboardWidgetCard({ item, editMode, groups, colSpan = 2, hiddenWidget
         ) : item.widget.type === 'weather' ? (
           s ? <WeatherWidgetView stats={s as WeatherStats} config={item.widget.config as WeatherWidgetConfig} />
             : <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '8px 0' }}>{t('loading.weather')}</div>
+        ) : item.widget.type === 'helbackup' ? (
+          <HelbackupWidget />
         ) : null}
       </div>
       {showVisibilityOverlay && (
@@ -746,7 +749,7 @@ export function Dashboard({ onEdit }: Props) {
   useEffect(() => {
     const widgetItems = [...items, ...groups.flatMap(g => g.items)]
       .filter(i => i.type === 'widget') as DashboardWidgetItem[]
-    const statsPollable = widgetItems.filter(i => i.widget.type !== 'docker_overview' && i.widget.type !== 'custom_button')
+    const statsPollable = widgetItems.filter(i => i.widget.type !== 'docker_overview' && i.widget.type !== 'custom_button' && i.widget.type !== 'helbackup')
     const dockerPollable = widgetItems.filter(i => i.widget.type === 'docker_overview')
     if (statsPollable.length === 0 && dockerPollable.length === 0) return
     Promise.all(statsPollable.map(i => loadStats(i.widget.id))).catch(() => {})

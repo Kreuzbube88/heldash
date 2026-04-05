@@ -1,8 +1,31 @@
 {
   "title": "Backup Center",
   "tabs": {
+    "helbackup": "HELBACKUP",
+    "external_tools": "Externe Tools",
     "overview": "Übersicht",
     "guide": "Leitfaden"
+  },
+  "helbackup": {
+    "not_configured": "HELBACKUP ist nicht konfiguriert",
+    "add_instance_prompt": "Füge eine HELBACKUP-Instanz über die Instanzen-Seite hinzu, um Backups zu überwachen.",
+    "add_button": "HELBACKUP hinzufügen",
+    "status_healthy": "Gesund",
+    "status_warning": "Warnung",
+    "active_jobs": "aktive Jobs",
+    "last_24h": "Letzte 24 Stunden",
+    "last_backup": "Letztes Backup",
+    "connection_error": "Verbindung fehlgeschlagen",
+    "jobs": "Jobs",
+    "recent_backups": "Letzte Backups",
+    "target": "Ziel",
+    "last_run": "Letzter Lauf",
+    "next_run": "Nächster Lauf",
+    "compressed": "komprimiert",
+    "open_interface": "HELBACKUP öffnen",
+    "run_now": "Jetzt ausführen",
+    "job_triggered": "{{name}} wurde gestartet",
+    "job_trigger_failed": "Job konnte nicht gestartet werden"
   },
   "source": {
     "add": "Quelle hinzufügen",

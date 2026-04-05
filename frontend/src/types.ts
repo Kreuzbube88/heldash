@@ -216,7 +216,7 @@ export interface EnergyData {
 
 export interface Widget {
   id: string
-  type: 'server_status' | 'adguard_home' | 'docker_overview' | 'custom_button' | 'home_assistant' | 'pihole' | 'nginx_pm' | 'home_assistant_energy' | 'calendar' | 'weather'
+  type: 'server_status' | 'adguard_home' | 'docker_overview' | 'custom_button' | 'home_assistant' | 'pihole' | 'nginx_pm' | 'home_assistant_energy' | 'calendar' | 'weather' | 'helbackup'
   name: string
   config: ServerStatusConfig | AdGuardHomeConfig | CustomButtonConfig | HomeAssistantConfig | PiholeConfig | NginxPMConfig | CalendarWidgetConfig | WeatherWidgetConfig | Record<string, never>
   position: number
@@ -296,7 +296,7 @@ export interface Background {
 
 // ── Unified instance registry ─────────────────────────────────────────────────
 
-export type InstanceType = 'ha' | 'radarr' | 'sonarr' | 'prowlarr' | 'sabnzbd' | 'seerr' | 'unraid'
+export type InstanceType = 'ha' | 'radarr' | 'sonarr' | 'prowlarr' | 'sabnzbd' | 'seerr' | 'unraid' | 'helbackup'
 
 export interface Instance {
   id: string
@@ -532,4 +532,42 @@ export interface ChangelogRelease {
   name: string
   body: string
   published_at: string
+}
+
+// ── HELBACKUP ─────────────────────────────────────────────────────────────────
+
+export interface HelbackupWidgetStatus {
+  status: 'ok' | 'warning'
+  jobs: number
+  last24h: {
+    total: number
+    success: number
+    failed: number
+  }
+  lastBackup: {
+    timestamp: string
+    status: string
+    duration: number
+  } | null
+}
+
+export interface HelbackupJob {
+  id: string
+  name: string
+  enabled: boolean
+  schedule: string
+  last_run: string | null
+  next_run: string | null
+  target_name: string
+}
+
+export interface HelbackupBackup {
+  id: number
+  backup_id: string
+  timestamp: string
+  total_size: number
+  compressed_size: number
+  verified: number
+  target_name: string
+  target_type: string
 }

@@ -1,8 +1,31 @@
 {
   "title": "Backup Center",
   "tabs": {
+    "helbackup": "HELBACKUP",
+    "external_tools": "External Tools",
     "overview": "Overview",
     "guide": "Guide"
+  },
+  "helbackup": {
+    "not_configured": "HELBACKUP is not configured",
+    "add_instance_prompt": "Add a HELBACKUP instance via the Instances page to monitor backups.",
+    "add_button": "Add HELBACKUP",
+    "status_healthy": "Healthy",
+    "status_warning": "Warning",
+    "active_jobs": "active jobs",
+    "last_24h": "Last 24 Hours",
+    "last_backup": "Last Backup",
+    "connection_error": "Connection failed",
+    "jobs": "Jobs",
+    "recent_backups": "Recent Backups",
+    "target": "Target",
+    "last_run": "Last Run",
+    "next_run": "Next Run",
+    "compressed": "compressed",
+    "open_interface": "Open HELBACKUP",
+    "run_now": "Run now",
+    "job_triggered": "{{name}} started",
+    "job_trigger_failed": "Failed to trigger job"
   },
   "source": {
     "add": "Add source",

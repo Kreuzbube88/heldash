@@ -5,6 +5,8 @@ import { api } from '../api'
 import { useStore } from '../store/useStore'
 import { useLanguageStore } from '../store/useLanguageStore'
 import { useToast } from '../components/Toast'
+import { useHelbackupStore } from '../store/useHelbackupStore'
+import { useInstanceStore } from '../store/useInstanceStore'
 import type { BackupSource, BackupStatusResult } from '../types'
 
 // ── Backup type definitions ───────────────────────────────────────────────────
@@ -375,13 +377,166 @@ function GuideTab() {
   )
 }
 
+// ── HELBACKUP Tab ─────────────────────────────────────────────────────────────
+
+function HelbackupTab({ onNavigate }: { onNavigate?: (page: string) => void }) {
+  const { t } = useTranslation('backup')
+  const { instances } = useInstanceStore()
+  const { status, jobs, backups, loading, error, triggeringJobId, fetchAll, triggerJob } = useHelbackupStore()
+  const { toast } = useToast()
+
+  const helbackupInstance = instances.find(i => i.type === 'helbackup' && i.enabled)
+
+  useEffect(() => {
+    if (!helbackupInstance) return
+    fetchAll().catch(() => {})
+    const interval = setInterval(() => { fetchAll().catch(() => {}) }, 60_000)
+    return () => clearInterval(interval)
+  }, [helbackupInstance?.id])
+
+  const handleTrigger = async (jobId: string, jobName: string) => {
+    const result = await triggerJob(jobId)
+    if (result.success) {
+      toast({ message: t('helbackup.job_triggered', { name: jobName }), type: 'success' })
+      setTimeout(() => { fetchAll().catch(() => {}) }, 2000)
+    } else {
+      toast({ message: result.error ?? t('helbackup.job_trigger_failed'), type: 'error' })
+    }
+  }
+
+  if (!helbackupInstance) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, padding: '60px 20px', textAlign: 'center' }}>
+        <div style={{ fontSize: 48 }}>⚡</div>
+        <h3 style={{ margin: 0, fontFamily: 'var(--font-display)', fontSize: 18 }}>{t('helbackup.not_configured')}</h3>
+        <p style={{ margin: 0, color: 'var(--text-muted)', maxWidth: 400 }}>{t('helbackup.add_instance_prompt')}</p>
+        <button className="btn btn-primary" onClick={() => onNavigate?.('instances')} style={{ marginTop: 8 }}>
+          {t('helbackup.add_button')}
+        </button>
+      </div>
+    )
+  }
+
+  if (loading && !status) {
+    return <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}><div className="spinner" /></div>
+  }
+
+  if (error && !status) {
+    return (
+      <div className="glass" style={{ padding: 20, borderRadius: 'var(--radius-lg)', border: '1px solid var(--status-offline)', background: 'rgba(248,113,113,0.08)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <XCircle size={16} style={{ color: 'var(--status-offline)' }} />
+          <span style={{ fontWeight: 600, color: 'var(--status-offline)' }}>{t('helbackup.connection_error')}</span>
+        </div>
+        <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)' }}>{error}</p>
+      </div>
+    )
+  }
+
+  if (!status) return null
+
+  const statusColor = status.status === 'ok' ? 'var(--status-online)' : 'var(--status-offline)'
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* Status card */}
+      <div className="glass" style={{ padding: 20, borderRadius: 'var(--radius-lg)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: statusColor, boxShadow: status.status === 'ok' ? `0 0 8px ${statusColor}` : 'none', display: 'inline-block' }} />
+          <span style={{ fontSize: 15, fontWeight: 600, color: statusColor }}>
+            {status.status === 'ok' ? t('helbackup.status_healthy') : t('helbackup.status_warning')}
+          </span>
+          <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>• {status.jobs} {t('helbackup.active_jobs')}</span>
+        </div>
+        <div style={{ display: 'flex', gap: 24, marginBottom: 12 }}>
+          <div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>{t('helbackup.last_24h')}</div>
+            <div style={{ display: 'flex', gap: 12, fontSize: 14 }}>
+              <span style={{ color: 'var(--status-online)' }}>✓ {status.last24h.success}</span>
+              <span style={{ color: 'var(--status-offline)' }}>✗ {status.last24h.failed}</span>
+            </div>
+          </div>
+          {status.lastBackup && (
+            <div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>{t('helbackup.last_backup')}</div>
+              <div style={{ fontSize: 13 }}>{new Date(status.lastBackup.timestamp).toLocaleString()} ({status.lastBackup.duration}s)</div>
+            </div>
+          )}
+        </div>
+        <button className="btn btn-primary" onClick={() => window.open(helbackupInstance.url, '_blank')} style={{ fontSize: 13 }}>
+          {t('helbackup.open_interface')}
+        </button>
+      </div>
+
+      {/* Jobs */}
+      {jobs.length > 0 && (
+        <div className="glass" style={{ padding: 20, borderRadius: 'var(--radius-lg)' }}>
+          <h4 style={{ margin: '0 0 12px', fontFamily: 'var(--font-display)', fontSize: 14 }}>{t('helbackup.jobs')}</h4>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {jobs.map(job => (
+              <div key={job.id} className="glass" style={{ padding: '10px 14px', borderRadius: 'var(--radius-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 2 }}>{job.name}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{job.schedule} • {t('helbackup.target')}: {job.target_name}</div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ textAlign: 'right', fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>
+                    {job.last_run && <div>{t('helbackup.last_run')}: {new Date(job.last_run).toLocaleDateString()}</div>}
+                    {job.next_run && <div>{t('helbackup.next_run')}: {new Date(job.next_run).toLocaleDateString()}</div>}
+                  </div>
+                  {job.enabled && (
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => void handleTrigger(job.id, job.name)}
+                      disabled={triggeringJobId === job.id}
+                      style={{ fontSize: 11, flexShrink: 0 }}
+                    >
+                      {triggeringJobId === job.id
+                        ? <div className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} />
+                        : <>▶ {t('helbackup.run_now')}</>}
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Recent backups */}
+      {backups.length > 0 && (
+        <div className="glass" style={{ padding: 20, borderRadius: 'var(--radius-lg)' }}>
+          <h4 style={{ margin: '0 0 12px', fontFamily: 'var(--font-display)', fontSize: 14 }}>{t('helbackup.recent_backups')}</h4>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {backups.slice(0, 10).map(backup => {
+              const ratio = backup.total_size > 0 ? ((1 - backup.compressed_size / backup.total_size) * 100).toFixed(0) : '0'
+              return (
+                <div key={backup.id} className="glass" style={{ padding: '10px 14px', borderRadius: 'var(--radius-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, marginBottom: 2, fontFamily: 'var(--font-mono)' }}>{backup.backup_id}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{new Date(backup.timestamp).toLocaleString()} • {backup.target_name}</div>
+                  </div>
+                  <div style={{ textAlign: 'right', fontSize: 11, flexShrink: 0 }}>
+                    <div>{(backup.total_size / 1024 / 1024).toFixed(1)} MB</div>
+                    <div style={{ color: 'var(--text-muted)' }}>{ratio}% {t('helbackup.compressed')}</div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Main BackupPage ───────────────────────────────────────────────────────────
 
-export function BackupPage() {
+export function BackupPage({ onNavigate }: { onNavigate?: (page: string) => void }) {
   const { t } = useTranslation('backup')
   const BACKUP_TYPES = useBackupTypes(t)
   const { isAdmin } = useStore()
-  const [tab, setTab] = useState<'overview' | 'guide'>('overview')
+  const [tab, setTab] = useState<'helbackup' | 'external_tools' | 'guide'>('helbackup')
   const [sources, setSources] = useState<BackupSource[]>([])
   const [statusResults, setStatusResults] = useState<BackupStatusResult[]>([])
   const [loading, setLoading] = useState(true)
@@ -410,8 +565,8 @@ export function BackupPage() {
     }
   }
 
-  useEffect(() => { loadSources() }, [])
-  useEffect(() => { if (tab === 'overview' && sources.length > 0) { loadStatus() } }, [sources.length, tab])
+  useEffect(() => { loadSources(); useInstanceStore.getState().loadInstances().catch(() => {}) }, [])
+  useEffect(() => { if (tab === 'external_tools' && sources.length > 0) { loadStatus() } }, [sources.length, tab])
 
   const handleSave = async (data: { name: string; type: string; config: Record<string, unknown>; enabled: boolean }) => {
     if (editSource) {
@@ -478,10 +633,10 @@ export function BackupPage() {
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid var(--glass-border)', paddingBottom: 0 }}>
-        {[{ key: 'overview', label: t('tabs.overview') }, { key: 'guide', label: t('tabs.guide') }].map(tabItem => (
+        {[{ key: 'helbackup', label: t('tabs.helbackup') }, { key: 'external_tools', label: t('tabs.external_tools') }, { key: 'guide', label: t('tabs.guide') }].map(tabItem => (
           <button
             key={tabItem.key}
-            onClick={() => setTab(tabItem.key as 'overview' | 'guide')}
+            onClick={() => setTab(tabItem.key as 'helbackup' | 'external_tools' | 'guide')}
             style={{
               padding: '8px 16px', fontSize: 13, background: 'none', border: 'none', cursor: 'pointer',
               borderBottom: tab === tabItem.key ? '2px solid var(--accent)' : '2px solid transparent',
@@ -495,7 +650,9 @@ export function BackupPage() {
         ))}
       </div>
 
-      {tab === 'overview' && (
+      {tab === 'helbackup' && <HelbackupTab onNavigate={onNavigate} />}
+
+      {tab === 'external_tools' && (
         <>
           {/* Stats */}
           {statusResults.length > 0 && (

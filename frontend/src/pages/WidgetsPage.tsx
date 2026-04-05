@@ -14,6 +14,7 @@ import type { Widget, ServerStatusConfig, AdGuardHomeConfig, CustomButtonConfig,
 import { normalizeUrl, containerCounts } from '../utils'
 import { getIconUrl } from '../api'
 import { ArrCardContent, SabnzbdCardContent, SeerrCardContent, TYPE_COLORS as ARR_TYPE_COLORS } from '../components/MediaCard'
+import { HelbackupWidget } from '../components/HelbackupWidget'
 
 // ── Energy Widget compact view ─────────────────────────────────────────────────
 
@@ -1211,6 +1212,8 @@ function WidgetCard({
         ) : (
           <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '8px 0' }}>{t('loading.weather')}</div>
         )
+      ) : widget.type === 'helbackup' ? (
+        <HelbackupWidget />
       ) : (
         // adguard_home
         s ? (
@@ -1445,7 +1448,7 @@ export function WidgetsPage({ showAddForm, onFormClose }: Props) {
   const widgetIds = widgets.map(w => w.id).join(',')
 
   useEffect(() => {
-    const statsPollable = widgets.filter(w => w.type !== 'docker_overview' && w.type !== 'custom_button')
+    const statsPollable = widgets.filter(w => w.type !== 'docker_overview' && w.type !== 'custom_button' && w.type !== 'helbackup')
     const dockerPollable = widgets.filter(w => w.type === 'docker_overview')
     if (statsPollable.length === 0 && dockerPollable.length === 0) return
     Promise.all(statsPollable.map(w => loadStats(w.id))).catch(() => {})

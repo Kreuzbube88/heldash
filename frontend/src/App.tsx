@@ -259,7 +259,7 @@ function App() {
               )}
               {page === 'logbuch' && <LogbuchPage />}
               {page === 'network' && <NetworkPage />}
-              {page === 'backup' && <BackupPage />}
+              {page === 'backup' && <BackupPage onNavigate={p => setPage(p)} />}
               {page === 'unraid' && <UnraidPage onNavigate={p => setPage(p)} />}
               {page === 'bookmarks' && <BookmarksPage />}
               {page === 'instances' && <InstancesPage />}

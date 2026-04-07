@@ -1,212 +1,83 @@
-# HELDASH
+<p align="center">
+  <img src="frontend/public/logo.png" alt="HELDASH" width="450" height="450"/>
+</p>
 
-> [🇬🇧 English version](README.en.md)
+<p align="center">
+  <strong>Persönliches Homelab-Dashboard für Unraid</strong>
+</p>
 
-Persönliches Homelab-Dashboard mit Glass-Morphism Design.
-Verwalte Services, Docker-Container, Media-Automation,
-Home Assistant, Unraid und mehr — alles in einer Oberfläche.
+<p align="center">
+  🇩🇪 Deutsch &nbsp;|&nbsp; <a href="README.en.md">🇬🇧 English</a>
+</p>
 
-> ⚠️ **Nutzung auf eigenes Risiko**
->
-> Dieses Projekt wurde vollständig mit Claude Code (KI-gestützte Programmierung)
-> entwickelt. Es hat **keine manuelle Code-Review durch einen professionellen
-> Entwickler** stattgefunden. Der Code wurde nicht auf Sicherheitslücken,
-> Produktionsreife oder Best Practices geprüft.
->
-> **Es wird ausdrücklich NICHT empfohlen, HELDASH öffentlich im Internet
-> bereitzustellen.** Das Dashboard ist ausschließlich für den Einsatz im
-> lokalen Heimnetzwerk (LAN) gedacht.
->
-> Die Nutzung erfolgt vollständig auf eigenes Risiko.
+<p align="center">
+  <img src="https://img.shields.io/badge/status-active-brightgreen" alt="Status">
+  <img src="https://img.shields.io/badge/node-%3E%3D24.0.0-brightgreen" alt="Node.js">
+  <img src="https://img.shields.io/github/license/Kreuzbube88/heldash" alt="License">
+  <img src="https://img.shields.io/badge/platform-Unraid-orange" alt="Platform">
+</p>
 
 ---
 
-## Sprache / Language
+HELDASH ist ein selbst-gehostetes Homelab-Dashboard, speziell für [Unraid](https://unraid.net). Es läuft als einzelner Docker-Container und bietet eine einheitliche Oberfläche für Services, Docker-Container, Media-Automation, Home Assistant, Netzwerkgeräte und mehr — mit Glass-Morphism UI, ohne Cloud-Abhängigkeit und ohne Subscription.
 
-🇩🇪 **Deutsch** — Vollständig verfügbar (Standard)  
-🇬🇧 **English** — Fully available
-
-**Weitere Sprachen:** Contributions willkommen! Siehe [CONTRIBUTING.md](CONTRIBUTING.md#deutsch)
+> ⚠️ **Nutzung auf eigenes Risiko**
+>
+> Dieses Projekt wurde vollständig mit KI-Unterstützung (Claude Code) entwickelt. Es hat **keine manuelle Code-Review durch einen professionellen Entwickler** stattgefunden. Der Code wurde nicht auf Sicherheitslücken, Produktionsreife oder Best Practices geprüft.
+>
+> **Es wird ausdrücklich NICHT empfohlen, HELDASH öffentlich im Internet bereitzustellen.** Das Dashboard ist ausschließlich für den Einsatz im lokalen Heimnetzwerk (LAN) gedacht.
 
 ---
 
 ## Features
 
-### **Dashboard**
-- 🗂️ Modulares Grid — Apps, Media-Instanzen und Widgets frei anordnen
-- 📱 Vollständig responsiv — Desktop, Tablet und Mobile optimiert
-- 📦 Dashboard-Gruppen — benannte Container, Drag & Drop, kollabierbar
-- ✅ Dashboard & Health-Check Toggles — Ein-Klick-Steuerung
-- 🖱️ Edit-Modus — Drag & Drop mit Touch-Unterstützung
-- 👥 Per-User Dashboards — eigenes Layout pro Nutzer
-- 👁️ Gast-Sichtbarkeits-Overlay — Admins sehen direkt welche Elemente für Gäste sichtbar sind
-
-### **Navigation**
-- 🖥️ Desktop: kollabierbare Sidebar — Icons + Labels oder nur Icons
-- 📱 Mobile: Bottom-Navigation-Bar, respektiert Nutzerberechtigungen
-
-### **Apps & Bookmarks**
-- 📋 App-Liste gruppiert nach Kategorien
-- ➕ Hinzufügen, bearbeiten, löschen mit Icon (dashboardicons.com + Custom Upload)
-- 🔁 Automatische Health-Checks per HTTP — serverseitiger Scheduler
-- 🔖 Bookmarks-Seite — externe Links verwalten, Icons, Dashboard-Integration
-
-### **Icon-Management**
-- 🎨 1800+ Icons von dashboardicons.com
-- 📤 Custom Icon-Upload (PNG, JPG, SVG)
-- 🔍 Icon-Picker für alle Entities (Services, Widgets, Bookmarks, Instanzen, Netzwerkgeräte)
-- 💾 Automatisches Icon-Caching in Datenbank
-
-### **Media**
-- 🎬 Radarr — Film-Statistiken, Download-Queue, Kalender
-- 📺 Sonarr — Serien-Statistiken, Download-Queue, Kalender
-- 🔍 Prowlarr — Indexer-Liste und 24h-Grab-Statistiken
-- ⬇️ SABnzbd — Queue mit Fortschrittsbalken, Download-Verlauf
-- 🔎 Seerr/Discover — TMDB Integration, Filme/Serien requesten
-
-### **Recyclarr**
-- 🔄 Recyclarr v8 GUI — recyclarr.yml automatisch generiert
-- 📊 TRaSH Custom Formats nach Gruppen — Score-Overrides, Profil-Vergleich
-- 👤 Eigene Custom Formats aus CF-Manager
-- ⏰ Sync-Zeitplan: manuell, täglich, wöchentlich, Cron
-- 📜 Sync-Verlauf der letzten 10 Syncs
-
-### **CF-Manager**
-- 📝 Eigene Custom Formats erstellen, bearbeiten, löschen
-- ➕ Vollständiger Conditions-Editor
-- 📥 Import aus Radarr/Sonarr — automatische Erkennung
-- 📤 Export als JSON (TRaSH-kompatibel)
-- 🔀 CF kopieren — cross-service (Radarr ↔ Sonarr)
-
-### **Docker**
-- 🐳 Live-Container-Liste mit CPU/RAM, State-Badges, Uptime
-- 📊 Übersichtsleiste — Total / Running / Stopped / Restarting
-- 📜 Live-Log-Streaming per SSE
-- ⚡ Echtzeit-Statusupdates via Docker Events
-- ▶️ Start / Stop / Restart (nur Admins)
-
-### **Unraid Integration**
-- 💽 Array & Disk-Übersicht — Status, Auslastung, SMART, Parity Check
-- 🔌 Cache Pools — Typ-Badges (HDD/SSD/NVMe)
-- 🐳 Docker Container Management — Start/Stop/Restart/Pause
-- 🖥️ VM Management — Status, Start/Stop/Force-Stop
-- 🔔 Notifications — System-Benachrichtigungen mit Archiv
-- 🔌 Plugins Tab — installierte Plugins, Versionen, Updates
-- 📜 Logs Tab — System-Logs live streamen
-- ⚡ UPS Tab — USV-Status, Batteriestand, Last
-- 🔧 Multi-Server Support — mehrere Unraid-Server parallel
-
-### **Home Assistant**
-- 🏠 Multi-Instanz-Support
-- 🔍 Entity-Browser — Domain-Filter-Tabs + Suche
-- 🃏 Panel-Grid — domain-aware Karten, Echtzeit-WebSocket, Drag & Drop
-- 🗺️ Hausübersicht — Grundriss mit platzierbaren Entities (Landscape-Modus)
-- 📍 GPS-Tab — Personen-Tracking auf OpenStreetMap
-- 🤖 Automationen-Tab — ausführen, aktivieren/deaktivieren, Suche
-- ⚡ Energie-Dashboard — Solar, Netz, Autarkie-Chart
-- 🔒 Lock/Alarm-Karten — PIN-gesichert
-- 🔔 HA Alerts — Entity-Zustandsänderungen als Toast
-- 📈 Entity-Verlauf — 24h/7T Graph
-
-### **Netzwerk-Monitor**
-- 🌐 Netzwerk-Geräte überwachen — TCP-Ping, 7-Tage-Historie
-- 📡 IP-Scanner — Subnetz scannen (CIDR /20), Geräte direkt hinzufügen
-- ✅ Bereits hinzugefügte Geräte visuell markiert
-- 🔌 Wake-on-LAN — Geräte per Magic Packet aufwecken
-- 📊 Geräte-Gruppen — 24h Uptime-Verlauf pro Gerät
-
-### **Backup Center**
-- 💾 Zentrale Backup-Übersicht — CA Backup, Duplicati, Kopia, Docker, VMs
-- 🐳 Docker Config Export — Container-Konfigurationen als JSON
-- ⚠️ Automatische Warnungen (Backup > 7 Tage alt)
-- 📖 Integrierter Leitfaden: Unraid vollständig sichern
-
-### **Logbuch**
-- 📋 Zentrales Monitoring-Center — alle Aktivitäten
-- 💯 Homelab Health Score (0–100) — Services, Docker, Recyclarr, HA
-- 📅 Ereignis-Kalender — GitHub-Graph-Stil, 84 Tage
-- 🔔 Anomalie-Erkennung — instabile Services markiert
-- 📊 Tabs: Aktivitäten | Uptime | Sync-Verlauf | Docker Events
-- 📈 Ressourcen-Verlauf — CPU, RAM, Netzwerk (24h/7T)
-
-### **Widgets**
-- 🖥️ Server Status — Live CPU, RAM, Festplatten
-- 🛡️ AdGuard Home / Pi-hole — DNS-Statistiken
-- 🐳 Docker Overview — Container-Counts
-- 🔐 Nginx Proxy Manager — Proxies, Zertifikate
-- 🏠 Home Assistant Widget — Entity-States
-- ⚡ HA Energy Widget — Energie-Zusammenfassung
-- 📅 Kalender-Widget — Radarr/Sonarr Upcoming-Releases
-- 🌤️ Wetter-Widget — Open-Meteo Integration (keine API-Key nötig)
-- 📊 Topbar-Pinbar für Schnellübersicht
-
-### **Instanzen-Verwaltung**
-- 🔗 Zentrale Verwaltung — HA, Radarr, Sonarr, Prowlarr, SABnzbd, Seerr, Unraid
-- 🎨 Icon-Support für alle Instanzen
-- ✅ Verbindungstest beim Hinzufügen
-- 🔄 Automatische App-Erstellung (wenn URL unique)
-
-### **Auth & Zugriff**
-- 🔑 Lokale Nutzer-Authentifizierung
-- 👥 Nutzergruppen (Admin, Gast + eigene)
-- 👁️ Per-Gruppe Sichtbarkeit
-- 🔐 "Angemeldet bleiben" Option
-- 🛠️ Admin "Gast-Modus"
-
-### **Design & Einstellungen**
-- 🎨 Design-Tab — Ecken-Stil, Blur, Abstände, Sidebar-Stil, Animationen, Custom CSS
-- 🌓 Hell/Dunkel + 3 Akzentfarben (Cyan, Orange, Magenta)
-- 🕐 Auto-Theme — zeitbasierter Wechsel
-- 🖼️ Hintergrundbilder — Upload pro Nutzergruppe
-- 🌐 Mehrsprachig — Deutsch, Englisch (weitere Sprachen via Community)
-
-### **Dokumentation & Changelog**
-- 📖 Integriertes Doku-Center in About-Seite
-- 🎉 What's New Modal nach Updates
-- 📋 Alle Releases einsehbar
+- **Dashboard** — Modulares Grid mit Apps, Widgets und Bookmarks; Drag & Drop, kollabierbare Gruppen, Per-User-Layouts
+- **Docker** — Live-Container-Liste mit CPU/RAM, Log-Streaming, Echtzeit-Status via Docker Events
+- **Home Assistant** — Multi-Instanz, Entity-Browser, Panel-Grid, Grundriss, GPS-Tracking, Automationen, Energie-Dashboard, Entity-Verlauf
+- **Media** — Radarr, Sonarr, Prowlarr, SABnzbd, Seerr/Discover mit Statistiken, Queues und Kalendern
+- **Recyclarr + CF-Manager** — TRaSH Guides Sync GUI, Custom-Format-Editor, Import/Export
+- **Unraid Integration** — Array & Disk-Übersicht, Cache Pools, VM-Management, Notifications, Plugins, Logs, UPS
+- **Netzwerk-Monitor** — TCP-Ping, 7-Tage-Historie, IP-Scanner, Wake-on-LAN, Geräte-Gruppen
+- **Widgets** — Server-Stats, AdGuard/Pi-hole, Docker, Nginx PM, HA Entities, Wetter, Kalender
+- **Icon-System** — 1800+ Icons von dashboardicons.com + Custom-Upload, Icon-Picker für alle Entities
+- **Auth & Zugriff** — Lokale Nutzer, Gruppen (Admin, Gast, Custom), Per-Gruppe-Sichtbarkeit, „Angemeldet bleiben"
+- **i18n** — Deutsch (Standard) + Englisch; Community-Übersetzungen willkommen
+- **Design** — Glass Morphism, Hell/Dunkel, 3 Akzentfarben, Auto-Theme, Custom CSS, Hintergrundbilder
 
 ---
 
 ## Installation
 
-### Unraid Community Store (Empfohlen)
+### Unraid Community Apps (empfohlen)
 
-HELDASH ist direkt über den **Unraid Community Applications Store** verfügbar.
+1. **Apps**-Tab in Unraid öffnen
+2. Nach **HELDASH** suchen
+3. **Install** klicken und Template folgen
 
-1. Im CA App Store nach **„HELDASH"** suchen
-2. Mit einem Klick installieren
-3. **http://server-ip:8282** öffnen
-4. Admin-Einrichtung beim ersten Start
-
----
+HELDASH ist dann erreichbar unter `http://SERVER-IP:8282`.
 
 ### Docker Compose
+
 ```yaml
 services:
   heldash:
     image: ghcr.io/kreuzbube88/heldash:latest
     container_name: heldash
+    restart: unless-stopped
     ports:
       - "8282:8282"
     volumes:
       - /mnt/user/appdata/heldash:/data
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /mnt/user/appdata/recyclarr:/recyclarr
-      # - /boot:/boot:ro  # optional: CA Backup monitoring
+      # - /boot:/boot:ro  # optional: CA Backup Monitoring
     environment:
-      SECRET_KEY: ${SECRET_KEY}  # openssl rand -hex 32
-      SECURE_COOKIES: "false"    # true wenn hinter HTTPS-Proxy
-    restart: unless-stopped
+      - SECRET_KEY=your_secret_here   # openssl rand -hex 32
+      - SECURE_COOKIES=false          # true wenn hinter HTTPS-Proxy
 ```
-```bash
-docker compose up -d
-```
-
-Dann **http://server-ip:8282** öffnen.
-
----
 
 ### Docker CLI
+
 ```bash
 docker run -d \
   --name heldash \
@@ -218,17 +89,6 @@ docker run -d \
   -e SECURE_COOKIES=false \
   ghcr.io/kreuzbube88/heldash:latest
 ```
-
----
-
-## Sicherheitshinweis
-
-⚠️ **HELDASH ist ausschließlich für den lokalen Einsatz im Heimnetzwerk gedacht.**
-
-- ❌ **NICHT** öffentlich im Internet bereitstellen
-- ✅ Hinter Reverse Proxy (z.B. Nginx Proxy Manager) mit SSL betreiben
-- ✅ `SECURE_COOKIES=true` wenn hinter HTTPS
-- ✅ `SECRET_KEY` immer setzen: `openssl rand -hex 32`
 
 ---
 
@@ -249,38 +109,18 @@ docker run -d \
 
 ---
 
-## Unraid
+## Voraussetzungen
 
-**Wichtige Pfade:**
-
-| Pfad im Container | Host-Pfad (Standard) | Beschreibung |
-|---|---|---|
-| `/data` | `/mnt/user/appdata/heldash` | Datenbank + Konfiguration |
-| `/var/run/docker.sock` | `/var/run/docker.sock` | Docker-Integration (ro) |
-| `/recyclarr` | `/mnt/user/appdata/recyclarr` | Recyclarr Config (optional) |
-| `/boot` | `/boot` | CA Backup Log-Zugriff (optional, read-only) |
-
-> Der `/boot` Mount ist nur erforderlich wenn CA Backup als
-> Backup-Quelle in HELDASH überwacht werden soll.
-
-**Pflichtfelder bei Installation:**
-- `SECRET_KEY` — `openssl rand -hex 32` im Terminal generieren
-- `SECURE_COOKIES` — `false` für lokalen Zugriff, `true` bei HTTPS
+- **Docker socket** `/var/run/docker.sock` — erforderlich für Docker-Integration
+- **Data-Volume** `/data` — Datenbank, Icons und Konfiguration
+- **Recyclarr-Volume** `/recyclarr` — optional, für Recyclarr-Sync
+- **Boot-Mount** `/boot` — optional, für CA Backup Monitoring
 
 ---
 
 ## Dokumentation
 
-Die vollständige Dokumentation findest du im [`/docs`](https://github.com/kreuzbube88/heldash/tree/main/docs) Verzeichnis:
-
-- 🇩🇪 [Deutsche Dokumentation](docs/README.md)
-- 🇬🇧 [English Documentation](docs/README.en.md)
-
-**Verfügbare Guides:**
-- [Installation](docs/installation.md) · [EN](docs/installation.en.md)
-- [Integrationen](docs/integrationen/) · [Integrations EN](docs/integrationen/)
-- [Features](docs/features/) · [Features EN](docs/features/)
-- [Konfiguration](docs/konfiguration/) · [Configuration EN](docs/konfiguration/)
+Die vollständige Dokumentation ist im [`docs/`](docs/README.md)-Verzeichnis verfügbar — auf Deutsch und Englisch.
 
 ---
 
@@ -297,11 +137,4 @@ Contributions sind willkommen! Siehe [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Lizenz
 
-MIT License — siehe [LICENSE](LICENSE)
-
----
-
-## Hinweis zur Entwicklung
-
-Dieses Projekt wurde vollständig mit KI-Unterstützung (Claude Code) entwickelt.
-Keine professionelle Sicherheitsprüfung. **Nur im lokalen Heimnetzwerk nutzen.**
+MIT © 2024 HEL*Apps

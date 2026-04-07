@@ -123,7 +123,10 @@ async function testConnection(type: InstanceType, url: string, config: Record<st
       return res.ok ? { ok: true } : { ok: false, error: `Unraid returned HTTP ${res.status}` }
     }
     if (HELBACKUP_TYPES.includes(type)) {
-      const res = await fetch(`${base}/health`, { signal: timeout })
+      const res = await fetch(`${base}/api/v1/widget/status`, {
+        headers: { Authorization: `Bearer ${config.token ?? ''}` },
+        signal: timeout,
+      })
       return res.ok ? { ok: true } : { ok: false, error: `HELBACKUP returned HTTP ${res.status}` }
     }
     return { ok: false, error: 'Unknown instance type' }

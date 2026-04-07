@@ -328,6 +328,8 @@ export async function instancesRoutes(app: FastifyInstance) {
         .run(row.id)
     }
 
+    db.prepare('DELETE FROM services WHERE url = ?').run(row.url)
+
     deleteFromOldTable(db, row.id, row.type)
     db.prepare('DELETE FROM instances WHERE id = ?').run(row.id)
 

@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { api } from '../api'
-import type { ArrInstance, ArrStatus, ArrStats, ArrQueueResponse, ArrCalendarItem, ProwlarrIndexer, SabnzbdQueueData, SabnzbdHistoryData, SeerrRequestsResponse, RadarrMovie, SonarrSeries, ArrCustomFormat, ArrCFSpecification, ArrQualityProfile, ArrCFSchema } from '../types/arr'
+import type { ArrInstance, ArrStatus, ArrStats, ArrQueueResponse, ArrCalendarItem, ProwlarrIndexer, SabnzbdQueueData, SabnzbdHistoryData, SeerrRequestsResponse, RadarrMovie, SonarrSeries, ArrCustomFormat, ArrCFSpecification, ArrQualityProfile, ArrCFSchema, QBittorrentTorrent } from '../types/arr'
 import type { SeerrMediaSeasonStatus } from '../types/seerr'
 import type { UserCfFile } from '../types/recyclarr'
 
@@ -13,6 +13,7 @@ interface ArrState {
   indexers: Record<string, ProwlarrIndexer[]>
   sabQueues: Record<string, SabnzbdQueueData>
   histories: Record<string, SabnzbdHistoryData>
+  qbtTorrents: Record<string, QBittorrentTorrent[]>
   seerrRequests: Record<string, SeerrRequestsResponse>
   seerrTvStatus: Record<number, { status: number; seasons?: SeerrMediaSeasonStatus[] }>
   seerrMovieStatus: Record<number, { status: number }>
@@ -28,6 +29,8 @@ interface ArrState {
   loadIndexers: (id: string) => Promise<void>
   loadSabQueue: (id: string) => Promise<void>
   loadHistory: (id: string) => Promise<void>
+  loadQbtTorrents: (id: string) => Promise<void>
+  toggleAltSpeed: (id: string) => Promise<void>
   loadSeerrRequests: (id: string, filter?: string, page?: number) => Promise<void>
   loadSeerrTvStatus: (seerrId: string, tmdbId: number) => Promise<void>
   loadSeerrMovieStatus: (seerrId: string, tmdbId: number) => Promise<void>
@@ -69,6 +72,7 @@ export const useArrStore = create<ArrState>((set, get) => ({
   indexers: {},
   sabQueues: {},
   histories: {},
+  qbtTorrents: {},
   seerrRequests: {},
   seerrTvStatus: {},
   seerrMovieStatus: {},
@@ -140,6 +144,15 @@ export const useArrStore = create<ArrState>((set, get) => ({
   loadHistory: async (id) => {
     const history = await api.arr.history(id)
     set(state => ({ histories: { ...state.histories, [id]: history } }))
+  },
+
+  loadQbtTorrents: async (id) => {
+    const torrents = await api.arr.qbtTorrents(id)
+    set(state => ({ qbtTorrents: { ...state.qbtTorrents, [id]: torrents } }))
+  },
+
+  toggleAltSpeed: async (id) => {
+    await api.arr.toggleAltSpeed(id)
   },
 
   loadSeerrRequests: async (id, filter, page = 1) => {
@@ -292,6 +305,7 @@ export const useArrStore = create<ArrState>((set, get) => ({
       calendars: Object.fromEntries(Object.entries(state.calendars).filter(([k]) => k !== id)),
       sabQueues: Object.fromEntries(Object.entries(state.sabQueues).filter(([k]) => k !== id)),
       histories: Object.fromEntries(Object.entries(state.histories).filter(([k]) => k !== id)),
+      qbtTorrents: Object.fromEntries(Object.entries(state.qbtTorrents).filter(([k]) => k !== id)),
       seerrRequests: Object.fromEntries(Object.entries(state.seerrRequests).filter(([k]) => k !== id)),
       movies: Object.fromEntries(Object.entries(state.movies).filter(([k]) => k !== id)),
       series: Object.fromEntries(Object.entries(state.series).filter(([k]) => k !== id)),

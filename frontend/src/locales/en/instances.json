@@ -27,6 +27,7 @@
     "url_required": "URL is required",
     "token_required": "Token is required",
     "api_key_required": "API Key is required",
+    "username_required": "Username is required",
     "save_failed": "Save failed",
     "credential_empty_hint": "leave blank = unchanged",
     "discard_title": "Discard changes?",

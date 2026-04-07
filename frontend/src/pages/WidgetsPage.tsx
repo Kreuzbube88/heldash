@@ -13,7 +13,7 @@ import { Trash2, Pencil, X, Check, Plus, Minus, LayoutDashboard, Shield, ShieldO
 import type { Widget, ServerStatusConfig, AdGuardHomeConfig, CustomButtonConfig, HomeAssistantConfig, NginxPMConfig, HomeAssistantEnergyConfig, ServerStats, AdGuardStats, HaEntityState, NpmStats, EnergyData, CalendarWidgetConfig, CalendarEntry, WeatherWidgetConfig, WeatherStats } from '../types'
 import { normalizeUrl, containerCounts } from '../utils'
 import { getIconUrl } from '../api'
-import { ArrCardContent, SabnzbdCardContent, SeerrCardContent, TYPE_COLORS as ARR_TYPE_COLORS } from '../components/MediaCard'
+import { ArrCardContent, SabnzbdCardContent, SeerrCardContent, QBittorrentCardContent, TYPE_COLORS as ARR_TYPE_COLORS } from '../components/MediaCard'
 import { HelbackupWidget } from '../components/HelbackupWidget'
 
 // ── Energy Widget compact view ─────────────────────────────────────────────────
@@ -1576,6 +1576,14 @@ export function WidgetsPage({ showAddForm, onFormClose }: Props) {
                 return (
                   <div key={instance.id} className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
                     <SeerrCardContent instance={instance} />
+                    {dashBtn}
+                  </div>
+                )
+              }
+              if (instance.type === 'qbittorrent') {
+                return (
+                  <div key={instance.id} className="glass" style={{ borderRadius: 'var(--radius-xl)', padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    <QBittorrentCardContent instance={instance} />
                     {dashBtn}
                   </div>
                 )

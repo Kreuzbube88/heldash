@@ -164,6 +164,8 @@ function runMigrations(db: Database.Database, dataDir: string): number {
     'ALTER TABLE bookmarks ADD COLUMN icon_id TEXT REFERENCES icons(id)',
     'ALTER TABLE widgets ADD COLUMN icon_id TEXT REFERENCES icons(id)',
     'ALTER TABLE network_devices ADD COLUMN icon_id TEXT REFERENCES icons(id)',
+    // qBittorrent: username field in arr_instances (password stored in api_key)
+    'ALTER TABLE arr_instances ADD COLUMN username TEXT NOT NULL DEFAULT \'\'',
     // Unified instances — seed from old tables (INSERT OR IGNORE = idempotent)
     `INSERT OR IGNORE INTO instances (id, type, name, url, config, enabled, position, created_at, updated_at)
       SELECT id, 'ha', name, url, json_object('token', token), enabled, position, created_at, updated_at FROM ha_instances`,

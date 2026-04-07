@@ -296,7 +296,7 @@ export interface Background {
 
 // ── Unified instance registry ─────────────────────────────────────────────────
 
-export type InstanceType = 'ha' | 'radarr' | 'sonarr' | 'prowlarr' | 'sabnzbd' | 'seerr' | 'unraid' | 'helbackup'
+export type InstanceType = 'ha' | 'radarr' | 'sonarr' | 'prowlarr' | 'sabnzbd' | 'seerr' | 'unraid' | 'helbackup' | 'qbittorrent'
 
 export interface Instance {
   id: string

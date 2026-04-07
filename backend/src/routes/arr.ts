@@ -8,6 +8,7 @@ import { RadarrClient } from '../arr/radarr'
 import { SonarrClient } from '../arr/sonarr'
 import { ProwlarrClient } from '../arr/prowlarr'
 import { SabnzbdClient } from '../arr/sabnzbd'
+import { QBittorrentClient } from '../arr/qbittorrent'
 import { logActivity } from './activity'
 import { SeerrClient } from '../arr/seerr'
 import type { SeerrDiscoverResponse } from '../arr/seerr'
@@ -104,6 +105,7 @@ interface ArrInstanceRow {
   name: string
   url: string
   api_key: string
+  username: string
   enabled: number
   position: number
   created_at: string
@@ -263,8 +265,8 @@ export async function arrRoutes(app: FastifyInstance) {
     { preHandler: [app.requireAdmin] },
     async (req, reply) => {
       const { type, name, url, api_key, enabled = true, position = 0 } = req.body
-      if (!['radarr', 'sonarr', 'prowlarr', 'sabnzbd', 'seerr'].includes(type)) {
-        return reply.status(400).send({ error: 'type must be radarr, sonarr, prowlarr, sabnzbd or seerr' })
+      if (!['radarr', 'sonarr', 'prowlarr', 'sabnzbd', 'seerr', 'qbittorrent'].includes(type)) {
+        return reply.status(400).send({ error: 'type must be radarr, sonarr, prowlarr, sabnzbd, seerr or qbittorrent' })
       }
       if (!name?.trim() || !url?.trim() || !api_key?.trim()) {
         return reply.status(400).send({ error: 'name, url and api_key are required' })
@@ -276,13 +278,14 @@ export async function arrRoutes(app: FastifyInstance) {
       const id = nanoid()
       const cleanUrl = url.trim().replace(/\/$/, '')
       const cleanKey = api_key.trim()
+      const cleanUsername = (req.body as { username?: string }).username?.trim() ?? ''
       db.prepare(`
-        INSERT INTO arr_instances (id, type, name, url, api_key, enabled, position)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).run(id, type, name.trim(), cleanUrl, cleanKey, enabled ? 1 : 0, position)
+        INSERT INTO arr_instances (id, type, name, url, api_key, username, enabled, position)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(id, type, name.trim(), cleanUrl, cleanKey, cleanUsername, enabled ? 1 : 0, position)
       db.prepare(`INSERT OR REPLACE INTO instances (id, type, name, url, config, enabled, position, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`)
-        .run(id, type, name.trim(), cleanUrl, JSON.stringify({ api_key: cleanKey }), enabled ? 1 : 0, position)
+        .run(id, type, name.trim(), cleanUrl, JSON.stringify({ api_key: cleanKey, username: cleanUsername }), enabled ? 1 : 0, position)
 
       const row = db.prepare('SELECT * FROM arr_instances WHERE id = ?').get(id) as ArrInstanceRow
       logActivity('media', `${type}-Instanz "${name.trim()}" hinzugefügt`, 'info', { instanceId: id })
@@ -301,6 +304,7 @@ export async function arrRoutes(app: FastifyInstance) {
       const updates: string[] = ["updated_at = datetime('now')"]
       const values: unknown[] = []
       const { name, url, api_key, enabled, position } = req.body
+      const username = (req.body as { username?: string }).username
 
       if (name !== undefined) { updates.push('name = ?'); values.push(name.trim()) }
       if (url !== undefined) {
@@ -308,6 +312,7 @@ export async function arrRoutes(app: FastifyInstance) {
         updates.push('url = ?'); values.push(url.trim().replace(/\/$/, ''))
       }
       if (api_key !== undefined) { updates.push('api_key = ?'); values.push(api_key.trim()) }
+      if (username !== undefined) { updates.push('username = ?'); values.push(username.trim()) }
       if (enabled !== undefined) { updates.push('enabled = ?'); values.push(enabled ? 1 : 0) }
       if (position !== undefined) { updates.push('position = ?'); values.push(position) }
 
@@ -316,7 +321,7 @@ export async function arrRoutes(app: FastifyInstance) {
 
       const updated = db.prepare('SELECT * FROM arr_instances WHERE id = ?').get(req.params.id) as ArrInstanceRow
       db.prepare(`UPDATE instances SET name=?, url=?, config=?, enabled=?, updated_at=datetime('now') WHERE id=?`)
-        .run(updated.name, updated.url, JSON.stringify({ api_key: updated.api_key }), updated.enabled, req.params.id)
+        .run(updated.name, updated.url, JSON.stringify({ api_key: updated.api_key, username: updated.username }), updated.enabled, req.params.id)
       return sanitize(updated)
     }
   )
@@ -369,6 +374,10 @@ export async function arrRoutes(app: FastifyInstance) {
         const { version } = await new SabnzbdClient(row.url, row.api_key).getVersion()
         return { online: true, type: 'sabnzbd', version }
       }
+      if (row.type === 'qbittorrent') {
+        const version = await new QBittorrentClient(row.url, row.username, row.api_key).ping()
+        return { online: true, type: 'qbittorrent', version }
+      }
       if (row.type === 'seerr') {
         const status = await new SeerrClient(row.url, row.api_key).getStatus()
         return { online: true, type: 'seerr', version: status.version }
@@ -404,6 +413,32 @@ export async function arrRoutes(app: FastifyInstance) {
           updateAvailable: seerrStatus?.updateAvailable ?? false,
           commitsBehind: seerrStatus?.commitsBehind ?? 0,
           restartRequired: seerrStatus?.restartRequired ?? false,
+        }
+      }
+      if (row.type === 'qbittorrent') {
+        const client = new QBittorrentClient(row.url, row.username, row.api_key)
+        const [info, torrents, altMode] = await Promise.all([
+          client.getTransferInfo(),
+          client.getTorrents(),
+          client.getAltSpeedMode(),
+        ])
+        const downloading = torrents.filter(t => ['downloading', 'stalledDL', 'forcedDL', 'queuedDL', 'checkingDL'].includes(t.state))
+        const seeding = torrents.filter(t => ['uploading', 'stalledUP', 'forcedUP', 'queuedUP', 'checkingUP'].includes(t.state))
+        const paused = torrents.filter(t => ['pausedDL', 'pausedUP'].includes(t.state))
+        const errored = torrents.filter(t => ['error', 'missingFiles'].includes(t.state))
+        return {
+          type: 'qbittorrent',
+          dlSpeed: info.dl_info_speed,
+          ulSpeed: info.ul_info_speed,
+          dlTotal: info.dl_info_data,
+          ulTotal: info.up_info_data,
+          connectionStatus: info.connection_status,
+          altSpeedEnabled: altMode,
+          totalTorrents: torrents.length,
+          downloadingCount: downloading.length,
+          seedingCount: seeding.length,
+          pausedCount: paused.length,
+          errorCount: errored.length,
         }
       }
       if (row.type === 'sabnzbd') {
@@ -510,6 +545,9 @@ export async function arrRoutes(app: FastifyInstance) {
         const { queue } = await new SabnzbdClient(row.url, row.api_key).getQueue(0, 20)
         return queue
       }
+      if (row.type === 'qbittorrent') {
+        return await new QBittorrentClient(row.url, row.username, row.api_key).getTorrents('all')
+      }
       const client = row.type === 'radarr'
         ? new RadarrClient(row.url, row.api_key)
         : new SonarrClient(row.url, row.api_key)
@@ -534,6 +572,20 @@ export async function arrRoutes(app: FastifyInstance) {
     }
   })
 
+  // POST /api/arr/:id/toggle-alt-speed (qBittorrent only)
+  app.post<{ Params: { id: string } }>('/api/arr/:id/toggle-alt-speed', { preHandler: [app.authenticate] }, async (req, reply) => {
+    const row = await resolveInstance(req, reply, req.params.id)
+    if (!row) return
+    if (row.type !== 'qbittorrent') return reply.status(400).send({ error: 'Only available for qBittorrent instances' })
+    try {
+      await new QBittorrentClient(row.url, row.username, row.api_key).toggleAltSpeed()
+      return { ok: true }
+    } catch (e: unknown) {
+      app.log.error({ detail: (e as Error).message, url: req.url, method: req.method }, 'Upstream error')
+      return reply.status(502).send({ error: 'Upstream error', detail: (e as Error).message })
+    }
+  })
+
   // GET /api/arr/calendar/combined?instanceIds=id1,id2
   app.get('/api/arr/calendar/combined', { preHandler: [app.authenticate] }, async (req, reply) => {
     const { instanceIds } = req.query as { instanceIds?: string }
@@ -548,7 +600,7 @@ export async function arrRoutes(app: FastifyInstance) {
   app.get<{ Params: { id: string } }>('/api/arr/:id/calendar', async (req, reply) => {
     const row = await resolveInstance(req, reply, req.params.id)
     if (!row) return
-    if (row.type === 'prowlarr' || row.type === 'sabnzbd' || row.type === 'seerr') return reply.status(400).send({ error: 'Not supported for this instance type' })
+    if (row.type === 'prowlarr' || row.type === 'sabnzbd' || row.type === 'seerr' || row.type === 'qbittorrent') return reply.status(400).send({ error: 'Not supported for this instance type' })
     try {
       const { start, end } = calendarRange()
       const client = row.type === 'radarr'

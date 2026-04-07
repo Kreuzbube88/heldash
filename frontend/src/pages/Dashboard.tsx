@@ -7,7 +7,7 @@ import { useWidgetStore } from '../store/useWidgetStore'
 import { useDockerStore } from '../store/useDockerStore'
 import { useBookmarkStore } from '../store/useBookmarkStore'
 import { ServiceCard } from '../components/ServiceCard'
-import { ArrCardContent, SabnzbdCardContent, SeerrCardContent } from '../components/MediaCard'
+import { ArrCardContent, SabnzbdCardContent, SeerrCardContent, QBittorrentCardContent } from '../components/MediaCard'
 import { AdGuardStatsView, DockerOverviewContent, HaStatsView, CustomButtonsView, StatBar, NginxPMStatsView, HaEnergyWidgetView, CalendarWidgetContent, WeatherWidgetView } from './WidgetsPage'
 import { HelbackupWidget } from '../components/HelbackupWidget'
 import type { Service, DashboardItem, DashboardServiceItem, DashboardArrItem, DashboardPlaceholderItem, DashboardWidgetItem, DashboardGroup, ServerStats, AdGuardStats, NpmStats, HaEntityState, AdGuardHomeConfig, Widget, EnergyData, CalendarEntry, WeatherStats, WeatherWidgetConfig } from '../types'
@@ -241,7 +241,9 @@ function DashboardArrCard({ item, editMode, groups, hiddenArrIds }: {
           ? <SabnzbdCardContent instance={item.instance} />
           : item.instance.type === 'seerr'
             ? <SeerrCardContent instance={item.instance} />
-            : <ArrCardContent instance={item.instance} />
+            : item.instance.type === 'qbittorrent'
+              ? <QBittorrentCardContent instance={item.instance} />
+              : <ArrCardContent instance={item.instance} />
         }
       </div>
       {showVisibilityOverlay && (

@@ -1,7 +1,7 @@
 import type { Service, Group, Settings, AuthUser, UserRecord, UserGroup, DashboardGroup, DashboardResponse, Widget, WidgetStats, DockerContainer, ContainerStats, Background, HaInstance, HaPanel, HaEntityFull, HaArea, EnergyData, CalendarEntry, HaFloorplan, HaFloorplanEntity, HaAlert, HaHistoryEntry, NetworkDevice, NetworkDeviceHistory, ScanResult, BackupSource, BackupStatusResult, ResourceSnapshot, ChangelogRelease, Instance, InstanceType, HelbackupWidgetStatus, HelbackupJob, HelbackupBackup, HelbackupHistoryEntry, HelbackupLogEvent } from './types'
 import type { SyncHistoryEntry, BackupEntry } from './types/recyclarr'
 import type { UnraidInstance, UnraidInfo, UnraidArray, UnraidParityHistory, UnraidContainer, UnraidVm, UnraidShare, UnraidUser, UnraidNotifications, UnraidConfig, UnraidPhysicalDisk, UnraidService, UnraidFlash, UnraidServer, UnraidOwner, UnraidMe, UnraidNetworkAccess, UnraidConnect, UnraidUpsDevice, UnraidUpsConfig, UnraidLogFile, UnraidPlugin, UnraidApiKey, UnraidDockerNetwork, UnraidMetricsDetailed } from './types/unraid'
-import type { ArrInstance, ArrStatus, ArrStats, ArrQueueResponse, ArrCalendarItem, ProwlarrIndexer, SabnzbdQueueData, SabnzbdHistoryData, SeerrRequest, SeerrRequestsResponse, RadarrMovie, SonarrSeries, ArrCustomFormat, ArrCFSpecification, ArrQualityProfile } from './types/arr'
+import type { ArrInstance, ArrStatus, ArrStats, ArrQueueResponse, ArrCalendarItem, ProwlarrIndexer, SabnzbdQueueData, SabnzbdHistoryData, SeerrRequest, SeerrRequestsResponse, RadarrMovie, SonarrSeries, ArrCustomFormat, ArrCFSpecification, ArrQualityProfile, QBittorrentTorrent } from './types/arr'
 import type { TmdbPage, TmdbGenre, TmdbProvider, TmdbTvDetail, TmdbDiscoverFilters } from './types/tmdb'
 import type { SeerrTvDetail, SeerrMovieDetail } from './types/seerr'
 
@@ -123,6 +123,8 @@ export const api = {
     stats: (id: string) => req<ArrStats>(`/arr/${id}/stats`),
     queue: (id: string) => req<ArrQueueResponse>(`/arr/${id}/queue`),
     sabQueue: (id: string) => req<SabnzbdQueueData>(`/arr/${id}/queue`),
+    qbtTorrents: (id: string) => req<QBittorrentTorrent[]>(`/arr/${id}/queue`),
+    toggleAltSpeed: (id: string) => req<{ ok: boolean }>(`/arr/${id}/toggle-alt-speed`, { method: 'POST', body: JSON.stringify({}) }),
     calendar: (id: string) => req<ArrCalendarItem[]>(`/arr/${id}/calendar`),
     indexers: (id: string) => req<ProwlarrIndexer[]>(`/arr/${id}/indexers`),
     history: (id: string) => req<SabnzbdHistoryData>(`/arr/${id}/history`),
@@ -566,9 +568,9 @@ export const api = {
 
   instances: {
     list: () => req<Instance[]>('/instances'),
-    create: (data: { type: InstanceType; name: string; url: string; token?: string; api_key?: string; enabled?: boolean; icon_id?: string | null }) =>
+    create: (data: { type: InstanceType; name: string; url: string; token?: string; api_key?: string; username?: string; enabled?: boolean; icon_id?: string | null }) =>
       req<Instance>('/instances', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: string, data: { name?: string; url?: string; token?: string; api_key?: string; enabled?: boolean; icon_id?: string | null }) =>
+    update: (id: string, data: { name?: string; url?: string; token?: string; api_key?: string; username?: string; enabled?: boolean; icon_id?: string | null }) =>
       req<Instance>(`/instances/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     delete: (id: string) => req<void>(`/instances/${id}`, { method: 'DELETE' }),
     test: (id: string) => req<{ ok: boolean; error?: string }>(`/instances/${id}/test`, { method: 'POST', body: JSON.stringify({}) }),

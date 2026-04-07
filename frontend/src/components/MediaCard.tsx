@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useArrStore } from '../store/useArrStore'
 import { useStore } from '../store/useStore'
 import { useConfirm } from './ConfirmDialog'
-import type { ArrStatus, ArrStats, ArrQueueItem, ArrCalendarItem, RadarrCalendarItem, SonarrCalendarItem, ProwlarrIndexer, SabnzbdQueueData, SabnzbdHistoryData, SabnzbdWarningItem, SeerrRequest, ArrHealthIssue } from '../types/arr'
+import type { ArrStatus, ArrStats, ArrQueueItem, ArrCalendarItem, RadarrCalendarItem, SonarrCalendarItem, ProwlarrIndexer, SabnzbdQueueData, SabnzbdHistoryData, SabnzbdWarningItem, SeerrRequest, ArrHealthIssue, QBittorrentTorrent } from '../types/arr'
 import { ChevronDown, ChevronUp, Check, X, Trash2, AlertTriangle } from 'lucide-react'
 import { normalizeUrl } from '../utils'
 import { getIconUrl } from '../api'
@@ -42,6 +42,7 @@ export const TYPE_LABELS: Record<string, string> = {
   prowlarr: 'Prowlarr',
   sabnzbd: 'SABnzbd',
   seerr: 'Seerr',
+  qbittorrent: 'qBittorrent',
 }
 
 export const TYPE_COLORS: Record<string, string> = {
@@ -50,6 +51,7 @@ export const TYPE_COLORS: Record<string, string> = {
   prowlarr: '#8b5cf6',
   sabnzbd: '#22c55e',
   seerr: '#6366f1',
+  qbittorrent: '#2196f3',
 }
 
 // ── Shared sub-components ─────────────────────────────────────────────────────
@@ -200,6 +202,66 @@ export function SabnzbdHistoryList({ history }: { history: SabnzbdHistoryData })
           {slot.cat && <span style={{ color: 'var(--text-muted)', fontSize: 11, flexShrink: 0 }}>{slot.cat}</span>}
         </div>
       ))}
+    </div>
+  )
+}
+
+// ── qBittorrent torrent list ──────────────────────────────────────────────────
+
+const QBT_STATE_COLOR: Record<string, string> = {
+  downloading: 'var(--status-online)',
+  forcedDL: 'var(--status-online)',
+  stalledDL: '#f59e0b',
+  uploading: '#2196f3',
+  forcedUP: '#2196f3',
+  stalledUP: '#60a5fa',
+  pausedDL: 'var(--text-muted)',
+  pausedUP: 'var(--text-muted)',
+  error: 'var(--status-offline)',
+  missingFiles: 'var(--status-offline)',
+}
+
+function qbtStateLabel(state: string): string {
+  const map: Record<string, string> = {
+    downloading: 'DL', forcedDL: 'DL', stalledDL: 'Stalled',
+    uploading: 'Seed', forcedUP: 'Seed', stalledUP: 'Seed',
+    pausedDL: 'Paused', pausedUP: 'Paused',
+    queuedDL: 'Queued', queuedUP: 'Queued',
+    checkingDL: 'Checking', checkingUP: 'Checking',
+    error: 'Error', missingFiles: 'Missing',
+    moving: 'Moving',
+  }
+  return map[state] ?? state
+}
+
+export function QBittorrentTorrentList({ torrents }: { torrents: QBittorrentTorrent[] }) {
+  if (torrents.length === 0) return <p style={{ fontSize: 12, color: 'var(--text-muted)', padding: '8px 0' }}>No torrents.</p>
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 240, overflowY: 'auto', paddingRight: 2 }}>
+      {torrents.map(t => {
+        const pct = Math.round(t.progress * 100)
+        const stateColor = QBT_STATE_COLOR[t.state] ?? 'var(--text-muted)'
+        const isActive = t.dlspeed > 0 || t.upspeed > 0
+        const etaStr = t.eta > 0 && t.eta < 8640000 ? `${Math.floor(t.eta / 3600)}h ${Math.floor((t.eta % 3600) / 60)}m` : null
+        return (
+          <div key={t.hash} className="glass" style={{ padding: '8px 12px', borderRadius: 'var(--radius-md)', fontSize: 12, flexShrink: 0 }}>
+            <div style={{ fontWeight: 500, marginBottom: pct < 100 ? 6 : 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.name}</div>
+            {pct < 100 && (
+              <div style={{ height: 3, background: 'var(--glass-border)', borderRadius: 2, marginBottom: 6, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${pct}%`, background: '#2196f3', borderRadius: 2 }} />
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 10, color: 'var(--text-muted)', flexWrap: 'wrap' }}>
+              <span style={{ color: stateColor }}>{qbtStateLabel(t.state)}</span>
+              <span>{pct}%</span>
+              {isActive && t.dlspeed > 0 && <span>↓ {fmtBytes(t.dlspeed)}/s</span>}
+              {isActive && t.upspeed > 0 && <span>↑ {fmtBytes(t.upspeed)}/s</span>}
+              {etaStr && <span>{etaStr}</span>}
+              {t.category && <span style={{ fontSize: 10 }}>{t.category}</span>}
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -494,6 +556,113 @@ export function SabnzbdCardContent({ instance }: {
                 : expanded === 'warnings' && sabStat
                   ? <SabnzbdWarningList warnings={sabStat.warnings} />
                   : null
+          }
+        </div>
+      )}
+    </>
+  )
+}
+
+// ── qBittorrent card content ──────────────────────────────────────────────────
+
+export function QBittorrentCardContent({ instance }: { instance: ArrInstanceBase }) {
+  const { stats, statuses, qbtTorrents, loadQbtTorrents, toggleAltSpeed } = useArrStore()
+  const { services } = useStore()
+  const instUrl = normalizeUrl(instance.url)
+  const matchingSvc = services.find(s =>
+    normalizeUrl(s.url) === instUrl || (s.check_url && normalizeUrl(s.check_url) === instUrl)
+  )
+  const iconUrl = matchingSvc ? getIconUrl(matchingSvc) : null
+  const iconEmoji = matchingSvc?.icon ?? null
+  const [expanded, setExpanded] = useState(false)
+  const [loadingExpand, setLoadingExpand] = useState(false)
+  const [togglingAlt, setTogglingAlt] = useState(false)
+
+  const status: ArrStatus | undefined = statuses[instance.id]
+  const stat: ArrStats | undefined = stats[instance.id]
+  const qbtStat = stat?.type === 'qbittorrent' ? stat : undefined
+  const online = status?.online ?? null
+
+  const handleExpand = async () => {
+    const next = !expanded
+    setExpanded(next)
+    if (next && !qbtTorrents[instance.id]) {
+      setLoadingExpand(true); await loadQbtTorrents(instance.id).catch(() => {}); setLoadingExpand(false)
+    }
+  }
+
+  const handleToggleAlt = async () => {
+    setTogglingAlt(true)
+    await toggleAltSpeed(instance.id).catch(() => {})
+    setTogglingAlt(false)
+  }
+
+  const connColor = qbtStat?.connectionStatus === 'connected' ? 'var(--status-online)'
+    : qbtStat?.connectionStatus === 'firewalled' ? '#f59e0b'
+    : 'var(--status-offline)'
+
+  return (
+    <>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <InstanceIcon iconUrl={iconUrl} iconEmoji={iconEmoji} />
+        <span style={{
+          fontSize: 10, fontWeight: 700, letterSpacing: 1, padding: '2px 8px',
+          borderRadius: 'var(--radius-sm)', background: `${TYPE_COLORS['qbittorrent']}22`,
+          color: TYPE_COLORS['qbittorrent'], border: `1px solid ${TYPE_COLORS['qbittorrent']}44`,
+          textTransform: 'uppercase', flexShrink: 0,
+        }}>qBittorrent</span>
+        <span style={{ fontWeight: 600, fontSize: 15, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{instance.name}</span>
+        <span style={{
+          width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+          background: online === null ? 'var(--text-muted)' : online ? 'var(--status-online)' : 'var(--status-offline)',
+          boxShadow: online ? '0 0 6px var(--status-online)' : 'none',
+        }} />
+      </div>
+
+      {status?.online && status.version && (
+        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>qBittorrent v{status.version}</div>
+      )}
+
+      {qbtStat && (
+        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+          <Stat label="↓" value={`${fmtBytes(qbtStat.dlSpeed)}/s`} />
+          <Stat label="↑" value={`${fmtBytes(qbtStat.ulSpeed)}/s`} />
+          {qbtStat.downloadingCount > 0 && <Stat label="DL" value={qbtStat.downloadingCount} />}
+          {qbtStat.seedingCount > 0 && <Stat label="Seed" value={qbtStat.seedingCount} />}
+          {qbtStat.pausedCount > 0 && <Stat label="Paused" value={qbtStat.pausedCount} />}
+          {qbtStat.errorCount > 0 && <Stat label="Error" value={qbtStat.errorCount} />}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <span style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Status</span>
+            <span style={{ fontSize: 16, fontWeight: 600, color: connColor, textTransform: 'capitalize' }}>{qbtStat.connectionStatus}</span>
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+        <ExpandBtn label={`Torrents${qbtStat ? ` (${qbtStat.totalTorrents})` : ''}`} active={expanded} onClick={handleExpand} />
+        {qbtStat && (
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={handleToggleAlt}
+            disabled={togglingAlt}
+            style={{
+              fontSize: 11, gap: 4, padding: '4px 8px',
+              color: qbtStat.altSpeedEnabled ? '#f59e0b' : 'var(--text-secondary)',
+              borderColor: qbtStat.altSpeedEnabled ? '#f59e0b44' : 'transparent',
+            }}
+          >
+            Alt Speed{qbtStat.altSpeedEnabled ? ' ON' : ' OFF'}
+          </button>
+        )}
+      </div>
+
+      {expanded && (
+        <div>
+          {loadingExpand
+            ? <div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
+            : qbtTorrents[instance.id]
+              ? <QBittorrentTorrentList torrents={qbtTorrents[instance.id]!} />
+              : null
           }
         </div>
       )}

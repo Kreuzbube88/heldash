@@ -1,4 +1,4 @@
-export type ArrType = 'radarr' | 'sonarr' | 'prowlarr' | 'sabnzbd' | 'seerr'
+export type ArrType = 'radarr' | 'sonarr' | 'prowlarr' | 'sabnzbd' | 'seerr' | 'qbittorrent'
 
 export interface ArrInstance {
   id: string
@@ -90,7 +90,37 @@ export interface SeerrStats {
   restartRequired: boolean
 }
 
-export type ArrStats = RadarrStats | SonarrStats | ProwlarrStats | SabnzbdStats | SeerrStats
+export interface QBittorrentStats {
+  type: 'qbittorrent'
+  dlSpeed: number           // bytes/s
+  ulSpeed: number           // bytes/s
+  dlTotal: number           // bytes this session
+  ulTotal: number           // bytes this session
+  connectionStatus: string  // 'connected' | 'firewalled' | 'disconnected'
+  altSpeedEnabled: boolean
+  totalTorrents: number
+  downloadingCount: number
+  seedingCount: number
+  pausedCount: number
+  errorCount: number
+}
+
+export interface QBittorrentTorrent {
+  hash: string
+  name: string
+  state: string
+  progress: number   // 0.0–1.0
+  dlspeed: number    // bytes/s
+  upspeed: number    // bytes/s
+  eta: number        // seconds; 8640000 = infinite
+  size: number       // bytes
+  downloaded: number
+  ratio: number
+  category: string
+  added_on: number
+}
+
+export type ArrStats = RadarrStats | SonarrStats | ProwlarrStats | SabnzbdStats | SeerrStats | QBittorrentStats
 
 // ── Seerr requests ────────────────────────────────────────────────────────────
 

@@ -7,7 +7,7 @@ import { logActivity } from './activity'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type InstanceType = 'ha' | 'radarr' | 'sonarr' | 'prowlarr' | 'sabnzbd' | 'seerr' | 'unraid' | 'helbackup'
+type InstanceType = 'ha' | 'radarr' | 'sonarr' | 'prowlarr' | 'sabnzbd' | 'seerr' | 'unraid' | 'helbackup' | 'qbittorrent'
 
 interface InstanceRow {
   id: string
@@ -26,8 +26,9 @@ interface CreateInstanceBody {
   type: InstanceType
   name: string
   url: string
-  token?: string   // HA only
-  api_key?: string // Arr / Unraid
+  token?: string    // HA only
+  api_key?: string  // Arr / Unraid / qBittorrent password
+  username?: string // qBittorrent only
   enabled?: boolean
   icon_id?: string | null
 }
@@ -37,6 +38,7 @@ interface PatchInstanceBody {
   url?: string
   token?: string
   api_key?: string
+  username?: string // qBittorrent only
   enabled?: boolean
   icon_id?: string | null
 }
@@ -58,10 +60,11 @@ function sanitize(r: InstanceRow) {
 }
 
 const HA_TYPES: InstanceType[] = ['ha']
-const ARR_TYPES: InstanceType[] = ['radarr', 'sonarr', 'prowlarr', 'sabnzbd', 'seerr']
+const ARR_TYPES: InstanceType[] = ['radarr', 'sonarr', 'prowlarr', 'sabnzbd', 'seerr', 'qbittorrent']
 const UNRAID_TYPES: InstanceType[] = ['unraid']
 const HELBACKUP_TYPES: InstanceType[] = ['helbackup']
 const TOKEN_TYPES: InstanceType[] = [...HA_TYPES, ...HELBACKUP_TYPES]
+const QBT_TYPES: InstanceType[] = ['qbittorrent']
 const ALL_TYPES: InstanceType[] = [...HA_TYPES, ...ARR_TYPES, ...UNRAID_TYPES, ...HELBACKUP_TYPES]
 
 // ── Test connection ───────────────────────────────────────────────────────────
@@ -82,6 +85,19 @@ async function testConnection(type: InstanceType, url: string, config: Record<st
         signal: timeout,
       })
       return res.ok ? { ok: true } : { ok: false, error: `SABnzbd returned HTTP ${res.status}` }
+    }
+    if (QBT_TYPES.includes(type)) {
+      const body = new URLSearchParams({ username: config.username ?? '', password: config.api_key ?? '' })
+      const loginRes = await fetch(`${base}/api/v2/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', Referer: base },
+        body: body.toString(),
+        signal: timeout,
+      })
+      if (!loginRes.ok) return { ok: false, error: `qBittorrent login HTTP ${loginRes.status}` }
+      const sid = loginRes.headers.get('set-cookie')
+      if (!sid?.includes('SID=')) return { ok: false, error: 'qBittorrent: No SID in login response' }
+      return { ok: true }
     }
     if (type === 'seerr') {
       const res = await fetch(`${base}/api/v1/status`, {
@@ -124,9 +140,9 @@ function syncToOldTable(db: ReturnType<typeof getDb>, id: string, type: Instance
       VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`)
       .run(id, name, url, config.token ?? '', enabled, position)
   } else if (ARR_TYPES.includes(type)) {
-    db.prepare(`INSERT OR REPLACE INTO arr_instances (id, type, name, url, api_key, enabled, position, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`)
-      .run(id, type, name, url, config.api_key ?? '', enabled, position)
+    db.prepare(`INSERT OR REPLACE INTO arr_instances (id, type, name, url, api_key, username, enabled, position, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`)
+      .run(id, type, name, url, config.api_key ?? '', config.username ?? '', enabled, position)
   } else if (UNRAID_TYPES.includes(type)) {
     db.prepare(`INSERT OR REPLACE INTO unraid_instances (id, name, url, api_key, enabled, position, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`)
@@ -179,6 +195,9 @@ export async function instancesRoutes(app: FastifyInstance) {
     if ([...ARR_TYPES, ...UNRAID_TYPES].includes(type) && !req.body.api_key?.trim()) {
       return reply.status(400).send({ error: 'api_key is required' })
     }
+    if (QBT_TYPES.includes(type) && !req.body.username?.trim()) {
+      return reply.status(400).send({ error: 'username is required for qBittorrent' })
+    }
 
     const id = nanoid()
     const cleanUrl = url.trim().replace(/\/$/, '')
@@ -189,6 +208,7 @@ export async function instancesRoutes(app: FastifyInstance) {
     const config: Record<string, string> = {}
     if (TOKEN_TYPES.includes(type)) config.token = req.body.token!.trim()
     else config.api_key = req.body.api_key!.trim()
+    if (QBT_TYPES.includes(type)) config.username = req.body.username!.trim()
 
     const iconId = req.body.icon_id ?? null
 
@@ -250,6 +270,9 @@ export async function instancesRoutes(app: FastifyInstance) {
       config.token = req.body.token?.trim() || config.token
     } else {
       if (req.body.api_key?.trim()) config.api_key = req.body.api_key.trim()
+    }
+    if (QBT_TYPES.includes(row.type) && req.body.username?.trim()) {
+      config.username = req.body.username.trim()
     }
 
     db.prepare(`UPDATE instances SET name=?, url=?, config=?, enabled=?, icon_id=?, updated_at=datetime('now') WHERE id=?`)

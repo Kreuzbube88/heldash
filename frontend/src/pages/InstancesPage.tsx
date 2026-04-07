@@ -18,6 +18,7 @@ const TYPE_LABELS: Record<InstanceType, string> = {
   seerr: 'Seerr',
   unraid: 'Unraid',
   helbackup: 'HELBACKUP',
+  qbittorrent: 'qBittorrent',
 }
 
 const TYPE_COLORS: Record<InstanceType, string> = {
@@ -29,12 +30,14 @@ const TYPE_COLORS: Record<InstanceType, string> = {
   seerr: '#f97316',
   unraid: '#f43f5e',
   helbackup: '#10b981',
+  qbittorrent: '#2196f3',
 }
 
 const TOKEN_TYPES: InstanceType[] = ['ha', 'helbackup']
-const ALL_TYPES: InstanceType[] = ['ha', 'radarr', 'sonarr', 'prowlarr', 'sabnzbd', 'seerr', 'unraid', 'helbackup']
+const ALL_TYPES: InstanceType[] = ['ha', 'radarr', 'sonarr', 'prowlarr', 'sabnzbd', 'seerr', 'unraid', 'helbackup', 'qbittorrent']
 
 function needsToken(type: InstanceType) { return TOKEN_TYPES.includes(type) }
+function needsUsername(type: InstanceType) { return type === 'qbittorrent' }
 
 // ── Instance modal ─────────────────────────────────────────────────────────────
 
@@ -45,12 +48,13 @@ function InstanceModal({
 }: {
   instance?: Instance | null
   onClose: () => void
-  onSave: (data: { type: InstanceType; name: string; url: string; token?: string; api_key?: string; enabled: boolean; icon_id?: string | null }) => Promise<void>
+  onSave: (data: { type: InstanceType; name: string; url: string; token?: string; api_key?: string; username?: string; enabled: boolean; icon_id?: string | null }) => Promise<void>
 }) {
   const [type, setType] = useState<InstanceType>(instance?.type ?? 'ha')
   const [name, setName] = useState(instance?.name ?? '')
   const [url, setUrl] = useState(instance?.url ?? '')
   const [credential, setCredential] = useState('')
+  const [username, setUsername] = useState('')
   const [enabled, setEnabled] = useState(instance?.enabled ?? true)
   const [iconId, setIconId] = useState<string | null>(instance?.icon_id ?? null)
   const { t } = useTranslation('instances')
@@ -64,9 +68,10 @@ function InstanceModal({
         url !== instance.url ||
         enabled !== instance.enabled ||
         iconId !== instance.icon_id ||
-        credential.trim() !== ''
+        credential.trim() !== '' ||
+        username.trim() !== ''
     }
-    return name.trim() !== '' || url.trim() !== '' || credential.trim() !== '' || iconId !== null
+    return name.trim() !== '' || url.trim() !== '' || credential.trim() !== '' || username.trim() !== '' || iconId !== null
   }
 
   const handleClose = async () => {
@@ -86,10 +91,11 @@ function InstanceModal({
     if (!name.trim()) return setError(t('modal.name_required'))
     if (!url.trim()) return setError(t('modal.url_required'))
     if (!instance && !credential.trim()) return setError(needsToken(type) ? t('modal.token_required') : t('modal.api_key_required'))
+    if (!instance && needsUsername(type) && !username.trim()) return setError(t('modal.username_required'))
     setSaving(true)
     setError(null)
     try {
-      const data: { type: InstanceType; name: string; url: string; token?: string; api_key?: string; enabled: boolean; icon_id?: string | null } = {
+      const data: { type: InstanceType; name: string; url: string; token?: string; api_key?: string; username?: string; enabled: boolean; icon_id?: string | null } = {
         type,
         name: name.trim(),
         url: url.trim(),
@@ -100,6 +106,7 @@ function InstanceModal({
         if (needsToken(type)) data.token = credential.trim()
         else data.api_key = credential.trim()
       }
+      if (needsUsername(type) && username.trim()) data.username = username.trim()
       await onSave(data)
       onClose()
     } catch (e) {
@@ -136,9 +143,22 @@ function InstanceModal({
             <label className="field-label">{t('modal.url')} *</label>
             <input className="input" value={url} onChange={e => setUrl(e.target.value)} placeholder="http://192.168.1.10:7878" />
           </div>
+          {needsUsername(type) && (
+            <div>
+              <label className="field-label">
+                Username{!instance && ' *'}{instance && ` (${t('modal.credential_empty_hint')})`}
+              </label>
+              <input
+                className="input"
+                value={username}
+                onChange={e => setUsername(e.target.value)}
+                placeholder={instance ? t('modal.credential_empty_hint') : 'admin'}
+              />
+            </div>
+          )}
           <div>
             <label className="field-label">
-              {type === 'helbackup' ? 'API Token' : needsToken(type) ? 'Token' : 'API Key'}
+              {type === 'helbackup' ? 'API Token' : needsToken(type) ? 'Token' : needsUsername(type) ? 'Password' : 'API Key'}
               {!instance && ' *'}
               {instance && ` (${t('modal.credential_empty_hint')})`}
             </label>
@@ -147,7 +167,7 @@ function InstanceModal({
               type="password"
               value={credential}
               onChange={e => setCredential(e.target.value)}
-              placeholder={instance ? '••••••••' : type === 'helbackup' ? 'helbackup_XXXXXXXXXXXXXXXXX' : needsToken(type) ? 'Long-Lived Access Token' : 'API Key'}
+              placeholder={instance ? '••••••••' : type === 'helbackup' ? 'helbackup_XXXXXXXXXXXXXXXXX' : needsToken(type) ? 'Long-Lived Access Token' : needsUsername(type) ? 'Password' : 'API Key'}
             />
           </div>
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
@@ -274,7 +294,7 @@ export function InstancesPage() {
 
   useEffect(() => { loadInstances().catch(e => setError(e instanceof Error ? e.message : t('load_error'))) }, [])
 
-  const handleSave = async (data: { type: InstanceType; name: string; url: string; token?: string; api_key?: string; enabled: boolean; icon_id?: string | null }) => {
+  const handleSave = async (data: { type: InstanceType; name: string; url: string; token?: string; api_key?: string; username?: string; enabled: boolean; icon_id?: string | null }) => {
     if (editInstance) {
       await updateInstance(editInstance.id, data)
     } else {

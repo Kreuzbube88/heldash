@@ -429,7 +429,7 @@ export async function arrRoutes(app: FastifyInstance) {
         return {
           type: 'qbittorrent',
           dlSpeed: info.dl_info_speed,
-          ulSpeed: info.ul_info_speed,
+          ulSpeed: info.up_info_speed,
           dlTotal: info.dl_info_data,
           ulTotal: info.up_info_data,
           connectionStatus: info.connection_status,

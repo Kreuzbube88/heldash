@@ -8,7 +8,7 @@ const agent = new Agent({
 
 export interface QBittorrentTransferInfo {
   dl_info_speed: number    // bytes/s
-  ul_info_speed: number    // bytes/s
+  up_info_speed: number    // bytes/s
   dl_info_data: number     // bytes downloaded this session
   up_info_data: number     // bytes uploaded this session
   dl_rate_limit: number    // bytes/s (0 = no limit)
@@ -125,9 +125,30 @@ export class QBittorrentClient {
     }
   }
 
+  private async getText(path: string, retried = false): Promise<string> {
+    await this.ensureAuth()
+    const res = await request(`${this.baseUrl}${path}`, {
+      method: 'GET',
+      headers: { Cookie: `SID=${this.sid!}` },
+      dispatcher: agent,
+    })
+    if (res.statusCode === 403 && !retried) {
+      this.sid = null
+      return this.getText(path, true)
+    }
+    if (res.statusCode >= 400) {
+      for await (const _ of res.body) { /* drain */ }
+      throw new Error(`qBittorrent HTTP ${res.statusCode} from ${path}`)
+    }
+    const chunks: Buffer[] = []
+    for await (const chunk of res.body) {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
+    }
+    return Buffer.concat(chunks).toString('utf-8').trim()
+  }
+
   async ping(): Promise<string> {
-    const version = await this.get<string>('/api/v2/app/version')
-    return typeof version === 'string' ? version.trim() : String(version)
+    return this.getText('/api/v2/app/version')
   }
 
   getTransferInfo(): Promise<QBittorrentTransferInfo> {

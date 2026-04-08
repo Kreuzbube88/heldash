@@ -745,6 +745,7 @@ export async function fetchEnergyData(client: HaWsClient, period: string): Promi
       statistic_ids: allIds,
       period: haStatPeriod,
       types: ['sum'],
+      units: { energy: 'kWh', volume: 'm³' },
     }) as StatsResult
   } catch (err: unknown) {
     throw new Error(err instanceof Error ? err.message : 'Statistics fetch failed')
@@ -758,9 +759,11 @@ export async function fetchEnergyData(client: HaWsClient, period: string): Promi
   const battery_charge = sumMultiple(batteryChargeIds)
   const gas_consumption = sumMultiple(gasIds)
 
-  const self_sufficiency = grid_consumption > 0
-    ? Math.min(100, Math.max(0, Math.round(((solar_production - grid_return) / grid_consumption) * 100)))
-    : solar_production > 0 ? 100 : 0
+  const solar_self_consumed = Math.max(0, solar_production - grid_return)
+  const total_consumption = grid_consumption + solar_self_consumed
+  const self_sufficiency = total_consumption > 0
+    ? Math.min(100, Math.max(0, Math.round((solar_self_consumed / total_consumption) * 100)))
+    : 0
 
   // Chart: use primary IDs for each series
   const consumptionSeries = chartSeries(gridConsumptionIds[0] ? stats[gridConsumptionIds[0]] : undefined)

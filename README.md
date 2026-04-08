@@ -137,4 +137,4 @@ Contributions sind willkommen! Siehe [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Lizenz
 
-MIT © 2024 HEL*Apps
+MIT © HEL*Apps

@@ -1538,7 +1538,7 @@ export function WidgetsPage({ showAddForm, onFormClose }: Props) {
       </div>
 
       {/* Instances section — Arr types only */}
-      {instances.filter(i => i.enabled && ['radarr', 'sonarr', 'prowlarr', 'sabnzbd', 'seerr'].includes(i.type)).length > 0 && (
+      {instances.filter(i => i.enabled && ['radarr', 'sonarr', 'prowlarr', 'sabnzbd', 'seerr', 'qbittorrent'].includes(i.type)).length > 0 && (
         <div>
           <div style={{
             display: 'flex', alignItems: 'center', gap: 8,
@@ -1548,11 +1548,11 @@ export function WidgetsPage({ showAddForm, onFormClose }: Props) {
             <LayoutGrid size={14} />
             <h3 style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>{t('arr_section_title')}</h3>
             <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-              ({instances.filter(i => i.enabled && ['radarr', 'sonarr', 'prowlarr', 'sabnzbd', 'seerr'].includes(i.type)).length})
+              ({instances.filter(i => i.enabled && ['radarr', 'sonarr', 'prowlarr', 'sabnzbd', 'seerr', 'qbittorrent'].includes(i.type)).length})
             </span>
           </div>
           <div className="card-grid" style={{ gap: 14 }}>
-            {instances.filter(i => i.enabled && ['radarr', 'sonarr', 'prowlarr', 'sabnzbd', 'seerr'].includes(i.type)).map(instance => {
+            {instances.filter(i => i.enabled && ['radarr', 'sonarr', 'prowlarr', 'sabnzbd', 'seerr', 'qbittorrent'].includes(i.type)).map(instance => {
               const onDashboard = isOnDashboard('arr_instance', instance.id)
               const dashBtn = isAdmin && (
                 <button

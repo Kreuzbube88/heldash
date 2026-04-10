@@ -1443,6 +1443,8 @@ export function WidgetsPage({ showAddForm, onFormClose }: Props) {
     loadWidgets().catch(() => {})
     useInstanceStore.getState().loadInstances().catch(() => {})
     loadArrStats().catch(() => {})
+    const t = setInterval(() => loadArrStats().catch(() => {}), 30_000)
+    return () => clearInterval(t)
   }, [])
 
   const widgetIds = widgets.map(w => w.id).join(',')

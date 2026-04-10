@@ -456,15 +456,22 @@ function EnergyPanel({ panel, onRemove, onEdit }: { panel: HaPanel; onRemove: ()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const periodRef = useRef(period)
+  periodRef.current = period
   const data = energyData[`${panel.instance_id}:${period}`]
 
-  // Load on mount
+  // Load on mount + 30s auto-refresh
   useEffect(() => {
     setLoading(true)
     setError(null)
     loadEnergy(panel.instance_id, 'day')
       .catch((e: unknown) => setError(e instanceof Error ? e.message : 'Failed to load energy data'))
       .finally(() => setLoading(false))
+    pollRef.current = setInterval(() => {
+      loadEnergy(panel.instance_id, periodRef.current).catch(() => {})
+    }, 30_000)
+    return () => { if (pollRef.current) clearInterval(pollRef.current) }
   }, [])
 
   const handlePeriod = useCallback((p: 'day' | 'week' | 'month') => {

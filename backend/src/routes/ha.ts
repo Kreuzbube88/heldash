@@ -658,6 +658,15 @@ function chartSeries(entries: StatEntry[] | undefined): number[] {
   return result
 }
 
+function sumChartSeries(ids: string[], statsResult: StatsResult): number[] {
+  const series = ids.map(id => chartSeries(statsResult[id]))
+  const maxLen = Math.max(0, ...series.map(s => s.length))
+  if (maxLen === 0) return []
+  return Array.from({ length: maxLen }, (_, i) =>
+    series.reduce((acc, s) => acc + (s[i] ?? 0), 0)
+  )
+}
+
 function buildLabels(period: string, count: number): string[] {
   const labels: string[] = []
   const now = new Date()
@@ -765,11 +774,11 @@ export async function fetchEnergyData(client: HaWsClient, period: string): Promi
     ? Math.min(100, Math.max(0, Math.round((solar_self_consumed / total_consumption) * 100)))
     : 0
 
-  // Chart: use primary IDs for each series
-  const consumptionSeries = chartSeries(gridConsumptionIds[0] ? stats[gridConsumptionIds[0]] : undefined)
-  const solarSeries = chartSeries(solarIds[0] ? stats[solarIds[0]] : undefined)
-  const batterySeries = chartSeries(batteryChargeIds[0] ? stats[batteryChargeIds[0]] : undefined)
-  const gridReturnSeries = chartSeries(gridReturnIds[0] ? stats[gridReturnIds[0]] : undefined)
+  // Chart: sum across all sensor IDs per category (mirrors stat aggregation)
+  const consumptionSeries = sumChartSeries(gridConsumptionIds, stats)
+  const solarSeries = sumChartSeries(solarIds, stats)
+  const batterySeries = sumChartSeries(batteryChargeIds, stats)
+  const gridReturnSeries = sumChartSeries(gridReturnIds, stats)
   const chartCount = consumptionSeries.length || solarSeries.length
 
   return {

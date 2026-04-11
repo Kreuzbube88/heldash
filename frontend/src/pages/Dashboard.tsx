@@ -740,6 +740,9 @@ export function Dashboard({ onEdit }: Props) {
     } else if (arrItemCount > 0) {
       loadAllStats().catch(() => {})
     }
+    if (arrItemCount === 0) return
+    const t = setInterval(() => loadAllStats().catch(() => {}), 30_000)
+    return () => clearInterval(t)
   }, [arrItemCount])
 
   // Centralized widget polling

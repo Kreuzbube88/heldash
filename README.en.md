@@ -61,6 +61,7 @@ Home Assistant, Unraid and more — all in one interface.
 - 🔍 Prowlarr — indexer list and 24h grab statistics
 - ⬇️ SABnzbd — queue with progress bars, download history
 - 🔎 Seerr/Discover — TMDB integration, request movies/series
+- 🔩 qBittorrent — download/upload speed, torrent list with progress bars, alt-speed toggle
 
 ### **Recyclarr**
 - 🔄 Recyclarr v8 GUI — automatically generates recyclarr.yml
@@ -139,7 +140,7 @@ Home Assistant, Unraid and more — all in one interface.
 - 📊 Topbar pinbar for quick overview
 
 ### **Instance Management**
-- 🔗 Central management — HA, Radarr, Sonarr, Prowlarr, SABnzbd, Seerr, Unraid
+- 🔗 Central management — HA, Radarr, Sonarr, Prowlarr, SABnzbd, Seerr, qBittorrent, Unraid
 - 🎨 Icon support for all instances
 - ✅ Connection test when adding
 - 🔄 Automatic app creation (if URL unique)

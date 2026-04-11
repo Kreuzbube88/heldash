@@ -34,7 +34,7 @@ HELDASH ist ein selbst-gehostetes Homelab-Dashboard, speziell für [Unraid](http
 - **Dashboard** — Modulares Grid mit Apps, Widgets und Bookmarks; Drag & Drop, kollabierbare Gruppen, Per-User-Layouts
 - **Docker** — Live-Container-Liste mit CPU/RAM, Log-Streaming, Echtzeit-Status via Docker Events
 - **Home Assistant** — Multi-Instanz, Entity-Browser, Panel-Grid, Grundriss, GPS-Tracking, Automationen, Energie-Dashboard, Entity-Verlauf
-- **Media** — Radarr, Sonarr, Prowlarr, SABnzbd, Seerr/Discover mit Statistiken, Queues und Kalendern
+- **Media** — Radarr, Sonarr, Prowlarr, SABnzbd, Seerr/Discover, qBittorrent mit Statistiken, Queues und Kalendern
 - **Recyclarr + CF-Manager** — TRaSH Guides Sync GUI, Custom-Format-Editor, Import/Export
 - **Unraid Integration** — Array & Disk-Übersicht, Cache Pools, VM-Management, Notifications, Plugins, Logs, UPS
 - **Netzwerk-Monitor** — TCP-Ping, 7-Tage-Historie, IP-Scanner, Wake-on-LAN, Geräte-Gruppen
